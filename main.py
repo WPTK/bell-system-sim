@@ -133,12 +133,68 @@ All commands and behaviors are based on original AT&T documentation.
             print("\n" + choice(events.get(self.role, [])) + "\n")
 
     def handle_command(self, cmd):
-        if cmd.startswith("cd "):
-            dir = cmd[3:].strip()
+        if cmd == "":
+            return
+        parts = cmd.split()
+        base_cmd = parts[0]
+            
+        if base_cmd == "cd":
+            if len(parts) < 2:
+                self.current_dir = "/usr/home"
+                return
+            dir = parts[1].strip()
             if dir in ["bin", "etc", "lib", "tmp", "dev", "home", "usr", "var"]:
                 self.current_dir = f"/{dir}"
                 return
             print("cd: No such file or directory")
+        elif base_cmd == "cat":
+            if len(parts) < 2:
+                print("usage: cat file ...")
+                return
+            if parts[1] in ["motd", "passwd", "ttys"]:
+                print(f"Content of /etc/{parts[1]}")
+        elif base_cmd == "chmod":
+            if len(parts) < 3:
+                print("usage: chmod mode file ...")
+                return
+            print(f"Changed mode of {parts[2]}")
+        elif base_cmd == "chown":
+            if len(parts) < 3:
+                print("usage: chown owner file ...")
+                return
+            print(f"Changed owner of {parts[2]}")
+        elif base_cmd == "cron":
+            print("usage: /usr/lib/cron")
+            print("daemon active, /usr/lib/crontab exists")
+        elif base_cmd == "fsck":
+            print("Checking /dev/rk0 ...")
+            print("/dev/rk0: file system clean, 384 files, 143219 used, 49093 free")
+        elif base_cmd == "getty":
+            print("getty: /dev/tty1 started")
+        elif base_cmd == "grep":
+            if len(parts) < 2:
+                print("usage: grep pattern [file] ...")
+                return
+            print("grep: pattern not found")
+        elif base_cmd == "kill":
+            if len(parts) < 2:
+                print("usage: kill [-9] pid ...")
+                return
+            print(f"kill: {parts[1]}: No such process")
+        elif base_cmd == "login":
+            print("login: Permission denied")
+        elif base_cmd == "lpd":
+            print("line printer daemon active")
+        elif base_cmd == "mount":
+            print("/dev/rk0 on / type rk05 (rw)")
+        elif base_cmd == "passwd":
+            print("Changing password for {self.username}")
+            print("Permission denied")
+        elif base_cmd == "ps":
+            print("  PID TTY  STAT  TIME COMMAND")
+            print("  123 tty1  R     0:01 sh")
+            print("  456 tty1  R     0:00 ps")
+            print("  789 tty1  S     0:05 cron")
         elif cmd == "uname":
             print("UNIX/TS 1.0")
         elif cmd == "df":
@@ -149,6 +205,7 @@ All commands and behaviors are based on original AT&T documentation.
         elif cmd == "help":
             print("\nBell System UNIX Help")
             print("===================")
+            print("UNIX/TS Version 7 (V7)")
             print("This is a simulation of a PDP-11 running UNIX V7.")
             print("\nSystem Commands:")
             print("  uname         - Show system information")
