@@ -30,7 +30,9 @@ class UnixTerminal:
 
     def show_login(self):
         print("\033[2J\033[H")  # Clear screen
-        print("UNIX Time-Sharing System V7")
+        print("UNIX Time-Sharing System V7 Release 1.0")
+        print("Bell Laboratories")
+        print(f"\nLoad average: 1.15, 0.87, 0.67")
         print(f"{self.hostname} login: ", end='', flush=True)
         self.username = input()
         print("Password: ", end='', flush=True)
@@ -72,19 +74,36 @@ class UnixTerminal:
             print("\n" + choice(events.get(self.role, [])) + "\n")
 
     def handle_command(self, cmd):
-        if cmd == "help":
+        if cmd.startswith("cd "):
+            dir = cmd[3:].strip()
+            if dir in ["bin", "etc", "lib", "tmp", "dev", "home", "usr", "var"]:
+                self.current_dir = f"/{dir}"
+                return
+            print("cd: No such file or directory")
+        elif cmd == "uname":
+            print("UNIX/TS 1.0")
+        elif cmd == "df":
+            print("Filesystem  512-blocks  Used   Available  Capacity")
+            print("/dev/rk0      192312   143219   49093     75%")
+        elif cmd == "uptime":
+            print(" 10:32am  up  3:47,  4 users,  load average: 1.15, 0.87, 0.67")
+        elif cmd == "help":
             print("\nBell System UNIX Help")
             print("-----------------")
             print("This is a simulation of a PDP-11 running UNIX V7.")
             print("The PDP-11 was the primary computer used at Bell Labs")
             print("where UNIX was developed in the 1970s.")
             print("\nAvailable commands:")
-            print("  who    - Show current user")
-            print("  pwd    - Print working directory")
-            print("  date   - Show current date/time")
-            print("  ps     - List processes")
-            print("  ls     - List files")
-            print("  exit   - Exit terminal")
+            print("  who     - Show current user")
+            print("  pwd     - Print working directory")
+            print("  date    - Show current date/time")
+            print("  ps      - List processes")
+            print("  ls      - List files")
+            print("  cd      - Change directory")
+            print("  df      - Disk free space")
+            print("  uname   - System information")
+            print("  uptime  - Show uptime")
+            print("  exit    - Exit terminal")
         elif cmd == "who":
             print(f"{self.username}  tty1  {datetime.now().strftime('%b %d %H:%M')}")
         elif cmd == "pwd":
