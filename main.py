@@ -142,6 +142,55 @@ class UnixTerminal:
             print("Known UUCP nodes:")
             for node in self.uucp_nodes:
                 print(f"{node}")
+        elif cmd.startswith("trunk"):
+            parts = cmd.split()
+            if len(parts) == 1:
+                print("Usage: trunk [status|test|reset|log]")
+            elif parts[1] == "status":
+                print("Circuit Status Report")
+                print("--------------------")
+                print("2317: FAILED - Timing sync error")
+                print("2318: OK - Operating normally")
+                print("2319: OK - Operating normally")
+            elif parts[1] == "test" and len(parts) > 2:
+                print(f"Running diagnostic on circuit {parts[2]}...")
+                print("Test results: Timing synchronization failure")
+                print("Recommended action: Reset circuit")
+            elif parts[1] == "reset" and len(parts) > 2:
+                print(f"Resetting circuit {parts[2]}...")
+                print("Circuit reset complete")
+                print("Status: OK - Operating normally")
+            elif parts[1] == "log":
+                print("Recent trunk events:")
+                print("04/24 18:42 - Circuit 2317 timing failure")
+                print("04/24 18:45 - Reset attempt on 2317")
+                print("04/24 18:46 - Circuit 2317 restored")
+        elif cmd.startswith("switch"):
+            parts = cmd.split()
+            if len(parts) == 1:
+                print("Usage: switch [status|sync|drift|calibrate]")
+            elif parts[1] == "status":
+                print("Switch Matrix Status")
+                print("-------------------")
+                print("Primary timing: Active")
+                print("Backup timing: Standby")
+                print("Drift: 47ms")
+            elif parts[1] == "sync":
+                print("Synchronizing switch matrix...")
+                print("Timing synchronized")
+            elif parts[1] == "drift":
+                print("Current drift values:")
+                print("Primary: +47ms")
+                print("Secondary: +52ms")
+                print("Tertiary: +41ms")
+            elif parts[1] == "calibrate":
+                print("Calibrating switch matrix...")
+                print("Setting timing baseline...")
+                print("Calibration complete")
+        elif cmd == "emergency":
+            print("EMERGENCY PROCEDURE INITIATED")
+            print("Contact NOC immediately at x2317")
+            print("Log incident in /usr/adm/errors")
         self.generate_event()
 
     def run(self):
