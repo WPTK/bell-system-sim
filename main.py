@@ -60,9 +60,11 @@ class UnixTerminal:
                 "ALERT: uucp connection failure with remote site"
             ],
             "Switching Station Technician": [
-                "SVC-07: Route Failure Detected on RIDGE-X1",
-                "TRUNK-ALERT: Line test failed on circuit 2317",
-                "SW-WARNING: Switching matrix reports timing drift"
+                "XBAR: Crosspoint failure on matrix 3B",
+                "TOLL: MF receiver group reports high twist",
+                "CO-7: Loss of SF signaling on trunk 2317",
+                "ESS: Call processing degraded, H-timer expired",
+                "TRUNK: Phase jitter exceeds 15 degrees"
             ],
             "Field Support Liaison": [
                 "TICKET-NEW: Site RIDGE-X1 reports trunk failure",
@@ -187,10 +189,41 @@ class UnixTerminal:
                 print("Calibrating switch matrix...")
                 print("Setting timing baseline...")
                 print("Calibration complete")
+        elif cmd == "dialtone":
+            print("Testing dialtone on local circuits...")
+            print("Circuit 1: -48V DC, clean")
+            print("Circuit 2: -47.8V DC, noise detected")
+            print("Circuit 3: -48.2V DC, clean")
+            print("Cross-talk level: -70dB")
+        elif cmd.startswith("trace"):
+            parts = cmd.split()
+            if len(parts) > 1:
+                print(f"Tracing call path for circuit {parts[1]}...")
+                print("MF tones detected: KP-0-2-1-2-ST")
+                print("Route: CO -> tandem -> toll -> destination")
+                print("Impedance: 600Ω nominal")
+                print("Return loss: -26dB")
+            else:
+                print("Usage: trace <circuit>")
+        elif cmd == "testboard":
+            print("Test Board Interface v2.1")
+            print("------------------------")
+            print("Line conditions:")
+            print("Tip-Ring voltage: -48.2V DC")
+            print("Loop current: 23mA")
+            print("Longitudinal balance: 60dB")
+            print("Background noise: -82dBm")
         elif cmd == "emergency":
             print("EMERGENCY PROCEDURE INITIATED")
             print("Contact NOC immediately at x2317")
             print("Log incident in /usr/adm/errors")
+        elif cmd == "toll":
+            print("Toll Switch Status")
+            print("-----------------")
+            print("Active trunk groups: 14")
+            print("Blocked trunks: 2")
+            print("CCS load: 27.4")
+            print("Grade of Service: 0.01")
         self.generate_event()
 
     def run(self):
