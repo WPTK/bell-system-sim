@@ -72,7 +72,20 @@ class UnixTerminal:
             print("\n" + choice(events.get(self.role, [])) + "\n")
 
     def handle_command(self, cmd):
-        if cmd == "who":
+        if cmd == "help":
+            print("\nBell System UNIX Help")
+            print("-----------------")
+            print("This is a simulation of a PDP-11 running UNIX V7.")
+            print("The PDP-11 was the primary computer used at Bell Labs")
+            print("where UNIX was developed in the 1970s.")
+            print("\nAvailable commands:")
+            print("  who    - Show current user")
+            print("  pwd    - Print working directory")
+            print("  date   - Show current date/time")
+            print("  ps     - List processes")
+            print("  ls     - List files")
+            print("  exit   - Exit terminal")
+        elif cmd == "who":
             print(f"{self.username}  tty1  {datetime.now().strftime('%b %d %H:%M')}")
         elif cmd == "pwd":
             print(self.current_dir)
