@@ -226,8 +226,10 @@ All commands and behaviors are based on original AT&T documentation.
             print("  trunk <cmd>   - Trunk operations (status|test|reset|log)")
             print("  switch <cmd>  - Switch control (status|sync|drift|calibrate)")
             print("  trace <circ>  - Trace call path for circuit")
-            print("  testboard     - Access test board interface")
-            print("  toll          - Show toll switch metrics")
+            print("  testboard     - Access 1-141A1 test board interface")
+            print("  test <cmd>    - Run tests (loop|tone)")
+            print("  toll          - Show 5ESS toll switch metrics")
+            print("  crossbar      - Display crossbar switch status")
             print("  dialtone      - Test local circuit conditions")
             
             print("\nNetwork Services:")
@@ -341,12 +343,44 @@ All commands and behaviors are based on original AT&T documentation.
             print("Contact NOC immediately at x2317")
             print("Log incident in /usr/adm/errors")
         elif cmd == "toll":
-            print("Toll Switch Status")
-            print("-----------------")
+            print("5ESS Toll Switch Status")
+            print("---------------------")
             print("Active trunk groups: 14")
             print("Blocked trunks: 2")
             print("CCS load: 27.4")
             print("Grade of Service: 0.01")
+            print("MF receivers: 12/16 idle")
+            print("CAMA position: Active")
+            print("E&M signaling: Normal")
+        elif cmd == "testboard":
+            print("1-141A1 Test Board Interface")
+            print("--------------------------")
+            print("Line conditions:")
+            print("Tip-Ring voltage: -48.2V DC")
+            print("Loop current: 23mA")
+            print("Longitudinal balance: 60dB")
+            print("Background noise: -82dBm")
+            print("Type 'test loop' for loop test")
+            print("Type 'test tone' for test tone")
+        elif cmd.startswith("test"):
+            parts = cmd.split()
+            if len(parts) > 1:
+                if parts[1] == "loop":
+                    print("Running 1004Hz loop test...")
+                    print("Loss: -1.5dB")
+                    print("Noise metallic: 20dBrnc")
+                    print("Noise to ground: 50dBrnc")
+                elif parts[1] == "tone":
+                    print("Sending 1004Hz test tone...")
+                    print("Level: 0dBm")
+                    print("Duration: 30 seconds")
+        elif cmd == "crossbar":
+            print("Crossbar Switch Status")
+            print("--------------------")
+            print("Markers: 4/6 available")
+            print("Junctor groups: Normal")
+            print("Line links: Operating")
+            print("Trunk links: Operating")
         self.generate_event()
 
     def run(self):
