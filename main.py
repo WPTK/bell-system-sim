@@ -34,9 +34,60 @@ class UnixTerminal:
                 break
             print("Invalid selection. Please try again.")
 
-    def show_login(self):
+    def show_boot_sequence(self):
         print("\033[2J\033[H")  # Clear screen
-        print("UNIX Time-Sharing System V7 Release 1.0")
+        time.sleep(1)
+        print("PDP-11/70 BOOT ROM V2.7")
+        time.sleep(0.5)
+        print("MEMORY SIZE = 1024K")
+        time.sleep(0.5)
+        print("MEMORY TEST IN PROGRESS...")
+        for i in range(0, 1024, 256):
+            print(f"TESTING {i}K - {min(i+256, 1024)}K", end='\r')
+            time.sleep(0.3)
+        print("\nMEMORY TEST COMPLETE")
+        time.sleep(0.5)
+        print("\nBOOTING FROM RK05 DISK DRIVE...")
+        time.sleep(1)
+        print("LOADING UNIX KERNEL...")
+        time.sleep(1.5)
+        print("\033[2J\033[H")  # Clear screen
+
+    def show_intro(self):
+        print("""
+BELL SYSTEM UNIX/TS SIMULATOR
+============================
+
+This simulator recreates a UNIX Time-Sharing System environment circa 1979,
+as used within AT&T Bell System for telecommunications operations.
+
+Available Roles:
+
+1. UNIX Systems Operator
+   Responsible for system maintenance, user management, and UUCP network operations.
+   Primary tools: ps, df, who, uucp
+
+2. Switching Station Technician
+   Manages telephone switching equipment and trunk lines.
+   Primary tools: trunk, switch, testboard, toll
+
+3. Field Support Liaison
+   Coordinates between field technicians and central office.
+   Primary tools: trace, dialtone, emergency
+
+4. National NOC Analyst
+   Monitors network-wide operations and manages critical incidents.
+   Primary tools: trunk, emergency, switch
+
+This is a historical simulation for educational purposes.
+All commands and behaviors are based on original AT&T documentation.
+""")
+        time.sleep(3)
+
+    def show_login(self):
+        self.show_boot_sequence()
+        self.show_intro()
+        print("\nUNIX Time-Sharing System V7 Release 1.0")
         print("Bell Laboratories")
         print(f"\nLoad average: 1.15, 0.87, 0.67")
         print(f"{self.hostname} login: ", end='', flush=True)
