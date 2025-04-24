@@ -10,6 +10,12 @@ class UnixTerminal:
         self.hostname = "pdp11"
         self.current_dir = "/usr/home"
         self.role = None
+        self.mail_messages = [
+            {"from": "sysadmin", "subject": "System maintenance", "body": "Scheduled downtime tonight 2300-0200 EDT"},
+            {"from": "tech.support", "subject": "New UUCP route", "body": "Added connection to research.att.com"},
+            {"from": "operations", "subject": "Load balancing", "subject": "Please monitor /dev/rk1 usage"}
+        ]
+        self.uucp_nodes = ["research", "murray", "alice", "eagle", "mhuxj", "research"]
         self.roles = {
             "1": "UNIX Systems Operator",
             "2": "Switching Station Technician",
@@ -103,6 +109,9 @@ class UnixTerminal:
             print("  df      - Disk free space")
             print("  uname   - System information")
             print("  uptime  - Show uptime")
+            print("  mail    - Read mail messages")
+            print("  uucp    - UUCP status and commands")
+            print("  uuname  - Show UUCP network nodes")
             print("  exit    - Exit terminal")
         elif cmd == "who":
             print(f"{self.username}  tty1  {datetime.now().strftime('%b %d %H:%M')}")
@@ -117,6 +126,22 @@ class UnixTerminal:
         elif cmd == "ls":
             print("bin    etc    lib    tmp")
             print("dev    home   usr    var")
+        elif cmd == "mail":
+            print(f"\nBellMail version 2.3")
+            print(f"Mail directory: /usr/spool/mail/{self.username}")
+            print("\nMessages:")
+            for i, msg in enumerate(self.mail_messages, 1):
+                print(f"{i}) From: {msg['from']} Subject: {msg['subject']}")
+        elif cmd == "uucp":
+            print("UUCP Subsystem Status")
+            print("=====================")
+            print("Active transfers:")
+            print("eagle!/usr/spool/news -> pdp11!/usr/spool/news")
+            print("research!/usr/src -> pdp11!/usr/src")
+        elif cmd == "uuname":
+            print("Known UUCP nodes:")
+            for node in self.uucp_nodes:
+                print(f"{node}")
         self.generate_event()
 
     def run(self):
