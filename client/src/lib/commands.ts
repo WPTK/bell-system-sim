@@ -976,6 +976,30 @@ const dateCommand: Command = {
   }
 };
 
+const mountCommand: Command = {
+  name: 'mount',
+  description: 'Mount file system',
+  usage: 'mount [ special name [ -r ] ]',
+  async execute(args): Promise<CommandResult> {
+    return {
+      output: "/dev/rk0 on / type rk05 (rw)\n/dev/rk1 on /usr type rk05 (rw)",
+      exitCode: 0
+    };
+  }
+};
+
+const fsckCommand: Command = {
+  name: 'fsck',
+  description: 'File system consistency check',
+  usage: 'fsck [ -y ] [ -n ] [ filesystem... ]',
+  async execute(args): Promise<CommandResult> {
+    return {
+      output: "Checking /dev/rk0...\n** Phase 1 - Check Blocks and Sizes\n** Phase 2 - Check Pathnames\n** Phase 3 - Check Connectivity\n** Phase 4 - Check Reference Counts\n** Phase 5 - Check Free List\n/dev/rk0: FILES=542 USED=8714 FREE=1376\n",
+      exitCode: 0
+    };
+  }
+};
+
 const helpCommand: Command = {
   name: 'help',
   description: 'Display help for available commands',
@@ -1031,5 +1055,7 @@ export const commands: Record<string, Command> = {
   who: whoCommand,
   man: manCommand,
   date: dateCommand,
-  help: helpCommand
+  help: helpCommand,
+  mount: mountCommand,
+  fsck: fsckCommand
 };

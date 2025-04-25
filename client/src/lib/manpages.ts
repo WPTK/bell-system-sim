@@ -458,3 +458,63 @@ DESCRIPTION
 export function getManPage(command: string): string | null {
   return manPages[command] || null;
 }
+
+
+  init: `
+INIT(8)                   UNIX Programmer's Manual                    INIT(8)
+
+NAME
+     init - process control initialization
+
+SYNOPSIS
+     /etc/init
+
+DESCRIPTION
+     Init is invoked inside UNIX as the last step in the boot procedure.  It
+     normally then runs /etc/rc to handle basic system initialization and then
+     reads /etc/ttys and forks several times to create a getty process for
+     each terminal device.
+  `,
+  
+  tty: `
+TTY(4)                    UNIX Programmer's Manual                     TTY(4)
+
+NAME
+     tty - general terminal interface
+
+DESCRIPTION
+     This section describes both a particular special file /dev/tty and the
+     terminal drivers used for conversational computing.  The terminal inter-
+     face is the standard way for programs to communicate interactively with
+     users.
+  `,
+  
+  mount: `
+MOUNT(8)                  UNIX Programmer's Manual                   MOUNT(8)
+
+NAME
+     mount - mount file system
+
+SYNOPSIS
+     /etc/mount [ special name [ -r ] ]
+
+DESCRIPTION
+     Mount announces to the system that a removable file system is present on
+     special.  The name must exist already; it must be a directory.  The file
+     structure is left undisturbed by mount.
+  `,
+  
+  fsck: `
+FSCK(8)                   UNIX Programmer's Manual                    FSCK(8)
+
+NAME
+     fsck - file system consistency check and interactive repair
+
+SYNOPSIS
+     fsck [ -y ] [ -n ] [ filesystem... ]
+
+DESCRIPTION
+     Fsck audits and interactively repairs inconsistent conditions for UNIX
+     file systems.  If no filesystems are specified, a default list of file
+     systems is read from the file /etc/fstab.
+  `
