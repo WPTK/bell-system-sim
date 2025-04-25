@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 7%;
+  --foreground: 84 100% 59%;
+  --muted: 84 100% 40%;
+  --muted-foreground: 84 100% 35%;
+  --popover: 0 0% 7%;
+  --popover-foreground: 84 100% 59%;
+  --card: 0 0% 10%;
+  --card-foreground: 84 100% 59%;
+  --border: 0 0% 20%;
+  --input: 0 0% 20%;
+  --primary: 84 100% 46%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 10%;
+  --secondary-foreground: 84 100% 59%;
+  --accent: 39 100% 55%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 0 100% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --ring: 0 0% 20%;
+  --radius: 0.25rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-mono antialiased bg-background text-foreground;
+  }
+
+  /* Terminal cursor animation */
+  .terminal-cursor {
+    animation: blink 1s step-end infinite;
+  }
+  
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  
+  /* Terminal output formatting */
+  .terminal-output pre {
+    margin: 0;
+    white-space: pre-wrap;
+  }
+  
+  /* Custom scrollbar */
+  .terminal-custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .terminal-custom-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  
+  .terminal-custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 4px;
+  }
+
+  /* Text accent colors */
+  .text-accent {
+    color: hsl(var(--accent));
+  }
+
+  .text-error {
+    color: hsl(var(--destructive));
+  }
+
+  .text-success {
+    color: hsl(120, 100%, 45%);
+  }
+
+  .text-dimmed {
+    color: hsl(var(--muted));
+  }
+}
