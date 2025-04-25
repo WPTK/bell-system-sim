@@ -1,7 +1,6 @@
-
 import os
-import time
 from datetime import datetime
+import time
 from random import choice, random
 
 class UnixTerminal:
@@ -22,7 +21,7 @@ class UnixTerminal:
             "3": "Field Support Liaison",
             "4": "National NOC Analyst"
         }
-        
+
     def select_role(self):
         print("\nAvailable Roles:")
         for key, role in self.roles.items():
@@ -84,25 +83,6 @@ All commands and behaviors are based on original AT&T documentation.
 """)
         time.sleep(3)
 
-    def show_login(self):
-        self.show_boot_sequence()
-        self.show_intro()
-        print("\nUNIX Time-Sharing System V7 Release 1.0")
-        print("Bell Laboratories")
-        print(f"\nLoad average: 1.15, 0.87, 0.67")
-        print(f"{self.hostname} login: ", end='', flush=True)
-        self.username = input()
-        print("Password: ", end='', flush=True)
-        input()  # Password simulation
-        
-        self.select_role()
-        
-        print("\033[2J\033[H")  # Clear screen
-        print("Bell System UNIX/TS 1.0")
-        print("Internal Use Only - AT&T Proprietary")
-        print(f"Last login: {datetime.now().strftime('%a %b %d %H:%M:%S')}")
-        print(f"Role: {self.role}\n")
-        
     def generate_event(self):
         events = {
             "UNIX Systems Operator": [
@@ -128,68 +108,66 @@ All commands and behaviors are based on original AT&T documentation.
                 "WARNING: Power grid instability detected"
             ]
         }
-        
+
         if random() < 0.2:  # 20% chance of event
             print("\n" + choice(events.get(self.role, [])) + "\n")
 
     def handle_command(self, cmd):
-        if cmd == "":
-            return
         parts = cmd.split()
-        base_cmd = parts[0]
-            
-        if base_cmd == "cd":
-            if len(parts) < 2:
-                self.current_dir = "/usr/home"
-                return
-            dir = parts[1].strip()
-            if dir in ["bin", "etc", "lib", "tmp", "dev", "home", "usr", "var"]:
-                self.current_dir = f"/{dir}"
-                return
-            print("cd: No such file or directory")
-        elif base_cmd == "cat":
-            if len(parts) < 2:
-                print("usage: cat file ...")
-                return
-            if parts[1] in ["motd", "passwd", "ttys"]:
-                print(f"Content of /etc/{parts[1]}")
-        elif base_cmd == "chmod":
-            if len(parts) < 3:
-                print("usage: chmod mode file ...")
-                return
-            print(f"Changed mode of {parts[2]}")
-        elif base_cmd == "chown":
-            if len(parts) < 3:
-                print("usage: chown owner file ...")
-                return
-            print(f"Changed owner of {parts[2]}")
-        elif base_cmd == "cron":
-            print("usage: /usr/lib/cron")
-            print("daemon active, /usr/lib/crontab exists")
-        elif base_cmd == "fsck":
-            print("Checking /dev/rk0 ...")
-            print("/dev/rk0: file system clean, 384 files, 143219 used, 49093 free")
-        elif base_cmd == "getty":
-            print("getty: /dev/tty1 started")
-        elif base_cmd == "grep":
-            if len(parts) < 2:
-                print("usage: grep pattern [file] ...")
-                return
-            print("grep: pattern not found")
-        elif base_cmd == "kill":
-            if len(parts) < 2:
-                print("usage: kill [-9] pid ...")
-                return
-            print(f"kill: {parts[1]}: No such process")
-        elif base_cmd == "login":
-            print("login: Permission denied")
-        elif base_cmd == "lpd":
-            print("line printer daemon active")
-        elif base_cmd == "mount":
-            print("/dev/rk0 on / type rk05 (rw)")
-        elif base_cmd == "passwd":
-            print("Changing password for {self.username}")
-            print("Permission denied")
+        base_cmd = parts[0] if parts else ""
+
+        if base_cmd == "help":
+            print("\nBell System UNIX Help")
+            print("===================")
+            print("UNIX/TS Version 7 (V7)")
+            print("\nSystem Commands:")
+            print("  uname         - Show system information")
+            print("  uptime        - Display system uptime and load")
+            print("  ps            - List running processes")
+            print("  df            - Show disk free space")
+
+            print("\nFile Operations:")
+            print("  ls            - List directory contents")
+            print("  cd <dir>      - Change to directory")
+            print("  pwd           - Print working directory")
+
+            print("\nUser Information:")
+            print("  who           - Show current user session")
+            print("  date          - Display current date/time")
+
+            print("\nTelecommunications:")
+            print("  trunk <cmd>   - Trunk operations (status|test|reset|log)")
+            print("  switch <cmd>  - Switch control (status|sync|drift|calibrate)")
+            print("  trace <circ>  - Trace call path for circuit")
+            print("  testboard     - Access 1-141A1 test board interface")
+            print("  test <cmd>    - Run tests (loop|tone)")
+            print("  toll          - Show 5ESS toll switch metrics")
+            print("  crossbar      - Display crossbar switch status")
+            print("  dialtone      - Test local circuit conditions")
+
+            print("\nNetwork Services:")
+            print("  mail          - Read mail messages")
+            print("  uucp          - UUCP operations")
+            print("  uuname        - List UUCP network nodes")
+
+            print("\nEmergency:")
+            print("  emergency     - Initiate emergency procedures")
+            print("  exit          - Exit terminal")
+
+        elif base_cmd == "ls":
+            print("total 3")
+            print("drwxr-xr-x  2 root     system    512 Apr 24 10:17 bin")
+            print("drwxr-xr-x  2 root     system    512 Apr 24 10:17 etc")
+            print("drwxr-xr-x  2 root     system    512 Apr 24 10:17 usr")
+        elif base_cmd == "pwd":
+            print(self.current_dir)
+        elif base_cmd == "cd":
+            if len(parts) > 1:
+                self.current_dir = parts[1]
+        elif base_cmd == "date":
+            print(time.strftime("%a %b %d %H:%M:%S EDT %Y"))
+        elif base_cmd == "who":
+            print(f"{self.username}\ttty01\t{time.strftime('%b %d %H:%M')}")
         elif base_cmd == "ps":
             print("  PID TTY  STAT  TIME COMMAND")
             print("  123 tty1  R     0:01 sh")
@@ -202,73 +180,6 @@ All commands and behaviors are based on original AT&T documentation.
             print("/dev/rk0      192312   143219   49093     75%")
         elif cmd == "uptime":
             print(" 10:32am  up  3:47,  4 users,  load average: 1.15, 0.87, 0.67")
-        elif cmd == "help":
-            print("\nBell System UNIX Help")
-            print("===================")
-            print("UNIX/TS Version 7 (V7)")
-            print("This is a simulation of a PDP-11 running UNIX V7.")
-            print("\nSystem Commands:")
-            print("  uname         - Show system information")
-            print("  uptime        - Display system uptime and load")
-            print("  ps            - List running processes")
-            print("  df            - Show disk free space")
-            
-            print("\nFile Operations:")
-            print("  ls            - List directory contents")
-            print("  cd <dir>      - Change to directory")
-            print("  pwd           - Print working directory")
-            
-            print("\nUser Information:")
-            print("  who           - Show current user session")
-            print("  date          - Display current date/time")
-            
-            print("\nTelecommunications:")
-            print("  trunk <cmd>   - Trunk operations (status|test|reset|log)")
-            print("  switch <cmd>  - Switch control (status|sync|drift|calibrate)")
-            print("  trace <circ>  - Trace call path for circuit")
-            print("  testboard     - Access 1-141A1 test board interface")
-            print("  test <cmd>    - Run tests (loop|tone)")
-            print("  toll          - Show 5ESS toll switch metrics")
-            print("  crossbar      - Display crossbar switch status")
-            print("  dialtone      - Test local circuit conditions")
-            
-            print("\nNetwork Services:")
-            print("  mail          - Read mail messages")
-            print("  uucp          - UUCP status and transfers")
-            print("  uuname        - List UUCP network nodes")
-            
-            print("\nEmergency:")
-            print("  emergency     - Initiate emergency procedures")
-            print("  exit          - Exit terminal")
-        elif cmd == "who":
-            print(f"{self.username}  tty1  {datetime.now().strftime('%b %d %H:%M')}")
-        elif cmd == "pwd":
-            print(self.current_dir)
-        elif cmd == "date":
-            print(datetime.now().strftime('%a %b %d %H:%M:%S EDT %Y'))
-        elif cmd == "ps":
-            print("  PID TTY  TIME CMD")
-            print("  123 tty1  0:01 sh")
-            print("  456 tty1  0:00 ps")
-        elif cmd == "ls":
-            print("bin    etc    lib    tmp")
-            print("dev    home   usr    var")
-        elif cmd == "mail":
-            print(f"\nBellMail version 2.3")
-            print(f"Mail directory: /usr/spool/mail/{self.username}")
-            print("\nMessages:")
-            for i, msg in enumerate(self.mail_messages, 1):
-                print(f"{i}) From: {msg['from']} Subject: {msg['subject']}")
-        elif cmd == "uucp":
-            print("UUCP Subsystem Status")
-            print("=====================")
-            print("Active transfers:")
-            print("eagle!/usr/spool/news -> pdp11!/usr/spool/news")
-            print("research!/usr/src -> pdp11!/usr/src")
-        elif cmd == "uuname":
-            print("Known UUCP nodes:")
-            for node in self.uucp_nodes:
-                print(f"{node}")
         elif cmd.startswith("trunk"):
             parts = cmd.split()
             if len(parts) == 1:
@@ -292,6 +203,64 @@ All commands and behaviors are based on original AT&T documentation.
                 print("04/24 18:42 - Circuit 2317 timing failure")
                 print("04/24 18:45 - Reset attempt on 2317")
                 print("04/24 18:46 - Circuit 2317 restored")
+        elif cmd == "chmod":
+            if len(parts) < 3:
+                print("usage: chmod mode file ...")
+                return
+            print(f"Changed mode of {parts[2]}")
+        elif cmd == "chown":
+            if len(parts) < 3:
+                print("usage: chown owner file ...")
+                return
+            print(f"Changed owner of {parts[2]}")
+        elif cmd == "cron":
+            print("usage: /usr/lib/cron")
+            print("daemon active, /usr/lib/crontab exists")
+        elif cmd == "fsck":
+            print("Checking /dev/rk0 ...")
+            print("/dev/rk0: file system clean, 384 files, 143219 used, 49093 free")
+        elif cmd == "getty":
+            print("getty: /dev/tty1 started")
+        elif cmd == "grep":
+            if len(parts) < 2:
+                print("usage: grep pattern [file] ...")
+                return
+            print("grep: pattern not found")
+        elif cmd == "kill":
+            if len(parts) < 2:
+                print("usage: kill [-9] pid ...")
+                return
+            print(f"kill: {parts[1]}: No such process")
+        elif cmd == "login":
+            print("login: Permission denied")
+        elif cmd == "lpd":
+            print("line printer daemon active")
+        elif cmd == "mount":
+            print("/dev/rk0 on / type rk05 (rw)")
+        elif cmd == "passwd":
+            print("Changing password for {self.username}")
+            print("Permission denied")
+        elif cmd == "ps":
+            print("  PID TTY  STAT  TIME COMMAND")
+            print("  123 tty1  R     0:01 sh")
+            print("  456 tty1  R     0:00 ps")
+            print("  789 tty1  S     0:05 cron")
+        elif cmd == "mail":
+            print(f"\nBellMail version 2.3")
+            print(f"Mail directory: /usr/spool/mail/{self.username}")
+            print("\nMessages:")
+            for i, msg in enumerate(self.mail_messages, 1):
+                print(f"{i}) From: {msg['from']} Subject: {msg['subject']}")
+        elif cmd == "uucp":
+            print("UUCP Subsystem Status")
+            print("=====================")
+            print("Active transfers:")
+            print("eagle!/usr/spool/news -> pdp11!/usr/spool/news")
+            print("research!/usr/src -> pdp11!/usr/src")
+        elif cmd == "uuname":
+            print("Known UUCP nodes:")
+            for node in self.uucp_nodes:
+                print(f"{node}")
         elif cmd.startswith("switch"):
             parts = cmd.split()
             if len(parts) == 1:
@@ -382,6 +351,26 @@ All commands and behaviors are based on original AT&T documentation.
             print("Line links: Operating")
             print("Trunk links: Operating")
         self.generate_event()
+
+    def show_login(self):
+        self.show_boot_sequence()
+        self.show_intro()
+        print("\nUNIX Time-Sharing System V7 Release 1.0")
+        print("Bell Laboratories")
+        print(f"\nLoad average: 1.15, 0.87, 0.67")
+        print(f"{self.hostname} login: ", end='', flush=True)
+        self.username = input().strip()
+        print("Password: ", end='', flush=True)
+        input()  # Password simulation
+
+        self.select_role()
+
+        print("\033[2J\033[H")  # Clear screen
+        print("Bell System UNIX/TS 1.0")
+        print("Internal Use Only - AT&T Proprietary")
+        print(f"Last login: {datetime.now().strftime('%a %b %d %H:%M:%S')}")
+        print(f"Role: {self.role}\n")
+
 
     def run(self):
         self.show_login()
