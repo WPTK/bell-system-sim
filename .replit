@@ -1,14 +1,24 @@
+modules = ["nodejs-20"]
 [workflows]
-runButton = "Run"
+runButton = "Project"
 
 [[workflows.workflow]]
-name = "Run"
-author = 41899613
-mode = "sequential"
+name = "Project"
+author = "agent"
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python main.py"
+args = "npm run dev"
+waitForPort = 5000
 
 [nix]
 channel = "stable-24_05"
