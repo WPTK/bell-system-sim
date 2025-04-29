@@ -8,6 +8,30 @@ class UnixTerminal:
         self.username = ""
         self.hostname = "pdp11"
         self.diagnostics = []
+        self.paper_tape_buffer = []
+        self.hardware_health = {
+            "cpu": 100,
+            "memory": 100,
+            "disk": 100,
+            "tape": 100
+        }
+        self.banner = """
+        ==================================
+           BELL SYSTEM UNIX/TS RELEASE 7
+        ==================================
+                    .---.
+                   /     \\
+                   \\.@-@./
+                   /`\\_/`\\
+                  //  _  \\\\
+                 | \\     )|
+                /`\\_`>  <_/ \\
+               /     |  \\    \\
+              /     /    \\   \\
+             /     /      \\  \\
+         ___/     /        \\  \\
+        |____/\\_/          |  |
+        """
         self.system_status = {
             "cpu_temp": "Normal",
             "memory": "OK",
@@ -386,6 +410,44 @@ All commands and behaviors are based on original AT&T documentation.
                     print("Sending 1004Hz test tone...")
                     print("Level: 0dBm")
                     print("Duration: 30 seconds")
+        elif cmd == "tape":
+            print("Paper Tape Reader Interface")
+            print("==========================")
+            print("1. Read tape")
+            print("2. Punch tape")
+            print("3. Load program")
+            choice = input("Select operation: ")
+            if choice == "1":
+                print("*whirring noise*")
+                time.sleep(1)
+                print("Reading paper tape...")
+                time.sleep(2)
+                if self.paper_tape_buffer:
+                    print("Data:", "".join(self.paper_tape_buffer))
+                else:
+                    print("No data on tape")
+            elif choice == "2":
+                data = input("Enter data to punch: ")
+                print("*mechanical clicking*")
+                time.sleep(1)
+                print("Punching tape...")
+                time.sleep(2)
+                self.paper_tape_buffer = list(data)
+                print("Data punched successfully")
+            elif choice == "3":
+                print("*loading sounds*")
+                time.sleep(2)
+                print("Load failed - Check reader alignment")
+
+        elif cmd == "hardware":
+            print("\nHardware Status Report")
+            print("=====================")
+            for component, health in self.hardware_health.items():
+                status = "OK" if health > 80 else "WARNING" if health > 50 else "CRITICAL"
+                print(f"{component.upper()}: {health}% ({status})")
+                if random.random() < 0.1:  # 10% chance of degradation
+                    self.hardware_health[component] = max(0, health - random.randint(5, 15))
+
         elif cmd == "crossbar":
             print("Crossbar Switch Status")
             print("--------------------")
@@ -483,8 +545,11 @@ All commands and behaviors are based on original AT&T documentation.
     def show_login(self):
         self.show_boot_sequence()
         self.show_intro()
+        print(self.banner)
         print("\nUNIX Time-Sharing System V7 Release 1.0")
         print("Bell Laboratories")
+        print("\n*disk drive spinning up*")
+        time.sleep(1)
         print(f"\nLoad average: 1.15, 0.87, 0.67")
         print(f"{self.hostname} login: ", end='', flush=True)
         self.username = input().strip()
