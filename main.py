@@ -7,6 +7,13 @@ class UnixTerminal:
     def __init__(self):
         self.username = ""
         self.hostname = "pdp11"
+        self.diagnostics = []
+        self.system_status = {
+            "cpu_temp": "Normal",
+            "memory": "OK",
+            "disk": "OK",
+            "network": "OK"
+        }
         self.current_dir = "/usr/home"
         self.role = None
         self.error_log = []
@@ -410,6 +417,25 @@ All commands and behaviors are based on original AT&T documentation.
                     print(error)
             else:
                 print("No errors logged.")
+        elif cmd == "diagnose":
+            print("\nSystem Diagnostics:")
+            print("=================")
+            for component, status in self.system_status.items():
+                print(f"{component.upper()}: {status}")
+            if self.diagnostics:
+                print("\nRecent Diagnostics:")
+                for diag in self.diagnostics[-5:]:
+                    print(diag)
+        elif cmd == "fix":
+            component = input("Enter component to repair (cpu/memory/disk/network): ").lower()
+            if component in self.system_status:
+                print(f"Attempting repair of {component}...")
+                time.sleep(1)
+                self.system_status[component] = "OK"
+                self.diagnostics.append(f"{time.strftime('%m/%d %H:%M')} - Repaired {component}")
+                print("Repair complete")
+            else:
+                print("Invalid component")
         elif cmd.startswith("incident"):
             parts = cmd.split()
             if len(parts) == 1:
@@ -454,7 +480,7 @@ All commands and behaviors are based on original AT&T documentation.
                         break
         self.generate_event()
 
-    def show_login(self:
+    def show_login(self):
         self.show_boot_sequence()
         self.show_intro()
         print("\nUNIX Time-Sharing System V7 Release 1.0")
