@@ -9,6 +9,33 @@ class UnixTerminal:
         self.hostname = "pdp11"
         self.current_dir = "/usr/home"
         self.role = None
+        self.error_log = []
+        self.work_items = {
+            "UNIX Systems Operator": [
+                "Check UUCP queues for stuck jobs",
+                "Monitor disk space on /usr partition",
+                "Review system logs for errors",
+                "Backup /usr/spool directory"
+            ],
+            "Switching Station Technician": [
+                "Test trunk group 2317-2320",
+                "Calibrate MF receivers",
+                "Check crosspoint resistance",
+                "Verify timing synchronization"
+            ],
+            "Field Support Liaison": [
+                "Follow up on RIDGE-X1 outage",
+                "Update maintenance schedule",
+                "Contact field team about trunk 2317",
+                "Review emergency procedures"
+            ],
+            "National NOC Analyst": [
+                "Monitor NE sector trunk status",
+                "Update incident reports",
+                "Check weather alerts",
+                "Review power grid status"
+            ]
+        }
         self.mail_messages = [
             {"from": "sysadmin", "subject": "System maintenance", "body": "Scheduled downtime tonight 2300-0200 EDT"},
             {"from": "tech.support", "subject": "New UUCP route", "body": "Added connection to research.att.com"},
@@ -83,6 +110,10 @@ All commands and behaviors are based on original AT&T documentation.
 """)
         time.sleep(3)
 
+    def log_error(self, error_msg):
+        timestamp = time.strftime("%m/%d %H:%M")
+        self.error_log.append(f"{timestamp} - {error_msg}")
+
     def generate_event(self):
         events = {
             "UNIX Systems Operator": [
@@ -110,7 +141,10 @@ All commands and behaviors are based on original AT&T documentation.
         }
 
         if random() < 0.2:  # 20% chance of event
-            print("\n" + choice(events.get(self.role, [])) + "\n")
+            error_msg = choice(events.get(self.role, []))
+            print(f"\n{error_msg}\n")
+            self.log_error(error_msg)
+            print("(Use 'errors' command to view error log)")
 
     def handle_command(self, cmd):
         parts = cmd.split()
@@ -350,6 +384,30 @@ All commands and behaviors are based on original AT&T documentation.
             print("Junctor groups: Normal")
             print("Line links: Operating")
             print("Trunk links: Operating")
+        elif cmd == "getwork":
+            if self.role in self.work_items:
+                print(f"\nPending work items for {self.role}:")
+                print("================================")
+                for i, item in enumerate(self.work_items[self.role], 1):
+                    print(f"{i}. {item}")
+            else:
+                print("No work items found for your role.")
+        elif cmd == "worklist":
+            print("\nAll work categories:")
+            print("==================")
+            for role in self.work_items:
+                print(f"\n{role}:")
+                print("-" * len(role))
+                for item in self.work_items[role]:
+                    print(f"* {item}")
+        elif cmd == "errors":
+            if self.error_log:
+                print("\nSystem Error Log:")
+                print("================")
+                for error in self.error_log[-10:]:  # Show last 10 errors
+                    print(error)
+            else:
+                print("No errors logged.")
         self.generate_event()
 
     def show_login(self):
