@@ -10,6 +10,8 @@ class UnixTerminal:
         self.current_dir = "/usr/home"
         self.role = None
         self.error_log = []
+        self.incidents = []
+        self.incident_counter = 1000
         self.work_items = {
             "UNIX Systems Operator": [
                 "Check UUCP queues for stuck jobs",
@@ -408,9 +410,51 @@ All commands and behaviors are based on original AT&T documentation.
                     print(error)
             else:
                 print("No errors logged.")
+        elif cmd.startswith("incident"):
+            parts = cmd.split()
+            if len(parts) == 1:
+                print("Usage: incident [create|list|update|close] [id] [status]")
+            elif parts[1] == "create":
+                desc = input("Enter incident description: ")
+                self.incidents.append({
+                    "id": self.incident_counter,
+                    "description": desc,
+                    "status": "OPEN",
+                    "created": time.strftime("%m/%d %H:%M"),
+                    "owner": self.username
+                })
+                print(f"Created incident #{self.incident_counter}")
+                self.incident_counter += 1
+            elif parts[1] == "list":
+                if not self.incidents:
+                    print("No active incidents")
+                else:
+                    print("\nActive Incidents:")
+                    print("================")
+                    for inc in self.incidents:
+                        print(f"#{inc['id']} - {inc['status']}")
+                        print(f"Owner: {inc['owner']}")
+                        print(f"Created: {inc['created']}")
+                        print(f"Description: {inc['description']}")
+                        print("---")
+            elif parts[1] == "update" and len(parts) >= 4:
+                inc_id = int(parts[2])
+                new_status = parts[3].upper()
+                for inc in self.incidents:
+                    if inc['id'] == inc_id:
+                        inc['status'] = new_status
+                        print(f"Updated incident #{inc_id} status to {new_status}")
+                        break
+            elif parts[1] == "close" and len(parts) >= 3:
+                inc_id = int(parts[2])
+                for inc in self.incidents:
+                    if inc['id'] == inc_id:
+                        inc['status'] = "CLOSED"
+                        print(f"Closed incident #{inc_id}")
+                        break
         self.generate_event()
 
-    def show_login(self):
+    def show_login(self:
         self.show_boot_sequence()
         self.show_intro()
         print("\nUNIX Time-Sharing System V7 Release 1.0")
