@@ -1,7 +1,14 @@
 [nix]
 channel = "stable-24_05"
 
-[workflows.Run]
+[workflows]
+runButton = "Run"
+
+[[workflows.workflow]]
 name = "Run"
+author = 41899613
 mode = "sequential"
-command = "python main.py"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
