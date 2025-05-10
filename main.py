@@ -77,7 +77,7 @@ class UnixTerminal:
         self.mail_messages = [
             {"from": "sysadmin", "subject": "System maintenance", "body": "Scheduled downtime tonight 2300-0200 EDT"},
             {"from": "tech.support", "subject": "New UUCP route", "body": "Added connection to research.att.com"},
-            {"from": "operations", "subject": "Load balancing", "subject": "Please monitor /dev/rk1 usage"}
+            {"from": "operations", "subject": "Load balancing", "body": "Please monitor /dev/rk1 usage"}
         ]
         self.uucp_nodes = ["research", "murray", "alice", "eagle", "mhuxj", "research"]
         self.roles = {
