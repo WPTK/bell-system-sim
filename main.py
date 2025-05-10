@@ -323,6 +323,13 @@ All commands and behaviors are based on original AT&T documentation.
             print("\nMessages:")
             for i, msg in enumerate(self.mail_messages, 1):
                 print(f"{i}) From: {msg['from']} Subject: {msg['subject']}")
+        elif cmd.isdigit() and 1 <= int(cmd) <= len(self.mail_messages):
+            msg_num = int(cmd) - 1
+            msg = self.mail_messages[msg_num]
+            print(f"\nFrom: {msg['from']}")
+            print(f"Subject: {msg['subject']}")
+            print(f"Body: {msg['body']}")
+            print("\n(Press Enter to return to prompt)")
         elif cmd == "uucp":
             print("UUCP Subsystem Status")
             print("=====================")
