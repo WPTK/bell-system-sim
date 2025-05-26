@@ -554,6 +554,27 @@ All commands and behaviors are based on original AT&T documentation.
                         break
         self.generate_event()
 
+    def __init__(self):
+        self.username = ""
+        self.hostname = "pdp11"
+        self.users = {}
+        try:
+            with open('users.dat', 'r') as f:
+                for line in f:
+                    user, pwd = line.strip().split(':')
+                    self.users[user] = pwd
+        except FileNotFoundError:
+            pass
+
+    def save_credentials(self, username, password):
+        self.users[username] = password
+        with open('users.dat', 'w') as f:
+            for user, pwd in self.users.items():
+                f.write(f"{user}:{pwd}\n")
+
+    def verify_credentials(self, username, password):
+        return username in self.users and self.users[username] == password
+
     def show_login(self):
         self.show_boot_sequence()
         self.show_intro()
@@ -563,10 +584,23 @@ All commands and behaviors are based on original AT&T documentation.
         print("\n*disk drive spinning up*")
         time.sleep(1)
         print(f"\nLoad average: 1.15, 0.87, 0.67")
-        print(f"{self.hostname} login: ", end='', flush=True)
-        self.username = input().strip()
-        print("Password: ", end='', flush=True)
-        input()  # Password simulation
+        
+        while True:
+            print(f"{self.hostname} login: ", end='', flush=True)
+            username = input().strip()
+            print("Password: ", end='', flush=True)
+            password = input().strip()
+
+            if not self.users:  # First user becomes admin
+                print("\nCreating new user account...")
+                self.save_credentials(username, password)
+                self.username = username
+                break
+            elif self.verify_credentials(username, password):
+                self.username = username
+                break
+            else:
+                print("Login incorrect")
 
         self.select_role()
 
