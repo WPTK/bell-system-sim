@@ -1346,6 +1346,679 @@ BELL SYSTEM PRACTICES
      BSP 400-200-001 - Trunk Group Administration
      BSP 400-200-100 - Traffic Analysis Procedures
 """,
+
+            "5ess": """
+NAME
+     5ess - 5ESS Electronic Switching System operations
+
+SYNOPSIS
+     5ess [status|diagnostics|traffic|translations|maintenance] [switch-id]
+
+DESCRIPTION
+     Monitor and manage 5ESS Electronic Switching Systems. The 5ESS provides
+     digital switching capabilities with stored program control, featuring
+     dual processor architecture and distributed switching modules.
+
+OPTIONS
+     status          Display 5ESS system configuration and status
+     diagnostics     Execute comprehensive diagnostic routines
+     traffic         Analyze call processing load and capacity
+     translations    Translation table management and updates
+     maintenance     Scheduled maintenance procedures
+
+TECHNICAL SPECIFICATIONS
+     Administrative Module (AM):     Dual processor control
+     Switching Modules (SM):         Up to 192 remote/local modules
+     Communications Module (CM):     Message switching interface
+     Call Processing Capacity:       750,000 BHCA per system
+
+EXAMPLES
+     5ess status                     Display all 5ESS systems
+     5ess diagnostics NYC-5ESS-01    Run diagnostics on specific switch
+     5ess traffic CHI-5ESS-02        Monitor traffic load
+
+SEE ALSO
+     3a(1), switch(1), western(1), crossbar(1)
+
+BELL SYSTEM PRACTICES
+     BSP 200-100-001 - 5ESS System Description
+     BSP 200-100-100 - 5ESS Operations and Maintenance
+""",
+
+            "alarm": """
+NAME
+     alarm - Central office alarm monitoring and management
+
+SYNOPSIS
+     alarm [status|history|acknowledge|test] [alarm-id]
+
+DESCRIPTION
+     Monitor and manage central office alarm systems including major, minor,
+     and critical alarms. Provides real-time status monitoring and alarm
+     acknowledgment capabilities for Bell System equipment.
+
+OPTIONS
+     status          Display current active alarms
+     history         Show alarm history log
+     acknowledge     Acknowledge specific alarm condition
+     test            Test alarm system functionality
+
+ALARM CATEGORIES
+     CRITICAL        Power failure, system down conditions
+     MAJOR           Equipment failure affecting service
+     MINOR           Warning conditions, maintenance required
+
+EXAMPLES
+     alarm status                    Show all active alarms
+     alarm acknowledge ALM-1247      Acknowledge alarm ALM-1247
+     alarm history 24                Show 24-hour alarm history
+
+SEE ALSO
+     emergency(1), switch(1), testboard(1)
+
+BELL SYSTEM PRACTICES
+     BSP 069-100-001 - Central Office Alarm Systems
+""",
+
+            "billing": """
+NAME
+     billing - Customer billing and toll charge management
+
+SYNOPSIS
+     billing [summary|customer|dispute|tariff] [parameters]
+
+DESCRIPTION
+     Manage customer billing operations including toll charge calculation,
+     billing dispute resolution, and tariff rate application. Interfaces
+     with Automatic Message Accounting (AMA) and Customer Records Information
+     System (CRIS).
+
+OPTIONS
+     summary         Daily billing operations summary
+     customer NUM    Customer account billing details
+     dispute ID      Billing dispute investigation
+     tariff          Current tariff rate structures
+
+EXAMPLES
+     billing summary                 Daily operations report
+     billing customer 2125551234     Account details for customer
+     billing dispute BD-4789         Investigate billing dispute
+
+SEE ALSO
+     toll(1), collect(1), custdb(1), tariff(1)
+
+BELL SYSTEM PRACTICES
+     BSP 230-190-001 - Billing System Operations
+     BSP 230-190-100 - AMA Tape Processing
+""",
+
+            "crossbar": """
+NAME
+     crossbar - Crossbar switching system controls
+
+SYNOPSIS
+     crossbar [status|test|maintenance|config] [office-code]
+
+DESCRIPTION
+     Monitor and control electromechanical crossbar switching systems.
+     Crossbar switches use coordinate switching with horizontal and vertical
+     bars to establish talking paths through crosspoint contacts.
+
+OPTIONS
+     status          Display crossbar office status
+     test            Execute crossbar test routines
+     maintenance     Crossbar maintenance procedures
+     config          System configuration display
+
+TECHNICAL SPECIFICATIONS
+     Switching Matrix:       10x20 crosspoint array
+     Holding Time:          Average 180 seconds per call
+     Traffic Capacity:      36 CCS per crossbar switch
+     Seizure Rate:          1200 attempts per hour maximum
+
+EXAMPLES
+     crossbar status                 Show all crossbar offices
+     crossbar test NYC-XB-01         Test specific crossbar office
+     crossbar maintenance            Schedule maintenance window
+
+SEE ALSO
+     switch(1), 3a(1), 5ess(1), testboard(1)
+
+BELL SYSTEM PRACTICES
+     BSP 200-210-001 - Crossbar System Description
+     BSP 200-210-100 - Crossbar Maintenance Procedures
+""",
+
+            "emergency": """
+NAME
+     emergency - Emergency dispatch and escalation system
+
+SYNOPSIS
+     emergency [dispatch|escalate|status] [priority] [description]
+
+DESCRIPTION
+     Handle emergency situations affecting Bell System operations including
+     service outages, equipment failures, and priority restoration procedures.
+     Coordinates with field forces and management escalation.
+
+OPTIONS
+     dispatch        Create emergency dispatch ticket
+     escalate        Escalate existing emergency to management
+     status          Show current emergency status
+     
+PRIORITY LEVELS
+     P1-CRITICAL     Complete service outage affecting >10,000 customers
+     P2-MAJOR        Significant service degradation, equipment failure
+     P3-MINOR        Localized issues, preventive maintenance
+
+EXAMPLES
+     emergency dispatch P1 "Power failure CO-Manhattan-14th"
+     emergency escalate EMG-4721 "Escalating trunk failure"
+     emergency status                Show all active emergencies
+
+SEE ALSO
+     alarm(1), ticket(1), switch(1)
+
+BELL SYSTEM PRACTICES
+     BSP 024-100-001 - Emergency Procedures
+     BSP 024-100-100 - Service Restoration Priorities
+""",
+
+            "tsps": """
+NAME
+     tsps - Traffic Service Position System operations
+
+SYNOPSIS
+     tsps [status|operator|traffic|billing] [position]
+
+DESCRIPTION
+     Monitor and manage Traffic Service Position System (TSPS) for operator
+     services including person-to-person, collect calls, third-party billing,
+     and directory assistance. TSPS provides centralized operator services.
+
+OPTIONS
+     status          TSPS system operational status
+     operator        Individual operator position monitoring
+     traffic         Operator traffic load analysis
+     billing         Operator-assisted call billing
+
+PERFORMANCE METRICS
+     Answer Time:            95% within 20 seconds
+     Average Handle Time:    45 seconds per call
+     Positions Active:       Variable based on traffic load
+     Peak Traffic:           Mother's Day, Christmas Eve
+
+EXAMPLES
+     tsps status                     System operational overview
+     tsps operator POS-12            Monitor position 12
+     tsps traffic                    Current traffic load
+
+SEE ALSO
+     operator(1), directory(1), collect(1), billing(1)
+
+BELL SYSTEM PRACTICES
+     BSP 100-255-001 - TSPS System Description
+     BSP 100-255-100 - Operator Performance Standards
+""",
+
+            "testboard": """
+NAME
+     testboard - Line testing equipment operations
+
+SYNOPSIS
+     testboard [test|status|schedule] [line-number|test-type]
+
+DESCRIPTION
+     Operate central office test equipment for subscriber line testing,
+     trunk testing, and circuit analysis. Provides automated and manual
+     testing capabilities for fault isolation and service verification.
+
+OPTIONS
+     test            Execute specific line or trunk test
+     status          Display testboard equipment status
+     schedule        Schedule routine testing procedures
+
+TEST TYPES
+     SUBSCRIPTION    Basic service verification test
+     METALLIC        DC resistance and insulation testing
+     TRANSMISSION    Loss, noise, and distortion measurements
+     SIGNALING       Dial tone, ringing, and supervision tests
+
+EXAMPLES
+     testboard test 212-555-1234     Test customer line
+     testboard status TB-01          Check testboard status
+     testboard schedule weekly       Schedule routine tests
+
+SEE ALSO
+     sarts(1), alarm(1), maintenance(1)
+
+BELL SYSTEM PRACTICES
+     BSP 103-101-001 - Testboard Operations
+     BSP 103-101-100 - Line Testing Procedures
+""",
+
+            "tnds": """
+NAME
+     tnds - Total Network Data System operations
+
+SYNOPSIS
+     tnds [collect|analyze|report] [network-element]
+
+DESCRIPTION
+     Total Network Data System (TNDS) provides comprehensive network
+     performance monitoring and analysis. Collects traffic data from
+     switching systems and transmission facilities for network planning.
+
+OPTIONS
+     collect         Initiate data collection from network elements
+     analyze         Perform network performance analysis
+     report          Generate network utilization reports
+
+DATA SOURCES
+     Switching Systems:      Traffic measurements from ESS and crossbar
+     Transmission:          Facility utilization and performance data
+     Trunking:              Inter-office traffic patterns
+     Customer:              Service usage patterns
+
+EXAMPLES
+     tnds collect all                Collect from all elements
+     tnds analyze NYC-REGION         Analyze regional performance
+     tnds report monthly             Generate monthly report
+
+SEE ALSO
+     netplan(1), traffic(1), analysis(1), capacity(1)
+
+BELL SYSTEM PRACTICES
+     BSP 100-905-001 - TNDS System Description
+     BSP 100-905-100 - Data Collection Procedures
+""",
+
+            "radio": """
+NAME
+     radio - TH-3 microwave radio system monitoring
+
+SYNOPSIS
+     radio [status|alignment|test|maintenance] [radio-route]
+
+DESCRIPTION
+     Monitor and maintain TH-3 microwave radio systems for long-haul
+     transmission. TH-3 systems provide 1800 voice channels over microwave
+     frequencies in the 4 and 6 GHz bands with digital multiplexing.
+
+OPTIONS
+     status          Display radio route operational status
+     alignment       Antenna alignment and optimization procedures
+     test            RF performance testing and measurements
+     maintenance     Scheduled maintenance and inspections
+
+TECHNICAL SPECIFICATIONS
+     Frequency Bands:        4 GHz (3700-4200 MHz), 6 GHz (5925-6425 MHz)
+     Channel Capacity:       1800 voice channels per radio bearer
+     Hop Distance:           25-30 miles typical
+     Modulation:            8-PSK digital modulation
+
+EXAMPLES
+     radio status                    Show all radio routes
+     radio alignment NYC-BOS-R1      Align antennas on route
+     radio test CHI-DET-R2           Test RF performance
+
+SEE ALSO
+     microwave(1), antenna(1), satellite(1), t1carrier(1)
+
+BELL SYSTEM PRACTICES
+     BSP 365-100-001 - TH-3 Radio System Description
+     BSP 365-100-100 - Microwave Alignment Procedures
+""",
+
+            "t1carrier": """
+NAME
+     t1carrier - T1 Digital Carrier System operations
+
+SYNOPSIS
+     t1carrier [status|test|provision|alarm] [t1-facility]
+
+DESCRIPTION
+     Monitor and manage T1 digital carrier systems providing 1.544 Mbps
+     digital transmission. T1 systems multiplex 24 voice channels using
+     pulse code modulation (PCM) with 8-bit encoding at 8 kHz sampling.
+
+OPTIONS
+     status          Display T1 facility operational status
+     test            Execute T1 performance testing
+     provision       Provision new T1 circuits
+     alarm           Monitor T1 alarm conditions
+
+TECHNICAL SPECIFICATIONS
+     Bit Rate:               1.544 Mbps (DS1 rate)
+     Channel Capacity:       24 voice channels
+     Frame Structure:        193 bits per frame (24 channels + framing)
+     Encoding:              Bipolar AMI (Alternate Mark Inversion)
+     Regenerator Spacing:    6000 feet maximum
+
+EXAMPLES
+     t1carrier status                Show all T1 facilities
+     t1carrier test T1-NYC-BOS-01    Test specific T1 span
+     t1carrier provision CKT-12345   Provision new circuit
+
+SEE ALSO
+     multiplex(1), regenerator(1), lcarrier(1), radio(1)
+
+BELL SYSTEM PRACTICES
+     BSP 362-100-001 - T1 Carrier System Description
+     BSP 362-100-100 - T1 Testing and Maintenance
+""",
+
+            "lcarrier": """
+NAME
+     lcarrier - L-Carrier coaxial cable system operations
+
+SYNOPSIS
+     lcarrier [status|test|maintenance|amplifier] [l-system]
+
+DESCRIPTION
+     Monitor and manage L-Carrier coaxial cable transmission systems.
+     L1, L3, L4, and L5 systems provide high-capacity analog transmission
+     over coaxial cable with intermediate amplifiers.
+
+OPTIONS
+     status          Display L-Carrier system operational status
+     test            Execute system performance testing
+     maintenance     Amplifier and repeater maintenance
+     amplifier       Individual amplifier monitoring
+
+SYSTEM TYPES
+     L1 System:             600 voice channels, 3 MHz bandwidth
+     L3 System:             1860 voice channels, 8 MHz bandwidth  
+     L4 System:             3600 voice channels, 17 MHz bandwidth
+     L5 System:             10,800 voice channels, 57 MHz bandwidth
+
+EXAMPLES
+     lcarrier status                 Show all L-Carrier systems
+     lcarrier test L4-NYC-CHI        Test L4 system performance
+     lcarrier amplifier AMP-147      Monitor specific amplifier
+
+SEE ALSO
+     t1carrier(1), multiplex(1), radio(1)
+
+BELL SYSTEM PRACTICES
+     BSP 361-100-001 - L-Carrier System Description
+     BSP 361-100-100 - Coaxial Cable Maintenance
+""",
+
+            "ps": """
+NAME
+     ps - display process status
+
+SYNOPSIS
+     ps [options]
+
+DESCRIPTION
+     Display information about currently running processes on the Bell System
+     UNIX workstation including system daemons, switching processes, and
+     user sessions.
+
+OPTIONS
+     (no options)    Display processes for current terminal
+     -a              Display processes for all terminals
+     -u              Display user-oriented format
+     -x              Display processes without controlling terminal
+
+EXAMPLES
+     ps                              Show current terminal processes
+     ps -aux                         Show all processes with details
+
+PROCESS TYPES
+     System Daemons:                 init, cron, switching monitors
+     Bell System Processes:          TSPS, AMA, billing systems
+     User Sessions:                  Terminal sessions and applications
+
+SEE ALSO
+     who(1), jobs(1), kill(1)
+
+UNIX V7 PROGRAMMER'S MANUAL
+     ps(1) - January 1979
+""",
+
+            "who": """
+NAME
+     who - display logged-in users
+
+SYNOPSIS
+     who [options] [file]
+
+DESCRIPTION
+     Display information about users currently logged into the Bell System
+     UNIX workstation including login time, terminal, and location.
+
+OPTIONS
+     (no options)    Display current users
+     am i            Display information about current user only
+
+EXAMPLES
+     who                             Show all logged-in users
+     who am i                        Show current user information
+
+OUTPUT FORMAT
+     username    terminal    login-time    location
+
+SEE ALSO
+     ps(1), users(1), last(1)
+
+UNIX V7 PROGRAMMER'S MANUAL
+     who(1) - January 1979
+""",
+
+            "man": """
+NAME
+     man - display manual pages
+
+SYNOPSIS
+     man [section] command
+     man -k keyword
+
+DESCRIPTION
+     Display manual pages for Bell System commands and UNIX utilities.
+     Manual pages provide comprehensive documentation including syntax,
+     options, examples, and cross-references.
+
+OPTIONS
+     command         Display manual page for specified command
+     -k keyword      Search manual pages for keyword
+     section command Display page from specific manual section
+
+MANUAL SECTIONS
+     1               User commands and Bell System operations
+     2               System calls and kernel interfaces
+     3               Library functions and subroutines
+
+EXAMPLES
+     man trunk                       Display trunk command manual
+     man 1 ps                        Display ps command from section 1
+     man -k traffic                  Search for traffic-related commands
+
+SEE ALSO
+     help(1), bsp(1), apropos(1)
+
+UNIX V7 PROGRAMMER'S MANUAL
+     man(1) - January 1979
+""",
+
+            "ticket": """
+NAME
+     ticket - Bell System trouble ticket management
+
+SYNOPSIS
+     ticket [create|status|update|close] [ticket-id] [description]
+
+DESCRIPTION
+     Manage Bell System trouble tickets for customer complaints, equipment
+     failures, and service issues. Provides complete ticket lifecycle
+     management with priority assignment and resolution tracking.
+
+OPTIONS
+     create          Create new trouble ticket
+     status          Display ticket status and details
+     update          Update existing ticket with progress notes
+     close           Close resolved ticket with resolution code
+
+PRIORITY CODES
+     P1-EMERGENCY    Service affecting, immediate response required
+     P2-URGENT       Service degraded, respond within 4 hours
+     P3-ROUTINE      Non-service affecting, respond within 24 hours
+
+EXAMPLES
+     ticket create P1 "No dial tone 212-555-1234"
+     ticket status TKT-19830315-001
+     ticket update TKT-19830315-001 "Dispatched technician"
+     ticket close TKT-19830315-001 "Cable pair replaced"
+
+SEE ALSO
+     emergency(1), testboard(1), sarts(1)
+
+BELL SYSTEM PRACTICES
+     BSP 100-105-001 - Trouble Ticket Procedures
+""",
+
+            "traffic": """
+NAME
+     traffic - Network traffic analysis and monitoring
+
+SYNOPSIS
+     traffic [current|forecast|report] [region|timeframe]
+
+DESCRIPTION
+     Analyze and monitor Bell System network traffic patterns including
+     call volumes, busy hour traffic, and capacity utilization. Provides
+     data for network planning and capacity management.
+
+OPTIONS
+     current         Display real-time traffic status
+     forecast        Traffic projections and growth analysis
+     report          Generate traffic utilization reports
+
+TRAFFIC MEASUREMENTS
+     CCS (Centi-Call-Seconds):      Traffic intensity measurement
+     BHCA (Busy Hour Call Attempts): Peak hour call volume
+     Peg Count:                     Call attempt measurements
+     Overflow:                      Blocked call statistics
+
+EXAMPLES
+     traffic current                 Real-time network status
+     traffic forecast monthly        Monthly growth projections
+     traffic report NYC-REGION       Regional traffic analysis
+
+SEE ALSO
+     capacity(1), routing(1), tnds(1), netplan(1)
+
+BELL SYSTEM PRACTICES
+     BSP 100-701-001 - Traffic Engineering Procedures
+""",
+
+            "status": """
+NAME
+     status - Bell System operational status overview
+
+SYNOPSIS
+     status [system|network|alarms|performance]
+
+DESCRIPTION
+     Display comprehensive operational status of Bell System equipment,
+     network facilities, and service performance. Provides real-time
+     monitoring dashboard for operations personnel.
+
+OPTIONS
+     system          System-wide equipment status
+     network         Network facility status
+     alarms          Active alarm summary
+     performance     Service performance metrics
+
+STATUS INDICATORS
+     NORMAL          All systems operational
+     WARNING         Minor issues, monitoring required
+     CRITICAL        Service affecting conditions
+
+EXAMPLES
+     status                          Full operational overview
+     status alarms                   Active alarm summary
+     status performance              Service quality metrics
+
+SEE ALSO
+     alarm(1), test(1), emergency(1)
+
+BELL SYSTEM PRACTICES
+     BSP 100-000-001 - Operations Procedures
+""",
+
+            "test": """
+NAME
+     test - Bell System equipment testing interface
+
+SYNOPSIS
+     test [equipment-type] [test-type] [parameters]
+
+DESCRIPTION
+     Execute comprehensive testing procedures for Bell System equipment
+     including switching systems, transmission facilities, and customer
+     services. Provides automated and manual testing capabilities.
+
+OPTIONS
+     switching       Test switching equipment and call processing
+     transmission    Test transmission facilities and circuits
+     customer        Test customer services and line conditions
+     
+TEST CATEGORIES
+     ROUTINE         Scheduled preventive testing
+     DIAGNOSTIC      Fault isolation and troubleshooting
+     ACCEPTANCE      New equipment acceptance testing
+     PERFORMANCE     Service quality verification
+
+EXAMPLES
+     test switching NYC-5ESS-01      Test 5ESS switch
+     test transmission T1-NYC-BOS    Test T1 facility
+     test customer 212-555-1234      Test customer line
+
+SEE ALSO
+     testboard(1), sarts(1), alarm(1)
+
+BELL SYSTEM PRACTICES
+     BSP 100-200-001 - Testing Procedures
+""",
+
+            "bsp": """
+NAME
+     bsp - Bell System Practices reference system
+
+SYNOPSIS
+     bsp [search|view|index] [topic|bsp-number]
+
+DESCRIPTION
+     Access Bell System Practices (BSP) documentation providing standard
+     operating procedures, technical specifications, and maintenance
+     instructions for all Bell System equipment and operations.
+
+OPTIONS
+     search          Search BSP database by keyword
+     view            Display specific BSP document
+     index           Browse BSP index by category
+
+BSP CATEGORIES
+     000-099         General Information and Procedures
+     100-199         Switching Systems and Operations
+     200-299         Electronic Switching Systems
+     300-399         Transmission Systems
+     400-499         Outside Plant and Cable Systems
+
+EXAMPLES
+     bsp search "trunk testing"      Search for trunk procedures
+     bsp view BSP-200-100-001        View specific BSP document
+     bsp index switching             Browse switching procedures
+
+SEE ALSO
+     man(1), help(1), training(1)
+
+BELL SYSTEM DOCUMENTATION
+     BSP Master Index - Updated Quarterly
+""",
             
             "switch": """
 NAME
