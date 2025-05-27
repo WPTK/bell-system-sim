@@ -359,4 +359,523 @@ Type 'man intro' for an introduction to the UNIX system.`;
       exitCode: results.some(r => r.includes('No such file')) ? 1 : 0
     };
   }
+
+  static async ed(args: string[], context: CommandContext): Promise<CommandResult> {
+    const fileName = args[0];
+    if (!fileName) {
+      return {
+        output: "?\n(enter 'q' to quit editor)",
+        exitCode: 0
+      };
+    }
+    
+    const filePath = this.parsePath(fileName, context.currentDirectory);
+    const file = context.files.find(f => f.path === filePath);
+    
+    if (file) {
+      const lines = file.content ? file.content.split('\n').length : 0;
+      return {
+        output: `${lines}\n?`,
+        exitCode: 0
+      };
+    } else {
+      return {
+        output: `${fileName}: No such file or directory\n?`,
+        exitCode: 0
+      };
+    }
+  }
+
+  static async find(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length === 0) {
+      return {
+        output: "find: missing path",
+        exitCode: 1
+      };
+    }
+
+    const searchPath = this.parsePath(args[0], context.currentDirectory);
+    const namePattern = args.includes('-name') ? args[args.indexOf('-name') + 1] : null;
+    const typeFilter = args.includes('-type') ? args[args.indexOf('-type') + 1] : null;
+
+    const results: string[] = [];
+    
+    // Find files under the search path
+    const matchingFiles = context.files.filter(file => {
+      if (!file.path.startsWith(searchPath)) return false;
+      
+      if (namePattern && !file.name.includes(namePattern.replace('*', ''))) return false;
+      
+      if (typeFilter) {
+        if (typeFilter === 'd' && !file.isDirectory) return false;
+        if (typeFilter === 'f' && file.isDirectory) return false;
+      }
+      
+      return true;
+    });
+
+    matchingFiles.forEach(file => results.push(file.path));
+
+    return {
+      output: results.join('\n'),
+      exitCode: 0
+    };
+  }
+
+  static async sort(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length === 0) {
+      return {
+        output: "sort: missing file operand",
+        exitCode: 1
+      };
+    }
+
+    const fileName = args.filter(a => !a.startsWith('-'))[0];
+    const filePath = this.parsePath(fileName, context.currentDirectory);
+    const file = context.files.find(f => f.path === filePath);
+    
+    if (!file) {
+      return {
+        output: `sort: ${fileName}: No such file or directory`,
+        exitCode: 1
+      };
+    }
+
+    if (file.isDirectory) {
+      return {
+        output: `sort: ${fileName}: Is a directory`,
+        exitCode: 1
+      };
+    }
+
+    const content = file.content || '';
+    const lines = content.split('\n').filter(line => line.length > 0);
+    const reverse = args.includes('-r');
+    
+    lines.sort();
+    if (reverse) lines.reverse();
+
+    return {
+      output: lines.join('\n'),
+      exitCode: 0
+    };
+  }
+
+  static async sed(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length < 2) {
+      return {
+        output: "sed: missing operand",
+        exitCode: 1
+      };
+    }
+
+    const script = args[0];
+    const fileName = args[1];
+    const filePath = this.parsePath(fileName, context.currentDirectory);
+    const file = context.files.find(f => f.path === filePath);
+    
+    if (!file) {
+      return {
+        output: `sed: ${fileName}: No such file or directory`,
+        exitCode: 1
+      };
+    }
+
+    // Simple s/old/new/ substitution
+    if (script.startsWith('s/')) {
+      const parts = script.split('/');
+      if (parts.length >= 3) {
+        const oldText = parts[1];
+        const newText = parts[2];
+        const content = file.content || '';
+        const result = content.replace(new RegExp(oldText, 'g'), newText);
+        
+        return {
+          output: result,
+          exitCode: 0
+        };
+      }
+    }
+
+    return {
+      output: file.content || '',
+      exitCode: 0
+    };
+  }
+
+  static async awk(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length === 0) {
+      return {
+        output: "awk: missing program text",
+        exitCode: 1
+      };
+    }
+
+    const program = args[0];
+    const fileName = args[1];
+    
+    if (!fileName) {
+      return {
+        output: "awk: missing file operand",
+        exitCode: 1
+      };
+    }
+
+    const filePath = this.parsePath(fileName, context.currentDirectory);
+    const file = context.files.find(f => f.path === filePath);
+    
+    if (!file) {
+      return {
+        output: `awk: ${fileName}: No such file or directory`,
+        exitCode: 1
+      };
+    }
+
+    const content = file.content || '';
+    const lines = content.split('\n');
+    const results: string[] = [];
+
+    // Simple pattern matching
+    if (program === '{print}' || program === '{print $0}') {
+      return {
+        output: content,
+        exitCode: 0
+      };
+    }
+
+    if (program === '{print NF}') {
+      lines.forEach(line => {
+        const fields = line.trim().split(/\s+/);
+        results.push(fields.length.toString());
+      });
+    } else if (program.includes('print $1')) {
+      lines.forEach(line => {
+        const fields = line.trim().split(/\s+/);
+        results.push(fields[0] || '');
+      });
+    }
+
+    return {
+      output: results.join('\n'),
+      exitCode: 0
+    };
+  }
+
+  static async chmod(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length < 2) {
+      return {
+        output: "chmod: missing operand",
+        exitCode: 1
+      };
+    }
+
+    const mode = args[0];
+    const fileName = args[1];
+    const filePath = this.parsePath(fileName, context.currentDirectory);
+    const file = context.files.find(f => f.path === filePath);
+    
+    if (!file) {
+      return {
+        output: `chmod: ${fileName}: No such file or directory`,
+        exitCode: 1
+      };
+    }
+
+    // Simulate permission change (would update file in real system)
+    return {
+      output: '',
+      exitCode: 0
+    };
+  }
+
+  static async cp(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length < 2) {
+      return {
+        output: "cp: missing operand",
+        exitCode: 1
+      };
+    }
+
+    const source = args[0];
+    const dest = args[1];
+    const sourcePath = this.parsePath(source, context.currentDirectory);
+    const file = context.files.find(f => f.path === sourcePath);
+    
+    if (!file) {
+      return {
+        output: `cp: ${source}: No such file or directory`,
+        exitCode: 1
+      };
+    }
+
+    return {
+      output: '',
+      exitCode: 0
+    };
+  }
+
+  static async mv(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length < 2) {
+      return {
+        output: "mv: missing operand",
+        exitCode: 1
+      };
+    }
+
+    const source = args[0];
+    const dest = args[1];
+    const sourcePath = this.parsePath(source, context.currentDirectory);
+    const file = context.files.find(f => f.path === sourcePath);
+    
+    if (!file) {
+      return {
+        output: `mv: ${source}: No such file or directory`,
+        exitCode: 1
+      };
+    }
+
+    return {
+      output: '',
+      exitCode: 0
+    };
+  }
+
+  static async rm(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length === 0) {
+      return {
+        output: "rm: missing operand",
+        exitCode: 1
+      };
+    }
+
+    const fileName = args.filter(a => !a.startsWith('-'))[0];
+    const filePath = this.parsePath(fileName, context.currentDirectory);
+    const file = context.files.find(f => f.path === filePath);
+    
+    if (!file) {
+      return {
+        output: `rm: ${fileName}: No such file or directory`,
+        exitCode: 1
+      };
+    }
+
+    return {
+      output: '',
+      exitCode: 0
+    };
+  }
+
+  static async mkdir(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length === 0) {
+      return {
+        output: "mkdir: missing operand",
+        exitCode: 1
+      };
+    }
+
+    const dirName = args[0];
+    const dirPath = this.parsePath(dirName, context.currentDirectory);
+    const existing = context.files.find(f => f.path === dirPath);
+    
+    if (existing) {
+      return {
+        output: `mkdir: ${dirName}: File exists`,
+        exitCode: 1
+      };
+    }
+
+    return {
+      output: '',
+      exitCode: 0
+    };
+  }
+
+  static async rmdir(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length === 0) {
+      return {
+        output: "rmdir: missing operand",
+        exitCode: 1
+      };
+    }
+
+    const dirName = args[0];
+    const dirPath = this.parsePath(dirName, context.currentDirectory);
+    const dir = context.files.find(f => f.path === dirPath);
+    
+    if (!dir) {
+      return {
+        output: `rmdir: ${dirName}: No such file or directory`,
+        exitCode: 1
+      };
+    }
+
+    if (!dir.isDirectory) {
+      return {
+        output: `rmdir: ${dirName}: Not a directory`,
+        exitCode: 1
+      };
+    }
+
+    const hasContents = context.files.some(f => f.parentPath === dirPath);
+    if (hasContents) {
+      return {
+        output: `rmdir: ${dirName}: Directory not empty`,
+        exitCode: 1
+      };
+    }
+
+    return {
+      output: '',
+      exitCode: 0
+    };
+  }
+
+  static async df(args: string[], context: CommandContext): Promise<CommandResult> {
+    return {
+      output: `Filesystem    512-blocks      Used Available Capacity  Mounted on
+/dev/rp0a           4872      4512       360    93%    /
+/dev/rp0g          42760     21736     21024    51%    /usr`,
+      exitCode: 0
+    };
+  }
+
+  static async du(args: string[], context: CommandContext): Promise<CommandResult> {
+    const path = args.length > 0 ? this.parsePath(args[0], context.currentDirectory) : context.currentDirectory;
+    
+    const filesInPath = context.files.filter(f => f.path.startsWith(path));
+    const totalSize = filesInPath.reduce((sum, file) => sum + Math.ceil(file.size / 512), 0);
+    
+    return {
+      output: `${totalSize}\t${path}`,
+      exitCode: 0
+    };
+  }
+
+  static async file(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length === 0) {
+      return {
+        output: "file: missing operand",
+        exitCode: 1
+      };
+    }
+
+    const results: string[] = [];
+    for (const fileName of args) {
+      const filePath = this.parsePath(fileName, context.currentDirectory);
+      const file = context.files.find(f => f.path === filePath);
+      
+      if (!file) {
+        results.push(`${fileName}: No such file or directory`);
+        continue;
+      }
+
+      if (file.isDirectory) {
+        results.push(`${fileName}: directory`);
+      } else {
+        const content = file.content || '';
+        if (content.includes('#include') || content.includes('main(')) {
+          results.push(`${fileName}: c program text`);
+        } else if (content.includes('#!/bin/sh') || content.includes('#!/usr/bin/sh')) {
+          results.push(`${fileName}: shell script`);
+        } else if (content.match(/^[\x20-\x7E\s]*$/)) {
+          results.push(`${fileName}: ascii text`);
+        } else {
+          results.push(`${fileName}: data`);
+        }
+      }
+    }
+
+    return {
+      output: results.join('\n'),
+      exitCode: 0
+    };
+  }
+
+  static async od(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length === 0) {
+      return {
+        output: "od: missing operand",
+        exitCode: 1
+      };
+    }
+
+    const fileName = args.filter(a => !a.startsWith('-'))[0];
+    const filePath = this.parsePath(fileName, context.currentDirectory);
+    const file = context.files.find(f => f.path === filePath);
+    
+    if (!file) {
+      return {
+        output: `od: ${fileName}: No such file or directory`,
+        exitCode: 1
+      };
+    }
+
+    const content = file.content || '';
+    const results: string[] = [];
+    
+    for (let i = 0; i < content.length; i += 16) {
+      const chunk = content.slice(i, i + 16);
+      const offset = i.toString(8).padStart(7, '0');
+      const hex = chunk.split('').map(c => c.charCodeAt(0).toString(8).padStart(3, '0')).join(' ');
+      results.push(`${offset} ${hex}`);
+    }
+
+    return {
+      output: results.join('\n'),
+      exitCode: 0
+    };
+  }
+
+  static async uniq(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length === 0) {
+      return {
+        output: "uniq: missing operand",
+        exitCode: 1
+      };
+    }
+
+    const fileName = args.filter(a => !a.startsWith('-'))[0];
+    const filePath = this.parsePath(fileName, context.currentDirectory);
+    const file = context.files.find(f => f.path === filePath);
+    
+    if (!file) {
+      return {
+        output: `uniq: ${fileName}: No such file or directory`,
+        exitCode: 1
+      };
+    }
+
+    const content = file.content || '';
+    const lines = content.split('\n');
+    const uniqueLines: string[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (i === 0 || lines[i] !== lines[i - 1]) {
+        uniqueLines.push(lines[i]);
+      }
+    }
+
+    return {
+      output: uniqueLines.join('\n'),
+      exitCode: 0
+    };
+  }
+
+  static async tr(args: string[], context: CommandContext): Promise<CommandResult> {
+    if (args.length < 2) {
+      return {
+        output: "tr: missing operand",
+        exitCode: 1
+      };
+    }
+
+    const set1 = args[0];
+    const set2 = args[1];
+    
+    // Simple character translation (would normally read from stdin)
+    return {
+      output: `tr: translating '${set1}' to '${set2}' (input required)`,
+      exitCode: 0
+    };
+  }
 }
