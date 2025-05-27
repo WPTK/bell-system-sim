@@ -1,0 +1,1065 @@
+6/82 ISSUE 1 ADMINISTRATOR'S GUIDE 
+
+
+2. ADMINISTRATIVE ADVICE (DEC) 
+
+
+GENERAL 
+The information contained in this section is relative to the following DEC processors: 
+e Digital Equipment Corp. VAX-11/780, 11/750 
+e Digital Equipment Corp. PDP-11. 
+
+
+For administrative advice pertaining to the 3B20S Processor, refer to section “ADMINISTRATIVE ADVICE 
+(3B208)”. 
+
+
+ADMINISTRATOR’S ROAD MAP 
+
+
+This section contains administrative advice based on the experience of many system administrators and 
+their suggestions. Other reasonable aproaches may be taken to solve many of the problem areas described. Get- 
+ting started as a UNIX system administrator is hard work. There are no real shortcuts to a working knowledge 
+of the system. The system administrator will need time for reading, studying and hands-on experimenting. The 
+system administrator should not go “live” with the system until he/she have had two weeks to learn the job 
+and get the initial hardware quirks ironed out. 
+
+
+Do not consign the “Setting up the UNIX System” section of this guide to oblivion after your initial system 
+“gen”. In addition to information needed again whenever adding or changing equipment, the section contains 
+valuable material about system tuning (buffers, clists, etc.) that appears nowhere else. 
+
+
+The administrator should be familiar with a lot of the distributed documentation. The “Introduction”, and 
+“How to Get Started” sections of the UNIX System User’s Manual as well as all of the sections of the UNIX 
+
+
+System Administrator’s Manual should be studied. 
+
+
+Throughout this section, each reference of the form name(1M) name(7), or name(8) refers to entries in 
+the UNIX System Administrator’s Manual. All other references to entries of the form name(N) where “N” is 
+a number (1 through 6) possibly followed by a letter, refer to entry name in Section N of the UNIX System 
+User’s Manual. 
+
+
+In these manuals, pay special attention to: acct(1M), checkall(1M), chmod(1), chown(1), config(1M), 
+epio(1), date(1), decopy(1M), df(1M), don(1M), du(1), ed(1), env(1), errpt(1M), find(1), format(1M), fsck 
+(1M), fuser(1M), kill(1), mail(1), mkdir(1), mkfs(1M), ncheck(1M), ps(1), rm(1), rmdir(1), shutdown 
+(1M), stty(1), su(1), syne(1M), time(1), vef(1M), voleopy(1M), wall(1M), who(1), and write(1); acct(4); 
+all of Section 7; and crash(8), 750o0ps(8), and 7800ps(8). 
+
+
+CONFIGURATION GUIDELINES 
+
+
+Minimum recommended configurations are shown in Table 2.A. The figures are approximations based on 
+several system administrator’s experience. 
+
+
+Page 13 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+TABLE 2.A 
+
+
+HARDWARE CONFIGURATION SIMULTANEOUS USERS 
+
+
+PDP-11/70; 768K-byte memory; 
+RP06 (RP04, RP05) disks 
+(2 or more drives) 
+
+
+Above with 1M-byte memory and 
+a disk drive (or fixed-head disk) 
+set aside for the root file system 
+VAX-11/780; 2M-byte memory; 
+at least 3 RP06 or RM05 disks 
+
+
+See the “Setting up the UNIX System” section for the list of supported hardware options. 
+
+
+DISK FREE SPACE 
+
+
+Making files is easy under the UNIX operating system. It has been said that the only standard thing about 
+all UNIX systems is the message-of-the-day telling users to clean up their files. Administratively, both free disk 
+blocks and free inodes (UNIX system talk for file headers) can be a problem. If the free inode count falls below 
+100, the system spends most of its time rebuilding the free inode array. If a file system runs out of space, the 
+system prints “no-space” messages and does little else. To avoid problems, the following start-of-day free counts 
+
+
+should be maintained: & 
+
+
+e The file system containing /tmp (temporary files): 
+
+
+—16-user system: 1500 free kilobytes(KB). 
+—4(-user system: 3000 free KB. 
+
+
+e The file system containing /usr. 
+—3000 to 6000 free KB depending on load. 
+e Other user file systems: 
+
+
+. —6 to 10 percent free depending on user habits 
+(3000 KB minimum). 
+
+
+This brings up an associated problem: how big should file systems be? The preference is to set aside space 
+on each drive for a copy of root/swap and use the rest of the pack for a single file system. However, if you have 
+user groups that fight over disk space, it may be better to split them up arbitrarily (i.e., divide a pack into more 
+than one file system). 
+
+
+Warning: If different disk drives are set up with differing cylinder partitions between file 
+systems, it will eventually lead to an operational! blunder. 
+
+
+A VERY FEW WORDS ABOUT SYSTEM TUNING 
+
+
+As shipped, the UNIX system has no programs with the text-bit mode set [see chmod(1)]. The top contend- 
+ers for the t-bit are nroff and followed (generally) by the larger phases of the C compiler (including the % 
+assembler and loader). The t-bit is only meaningful with pure text programs [Id(1) options —i or —n]. Do not 
+overdo it and keep t-bit programs in the root file system. 
+
+
+Page 14 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+A file system reorganization (described below) can help throughput but at the expense of down time. If the 
+reorganization is done when the users are all asleep, it can help. 
+
+
+If normal shutdown and filesave procedures are used, the file system check program |fsck(1M), —S option] 
+will help keep the disk free list in reasonable order. Try to keep disk drive usage balanced. If there are over 
+20 users, the root file system (/bin, /tmp, /etc, and swap) deserves a drive of its own. If there is a noisy modem 
+(poorly executed do-it-yourself null-modem) or a disconnected modem cable, the UNIX system will spend a lot 
+of CPU time trying to get it logged in. A random check of systems uncovers a lot of this going on. 
+
+
+WHY A SPARE DISK DRIVE IS NEEDED 
+
+
+Without a spare disk drive, the system will be down when a drive is down. Also, without the spare drive, 
+it is difficult to reorganize file systems or to save and restore user files. 
+
+
+DISK PACKS 
+
+
+Only fully ECC (Error Correcting Code) correctable disk packs should be bought. The pack should be tested; 
+and if uncorrectable errors develop, recondition the pack or get rid of it. 
+
+
+RP06 disk packs used with the UNIX system need not be totally error free but must be “flag-free”. The term 
+flag-free means that there should be no unrecoverable ECC errors. Technically, proper ECC handling can re- 
+cover from 11-bit error bursts. However, the length of bursts can grow as a pack ages. It is recommended that 
+no pack that has more than 8-bit error bursts be accepted. 
+
+
+For the PDP-11, in reading the formatter printout, ECC correctable errors are identified by the headings 
+“DATA ERROR DURING WRITE CHECK.” Error-register values are printed below the message. The two reg- 
+isters of interest are RPER1 and RPEC2. A RPER1 value of 1000000 indicates ECC (no other bits on). The 
+RPEC2 register describes the bit span of the error. For example, RPEC2=003774 means that there was an unac- 
+ceptable 9-bit (binary 0000011111111100) error burst; RPEC2=002400 is an acceptable 3-bit span 
+(0000010100000000-there may be zero bits mixed in). If such acceptable errors account for all “unrecoverable” 
+errors reported (and there are not too many of them), then you have a flag-free pack. 
+
+
+For the VAX, even this scant information was not available, so a formatter has been written (it tells its 
+tale in English); see format(1M). 
+
+
+PROTECTING USER FILES 
+
+
+Users, especially inexperienced ones, occasionally remove their own files. Open files are sometimes lost 
+when the system crashes. Once in a great while, an entire file system will be destroyed (picture a disk controller 
+that goes bad and writes when it should read). Here is a suggested file backup procedure: 
+
+
+e Each day copy all user file systems to backup packs. Keep these packs 3 to 5 days before reusing them. 
+e (Once a week copy each file system to tape. Keep weekly tapes for 8 weeks. 
+e Keep bimonthly tapes “forever” (they should be recopied once a year). 
+
+
+The most recent weekly tapes should be kept off premises. The other tapes should be in a fireproof safe if 
+available and not too expensive. 
+
+
+When the UNIX system goes down, active files can get scrambled. Your users will not want to start the day 
+
+
+over every time the system fails. In addition to good backup, you-must have file system patching expertise avail- 
+able (on-site or on-call). If the system is ever rebooted for general use without first checking the file systems, 
+
+
+Page 15 
+
+
+| 
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+100 new files in just 3 days.) Study checkall(1M), fsck(1M) and crash(8) as well as the “File System Checking” 
+section for more information. 
+
+
+terrible things will happen. (Once this caused five duplicate entries on a file system free list—this ruined over ae 
+UNIX FILE SYSTEM BACKUP PROGRAMS 
+The following backup programs are distributed: & 
+
+
+e Find/cpio: The UNIX system is distributed in epio format. The —epio option of the find command can 
+be used for saving only those files that have changed or been created over a definite period. 
+
+
+e Voleopy: Physical file system copying to disk or tape. For those with a spare drive, voleopy to disk 
+provides convenient file restore and quick recovery from disk disasters. Tape voleopy provides good 
+long-term backup because the file system can be read-in fairly quickly, mounted, and browsed over. Disk Be 
+
+
+and tape voleopy are generally used together for short- and long-term backup. Note that a voleopy 
+from a mounted file system may result in an inconsistent copy (files being written at the time can con- 
+tain invalid data). 
+
+
+Table 2.B below summarizes attributes of these programs. The file system size is 65,500 KB in all cases; times 
+are in minutes; judgements are subjective. 
+
+
+TABLE 2.B 
+
+
+Sea eS FIND/CPIO VOLCOPY (DISK) | VOLCOPY (TAPE) 
+
+
+Full dump time 
+Incremental dump time 
+Full restore time 
+Incremental restore time 
+Ease of restoring: 
+one file i good 
+a directory i good 
+scattered files good 
+full restore i very good 
+Needs tape drive yes no 
+Needs spare file system 
+. (only when restoring) 
+Needs spare disk drive 
+(two CPUs can share) 
+Maintains pack/tape labels 
+Handles multireel tape 
+512 KB per record 
+Interactive 
+(i.e., ties up console) 
+May require separate 
+I/D space 
+
+
+* KB per record are cut to 22 without separate I/D space. 
+
+
+Page 16 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+The spare disk drive is strongly recommended. The speed and convenience of voleopy are by no means the 
+only advantage of a spare drive. It is strongly recommended that the administrator modify the /etc/filesave 
+and /etc/checklist files to meet the operational needs and update the local operator’s manual accordingly. Re- 
+member, the more the administrator automates and documents operational procedures the less downtime will 
+be encountered. 
+
+
+CONTROLLING DISK USAGE 
+
+
+If the UNIX system is a success, disk space will soon become limited. During the long delay before more 
+drives become available, usage should be controlled. Try to maintain the start-of-day counts recommended. 
+Watch usage during the day by executing the df(1) command regularly. 
+
+
+The du(1) command should be executed (after hours) regularly (e.g., daily), and the output kept in an acces- 
+sible file for later comparison. In this way, users rapidly increasing their disk usage may be spotted. This can 
+also be accomplished by running the accounting system’s acctdusg program |see acct(1M)] as shown in “The 
+UNIX System Accounting” section. 
+
+
+The find(1) command can be used to locate inactive (or large) files. For example: 
+find / —mtime +90 —atime +90 —print >somefile 
+records in somefile the names of files neither written nor accessed in the last 90 days. 
+
+
+The administrator will also have to balance usage between file systems. To do this, user directories must 
+be moved. Users should be taught to accept file system name changes (and to program around them—preferably 
+ahead of time). The user’s login directory name (available in the shell variable HOME) should be utilized to 
+minimize pathname dependencies. User groups with more extensive file system structures should set up a shell 
+variable to refer to the file system name (e.g., F'S). 
+
+
+The find(1) and epio(1) commands can be used to move user directories and to manipulate the file system 
+tree. The following sequence is useful (it moves the directory trees userx and usery from file system filesys1 
+to file system filesys2 where, presumably, more space is available): 
+
+
+ed /filesys1 
+
+find userx usery —print ! cpio —pdm /filesys2 
+
+Make sure new copy is OK. 
+
+Change userx and usery login directories 
+in the /etc/passwd file. 
+
+Notify userx and usery via mail(1) that 
+they have been moved and that pathname 
+dependencies in their .profile and shell 
+procedures may need changed. See the 
+discussion on $HOME above. 
+
+rm —rf /filesysl/userx /filesysl/usery 
+
+
+FR S] SR FH OSS SE FR OSS 
+
+
+When moving more than one user in this way, keep users with common interests in the same file system (these 
+users may have linked files) and move groups of users who may have linked files with a single epio command 
+(otherwise, linked files will be unlinked and duplicated). 
+
+REORGANIZING FILE SYSTEMS 
+
+
+There is a new file system reorganization utility called deopy(1M). On an otherwise idle system, a reorga- 
+nized file system has almost twice the I/O throughput of a randomly organized file system. This applies to file 
+
+
+Page 17 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+copying, finds, fscks, etc. Deopy can take up to 2.5 hours to initially reorganize (copy) a large file system. Dur- 
+ing reorganization, the system can be up, but the file system being copied must be unmounted. 
+
+
+For those who can afford the operator time, root reorganization once a week (requires system reboot) and 
+user file system reorganization once a month will improve system performance. Deopy is an interim step. 
+
+
+KEEPING DIRECTORY FILES SMALL 
+
+
+Directories larger than 5K bytes (320 entries) are very inefficient because of file system indirection. A UNIX 
+system user once complained that it took the system ten minutes to complete the login process; it turned out 
+that his login directory was 25K bytes long, and the login program spent that time fruitlessly looking for a non- 
+existent .profile file. A large /usr/mail or /usr/spool/uucp directory can also really slow the system down. The 
+following will ferret out such directories: 
+
+
+find / —type d —size +10 —print a 
+
+
+Removing files from directories does not make the directories get smaller (the empty directory entries are 
+available for reuse). The following will “compact” /usr/mail (or any other directory): 
+
+
+mv /usr/mail /usr/omail 
+mkdir /usr/mail 
+
+chmod 777 /usr/mail 
+
+ed /usr/omail 
+
+find . —print i cpio —plm ../mail 
+cd... 
+
+rm —rf omail 
+
+
+ADMINISTRATIVE USE OF “CRON” 
+
+
+The program cron(1M) is useful in the administration of the system; it can be used to: 
+e Turn off the programs in directory /usr/games during prime time. 
+e Run programs off-hours: 
+
+
+—accounting; 
+
+—file system administration; 
+
+—long-running, user-written shell procedures. 
+[using the su(1) command], for example: 
+su—userx userx_shell arg ... 
+
+
+WATCH OUT FOR FILES AND DIRECTORIES THAT GROW wv 
+Most of the below files are restarted automatically by entries in /etc/re at system reboot. 
+e Accounting files: 
+
+
+e /etc/wtmp—login information; grows extremely fast with terminal line difficulties; use 
+acctcon(1M) to determine the offending line(s). 
+
+
+e /usr/adm/pacet—per process accounting records; gets big quickly; monitored automatically by 
+ckpacct from cron(1M). 
+
+
+e /usr/adm/cronlog—status log of commands executed by eron(1M); also watch this file for error 
+messages from the programs being executed in /usr/lib/crontab. 
+
+
+Page 18 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+2 e /usr/adm/errfile—hardware error logging info; also read login adm’s mail periodically. 
+e /usr/adm/ctlog—a log of the people who use et(1C) command. 
+
+
+e /usr/adm/sulog—a log of those who execute the superuser command. 
+
+
+/usr/adm/Spacet—process accounting files left over from an accounting failure; remove these 
+files unless the accounting files that failed are to be rerun. 
+
+
+e Other files: 
+
+
+e /usr/spool—spooling directory for line printers, uuep(1C), etc., and whose subdirectories 
+te should be compacted as described above. 
+
+
+ALLOCATING RESOURCES TO USERS 
+
+
+A prospective user should first obtain authorization to use the system and then apply for a login by provid- 
+ing the following information to the “system administrator”: 
+
+
+e User’s name. 
+e Suggested login name (not more than eight characters, beginning with a lowercase letter). 
+e Relationships to other users (this influences the choice of the file system). 
+
+
+G e Estimate of required file space (this also influences the choice of the file system) and connect hours. 
+This aids in hardware growth planning. 
+
+
+Users should be forced to have passwords not more than eight characters long, but more than five, and not 
+in Webster’s Unabridged; passwd(4) explains how to do that as well as explaining password aging. 
+
+
+THE MATTER OF ACCOUNTING AND USAGE 
+
+
+You should run the accounting programs even if there is not a “bill” for service. Otherwise, users’ habits 
+(especially bad habits) will be a mystery to you. Accounting information can also help you find performance 
+bottlenecks, unused logins, bad phone lines, etc. 
+
+
+@ DIAL-LINE UTILIZATION 
+
+
+If prime-time dial-line utilization gets much over 70 percent, users will start to encounter busy signals when 
+dialing in. This, in turn, will lead to “line hogging”. The only solutions are to acquire more dial-up ports, get 
+a larger (another) machine, or to get rid of users. Manual policing will help some, but “automatic” policing will 
+be invariably subverted by users. 
+
+
+“BIRD-DOGGING” 
+
+
+When the system is busy (lines busy and/or slow response), someone should determine why this is so. The 
+who(1) command lists the people logged in. The ps(1) command shows what they are doing. Unfortunately, ps 
+operates from heuristics that can consistently fail to report certain processes in a busy system. That is, one must 
+be careful about hanging up an apparently inactive line. The acectecom(1M) command can read the process ac- 
+
+& counting file /usr/adm/pacet backwards from the most recent entry. It will print entries for selected lines or 
+login names. 
+
+
+Page 19 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+300/1,200-BAUD TERMINALS 
+
+
+Do not use uppercase only terminals. Use full-duplex, full-ASCII asynchronous terminals. Hardware hori- 
+zontal tabbing is very desirable because it increases output speed and lowers system overhead. A fair proportion 
+of the terminals should provide for correspondence quality hard copy output to take advantage of the UNIX sys- 
+tem word processing capabilities; see term(5). 
+
+
+LINE PRINTERS 
+
+
+Most line printers are troublesome and impose considerable overhead on the system. Most also lack hard- 
+ware tabs, character overstrike capability, etc. A printer that will work over an asynchronous link (DC1/DC3 
+protocol required) is the best bet. 
+
+
+SECURITY 
+
+
+The current UNIX operating system is not tamperproof. The system administrator can not keep people from 
+“breaking” the system but can usually detect that they have done so. The following command will mail (to root) 
+a list of all “set user ID” programs owned by root (superuser): 
+
+
+find / —user root ~perm —4100 —exee Is —| { } \;! mail root 
+Any surprises in root’s mail should be investigated. Related advice: 
+
+
+e Change the superuser password regularly. Do not pick obvious passwords (choose six-to-eight character 
+nonsense strings that combine alphabetics with digits or special characters). 
+
+
+e Dial ports that do not require passwords usually cause trouble. 
+e The chroot(1M) and su(1) commands are inherently dangerous as are group passwords. 
+
+
+e Login directories, .profile files, and files in /bin, /usr/bin, /Ibin, and /ete that are writable by others 
+than their respective owners are security weak spots; police the system regularly against them. 
+
+
+e Remember, no time-sharing system with dial ports is really secure. Do not keep top secret information 
+on the system. 
+
+
+COMMUNICATING WITH THE USERS 
+
+
+The directory /usr/news and the news(1) command are provided as a way to get “brief” announcements 
+to your users. More pressing items (one-liners) can be entered in the /etc/motd (message of the day) file; motd 
+and (new to the user) news are announced at login time. 
+
+
+To reach users who are already logged in, use the wall(1M) (write all) command. Do not use wall while 
+logged-in as superuser, except in emergencies. 
+
+
+The /usr/news directory should be cleaned out once a week by removing everything older than 2 months. 
+It has been found that on most systems a file in /usr/news will reach 50 percent of the users within a day and 
+over 80 percent within a week; motd should be cleaned out daily. 
+
+
+TROUBLESHOOTING 
+
+
+It would be easy to write a book on troubleshooting. The following is some effective advice in dealing with 
+troubles. In dealing with hardware support service personnel: 
+
+
+e Be sure that the contractor agrees to get along with the UNIX software before you take out a hardware 
+service contract with DEC or with someone else (“It’s the hardware,” says you; “It’s the software,” says 
+the hardware service contractor). 
+
+
+Page 20 
+
+
+6/82 ISSUE 1 ADMINISTRATOR'S GUIDE 
+
+
+e Keep on top of problems. For instance, DEC has a problem-aging priority scheme. Find out about any 
+such scheme that your contractor may have and make them prove that it is being followed. Remember 
+that an unreported problem is getting no priority at all. If a problem persists, escalate it through the 
+contractor’s local management chain; it may also be effective to complain to the contractor’s sales repre- 
+sentative. 
+
+
+e For effective service, an extended period support service offering (e.g., 16 hours/day, 6 days/week) 
+should be provided. Arrange for preventive maintenance, noncritical repair, and add-on installation 
+work to be done before or after prime time. 
+
+
+e Know the details of the support service offering applicable to the installation. In particular, make sure 
+that preventive maintenance is scheduled in advance and that it is completed. 
+
+
+e A “site log” should be maintained for the hardware. All troubles should be recorded in the log by the 
+support service personnel and/or the operating personnel. 
+
+
+e Make sure that the hardware vendor (as well as the hardware service contractor, if the two are differ- 
+ent) agrees to the presence of non-DEC equipment on your system (even if you have none to start with). 
+
+
+e Run error logging and maintain console sheets. Make sure error messages are shown to support service 
+personnel. 
+
+
+e Take core dumps after system crashes and interpret results for support service personnel. 
+e Keep records of downtime and make sure that support service personnel know about them. 
+
+
+e After having considerable configuration trouble on the VAXs, a stand-alone utility vef was developed 
+which tests for the presence of both MASSBUS* and UNIBUS* devices. The resulting list of addresses 
+is compared with the operating system object module (/unix). Device address and interrupt vector dis- 
+crepancies are reported. A complete configuration list can be generated as well. The vef should be run 
+after any DEC service or any operating system software change. It can save days of downtime. 
+
+
+Telephone problems are most apt to occur when rearranging or adding equipment. Occasionally, central of- 
+fice, trunking, or modem failures occur. In dealing with the telephone services vendor: 
+
+
+e Be specific with repair operators. Tell the operators that the trouble involves data equipment. 
+
+
+e If the first call fails to get results, ask for the “supervisor” on the second call, and if necessary, escalate 
+further to get the problem solved. 
+
+
+Some of the obvious problem areas are: 
+
+
+e Disk Drives—Over 50 percent of the problems are likely to be related to the disk subsystem. As men- 
+tioned earlier, the way to keep the system up is to have a spare disk drive. Remember that preventive 
+maintenance of disk drives is very important. Make sure that the support service personnel who service 
+the hardware see the error-logging printouts and console error messages produced by the UNIX system 
+(and that they understand them). Disk failure can ruin a UNIX file system. The only defense is to make 
+a complete, daily file backup! (See “Protecting User Files”.) 
+
+
+e Dial Ports—In this area, as well as in the area of synchronous data interfaces, there is room for finger- 
+pointing among all vendors. Check for obvious things such as: 
+
+
+—Is the system in “multiuser” mode? 
+—Is the /etc/inittab file OK? 
+
+
+* Trademark of Digital Equipment Corporation 
+
+
+Page 21 
+
+
+ADMINISTRATOR'S GUIDE ISSUE 1 6/82 
+
+
+—Are any cables loose (both ends)? 
+
+—In some telephone offices, trunk hunting is 
+based on 10-number groups. Hunting between 
+such groups can fail independently of any- 
+thing else. 
+
+
+The possibilities for trouble are many. The “decision table” (Table 2.C) attempts to describe some alterna- 
+tives; it is meant primarily for users of DH11/DZ11 asynchronous devices. If you are unfamiliar with the for- 
+mat, (vertical) Rule 3 reads: “If line rings and ring light shows and computer does not answer and switching 
+the modem solves the problem, then it is likely to be a telephone company problem; also, busy out that line.” 
+
+
+e Early experience with the DZ11 has been poor. Several different problems have cropped up including 
+bad line units and a stuck interrupt bit that crashes the system. Do not install DZs without giving them 
+
+
+the full diagnostic treatment. eS 
+
+
+e Synchronous Ports—High-speed synchronous interface devices are even more trouble than dial equip- 
+ment. The following is a list of potential trouble spots: 
+
+
+—The UNIX system software. 
+—Interface device (e.g., KMC11B). 
+—Cable to the modem. 
+
+—The modem. 
+
+—The communications line. 
+—Other modem. 
+
+
+—Other cable. 
+—Other interface device. 
+—Other system’s software. &y 
+
+
+Think of the finger-pointing possibilities. The best defense is a good line monitor. 
+
+
+e Power Supply Modules—There are a lot of them, and they do fail, more or less regularly. Hard failure 
+can be detected at the console; voltage drift is tougher. Failure of the FP11 (floating-point unit) power 
+supply (on PDP-11) can be slow to fix because service personnel are likely to work back from the far 
+end of the “bus” taking a long time to find the problem. 
+
+
+Page 22 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+TABLE 2.C 
+
+
+ASYNCHRONOUS LINE PROBLEMS 
+
+
+a Condition: 
+Line rings 
+
+
+Ring light shows on telephone console 
+Computer answers 
+
+Login message received on terminal 
+Switching modem solves problem 
+
+
+User can login 
+ao Telephone console shows data received 
+Problem affects whole DH/DZ (up to 16 lines) 
+
+
+We a ee 
+Aa ne 
+KZ I KK 
+Ail ted 
+l2aml KK KK 
+a 
+
+
+Diagnosis and/or Action: 
+
+
+No problem 
+
+Hardware problem likely 
+
+Telephone problem likely 
+
+May be a problem with user’s terminal 
+Busy out bad line(s) 
+
+
+& DATA SET OPTIONS 
+
+
+The following data set options seem to work with the UNIX system: 
+
+
+The 801C-L1 (Auto-Call Unit): 
+Jumpers: 
+E2to E3 
+E6 to Kd 
+
+
+Options: 
+YoX Tas 
+ZG, ZP;.G, 
+
+
+@ Hee 
+
+
+Switches (0 = open, 1 = closed, i.e., side next to number is down): 
+S1=1000[1] (Bracketed switches are missing on some models.) 
+
+
+o S$2= 0101 
+S3 = 11010 
+$4 = 11[00] 
+& The 212A-L1 (1200-baud full duplex): 
+Options: 
+Eve YE XC. 
+YG, YJ, YK, 
+
+
+S, V, A, T, ZH, 
+
+
+& W, YP, YR 
+
+
+Page 23 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+Switches: 
+S1 = [0]001 
+S2 = 110001000 
+S3 = 11110000 (10100000 on 212A R-L1) 
+o5 = 
+
+
+NULL MODEM WIRING 
+
+
+Improperly wired null modems can cause spurious interrupts, especially at higher baud rates. A single bad 
+modem on a 9600-baud line can waste 15 percent of your CPU power. The following (symmetrical) wiring plan 
+will prevent such problems: 
+
+
+Pin 1 tol 
+
+pin 2 to 3 
+
+pin 3 to 2 
+
+strap pin 4 to 5 in the same plug 
+pin 6 to 20 
+
+pin 7 to 7 
+
+pin 8 to 20 
+
+pin 20 to 6 and 8 
+
+ground unused pins. 
+
+
+113D, 103) DATA SET PROBLEMS 
+
+
+The DH11 and DJ11 multiplexers normally have a jumper connecting pin 25 to pin 4 (request to send), thus 
+asserting pin 25 when the line is opened. This jumper should be removed for any lines connected to 113Ds or 
+103Js (also applies to 108Js with 801s). 
+
+
+A FEW WORDS ABOUT ACU WIRING 
+
+In rack-mounted 801/212s, cabling is fairly simple: a DN11 cable is plugged into an 801 (the rack provides 
+the connection from the leftmost 801 to the leftmost 212) and the RS232 asynchronous interface device cable 
+goes to the 212. 
+
+Synchronous ports are generally not rack-mounted. For example, a 201C data set connected to KMC11/ 
+DMC11 VPM link. The DMC cable goes to the “userint” (rightmost) 201C connection, the DN cable goes to the 
+rear leftmost plug of the 801, the 801 to 201 connection goes from the 801 right plug to the 201 left plug. 
+
+The cable to the 801 is supplied with the DN11. There is a conversion stubby cable at the ACU which connects 
+to the DN cable. The cable from the ACU to the data set should be supplied with the 801 if the units are separate. 
+Refer to the tab section “AUTO CALL FACILITY INSTALLATION” for more information. 
+
+KMC11-B PROBLEMS 
+
+
+If you receive a KMC11B that passes DEC diagnostics but does not work, check to see if it is “Rev Level 
+E”. Most of the KMCs with that revision come with the wrong clock rate. 
+
+
+Many system administrators have had problems with lengthy KMC downtime. Don’t stand for it! Make your 
+computer service vendor keep bringing spares until you get a working unit. Escalate the problem! 
+
+
+PHOTOTYPESETTING EQUIPMENT AND SUPPLIES 
+
+
+This part contains information on phototypesetting equipment and supplies for users of the UNIX system 
+phototypesetting software. The information in this part applies only to the Wang Graphics Systems. 
+
+
+Page 24 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+A. Phototypesetter 
+The phototypesetter and fonts supported by the UNIX system are manufactured by: 
+
+
+Wang Graphic Systems, Inc. 
+Executive Drive 
+Hudson, NH 03051 (603-889-8550) 
+
+
+The phototypesetter is an on-line C/A/T System 1 with a high-speed turret. The external paper tape reader 
+on the typesetter is not needed because the typesetter is connected to the PDP-11 CPU via a DRIIC. 
+
+
+B. PDP-11/45 Only 
+
+
+The following modification (developed by DEC Field Service) should be made to the DR11C (without this 
+modification, the system may crash when the typesetter is powered down): “Add two 390-ohm resistors from 
+E-18 pin 6 to ground, and from E-18 pin 3 to ground. Put a piece of insulating tubing over the leads so that they 
+do not short out the ‘etch’ runs that they cross.” 
+
+
+C. Fonts 
+
+
+There are eight fonts that are normally used (see Table 2.D). The first three of the these provide the most 
+often used (serif) typeface. The last three are used when a sans-serif typeface is desired. The fourth font contains 
+a number of Greek characters and mathematical symbols. The fifth font is useful for typesetting text that you 
+wish to look like terminal or printer output, e.g., examples of programs. Wang Graphic Systems, Inc. offers a 
+variety of other fonts. For troff to be able to use these fonts, corresponding font tables must be built and com- 
+piled into the directory /usr/lib/font. 
+
+
+TABLE 2.D 
+
+
+BT Times Roman 802-016A 
+Times Italic 802-018A 
+Times Bold 802-014A 
+
+
+BT PI Font #4 Special Characters 829-021B 
+
+BT PI Font #6 Constant Width 829-046A 
+
+Helvetica (Geneva) Regular 803-032B G or H 
+Helvetica (Geneva) Regular Italic 803-033B GI or HI 
+Helvetica (Geneva) Medium 803-034B GM or HM 
+
+
+Table 2.E shows other fonts for which the source font tables are supplied. 
+
+
+Page 25 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+TABLE 2.E 
+
+
+Boston Condensed 
+
+News Condensed 
+
+Century Schoolbook Expanded 
+Century Schoolbook Italic 
+Century Bold Italic 
+
+Century Schoolbook 
+
+Futura (Utica) Demibold 
+
+
+Text Greek 
+
+Helvetica (Geneva) Light 
+Helvetica (Geneva) Light Italic 
+Palatino 
+
+Palatino Bold 
+
+Palatino Italic 
+
+Stymie Bold 
+
+Stymie Medium Italic 
+
+Stymie Medium 
+
+
+D. Paper and Chemicals 
+
+
+The phototypesetter “prints” onto photomechanical paper (obtained from a photographic supply house) and 
+
+
+is specified as: ey 
+
+
+e Kodak Ektamatic Paper, Grade S, Type 2250, 8 in.x150 ft., Spee. 175 (or equivalent). 
+Also obtainable from such a supply house are the chemicals for the developing process: 
+e Kodak Ektamatic A10 Activator (or equivalent). 
+e Kodak Ektamatic 540 Stabilizer (or equivalent). 
+These chemicals should be ordered in 9.5-liter (2.5-gallon) containers for the circulator. 
+
+
+E. Developer 
+
+
+A Kodak Ektamatic Processor Model 214K (or equivalent) is used to process the paper from the typesetter. & 
+A lightproof box attached to the 214K (to hold the output cassette from the typesetter) is called an “Autofeeder” 
+and can be obtained from: 
+
+
+Peripheral Graphics, Inc. 
+
+Andover Industrial Center 
+
+York Street 
+
+Andover, MA 01810 (617-475-9005). & 
+
+
+Page 26 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+F. Circulator and Dryer 
+ee A circulator and a paper dryer as well as a shelf for the dryer can be obtained from: 
+
+
+Mohr Enterprises 
+8015 North Ridgeway Ave. 
+& Skokie, IL 60076 (312-674-8890). 
+
+
+The needed parts are: 
+
+
+e ME-8 Mohrflow: circulator to increase the usability of the chemicals. 
+
+
+e ME-5 Mohrdry: dryer for the photomechanical paper. 
+
+
+ed e Dryer Extension: shelf to support the dryer; it connects to the circulator cabinet. 
+
+
+Also obtainable from Mohr Enterprises are cleaners for the developer and circulator. Such cleaning is 
+
+
+needed every 2 to 4 weeks depending on the volume of work: 
+e R-53 Mohrchem Activator Cleaner Concentrate. 
+
+
+e R-57 Mohrchem Stabilizer Cleaner Concentrate. 
+
+
+Each quart bottle makes 9.5 liters (2.5 gallons) of reusable cleaner to clean the tubing, rollers, and tray of the 
+developer and circulator. Equivalent cleaners can also be obtained elsewhere. 
+
+
+Page 27 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+NOTES 
+
+
+Page 28 
+
+

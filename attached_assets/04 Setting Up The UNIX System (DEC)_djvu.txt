@@ -1,0 +1,1861 @@
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+4. SETTING UP THE UNIX SYSTEM (DEC) 
+GENERAL 
+
+
+This section describes the load, update, and configuration procedures involved in installing a UNIX operat- 
+ing system on the following DEC processors: 
+
+
+e Digital Equipment Corp. VAX-11/780, 11/750 
+e Digital Equipment Corp. PDP-11. 
+
+
+In the case of the PDP-11, this section is directed mainly toward installing the UNIX system on the 11/70 (the 
+11/45 is really too small for anything but a stripped down version of Release 5.0). 
+
+
+For setup information pertaining to the 3B20S Processor, refer to the section “SETTING UP THE UNIX 
+SYSTEM (3B208)”. : 
+
+
+A. Prerequisites 
+
+
+Before attempting to generate a UNIX operating system, the system administrator should understand that 
+a considerable knowledge of the related documentation is required and assumed. In particular, the administra- 
+tor should be very familiar with the following documents: 
+
+
+e UNIX System User’s Guide 
+e UNIX System User’s Manual 
+
+
+e UNIX System Administrator’s Manual 
+e UNIX System Operations Guide 
+e All sections in the UNIX System Administrator’s Guide. 
+
+
+Throughout this section, each reference of the form name(1M), name(7), or name(8) refers to entries in 
+the UNIX System Administrator’s Manual. All other references to entries of the form name(N), where “N” 
+is a number (1 through 6) possibly followed by a letter, refer to entry name in section N of the UNIX System 
+User’s Manual. 
+
+
+The system administrator must have a basic understanding of the operation of the hardware. This includes 
+the operation of the console and the tape and disk drives, which are assumed to have standard UNIX system 
+addresses and interrupt vectors. It is also assumed that the hardware works and has been completely installed. 
+All appropriate DEC diagnostics should have been run to test the configuration, and a detailed description of 
+the hardware including device addresses, interrupt vectors, and bus levels is needed. This information is neces- 
+sary to generate a UNIX system. 
+
+
+B. Procedure 
+
+The UNIX system is distributed on two magnetic tapes, recorded in 9-track format at either 800 bpi or 1600 
+bpi. Distribution tapes will be marked either ‘“PDP-11” or “VAX”, 800 bpi or 1600 bpi. Make sure you have the 
+correct tape for your machine. The UNIX system Release 5.0 is to be installed using only the initial load proce- 
+dures described in this document. 
+
+
+Initial Load 
+
+
+The initial load program (on Tape 1) will copy a file system from tape (VAX: either a TE16, a TU78, or a 
+TS11; PDP-11: either a TU10 or a TU16) to disk (VAX: either an RP06, an RM05, or an RM80; PDP-11: either 
+
+
+Page 41 
+
+
+ADMINISTRATOR'S GUIDE ISSUE 1 6/82 
+
+
+an RP03, an RP06, or an RM0O5). In this document, RP04/5 drives are considered to be equivalent to RP06 drives; 
+any differences will be noted explicitly. Once the root file system has been successfully loaded to disk, the UNIX 
+system may be booted and the available utility programs used to complete the installation. 
+
+
+Update 
+
+
+The update procedures are to be used only on releases that are designated as update releases. The epio(1) 
+program is used to perform all updates. The epio program will not update any file if its replacement has a modi- 
+fication time that is less than (i.e., earlier than) the modification time of the original file. Certain administrative 
+files (e.g., etc/passwd) are sent with a modification time of January 1, 1970 to ensure that they do not replace 
+their counterparts during updates. Any file not copied will cause cpio to print a message to that effect. These 
+messages should always be investigated to ensure that any files not copied were of that type. However, note 
+that, depending on respective modification times, a locally-modified file may get updated, thus destroying the 
+local modifications. 
+
+
+One of the most common problems that can arise during an installation is running out of disk space when 
+performing an update. Should this occur, the original contents of the file system should be restored from a 
+backup copy and the contents of the update tape should be read into a spare file system using the epio program. 
+Unwanted material can then be removed and the original file system can be updated from this new file system 
+using the —pdm options of cpio. 
+
+
+LOAD PROCEDURES 
+A. Distribution Tape Format 
+Tape 1 contains nine files: a loader, a physical copy of the root file system, the cpio program, a cpio struc- 
+
+
+tured copy of the root file system, and five files (epio format) that represent selectable items. Root refers to 
+the directory ‘“/”, which is the root of all the directory trees. The format of this tape is as follows: 
+
+
+file 1: Tape boot loader—512 bytes; Tape boot loader—512 bytes; Initial load program—several 
+512-byte records; 
+
+file 2: root file system (physical)—5120-byte records (blocking factor 10); 
+
+file 3: epio program (latest version)—several 512-byte records (to be used only for updating an 
+
+
+earlier UNIX system release); 
+
+
+file 4: the root file system (structured in cpio format)—several 5120-byte records (to be used only 
+for updating an earlier UNIX system release); 
+file 5; on-line manual pages (same format as file 4); & 
+file 6: on-line documents (same format as file 4); 
+file 7: RJE software (same format as file 4); 
+file 8: NSC software (same format as file 4); 
+file 9: graphics software (same format as file 4). & 
+The root (/) file system contains the following directories: 
+bek: Directory used to mount a backup file system for file restoring. 
+bin: ; Public commands; described in Section 1 of the UNIX System User’s Manual. wy 
+
+
+Page 42 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+dev: Special files, all the devices on the system. 
+
+etc: Administrative ieiersiiie and tables. 
+
+lib: Public libraries, parts of the assembler, C compiler. 
+
+mnt: Directory used to mount a file system. 
+
+lost+found: Directory used by fsek(1M) for disconnected files. 
+
+stand: Stand-alone programs. 
+
+tmp: Directory used for temporary files; should be cleaned at reboot. 
+usr: Directory used to mount the /usr file system. 
+
+
+B. Initial Load of Root 
+Mount Tape 1 on drive 0 and position it at the load point. 
+PDP-11 
+
+
+Boot the tape by reading either record 0 or 1 into memory starting at address 0 and start execution at ad- 
+dress 0. This may be accomplished by using a standard DEC ROM bootstrap loader, a special ROM, or some man- 
+ual procedure; see romboot(8), tapeboot(8), and 7Oboot(8). 
+
+
+VAX 
+
+
+See “Installation Boot Procedures” under either 11/780 ops(8) or 11/750 ops(8). These entries describe 
+initial tape booting and modification of the console floppy disk to simplify UNIX system administration. 
+
+
+C. Common to PDP-11 and VAX 
+
+
+The tape boot loader will type “UNIX tape boot loader” on the console terminal and read in and execute 
+the initial load program. The program will then type detailed instructions about the operation of the program 
+on the console terminal. The program will ask what type of disk drive you have and which drive you plan to 
+use for the copy. The disk controller used must be at the standard DEC address indicated by the program; how- 
+ever, other disk controllers on your system may be at nonstandard addresses. A formatted, ECC flag-free pack 
+must be mounted on the drive you have indicated. If necessary, use the appropriate DEC diagnostic program 
+to format the pack. For the VAX use format(1M). Note that the pack will be written on. Next, the program 
+will ask what type of tape drive you have and which drive contains the tape. Normally, this will be drive 0, but 
+the program will work with other drives. Note that the tape is currently positioned correctly after the end-of-file 
+between the initial load program and the root file system. When everything is ready, the program will copy the 
+file system from the tape to disk and give instructions for booting the UNIX system. After the copy is complete 
+and you have booted the basic version of the UNIX operating system, check [using fsek(1M)| the root filesystem 
+and browse through it. 
+
+
+PDP-11/70 Only 
+
+The file /stand/mmtest is a stand-alone memory mapping diagnostic program for the PDP-11/70. If you 
+are not absolutely sure that DEC FCO (field change order) M8140-R002 has been applied to your PDP-11/70 
+CPU, stand/mmtest should be booted and allowed to run at least 20 minutes. To boot this program, go through 
+the disk boot procedure, but specify: 
+
+
+' 0=stand/mmtest 
+
+
+Page 43 
+
+
+ADMINISTRATOR'S GUIDE ISSUE 1 6/82 
+
+
+The UNIX system comes with optional power-fail recovery. This feature requires that the power-up and 
+power-down interrupt vectors be 024. 
+
+
+D. Update of Root 
+
+
+It is very important that the system be running in single-user mode during the update phase. To update 
+an already existing root file system, files three and four on Tape 1 will be used. It is necessary to first make 
+a copy of the root file system using voleopy(1M) and then update this copy. The copy should be made on a sepa- 
+rate disk pack using the same section number as the root file system (always section 0). Also, after the update 
+is completed, check if any of the local administrative files in the directory /etc need modification. Most of these 
+are mentioned in the part “ADMINISTRATIVE FILES”. 
+
+
+Mount Tape 1 on drive 0 and position it at the load point. It is assumed that disk drive 1 is available for 
+making the copy and that the root file system is on /dev/rp0. The following procedure will first make a copy 
+of the root file system, and then update this copy. Note that /dev/mt4 refers to tape drive 0 but has the side 
+effect of spacing forward to the next end-of-file (no rewind option). The —B option of epio specifies that input 
+is in §120-byte records: 
+
+
+voleopy root /dev/rrp0 pknamel /dev/rrp10 pkname2 
+mount /dev/rp10 /bck 
+
+# The 2 echoes will move the tape to file 3 
+echo </dev/mt4 
+
+echo </dev/mt4 
+
+cp /dev/mt4 /bck/bin/cpio 
+
+chmod 755 /bek/bin/epio 
+
+chown bin /bek/bin/epio 
+
+ed /bek 
+
+/bek/bin/cpio —idmB </dev/rmt0 
+
+cd / 
+
+umount /dev/rp10 
+
+
+Pknamel and pknamelI are the volume-‘names of the source and destination disk packs, respectively. If the new 
+copy is satisfactory, shut down and halt the system, change disk packs, and reboot the system using the new 
+root. 
+
+
+E. Tape 2 (/usr) Format 
+
+
+Tape 2 contains the /usr file system in epio format (5120-byte records). The /usr file system contains com- 
+mands and files that must be available (mounted) when the system is in multiuser mode. The tape contains the 
+following directories: 
+
+
+adm: Miscellaneous administrative command and data files including the connect-time account- 
+ing file wtmp and the process accounting file pacct. 
+
+
+bin: Public commands; an overflow for /bin. 
+
+dict: Dictionaries for word processing programs. 
+
+games: Various demonstration and instructional programs. 
+
+include: _ Public C language /inelude files. 
+
+lib: : Archive libraries including the text processing macros; also contains data files for various 
+
+
+programs such as spell(1) and cron(1M). 
+
+
+Page 44 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+mail: Mail directory. 
+
+lost+found: Directory used by fsck(1M) for disconnected files. 
+
+news: Place for all the various system news; see news(1). 
+
+pub: Handy public information, e.g., table of ASCII characters. 
+spool: Spool directory for daemons. 
+
+src: Source for commands, libraries, the system, etc. 
+
+tmp: Directory for temporary files; should be cleaned at reboot. 
+
+
+F. Initial Load of /usr 
+
+
+Mount Tape 2 on drive 0 and position it at the load point. Mount a file system (device) as /usr. The ultimate 
+size and location of this file system on a device is an administrative decision; initially, the following procedure 
+will suffice: 
+
+
+mkfs /dev/rrp1 65000 gap blocks 
+
+# See mkfs(1M) for appropriate parameters. 
+
+# Note that for RP03 disks, this will use part of section 2. 
+labelit /dev/rrpl usr pkname 
+
+mount /dev/rp1 /usr 
+
+chmod 775 /usr 
+
+cd /usr 
+
+cpio —idmB </dev/rmt0 
+
+
+Pkname is the volume name of the pack (e.g., “p0001”). 
+
+
+Because /usr must be mounted when the system is in multiuser mode, the file /ete/re must be changed to 
+include the command lines to mount and unmount the file systems in single user and multiuser mode. These 
+lines must be inserted at the appropriate places in /etc/rcas indicated by comments in the prototype file. Next, 
+the file /ete/checklist should be changed to include the file system device (e.g., /dev/rrp1); see fsck(1M), 
+labelit(1M), mkfs(1M), mount(1M), and checklist(4). 
+
+
+G. Update of /usr 
+
+
+It is advisable that the system be running in singleuser mode during the update phase. It is also wise to 
+first make a copy of your /usr file system for backup purposes. Next, mount Tape 2 on drive 0 and position it 
+at the load point. The /usr file system must also be mounted. The following procedure will perform the update: 
+
+cd /usr 
+epio —idmB </dev/rmt0 
+
+
+H. Initial Load or Update of Selectable Items 
+
+
+The initial load and update procedures are essentially the same; the only exception being the creation of 
+the selectable item directory on the initial load. 
+
+
+Mount Tape 1 on drive 0 and position it at the load point. Make sure that the /usr file system is mounted. 
+The following procedure will read in the source for each of the selectable subsystems. If a particular subsystem 
+is not desired, simply skip that file on the tape by executing the following command: 
+
+
+echo </dev/rmt4 
+
+
+Page 45 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+The tape can be rewound after any subsystem by specifying /dev/rmt0 instead of /dev/rmt4. 
+
+
+echo </dev/rmt4; echo < /dev/rmt4 
+echo </dev/rmt4; echo </dev/rmt4 
+
+
+ed /usr 
+
+mkdir man; chown bin man; chgerp bin man; chmod 775 man 
+ed man 
+
+cpio —idmB </dev/rmt4 
+
+
+ed /usr 
+
+mkdir docs; chown bin docs; chgrp bin docs; chmod 775 docs 
+cd does 
+
+cpio —idmB </dev/rmt4 
+
+
+ed /usr/sre/emd 
+
+mkdir rje; chown bin rje; chgrp bin rje; chmod 775 rje 
+ed rje 
+
+cpio —idmB </dev/rmt4 
+
+
+ed /usr/sre/cmd 
+
+mkdir nusend; chown bin nusend; cherp bin nusend; chmod 775 nusend 
+ed nusend 
+
+cpio ~—idmB </dev/rmt4 
+
+
+ed /usr/sre/emd 
+
+mkdir graf; chown bin graf; chgrp bin graf; chmod 775 graf 
+ed graf 
+
+cpio —idmB </dev/rmt0 
+
+
+After installing the source for the rje, nusend, and graphics subsystems, the software must be built and 
+installed. (Execute the commands for the subsystems that you have elected to take.) 
+
+
+To build and install rje, change your working directory to /usr/src and execute one of the following :mkemd 
+lines: 
+
+
+ARGS= "rjel" ./:mkemd rje # makes a single IBM system 
+
+ARGS= "rje2" /:mkemd rje # makes rjel, and rje2 
+
+ARGS= " rje3" /:mkemd rje # makes rjel, rje2, and rje3 & 
+ARGS= " rje4 " /:mkemd rje # makes rjel, rje2, rje3, and rje4 
+
+
+See rje(8) and the “UNIX System Remote Job Entry ” section for additional information. 
+To build and install the NSC package: 
+
+
+ed /usr/sre 
+
+
+./:mkemd nusend SS 
+
+
+To build and install the graphics package: 
+
+
+ed /usr/sre 
+/:mkemd graf & 
+
+
+Page 46 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+CONFIGURATION PLANNING 
+A. UNIX System Configuration 
+
+
+The basic UNIX operating system supplied supports only the console, a disk controller (disk drive 0), and 
+a tape controller (tape drive 0). Each system administrator must describe the actual configuration of their own 
+system. 
+
+
+All of the UNIX operating system source code and object libraries are in /usr/src/uts. All of the configura- 
+tion information is kept in the directory /usr/src/uts/*/cf; the “*” represents either pdp11 or vax. There are 
+only two files that must be changed to reflect your system configuration—/ow.s (univec.c on the VAX) and 
+conf.c. The program config(1M) should be used to make these changes. 
+
+
+Config requires a “system description file” and produces the two needed files. Table 4.A lists the values 
+and sizes of the basic parameters for the different CPUs. For more details of syntax and structure, see 
+config(1M) and the associated master(4). 
+
+
+TABLE 4.A 
+
+
+coe see 
+
+
+3000 9000 
+
+
+nswap 
+
+
+buffers 25-60 80-4004 
+sabufs 10-15 — 
+hashbuf 32-128 32-128 
+physbuf 3-5 3-7 
+inodes 100-250 100-300 
+iblocks 80-200 _ 
+files 100-250 100-300 
+mounts 8-16 8-20 
+coremap 50-100 — 
+swapmap 50-100 50-100 
+calls 30-60 30-60 
+procs 50-200 50-200 
+texts 25-50 25-50 
+clists 100-300 100-250 
+maxproc 25 25 
+
+
++ Plus 512 bytes outside system space. 
+£ Plus 1024 bytes allocated at start up. 
+
+
+The first part of the system description file lists all of the hardware devices on the system. Next, various 
+system information is listed. A brief explanation of this information follows: 
+
+
+e root—Specifies the device where the root file system is to be found. The device must be a block device 
+with read/write capability because this device will be mounted read/write as “/”. Thus, a tape can not 
+be mounted as the root but can be mounted as some read-only file system. Normally, root is disk drive 
+0, section 0. 
+
+
+Page 47 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+pipe—Specifies where pipes are to be allocated (must be a mounted file system—the root file system 
+is normally used). 
+
+
+dump—Specifies the device to be used to dump memory after a system crash. Currently, only the TU10, 
+TU16/TE16, TU78, and TS11 tape drives are supported for this purpose. 
+
+
+swap—Specifies the device and blocks that will be used for swapping. Swplo is the first block number 
+used and nswap indicates how many blocks, starting at swplo, to use. Care must be taken that the swap 
+area specified does not overlap any file system. For example, if section 0 is 8000 blocks long, the root 
+file system could occupy the first 6000 blocks, and swap the remaining 2000 by specifying: 
+
+
+root rp06 0 
+swap rp06 0 6000 2000 
+
+
+buffers—Specifies how many “system buffers” to allocate. Real-time response improves as more buffers 
+are allocated. UNIX system buffers form a “data cache”. Improvement in the hit rate of this cache tends 
+to fall as the number of buffers is increased. 
+
+
+sabufs—PDP-11 only: specifies how many “system addressable” buffers to allocate. One buffer is needed 
+for every mounted file system. Certain I/O drivers need such buffers. 
+
+
+hashbuf—Specifies how many hash buckets to allocate. These are used to search for a buffer given a 
+device number and block number. This number must be a power of two. The default value is 64. 
+
+
+physbuf—Specifies how many physical I/O buffer headers to allocate. One is needed for each physical 
+read or write active. The default value is 4. 
+
+
+inodes—Specifies how many “inode table” entries to allocate. Each entry represents a unique open 
+inode. When the table overflows, the warning message “Inode table overflow” will be printed on the con- 
+sole, The table size should be increased if this happens regularly. The number of entries used depends 
+on the number of active processes, texts, and mounts. 
+
+
+iblocks—PDP-11 only: specifies how many “inode block address cache” entries to allocate. An entry is 
+needed for each regular, directory, or fifo file that is open. Since special files do not need an entry, data 
+space can be conserved by specifying a much smaller number of iblocks than inodes, The default value 
+is four less than the number of inodes. 
+
+
+files—Specifies how many “open-file table” entries to allocate. Each entry represents an open file. When 
+the table overflows, the warning message “no file” will be printed on the console. The table size should 
+be increased if this happens regularly. 
+
+
+mounts—Specifies how many “mount table” entries to allocate. Each entry represents a mounted file 
+system. The root (/) will always be the first entry. When full, the mount(2) system call will return the 
+error EBUSY. 
+
+
+coremap—PDP-11 only: specifies how many entries to allocate to the “list of free memory” . Each entry 
+represents a contiguous group of 64-byte blocks of free memory. When the list overflows, due to exces- 
+sive fragmentation, the system will print a warning message on the console. This condition results in 
+the loss of memory being freed. The system should be remade with a larger table size and rebooted. The 
+number of entries used depends on the number of processes active, their sizes, and the amount of mem- 
+
+
+‘ory available. 
+
+
+Page 48 
+
+
+swapmap—Specifies how many entries to allocate to the “list of free swap blocks”. Exactly like the 
+coremap, except it represents free blocks in the swap area, in 512-byte units. 
+
+
+6/82 
+
+
+ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+calls—Specifies how many “call-out table” entries to allocate. Each entry represents a function to be 
+invoked at a later time by the clock handler. The time unit is 1/60 of a second. The call-out table is used 
+by the terminal handlers to provide terminal delays and by various other I/O handlers. When the table 
+overflows, the system will crash and print the panic message “Timeout table overflow” on the console. 
+This value must be greater than two. 
+
+
+procs—Specifies how many “process table” entries to allocate. Each entry represents an active process. 
+The scheduler is always the first entry and init(1M) is always the second entry. The number of entries 
+depends on the number of terminal lines available and the number of processes spawned by each user. 
+The average number of processes per user is in the range of 2 through 5. When full, the fork(2) system 
+call will return the error EAGAIN. 
+
+
+texts—Specifies how many “text table” entries to allocate. Each entry represents an active read-only 
+text segment. Such programs are created by using the —i or —n option of the loader Id(1). The —n option 
+is implicit on the VAX. When the table overflows, the warning message “out of text” is printed on the 
+console, 
+
+clists—Specifies how many “character list buffers” to allocate. On the PDP-11, each buffer contains up 
+to 24 bytes; on the VAX, each buffer contains up to 64 bytes. The buffers are dynamically linked together 
+to form input and output queues for the terminal lines and various other slow-speed devices. The aver- 
+age number of buffers needed per terminal line is in the range of 5 through 10. When full, input charac- 
+ters from terminals will be lost and not echoed. 
+
+maxproc—Specifies how many concurrent processes a nonsuperuser is allowed to run. 
+power—Specifies whether to attempt restart after a power failure. A value of 0 (default) indicates no 
+restart; a value of 1 attempts power-fail restart. On restart, device drivers are called and process 1 (i.e., 
+init) is sent a hangup signal; see init(1M). 
+
+
+sema—Specifies whether to include semaphore code. A value of 0 (default) indicates no semaphores; a 
+value of 1 includes semaphores. 
+
+
+shmem—Specifies whether to include shared memory code. A value of 0 (default) indicates no shared 
+memory; a value of 1 includes shared memory. 
+
+
+mesg—Specifies whether to include message code. A value of 0 (default) indicates no messages; a value 
+of 1 includes messages. 
+
+
+shmmax—Specifies the maximum size of a shared memory segment. 
+
+shmmin—Specifies the minimum size of a shared memory segment. 
+
+shmmni—Specifies the maximum number of shared memory segments in the system. 
+shmseg—Specifies the maximum number of shared memory segments a user may have attached. 
+
+
+shmall—Specifies the maximum amount of shared memory that may be allocated system wide. The de- 
+fault value is 512 clicks, 250k bytes. 
+
+
+shmbrk—Spcecifies the number of clicks between the end of the data segment, and the beginning of the 
+first shared memory segment if the default starting address is used allowing the user to continue to 
+use sbrk(2) or brk(2). The default value is 16 clicks, 8k bytes. 
+
+
+msgmax—Specifies the maximum message size. 
+
+
+Page 49 
+
+
+ADMINISTRATOR'S GUIDE ISSUE 1 6/82 
+
+
+msgmnb—Specifies the maximum number of bytes on any one queue, 
+
+
+msgtq!l—Specifies the number of system message headers, i.e, maximum number of outstanding mes- 
+sages. 
+
+
+msgssz—Specifies the message segment size. Messages consist of a set of contiguous message segments 
+large enough to fit the text. The segments are used to help eliminate fragmentation and speed message 
+buffer allocation. A similar scheme was used in UNIX system release 4.0 on the PDP-11 and VAX where 
+the maximum message size and segment size were identical. Here a message may span several segments. 
+
+
+msgseg—Specifies the number of message segments in the system. 
+
+
+msgmap—Specifies the message segment map size. 
+
+
+msgmni—Specifies the maximum number of message queues system wide. The default is 10. & 
+
+
+semmap—Specifies the number of entries in the semaphore map. The map is used by the system to allo- 
+cate and free semaphore sets. This parameter should be changed to reflect changes in semmns. 
+
+
+semmni—Specifies the number of semaphore identifiers, i.e., number of semaphore sets. 
+
+sities = Spoetos the number of semaphores in the system. 
+
+semmnu—Specifies the number of undo structures in the system. 
+
+semume—Specifies the maximum number of undo entries per structure. 
+
+semmsl—Specifies the maximum number of semaphores per semaphore identifier. & 
+semopm--Specifies the maximum number of semaphore operations per semop(2) call. 
+
+
+maus—PDP-11 only: specifies whether to include maus (shared memory) code. A value of 0 (default) 
+indicates no shared memory; a value of 1 includes the shared memory code. 
+
+
+x25bytes—Specifies the amount of external buffer space (in bytes) available to the X25 driver; on PDP- 
+11s, this space is allocated outside of the kernel address space. The maximum allowable value for 
+x25bytes on a PDP-11 is 65,535 (64K-1), 
+
+
+x25bufs—Specifies the number of X25 buffer descriptors allocated. 
+
+
+x25links—Specifies the number of X25 interfaces allocated. & 
+
+
+B. UNIX System Generation 
+
+
+Before generating the first UNIX system, the system administrator should modify the file called Makefile 
+in the /usr/srce/uts/*/cf directory. This file contains five symbols that are used for system identification; it is 
+used to initialize the internal utsname structure [see uname(1) and uname(2)|. The five symbols (which are 
+
+
+eight characters maximum) are as follows: 
+
+SYS System name (e.g., pwha); & 
+NODE The name by which the system is known on the uuep(1C) network (e.g., pwha); 
+
+REL The operating system release (e.g., 5.0); & 
+
+
+Page 50 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+VER The current version of the system; this is usually four characters indicating when the sys- 
+tem was made (e.g., 0620 for June 20); 
+
+
+MACH The machine hardware name (e.g., vax-780). 
+
+
+Generally, only the first two symbols need local modification; the REL symbol is a constant for the duration 
+of this release, while the VER symbol will be defined when you make(1) the system. The name of the executable 
+file produced by the generation procedure will be the concatenation of the SYS and VER symbols (e.g., 
+pwhba0620). 
+
+
+To generate a new UNIX operating system, follow the procedure given: 
+
+
+ed /usr/sre/uts/*/cf 
+ed dfile 
+a 
+[information as described above] 
+
+
+Ww 
+
+q 
+
+config dfile 
+make VER=ver 
+
+
+The PDP-11 system has a relatively small address space. If the table sizes or the number of device types 
+are too large, the program sysfix will print various error messages and the above procedure will only create 
+an a.out file. In particular, the maximum available data space is 49,152 bytes. The actual data space requested 
+can be found by using size(1) on a.out and adding the data and bss segment sizes. One then reduces the specified 
+values for the various system entries until it all fits. The amount of space in the bss segment used for each entry 
+is indicated in the part “UNIX System Configuration”. 
+
+
+On the VAX, the combined data space should not exceed 200,000 bytes. 
+
+
+The PDP-11 system is distributed with a special overlay loader that allows larger systems (text size greater 
+than 64K) to be configured. This system will be made up of one main segment and seven overlay text segments 
+that use supervisor registers to switch the overlay text segments. The main segment may be as large as 56K, 
+and the overlay text segments may not be greater than 8K each. To invoke this new text scheme, edit 
+/usr/src/uts/*/Makefile. To change the TYPE symbol from id to ov or when generating a new system, use the 
+following procedure: 
+
+
+ed /usr/src/uts/*/cef 
+make VER=ver TYPE=ov 
+
+
+The seven overlay text segments are described in the file /usr/sre/uts/pdp11/ck/SEGF. This file consists 
+of two parts (as shown below). 
+
+
+cat.o DR11C_O (First Part) 
+Csi.0 CSI_O 
+da.o DA11B_O 
+
+
+Page 51 
+
+
+ADMINISTRATOR’S GUIDE , ISSUE 1 6/82 
+
+
+dmb.o dmr.o maus.o msg.o sem.o (Second Part) 
+nsc.o kl.o sys.o vp.o . 
+
+vpmt.o trace.o lp.o err.o main.o ht.o dn.o 
+
+x25u.0 cat.o da.o du.o st1.o 
+
+x25r.o0 nc.o st2.0 
+
+x25s.0 x25m.o dmk.o pcl.o 
+
+csi.o tm.o 
+
+
+The first part associates object files with configurable devices. The second part describes a possible layout 
+of the seven overlay text segments. Not all of the devices associated with the object files described in some of 
+the overlay segments may be configured together because the overlay segment may become greater than 8K. 
+If this happens, the second part of the file /usr/src/uts/pdp11/ct/SEGF will have to be modified. For example, 
+the x25 driver and the pe/ driver may not be configured together since overlay segment six would be greater 
+than 8K. To correct this, /usr/sre/uts/pdp11/cf/SEGF will have to be edited. For example, if the nse driver is 
+not configured, the nsc.o file in overlay segment two may be replaced with pel.o. The pel.o file will have to be 
+deleted from overlay segment six. The second part of /usr/src/uts/pdp11/ct/SEGF will then be as follows: 
+
+
+dmb.o dmr.o maus.o msg.o sem.o 
+
+pel.o kl.o sys.o vp.o 
+
+vpmt.o trace.o |p.o err.o main.o ht.o dn.o 
+x25u.0 cat.o da.o du.o stl.o 
+
+x25r.o nc.o st2.o0 
+
+x25s.0 x25m.o dmk.o 
+
+csl.0 tm.o 
+
+
+After completing this, make a new UNIX system. The text size of each object file may be found using size(1). 
+The object files may be extracted using ar(1) from /usr/sre/uts/pdp11/libname where libname is the appropri- 
+ate library. 
+
+
+When you are satisfied with the new system, test it by the following procedure: 
+
+
+ep /usr/sre/uts/*/sysver/ —_# sysver as above 
+ed / 
+
+umount /dev/rpl 
+
+rm /unix 
+
+In /sysver /unix 
+
+sync 
+
+
+Halt the processor and reboot the system. Note that this procedure results in two names for the operating 
+system object the generic /unix and the actual name, say /pwba0620. An old system may be booted by referring 
+to the actual name, but remember that many programs [such as ps(1)] use the generic name /unix to obtain 
+the name-list of the system. 
+
+
+If the new system does not work, verify that the correct device addresses and interrupt vectors have been 
+specified. On the PDP-11, if the wrong interrupt vector and the correct device address have been specified for 
+a device, the operating system will print the error message “stray interrupt at XXX” when the device is accessed, 
+where XXX is the correct interrupt vector. On the VAX, the message is “stray UBA interrupt at XXX”. On the 
+PDP-11, if the wrong device address is specified, the system will crash with a panic trap of type 0 (indicating 
+a time-out) when the device is accessed. On the VAX, the system will not crash directly but will print a “UBA” 
+warning message indicating the failing address. 
+
+
+For the VAX, a stand-alone test may be executed to compare the configuration in /unix with the actual 
+hardware. After the stand-alone shell prompts “$$”, type /stand/vef. The vef(1M) command reports on the 
+MASSBUS adapter configuration and attempts to determine the UNIBUS system device configuration. Any er- 
+rors should be corrected before continuing. 
+
+
+Page 52 
+
+
+6/82 
+
+
+e C. Special Files 
+
+
+ISSUE 1 ADMINISTRATOR'S GUIDE 
+
+
+A special file must be made for every device on your system. Normally, all special files are located in the 
+directory /deyv. Initially, this directory will contain: 
+
+
+console 
+
+Da error 
+mem, kmem, null 
+tty 
+rp[0-7], rrp[0-7] 
+rl[0-1], rrl[0-1] 
+rk[0-1], rrk[0-1] 
+mt0, rmt0 
+
+
+ee mt4, rmt4 
+
+
+console terminal 
+
+see err(7) 
+
+see mem(7) 
+
+see tty(7) 
+
+disk drive 0, sections 0-7 
+disk drives 0 and 1 
+
+disk drives 0 and 1 
+
+tape drive 0 
+
+tape drive 0 (no rewind). 
+
+
+These special files are of two types—block and character. This is indicated by the character b or cin the 
+listing produced by Is(1) with the —1 option. 
+
+
+In addition, each special file has a major device number and a minor device number. The major device num- 
+ber refers to the device type and is used as an index into either the bdevsw or cdevsw table in the configuration 
+file conf.c. The minor device number refers to a particular unit of the device type and is used only by the driver 
+for that type. The config program with the —t option will list major device numbers. 
+
+
+The program mknod(1M) creates special files. For example, the following would create part of the initially- 
+
+
+supplied /dev directory (on the PDP-11): 
+
+
+ed /dev 
+mknod console c 0 0 
+
+
+mknod error c 20 0 
+
+mknod mem ¢ 2 0; mknod kmem c 2 1; mknod null ¢ 2 2 
+mknod tty ec 13 0 
+
+mknod rp0 b 0 0; mknod rrp0 c 7 0 
+
+mknod mt0 b 1 0; mknod rmt0 c 6 0 
+
+mknod mt4 b 1 4; mknod rmt4 c 6 4 
+
+
+After the special files have been made, their access modes should be changed to appropriate values by 
+chmod(1). For example: 
+
+
+ed /dev 
+
+chmod 622 console 
+chmod 444 error 
+chmod 440 mem kmem 
+chmod 666 null 
+
+chmod 666 tty 
+
+chmod 400 rp0 rrp0 
+chmod 666 mt0 rmt0 
+chmod 666 mt4 rmt4 
+
+
+Page 53 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+Note that file names have no meaning to the operating system itself; only the major and minor device num- 
+bers are important. However, many programs expect that a particular file is a certain device. Thus, by conven- 
+tion, special files are named as follows: 
+
+
+block device conf.c /dev 
+RP03 disk rp rp* 
+RP04/5/6 disk hp rp* 
+RS03/4 fixed head disk hs ra 
+RK05 disk rk rk* 
+RKO1/2 disk rl rl* 
+RMO05 disk hm rp* 
+RM80 disk gd rp* 
+RP07 disk gd rp* 
+general disk gd rp* 
+TU10 tape tm mt* 
+TE/TU16 tape ht mt* 
+TS11 tape ts mt* 
+TU78 tape ts mt* 
+general tape gt mt* 
+character device conf.c /dev 
+DL11 asyne. line kl tty*, console 
+DHI11 asyne. line mux dh tty* 
+DMC11 syne. unit dme dmc* 
+DZ11 async. line mux dz tty* 
+DN11 auto call unit dn dn* 
+D11 syne. line du du* 
+KMC11-B micro kmec kmc* 
+DM11-BA modem control dmk dmk* 
+DZ11/KMC11-B assist dzb tty* 
+LP11 line printer Ip lp* 
+RP03 disk rp rrp* 
+RP04/5/6 disk hp rrp* 
+RMO05 disk hm rrp* 
+RM80 disk gt rrp* 
+RPO7 disk gt rrp* 
+general disk gd rrp* 
+RS03/4 fixed head disk hs rrs* 
+TU1O tape tm rmt* 
+TE/TU16 tape ht rmt* 
+TS11 tape ts rmt* 
+TUT78 tape gt rmt* 
+general tape gt rmt* 
+error err error 
+memory mm mem,kmem,null 
+terminal sy tty 
+
+
+te ta 
+
+
+For those devices with a /devname ending in “*”, this character is replaced by a string of digits representing 
+
+
+the minor device number. For example: 
+
+
+mknod /dev/mtl b 11 
+mknod /dev/rp24 b 0 024 # leading zero means octal 
+mknod /dev/tty03 ¢ 13 
+
+
+Page 54 
+
+
+6/82 ISSUE 1 ADMINISTRATOR'S GUIDE 
+
+
+Note that for disks, an octal number scheme is maintained because each drive is logically partitioned into eight 
+sections. Thus, /dev/rp24 refers to section 4 of physical drive 2. There is also a special file, /dev/swap, that is 
+used by the program ps(1). This file must reflect what block device is used for swapping and must be readable. 
+For example: 
+
+
+rm /dev/swap 
+Re mknod /dev/swap b 0 0 
+chmod 440 /dev/swap 
+chown sys /dev/swap; chgrp sys /dev/swap 
+
+
+The minor device numbers for tapes are also encoded; the minor device number consists of the four bits 
+shown in Fig. 4.1. 
+
+
+DENSITY O=REWIND DRIVE-SELECT DRIVE-SELECT 
+SELECT 1=NO REWIND BIT 1 BIT 0 
+
+
+Fig. 4.1 — Minor Device Number, Tape 
+
+
+For the TU10 and TE16, the density select bit is 0 for 800 bpi and 1 for 1600 bpi. For the TU78, the density 
+select bit is 0 for 1600 bpi and 1 for 6250 bpi. For the TS11, the density select bit is ignored; the density is always 
+@ 1600 bpi. Therefore, the special file for tape drive 1, for operation at 1600-bpi, with no rewind on close would 
+have a minor device number of 13 (binary 1101). The 2-bit drive number field permits a maximum of four drives 
+per system. 
+
+
+The minor numbers of the automatic calling unit (ACU) interface, DN11, are encoded in eight bits as shown 
+
+
+in Fig. 4.2. 
+SHARED-ACU-SELECT whietcs ob Fipieese Bagi trian 
+FOUR BITS : Secs 
+TWO BITS TWO BITS 
+eo] Fig. 4.2 — Minor Device Number, DN11 
+
+
+The shared-ACU-select field in normally zero, which indicates the standard 801 ACU hardware (one ACU, 
+one phone line). For the new shared ACU hardware (one ACU, several phone lines), the shared-A CU-select field 
+indicates which line is to be used. 
+
+
+@ File Systems 
+
+
+Each physical pack is partitioned into eight logical sections. This partitioning is defined in the operating 
+system by a table with eight entries. Each table entry is two words long. The first specifies how many blocks 
+are in the section; the second specifies the starting cylinder; see hp(7) (RP04/5/6), hm(7) (RM05), rp07(7) 
+
+Oi: rm80(7) (RM80), and rp(7) (RP03) for default cylinder and block assignments. These values are de- 
+scribed to the system in the header file /usr/inelude/sys/io.h. 
+
+
+Page 55 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+A file system starts at block 0 of a section of the disk and may be as large as the size of that section; if it 
+is smaller than the size of a section, the remainder of that section is unused. Note that the sections themselves Peg 
+may overlap physical areas of the pack, but the file systems must never overlap. 
+
+
+The program mkfs(1M) is used to initialize a section of the disk to be a file system. Next, the program 
+labelit(1M) is used to label the file system with its name and the name of the pack. Finally, the file system 
+may be checked for consistency by using fsck(1M). The file system may then be mounted using mount(1M). 
+
+
+E. DZ11 Software with KMC11-B Assist 
+
+KMC11-B microprocessors may be used to control DZ11 asynchronous multiplexers, thus off-loading termi- 
+nal-oriented functions from the CPU. The KMC11-B does DMA input and output of data, character translations, 
+tab expansions, etc. Each KMC11 can control up to four DZ11 multiplexers for a total of 832 asynchronous lines. 
+
+
+Each system can support up to four KMC11 microprocessors; however, only 64 DZ11 lines can be controlled by 
+KMC11 microprocessors. & 
+
+
+Installation 
+
+
+1. Generate a system by including each DZ11 to be controlled by a KMC11 in the system description file. 
+For example: 
+
+
+dzb X x 7, 
+
+
+where X is the vector address, Yis the UNIBUS address, and Zis the bus request level. Also include the 
+KMC11 microprocessors in the configuration file: 
+
+
+kmell X Y Z 
+2. Update /ete/re to execute dzbload for multiuser and power-fail init states. Each KMC11 used to control &S 
+a DZ11 must be loaded with microcode. For each KMC11 used to control a DZ11, include 
+
+
+/ete/dzbload /dev/kme? 
+where ? is the minor device number of that KMC11. 
+3. Special files must be created for each KMC11 and DZ11 line: 
+
+
+/ete/mknod /dev/kme? Cc X ? 
+/etc/mknod /dev/tty?? c N Zi 
+
+
+where X is the major device number of the KMC11 and ? is the minor device number of the KMC11 con- — 
+trolling the DZ11 multiplexers, i.e., the KMC11 loaded with microcode in Step 2. Y is the major device 
+number of the dzbdevice as is supplied by config(1M). Z is the minor device number for a particular line 
+
+on a DZ11. This number is composed of three fields. The low-order three bits are the line number relative 
+
+to a DZ11. The next three bits contain the unit number of the DZ11 controlling these lines. Note that this 
+number is the absolute DZ11 number, not the number relative to the KMC11. The high-order two bits 
+
+are the minor device number of the KMC11 controlling this DZ11. For example: 
+
+
+mknod /dev/tty?? ¢ Y 0241 a 
+
+
+specifies the second line (0 through 7) on the fifth DZ11 to be controlled by the KMC11 with minor device 
+number 2. The DZ11 number is specified by the order of appearance in the configuration file. The first 
+four DZ11 multiplexers must be associated with one KMC11 and the next four must be associated with 
+anothér KMC11. The order in which the KMC11 microprocessors are specified is not significant. & 
+
+
+Page 56 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+F. Virtual Protocol Machine (VPM) Devices 
+
+
+KMC11-B microprocessors may be used to control DMC11-DA, -FA, or -MD single-line synchronous commu- 
+nications interfaces or DMS11-DA 8-line synchronous communications multiplexers (one per KMC). The combi- 
+nation of a KMC11 and a DMS11-DA is known as a KMS11. The KMC11 executes the link-level communications 
+protocol and performs DMA data transfers between main memory and the communications device. A link-level 
+protocol description in a high-level language is compiled on the host computer [see vpme(1M)] and then down- 
+loaded into the KMC11 by the vpmstart(1M) command. 
+
+
+The common synchronous interface (CSI) contains a set of utility routines for communicating with the VPM 
+interpreter in the KMC11. The VPM protocol driver provides a transparent user interface to the VPM interpret- 
+er. The CSI routines are used not only by the VPM protocol driver but also by several other protocol drivers 
+such as the BX.25 Level 3 driver. 
+
+
+e Installation 
+
+
+1. Generate a system. The system description file must contain a line of the form: 
+vpm 0 0 0 n 
+where nis the number of VPM protocol-driver minor devices desired, and a line of the form: 
+csi 0 0 0 m 
+
+
+where mis the number of CSI minor devices desired. One CSI minor device is required for each VPM pro- 
+tocol-driver minor device. If other drivers that use CSI are configured, additional CSI minor devices must 
+be configured to support these drivers. If the VPM trace capability |see vpm(7)| is to be used, the system 
+description file must also contain a line of the form: 
+
+
+trace 0 0 0 k 
+
+
+where kis the number of trace minor devices desired (normally one). Vombsz, a configurable parameter 
+which gives the size of the buffer pool available to vpm, may be adjusted to be different from the default 
+value found in /etc/master. Refer to master(4) for more information. 
+
+
+2. Compile the protocol script using vpme(1M): 
+vpme [—m] [-i hdle[/kms]] —o seript.o script.r 
+
+
+where script.r is the source file for the protocol description. The —m option is used only if the protocol 
+source requires expansion with the m4(1) preprocessor; otherwise, the C preprocessor is used. The 
+—i hdle option is used to compile a script that uses the bit-oriented (HDLC) version of the VPM inter- 
+preter; otherwise, the character-oriented (BISYNC) version of the interpreter will be used. If the script 
+is to be loaded into a KMS11 8-line multiplexer rather than into a KMC11 controlling a single-line inter- 
+face, the —i hdle/kms option is needed. Only bit-oriented protocols are currently supported by VPM 
+on the KMS11. 
+
+
+3. Install the compiled protocol description in a convenient directory such as /lib and modify the /etc/re 
+file to load the compiled protocol description into the selected KMC11s each time the system is rebooted 
+(first transition to multiuser) using vpmstart(1M). If power-fail recovery is desired, the /etc/re file 
+should also be modified to reload the compiled protocol description into the selected KMC after a power 
+‘fail occurs. The —r option to vpmstart is required when reloading the KMC after a power fail. 
+
+
+Page 57 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+4, Special files must be created for each VPM protocol-driver minor device, each trace minor device, and 
+each KMC11: 
+
+
+/ete/mknod /dev/kme? c xX ve 
+/ete/mknod /dev/vpm? € iy ? 
+/ete/mknod /dev/trace c iz 0 
+
+
+where X, Y, and Zare the major device numbers of the KMC11 driver, VPM protocol driver, and trace 
+driver, respectively. (It is not necessary to make special files for the CSI minor devices since these are 
+never referenced explicitly). 
+
+
+5. Modify the /ete/re file so that it executes a vpmset(1M) command for each VPM protocol-driver minor 
+device. The arguments to the vpmset command specify the protocol-driver minor device, the KMC11, 
+and, if the device is a KMS11, the particular line on the KMS11: 
+
+
+= /ete/vpmset /dev/vpm? /dev/kmc? [n] 
+
+
+KMC11 lines are numbered starting with zero. The vypmset commands should be executed on the first 
+transition to multiuser. An attempt to open a VPM protocol-driver minor device for reading and/or writ- 
+ing will fail if the corresponding vpmset command has not yet been executed. 
+
+
+Hardware Installation and Switch Settings 
+
+
+The KMC11-B microprocessor and DMC11-DA, -FA, or -MD line unit must be installed in adjacent slots of 
+a PDP-11 or VAX backplane. Care should be taken not to exceed the de power capacity of the cabinet in which 
+the items are installed. The microprocessor and line unit are interconnected by a 1-foot ribbon cable. The 
+DMC11-DA or -FA line unit is connected to a suitable synchronous modem by a DEC-supplied modem cable. 
+If the HDLC interpreter is used, the modem must be optioned for full-duplex (4-wire) operation; at speeds above 
+1200 bits per second, this will normally require a private line. The DMC11-DA has an RS-282 interface that is 
+suitable for connection to data sets such as the 208 and 209. The DMC11-FA has a CCITT V.35 interface. The 
+DMC11-MD has an integral 56KB modem; this unit must be connected by a pair of coaxial cables to another 
+DMC11-MD. The device address and interrupt vector address switches on the KMC11 should be set for the se- 
+lected addresses. The KMC11 should also be wired for the selected bus priority (normally 5). All switches and 
+jumpers on the DMC11 line unit should be in the normal configuration prescribed by the relevant DEC mainte- 
+nance manual, but with one exception—the NO CRC switch (switch 52 in switch pack number 1) should be in 
+the ON position. The purpose of this switch setting is to inhibit hardware CRC generation. Hardware CRC gen- 
+eration is not used with the VPM software for this device. 
+
+
+The procedures for installing a KMS11 are similar except that: 
+1. There are no switches to.set on the DMS11-DA 8-line multiplexer. 
+
+
+2. Modem cables are not supplied with the DMS11-DA. Instead, there is an $-line distribution panel with 
+an RS-232 connector for each line on the DMS11-DA. Each in-use line must be connected by a suitable 
+cable to a synchronous modem. The modem must be optioned for full-duplex (4-wire) operation. The 
+modem should also be optioned to hold the transmitter carrier continuously on because the request-to- 
+send lead to the modem is not controlled by the VPM software for the KMS11. The DM11-BA modem con- 
+trol multiplexer normally included as part of the KMS11 hardware package is not currently used by the 
+VPM software for the KMS11. Limited access to the DM11-BA modem control unit is provided by a sepa- 
+rate driver [see dmk(7)]. If the modem cannot be optioned for continuous carrier, the dmk driver can 
+be used to turn on the request-to-send lead to the modem. For dial-up lines (e.g., a 212 data set operating 
+in synchronous mode), it may be necessary to use the dmk driver to turn on the data-terminal ready lead 
+‘to the modem. 
+
+
+The KMC11 contains a hardware timer which is used by both the VPM and DZ11/KMC11 software. For 
+proper operation with this software, the value of the hardware timer should be 75 microseconds. Newer versions 
+
+
+Page 58 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+of the KMC11 microprocessor (etch revisions E and later) contain a switch pack at location E82 which is used 
+to select the value of the program timer. :E82-8 ON provides a time-out value of 115 milliseconds; E82-8 OFF 
+yields the correct value of 75 microseconds. (E82 1 through 7 are not used). On earlier versions of the KMC11, 
+the time-out value is selected by installing the proper value of capacitor C40. For proper operation with VPM 
+and DZ11/KMC11 software, the value of this capacitor should be 4700 pF. 
+
+
+G. X25 Devices 
+
+
+The X25 driver provides multiplexed channels (“permanent virtual circuits”, also known as PVCs) over one 
+or more synchronous communication lines using the Bell System standard BX.25 Level 3 communication proto- 
+col. Each X25 minor device can be associated with an arbitrary logical channel number (1 through 4095) on any 
+one of some configurable number of multiplexed communication lines. A separate BX.25 Level 3 interface (link) 
+is provided for each physical communication line. 
+
+
+The X25 driver uses the (CSI) to access communication lines controlled by KMC11-B microprocessors. Level 
+2 of BX.25 (the link level) is implemented by a VPM protocol script in the KMC11. ° 
+
+
+Installation 
+1. Generate a system. The system description file must contain a line of the form: 
+x25 0 0 0 n 
+where nis the number of X25 minor devices desired. One X25 minor device is required for each virtual 
+circuit. The description file must also contain a line for the nc (network control) driver, which is used 
+to install, monitor, and control permanent virtual circuits. This line has the following form: 
+
+
+ne 0 0 0 1 
+
+
+If more than one synchronous communication line is to be accessed via the X25 driver, the description 
+file must also contain a line of the form: 
+
+
+x25links m 
+
+
+where mis the number of synchronous lines (and thus the number of X25 interfaces) to be accessed via 
+the X25 driver. The CSI driver must also be configured. One CSI minor device is required for each X25 
+link. This is in addition to the CSI minor devices required to support other applications of VPM. If the 
+X25 trace capability is to be used, the VPM trace driver must also be configured. 
+
+
+2. Modify the /ete/re file to load the compiled protocol description into the selected KMCs each time the 
+system is rebooted (first transition to multiuser) using vpmstart(1M): 
+
+
+/ete/vpmstart /dev/kme? 6 /lib/eslapb.o 
+
+
+If a KMS11 (a KMC11-B with an 8-line multiplexer) is to be used instead of a KMC11-B with a single-line 
+interface, the line should be: 
+
+
+/ete/vpmstart /dev/kmc? 6 /lib/eslapb.kms 
+If power-fail recovery is desired, the /etc/rc file should also be modified to reload the compiled protocol 
+
+
+‘description into the selected KMCs after a power fail occurs. The —r option to vpmstart is required when 
+reloading the KMC after a power fail. 
+
+
+Page 59 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+3. Special files must be created for each X25 minor device and each KMC11: 
+
+
+/ete/mknod /dev/x25/s? c xX i 
+/ete/mknod /dev/kmc? c a's ? 
+
+
+where X and Yare the major device numbers of the X25 driver and KMC11 driver, respectively. There 
+must also be a node for the ne driver: 
+
+
+/etc/mknod /dev/ne c Z 0 
+
+
+where Z is the major device number of the ne driver. If KMS modem control is required, there must also 
+be a node for each DM11-BA modem control multiplexer: 
+
+
+/ete/mknod /dev/dmk? c W ? 
+
+
+where Wis the major device number of the dmk driver. 
+
+
+4. Modify the /etc/re file so that it executes x25pve(1M) to associate each X25 minor device with a particu- 
+lar link and logical channel number and x25Ink(1M) to associate each link with a particular line on a 
+particular KMC11 microprocessor and to start the protocol. The /ete/re file should contain a line of the 
+form: 
+
+
+/etce/x25pve —i —S —m /dev/x25/s? —e chno —] linkno 
+
+
+for each X25 minor device, where chno is the logical channel number and linkno is the X25 link number. 
+There should also be a line of the form: 
+
+
+/ete/x25lnk —a —m /dev/kme? —n lineno —1 linkno 
+/ete/x25Ink —i —] linkno 
+
+
+Links and lines are numbered starting with zero. The arguments to the first x25Ink command specify 
+the X25 link number, the KMC11, and the particular line if the KMC11 has more than one line. The second 
+x25Ilnk command starts the protocol running on the X25 link specified. When a link is started, the —b 
+option of the x25lnk command should be used if this end of the link is using address B for the level 2 
+protocol. It is recommended that the x25pve commands precede the x25Ink commands in the /ete/re 
+file. The x25Ink and x25pve commands should be executed on the first transition to multiuser. An at- 
+tempt to open an X25 minor device will fail if the corresponding x25lnk and x25pve commands have 
+not yet been executed. 
+
+
+There are several other configuration parameters associated with the X25 driver: x25bytes, and x25bufs; 
+these are described in the part “UNIX System Configuration”. The default values for these parameters are ade- 
+quate for 16 minor devices. If substantially more or less than that number of minor devices is configured, it may 
+be desirable to adjust these values. 
+
+
+A simple formula may be used to calculate an approximation of the maximum number of buffer descriptors 
+that will ever be used: 
+
+
+(4 * number_x25links) + (8 * number_x25minor_devices) 
+
+
+If your system is low on kernel data space, it would be wise to calculate this number and decrease x25bufs if 
+possible. 
+
+
+A formula may also be used to calculate an approximation of the maximum amount of X25 buffer space 
+needed. This value depends on the packet size to be used on each link. For each link, add the following values: 
+
+
+4 * packetsize 
+8 * packetsize * number_x25minor_devices_on_that_link & 
+
+
+Page 60 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+Then add the values for all the links. If the amounts configured are too small, requests for a buffer descriptor 
+and buffer will be denied until the space is. freed. User writes will block and a decrease in throughput will proba- 
+bly be noticeable. 
+
+
+The number of buffer descriptors and the amount of buffer space in use at any one time depend on the appli- 
+cations running X25 and the activity on each link. Usually, it will not be necessary to configure the maximum 
+values. 
+
+
+H. STC and $T—Synchronous Terminal Interface 
+
+
+The synchronous terminal controller and synchronous terminal drivers provide access to ASCII binary syn- 
+chronous protocol compatible terminals (Model 4540 of the Teletype Corporation) and printers over one or more 
+synchronous communications line. These drivers use VPM to access communications lines controlled by 
+KMC11-B microprocessors. Each communications line can support one cluster controller connected to any com- 
+bination of up to 32 devices (i.¢e., terminals and printers). 
+
+
+Installation 
+The STC driver is a pseudo-device driver that performs hardware assignment, communications line enable 
+and disable operations, and printer device assignments for each synchronous terminal communications line. The 
+STC interfaces are installed as follows: 
+1. An entry must be placed in the system description file 
+ste 0 0 0 N 
+where Nis the number of synchronous terminal communications lines. 
+2. A special file must be created in the /dev directory for each line. The files should be named /dev/stX, 
+where X is the minor device number. These numbers range from 0 through N—-1, where Nis the number 
+
+
+of synchronous terminal communications lines. 
+
+
+3. Modify the /etc/stload file so that it starts the appropriate lines on the appropriate devices for your sys- 
+tem. As distributed, /etc/stload starts one line on KMC11-B device 0. 
+
+
+4. Modify the /etc/rc file so that it executes the stload command at system reboot time. If power-fail recov- 
+ery is desired, /etc/rc should also be modified to execute stload with the —r option after power failure. 
+
+
+5. Modify the /etc/shutdown file to disable all synchronous terminal communications lines. For example, 
+the commands 
+
+
+/etc/stentrl /dev/st0 off 
+/ete/vpmset —d /dev/st0 
+
+
+will disable line 0. 
+
+
+The ST driver is a pseudo-device driver that performs terminal device assignments and handles the user 
+interface to synchronous terminal and printer devices. The ST interfaces are installed as follows: 
+
+
+1. An entry must be placed in the system description file 
+
+
+st 0 0 0 N 
+
+
+Page 61 
+
+
+ADMINISTRATOR'S GUIDE ISSUE 1 6/82 
+
+
+where Nis the maximum number of synchronous devices that can be connected to your system at one 
+time. 
+
+
+2. A special file must be created in the /dev directory for each printer device. The files should be named 
+/dev/spX, where Xis the same as the minor device number. The minor device numbers for printer devices 
+range from 0 through STNPRNT-1, where STNPRNT is a system parameter specifying the number of 
+printer devices. 
+
+
+3. A special file must be created in the /dev directory for each terminal device. The files are usually named 
+/dev/ttyZZ, where ZZ is a name that does not conflict with any asynchronous tty line names. The minor 
+device numbers for these devices range from STNPRNT through N-1, where Nis the number of synchro- 
+nous devices as specified above. 
+
+
+There are several other configuration parameters associated with the synchronous terminal drivers: 
+
+
+stnprnt Specifies how many of the synchronous terminal and printer devices specified in the sys- 
+tem description file are printers. The default value for stnprntis one fourth of the synchro- 
+nous terminal and printer devices. If stnprnt is larger than the number of synchronous 
+devices in your system, a warning message will be printed and stnprnt will be reduced to 
+the default value. 
+
+
+stibsz Specifies the size of the input buffer pool for synchronous terminals and printers in bytes. 
+Stibsz should be a multiple of 256 because input buffers are always allocated in 256 byte 
+chunks. For each synchronous terminal communications line, four input buffers are allo- 
+cated to receive incoming messages. The buffer will be freed when all of the data in the 
+message has been processed by a user. The default buffer size of 8192 bytes provides 32 
+input buffers. If no input buffers are available for an incoming message, the message will 
+wait at the sending device until a buffer is freed and can be allocated for the sending device. 
+
+
+stobsz Specifies the size of the output buffer pool for synchronous terminals and printers in bytes. 
+Output buffers are allocated as needed to send data to synchronous devices. For devices 
+working in line mode, almost all buffers will be allocated with a size of 256 bytes. In appli- 
+cation mode, buffers are allocated for each write system call at the exact requested size. 
+The default buffer size is 8192. The buffer size needed on your system will be governed by 
+the type and frequency of usage of synchronous devices. If enough buffer space is not avail- 
+able when it is requested, the writing process will be suspended until space is available. 
+
+
+stihbuf Specifies how many buffer headers to allocate for synchronous terminal input buffers. A 
+buffer header is needed for each input buffer from the time it becomes available until it 
+is freed when all of the data in the buffer has been processed. If you override the default 
+value of four buffer headers per synchronous device, the total number of buffer headers 
+to allocate for all synchronous devices must be specified. If too few buffer headers are allo- 
+cated, requests for input buffers will roadblock waiting for free headers. 
+
+
+stohbuf Specifies how many buffer headers to allocate for synchronous terminal output 
+buffers. A buffer header is needed for each output buffer from the time the buffer is 
+filled and sent to the transmitter until receipt of the buffer is positively acknowledged or 
+the buffer is discarded as unsendable. If you override the default value of four buffer head- 
+ers per synchronous device, specify the total number of buffer headers to allocate for all 
+sychronous devices. If too few buffers are allocated, request for output buffers will road- 
+block waiting for free headers. 
+
+
+Page 62 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+ADMINISTRATIVE FILES 
+A. /etc/motd 
+
+
+This file contains the message-of-the-day. It is printed by /etc/profile after every successful login; there- 
+fore, it should be kept short and to the point. 
+
+
+B. /ete/re 
+
+On the transition between init states, /etc/init invokes /bin/sh to run /etc/rc (must have executable modes). 
+So that /ete/re can properly handle the removal of temporary files and the mounting and unmounting of file 
+systems, it is invoked with three arguments—new state, number of times this state has been entered, and previ- 
+ous state. When the system is initially booted, /ete/re is invoked with arguments “1 0 0”; when state two 
+(multiuser) is subsequently entered, the arguments are “2 0 1”. 
+
+When state 2 is entered more than once (via another /etc/init 2), no action will be taken by this file. This 
+
+
+enables the system administrator to add or delete login processes while the system is in multiuser mode (see 
+/etc/inittab). 
+
+
+eo? 
+
+
+When the init process is sent a hangup or a power-fail signal, it will invoke /etc/re with an “x appended 
+to the first argument (e.g., “2x 1 2”). 
+
+
+Daemons may be invoked by /etc/rc, by including lines for them in /ete/inittab, or by /usr/lib/crontab. 
+These files must be edited to suit local conditions; see init(§). 
+C. /etc¢/inittab 
+This file indicates to /ete/init which processes to create or terminate in each init state. By convention, state 
+6 is singleuser and state 2 is multiuser. For example, the following line creates a sample single-user environ- 
+
+
+ment: 
+
+
+s6:6:wait:(uname;echo 1 user w/o gettys running;) > /dev/console 2>&1 
+co: :respawn:/etc/getty console console 
+
+
+This indicates that for state 6 a process that produces the system name followed by the “single user” message 
+is created. Following this process a shell will be executed. 
+
+
+For line /dev/tty00 for use by 300/150/110 baud asynchronous terminals, add the following line: 
+00:2:respawn:/ete/getty tty00 300 
+For line /dev/tty99 for use by a synchronous terminal, add the following line: 
+99:2:respawn:/etc/stgetty tty99 1200 
+The arguments to getty are the number of seconds to allow before hanging up the line, the device name, 
+optional speed settings which refers to an entry in /etc/gettydefs, optional type of terminal referenced in 
+
+
+getty(1M), and optional line discipline. 
+
+
+Again, this file must be edited for local conditions; see getty(8), stgetty(8), init(’), gettydefs(4), and 
+inittab(5). 
+
+
+Page 63 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+D. 
+
+
+This file is used to describe each user to the system. A new line must be added for each new user. Each line 
+
+
+/ete/passwd 
+
+
+has seven fields separated by colons: 
+
+
+1. 
+
+
+Login name: normally 1 through 6 characters, first character alphabetic, the remainder alphanumeric, 
+no uppercase characters. 
+
+
+. Enerypted password: initially null, filled in by passwd(1). The encrypted password contains 13 bytes 
+
+
+while the actual password is limited to a maximum of 8 bytes. The encrypted password may be followed 
+by a comma and up to four more bytes of password “age” information. 
+
+
+. User ID: a number between 0 and 65,535; 0 indicates the superuser. User IDs 0 through 99 are reserved. 
+. Group ID: the default is group 1 (one). Group IDs 0 through 99 are reserved. 
+
+
+. Accounting information: this field is used by various accounting programs. It usually contains the user 
+
+
+name, department number, and account number. 
+
+
+. Login directory: full pathname (keep them reasonably short). 
+
+
+. Program name: if null, /bin/sh is invoked after a successful login. If present, the named program is in- 
+
+
+voked in place of /bin/sh. 
+
+
+For example: 
+
+
+ghh::138:1:6824-G.H.Hurtz(4357):/usr/ghh: 
+grk::244:1:6510-5.P.LeName(4466):/usr/grk:/bin/rsh 
+
+
+See also passwd(4), login(1), and passwd(1). 
+
+
+E. /etc/group 
+
+
+This file is used to describe each group to the system. The system administrator must add a new line for 
+each new group. Each line has four fields separated by colons: 
+
+
+. Group name: normally 1 through 6 characters, first character alphabetic, rest alphanumeric, no upper- 
+
+
+case characters. 
+
+
+. Encrypted password: contains 13 bytes while the actual password is limited to a maximum of 8 bytes. 
+. Group ID: a number between 0 and 65,535. Group IDs 0 through 99 are reserved. 
+
+
+. Login names: list of all Jogin names in the group, separated by commas; list of all Jogin names that may 
+
+
+use newgrp(1) to become a member of the group. 
+
+
+Group passwords are strongly discouraged. See also group(4). 
+
+
+F. /etc/profile 
+
+
+When the shell is executed and is the leader of a process group, as is the case when it is invoked by Jogin, 
+it will read and execute the commands in /etc/profile before executing commands in the user’s .profile file. This 
+allows the system administrator to set up a standard environment for all users (e.g., executing umask, setting 
+
+
+Page 64 
+
+
+6/82 ; ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+shell variables, etc.) and take care of other housekeeping details (such as news —n). Note that in /etc/profile 
+the shell variable $0 indicates the invocation—normal shell (—sh), restricted shell (—rsh), or su command 
+(-su). 
+
+
+G. /etc/checklist 
+This file contains a list of default devices to be checked for consistency by the fsck(1M) program. The de- 
+vices normally correspond to those mounted when the system is in multiuser mode. For example, a sample 
+
+
+checklist would be: 
+
+
+/dev/rp0 
+/dev/rrpl 
+
+
+Note that the root device is specified as a block device while all others are specified as character devices. 
+Character devices can be checked faster than block devices. The root device is specified as a block device in order 
+for the fsck program to detect when the root is being checked, so that any modifications to this file system will 
+result in an immediate reboot request. 
+
+
+H. /etc/shutdown 
+
+
+This file contains procedures to gracefully shut down the system in preparation for file save or scheduled 
+downtime. 
+
+
+|. /ete/filesave and /etc/tapesave 
+
+These files contain prototypes for local file saves. 
+J. /usr/adm/pacct 
+
+This file contains the process accounting information; see acct(1M). 
+K. /usr/adm/wtmp 
+
+This file is the log of login processes. 
+REGENERATING SYSTEM SOFTWARE 
+
+System source is issued under the directory /usr/src. The subdirectories are named cmd (commands), lib 
+(libraries), uts (the operating system), head (header files), and stand (stand-alone programs); see mk(8) for de- 
+tails on how to remake system software. 
+
+A couple of anomalies: the accounting routine that deals with holidays and the prime/nonprime time split 
+must be recompiled at the end of each year (it is currently correct for BTL-New Jersey in 1981). The file is 
+/usr/sre/emd/acct/lib/pnpsplit.c. A reminder is sent to /usr/adm/acct/nite/log, the standard place for such 
+
+
+messages, starting a week before year-end and continuing until pnpsplit.cis recompiled; see “THE UNIX SYS- 
+TEM ACCOUNTING” section for details. 
+
+
+Page 65 
+
+
+ADMINISTRATOR'S GUIDE ISSUE 1 6/82 
+
+
+NOTES 
+
+
+Page 66 
+
+

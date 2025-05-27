@@ -1,0 +1,27 @@
+1/83 ISSUE 1 ADMINISTRATOR'S GUIDE 
+
+
+12. MODIFICATION REQUEST 
+
+
+Software or documentation errors and request for enhancements should be submitted to: 
+
+
+UNIX System Support Center 
+2600 Warrenville Road 
+Lisle, Illinois 
+60532, USA 
+
+
+Page 185 
+
+
+ADMINISTRATOR'S GUIDE ISSUE 1 1/83 
+
+
+NOTES 
+
+
+Page 186 
+
+

@@ -1,0 +1,537 @@
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+11. UNIX SYSTEM ACTIVITY PACKAGE 
+General 
+
+
+This section describes the design and implementation of the UNIX System Activity. Package. The UNIX op- 
+erating system contains a number of counters that are incremented as various system actions occur. The system 
+activity package reports UNIX system-wide measurements including Central Processing Unit(CPU) utilization, 
+disk and tape Input/Output(I/O) activities, terminal device activity, buffer usage, system calls, system switch- 
+ing and swapping, file-access activity, queue activity, and message and semaphore activities. The package pro- 
+vides four commands that generate various types of reports. Procedures that automatically generate daily 
+reports are also included. The five functions of the activity package are: 
+
+
+e sar(1) command—allows a user to generate system activity reports in real-time and to save system ac- 
+tivities in a file for later usage. 
+
+
+e sag(1G) command—displays system activity in a graphical form. 
+
+
+e sadp(1) command—samples disk activity once every second during a specified time interval and reports 
+disk usage and seek distance in either tabular or histogram form. 
+
+
+e timex(1)—a modified time(1) command that times a command and also reports concurrent system ac- 
+tivity. 
+
+
+e system activity daily reports—procedures are provided for sampling and saving system activities in a 
+data file periodically and for generating the daily report from the data file. 
+
+
+The system activity information reported by this package is derived from a set of system counters located 
+in the operation system kernel. These system counters are described in the part “System Activity Counters”, 
+The part “System Activity Commands” describes the commands provided by this package. The procedure for 
+generating daily reports is given in “Daily Report Generation”. A description for each of the files used by the 
+system activity package can be found in Attachment 11.1. 
+
+
+System Activity Counters 
+
+
+The UNIX operating system manages a number of counters that record various activities and provide the 
+basis for the system activity reporting system. The data structure for most of these counters is defined in the 
+sysinfo structure (see Attachment 11.2) in /usr/include/sys/sysinfo.h. The system table overflow counters are 
+kept in the _syserr structure. The device activity counters are extracted from the device status tables. In this 
+version, the I/O activity of the following devices is recorded: RP06, RM05, RS04, RF11, RK05, RP0O3, RLO2, TM038, 
+and TM11. 
+
+
+In the following paragraphs, the system activity counters that are sampled by the system activity package 
+are described. 
+
+
+Cpu time counters: There are four time counters that may be incremented at each clock interrupt 60 times 
+per second. Exactly one of the cpu|| counters is incremented on each interrupt, according to the mode the CPU 
+
+
+is in at the interrupt; idle, user, kernal, and wait for I/O completion. 
+
+
+Lread and Iwrite: The /read and /write counters are used to count logical read and write requests issued 
+by the system to block devices. 
+
+
+Bread and bwrite: The bread and bwrite counters are used to count the number of times data is trans- 
+ferred between the system buffers and the block devices. These actual I/Os are triggered by logical I/Os that 
+
+
+Page 177 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+cannot be satisfied by the current contents of the buffers. The ratio of block I/O to logical I/O is a common mea- 
+sure of the effectiveness of the system buffering. 
+
+
+Phread and phwrite: The phread and phwrite counters count read and write requests issued by the 
+system to raw devices. 
+
+
+Swapin and swapout: The swapinand swapout counters are incremented for each system request initiat- 
+ing a transfer from or to the swap device. More than one request is usually involved in bringing a process into 
+memory, or out, because text and data are handled separately. Frequently used programs are kept on the swap 
+device and are swapped in rather than loaded from the file system. The swapin counter reflects these initial 
+loading operations as well as resumptions of activity, while the swapout counter reveals the level of actual 
+“swapping.” The amount of data transferred between the swap device and memory are measured in blocks and 
+counted by bswapin and bswapout. 
+
+
+Pswitch and syscall: These counters are related to the managementof multiprogramming. Syseall is in- 
+cremented every time a system call is invoked. The numbers of invocations of read(2), write(2), fork(2), and 
+exec(2) system calls are kept in counters sysread, syswrite, sysfork, and sysexec, respectively. Pswitch counts 
+the times the switcher was invoked, which occurs when: 
+
+
+a. a system call resulted in a road block 
+b. an interrupt occurred resulting in awakening a higher priority process 
+c. 1-second clock interrupt. 
+
+
+Iget, namei, and dirblk: These counters apply to file-access operations. Iget and namei, in particular, are 
+the names of UNIX operating system routines. The counters record the number of times that the respective rou- 
+tines are called. Nameiis the routine that performs file system path searches. It searches the various directory 
+files to get the associated i-number of a file corresponding to a special path. Iget is a routine called to locate 
+the inode entry of a file (i-number). It first searches the in-core inode table. If the inode entry is not in the table, 
+routine iget will get the inode from the file system where the file resides and make an entry in the in-core inode 
+table for the file. Iget returns a pointer to this entry. Namei calls iget, but other file access routines also call 
+iget. Therefore, counter iget is always greater than counter namei. 
+
+
+Counter dirblk records the number of directory block reads issued by the system. It is noted that the direc- 
+tory blocks read divided by the number of namei calls estimates the average path length of files. 
+
+
+Runque, runocc, swpque, and swpocc: These counters are used to record queue activities. They are im- 
+plemented in the clock.c routine. At every 1 second interval, the clock routine examines the process table to see 
+whether any processes are in core and in ready state. If so, the counter runoce is incremented and the number 
+of such processes are added to counter runque. While examining the process table, the clock routine also checks 
+whether any processes in the swap device are in ready state. The counter swpocc is incremented if the swap 
+queue is occupied, and the number of processes in swap queue is added to counter swpque. 
+
+
+Readch and writech: The readch and writech counters record the total number of bytes (characters) 
+transferred by the read and write system calls, respectively. 
+
+
+Monitoring terminal device activities: There are six counters monitoring terminal device activities. 
+Revint, xmtint, and mdmint are counters measuring hardware interrupt occurrences for receiver, transmitter, 
+and modem individually. Rawch, canch, and outch count number of characters in the raw queue, canonical 
+queue, and output queue. Characters generated by devices operating in the cooked mode, such as terminals, are 
+counted in both rawch and (as edited) in canch, but characters from raw devices, such as communication proces- 
+sors, are counted only in rawch. 
+
+
+Msg and sema counters: These counters record message sending and receiving activities and semaphore 
+operations, réspectively. 
+
+
+Page 178 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+Monitoring I/O activities: As to the I/O activity for a disk or tape device, four counters are kept for each 
+disk or tape drive in the device status table. Counter io_opsis incremented when an I/O operation has occurred 
+on the device. It includes block 1/0, swap I/O, and physical I/O. Io_bent counts the amount of data transferred 
+between the device and memory in 512 byte units. Jo_act and io_resp measure the active time and response time 
+of a device in time ticks summed over all I/O requests that have completed for each device. The device active 
+time includes the device seeking, rotating and data transferring times, while the response time of an I/O opera- 
+tion is from the time the I/O request is queued to the device to the time when the I/O completes. 
+
+
+Inodeovf, fileovf, textovf, and procovf: These counters are extracted from _syserr structure. When an 
+overflow occurs in any of the inode, file, text and process tables, the corresponding overflow counter is incre- 
+mented. 
+
+
+System Activity Commands 
+
+
+The system activity package provides three commands for generating various system activity reports and 
+one command for profiling disk activities. These tools facilitate observation of system activity during 
+
+
+e acontrolled stand-alone test of a large system 
+e an uncontrolled run of a program to observe the operating environment 
+e normal production operation. 
+
+
+Commands sar and sag permit the user to specify a sampling interval and number of intervals for examin- 
+ing system activity and then to display the observed level of activity in tabular or graphical form. The timex 
+command reports the amount of system activity that occurred during the precise period of execution of a timed 
+command. The sadp command allows the user to establish a sampling period during which access location and 
+seek distance on specified disks are recorded and later displayed as a tabular summary or as a histogram. 
+
+
+The “sar’’ command 
+The sar command can be used in the following ways: 
+
+
+e When the frequency arguments t and n are specified, it invokes the data collection program sade to 
+sample the system activity counters in the operating system every t seconds for n intervals and gener- 
+ates system activity reports in real-time. Generally, it is desirable to include the option to save the sam- 
+pled data in a file for later examination. The format of the data file is shown in sar(8). In addition to 
+the system counters, a time stamp is also included. It gives the time at which the sample was taken. 
+
+
+e If no frequency arguments are supplied, it generates system activity reports for a specified time interval 
+from an existing data file that was created by sar at an earlier time. 
+
+
+A convenient usage is to run sar as a background process, saving its samples in a temporary file but sending 
+its standard output to /dev/null. Then an experiment is conducted after which the system activity is extracted 
+from the temporary file. The sar(1) manual entry describes the usage and lists various types of reports. Attach- 
+ment 11.3 gives formula for deriving each reported item. 
+
+
+The “sag” command 
+Sag displays system activity data graphically. It relies on the data file produced by a prior run of sar after 
+which any column of data or the combination of columns of data of the sar report can be plotted. A fairly simple 
+
+
+but powerful command syntax allows the specification of cross plots or time plots. Data items are selected using 
+the sar column header names. The sar(1G) manual entry describes its options and usage. The system activity 
+
+
+Page 179 
+
+
+ADMINISTRATOR'S GUIDE ISSUE 1 6/82 
+
+
+graphical program invokes graphics(1G) and tplot(1G) commands to have the graphical output displayed on 
+any of the terminal types supported by tplot. 
+
+
+The “timex” command 
+
+
+The timex command is an extension of the time(1) command. Without options, timex behaves exactly like 
+time. In addition to giving the time information, it also prints a system activity report derived from the system 
+counters. The manual entry timex(1) explains its usage. It should be emphasized that the user and sys times 
+reported i in the second and third lines are for the measured process itself wens’ all its children while the 
+remaining data (including the cpu user % and cpu sys %) are for the entire system 
+
+
+While the normal use of timex will probably be to measure a single command, multiple commands can also 
+be timed; either by combining them in an executable file and timing it, or more concisely, by typing: 
+
+
+timex sh —c "ecmd1; emd2; ... ;" 
+
+
+This establishes the necessary parent-child relationships to correctly extract the user and system times con- 
+sumed by emd1,emd2, . . . (and the shell). 
+
+
+The “sadp” command 
+
+
+Sadp is a user level program that can be invoked independently by any user. It requires no storage or extra 
+code in the operating system and allows the user to specify the disks to be monitored. The program is reawak- 
+ened every second, reads system tables from /dev/kmem, and extracts the required information. Because of the 
+1 second sampling, only a small fraction of disk requests are observed; however, comparative studies have shown 
+that the statistical determination of disk locality is adequate when sufficient samples are collected. 
+
+
+In the operating system, there is an iobuffor each disk drive. It contains two pointers which are head and 
+tail of the I/O active queue for the device. The actual requests in the queue may be found in three buffer header 
+pools—system buffer headers for block I/O requests, physical buffer headers for physical I/O requests, and 
+swap buffer headers for swap I/O. Each buffer header has a forward pointer which points to the next request 
+in the I/O active queue and a backward pointer which points to the previous request. 
+
+
+Sadp snapshots the iobufof the monitored device and the three buffer header pools once every second dur- 
+ing the monitoring period. It then traces the requests in the I/O queue, records the disk access location, and 
+seeks distance in buckets of 8 cylinder increments. At the end of monitoring period, it prints out the sampled 
+data. The output of sadp can be used to balance load among disk drives and to rearrange the layout of a particu- 
+lar disk pack. The usage of this command is described in manual entry sadp(1). 
+
+
+Daily Report Generation 
+
+
+The previous part described the commands available to users to initiate activity observations. It is probably 
+desirable for each installation to routinely monitor and record system activity in a standard way for historical 
+analysis. This part describes the steps that a system administrator may follow to automatically produce a stan- 
+dard daily report of system activity. 
+
+
+Facilities 
+
+
+e sadc—The executable module of sadc.c (see Attachment 11.1) which reads system counters from /dev/ 
+kmem and records them to a file. In addition to the file argument, two frequency arguments are usually 
+specified to indicate the sampling interval and number of samples to be taken. In case no frequency ar- 
+guments are given, it writes a dummy record in the file to indicate a system restart. 
+
+
+e sal—The shell procedure that invokes sade to write system counters in the daily data file Ausr/ 
+adm/sa dd where dd represents the day of the month. It may be invoked with sampling interval and 
+iterations as arguments. 
+
+
+Page 180 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+e sa2—The shell procedure that invokes the sar command to generate daily report /usr/adm/sa/sar dd 
+from the daily data file /usr/adm/sa/sa dd. It also removes daily data files and report files after 7 days. 
+The starting and ending times and all report options of sar are applicable to sa2. 
+
+
+Suggested Operational Setup 
+
+
+It is suggested that the cron(1M) control the normal data collection and report generation operations. For 
+example, the sample entries in /usr/lib/crontab: 
+
+
+0 * * * 0,6 su sys —c "/usr/lib/sa/sal " 
+0 18- * * 1-5 su sys —c "/usr/lib/sa/sal " 
+0 8-17 * * 1-5 su sys —c "/usr/lib/sa/sal 1200 3" 
+
+
+would cause the data collection program sadc to be invoked every hour on the hour. Moreover, depending on 
+the arguments presented, it writes data to the data file one to three times at every 20 minutes. Therefore, under 
+the control of cron(1M), the data file is written every 20 minutes between 8:00 and 18:00 on weekdays and hourly 
+at other times. 
+
+
+Note that data samples are taken more frequently during prime time on weekdays to make them available 
+for a finer and more detailed graphical display. It is suggested that sal be invoked hourly rather than invoking 
+it once every day; this ensures that if the system crashes data collection will be resumed within an hour after 
+the system is restarted. 
+
+
+Because system activity counters restart from zero when the system is restarted, a special record is written 
+on the data file to reflect this situation. This process is accomplished by invoking sade with no frequency argu- 
+ments within /ete/re when going to multiuser state: 
+
+su adm —c "/usr/lib/sa/sade /usr/adm/sa/sa'date +%d' " 
+Cron(1M) also controls the invocation of sar to generate the daily report via shell procedure sa2. One may 
+choose the time period the daily report is to cover and the groups of system activity to be reported. For instance, 
+if: 
+
+0 20 * * 1-5 su sys ~e "/usr/lib/sa/sa2 —s 8:00 —e 18:00 —i 3600 —uybd " 
+is an entry in /usr/lib/crontab, cron will execute the sar command to generate daily reports from the daily 
+data file at 20:00 on weekdays. The daily report reports the CPU utilization, terminal device activity, buffer us- 
+
+
+age, and device activity every hour from 8:00 to 18:00. 
+
+
+In case of a shortage of the disk space or for any other reason, these data files and report files can he re- 
+moved by the superuser. The manual entry sar(8) describes the daily report generation procedure. 
+
+
+Page 181 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+ATTACHMENT 11.1 
+
+
+The source files and shell programs of the system activity package are in directory /usr/srce/cmd/sa. 
+
+
+sa.h 
+
+
+sade.c 
+
+
+sar.c 
+
+
+saghdr.h 
+
+
+saga.c & sagb.c 
+
+
+sal.sh 
+
+
+sa2.sh 
+
+
+timex.c 
+
+
+sadp.c 
+
+
+Page 182 
+
+
+The system activity header file defines the structure of data file and device information 
+for measured devices. It is included in sade.c, sar.c, and timex.c. 
+
+
+The data collection program that accesses /dev/kmem to read the system activity counters 
+and writes data either on standard output or on a binary data file. It is invoked by the sar 
+command generating a real-time report. It is also invoked indirectly by entries in /usr/lib/ 
+crontab to collect system activity data. 
+
+
+The report generation program invokes sade to examine system activity data, generates 
+reports in real-time, and saves the data to a file for later usage. It may also generate sys- 
+tem activity reports from an existing data file. It is invoked indirectly by cron to generate 
+daily reports. 
+
+
+The header file for saga.c and sagb.c. It contains data structures and variables used by 
+saga.c and sagb.c. 
+
+
+The graph generation program that first invokes sar to format the data of a data file in 
+a tabular form and then displays the sar data in graphical form. 
+
+
+The shell procedure that invokes sade to write data file records. It is activated by entries 
+in /usr/lib/crontab. 
+
+
+The shell procedure that invokes sar to generate the report. It also removes the daily data 
+files and daily report files after a week. It is activated by an entry in /usr/lib/crontab on 
+weekdays. 
+
+
+The program that times a command and generates a system activity report. 
+
+
+The program that samples and reports disk activities. 
+
+
+6/82 
+
+
+ISSUE 1 
+
+
+ATTACHMENT 11.2 
+
+
+struct sysinfo { 
+
+
+time_t cpu[4]; 
+#define CPU_IDLE 
+#define CPU_USER 1 
+#define CPU_KERNAL 2 
+#define CPU_WAIT 3 
+time_t wait|3]; 
+#define W_IO 0 
+#define W_SWAP 1 
+#define W_PIO 2 
+long bread; 
+long bwrite; 
+long lread; 
+long lwrite; 
+long phread; 
+long phwrite; 
+long swapin; 
+long swapout; 
+long bswapin; 
+long bswapout; 
+long pswitch; 
+long syscall; 
+long sysread; 
+long syswrite; 
+long sysfork; 
+long sysexec; 
+long runque; 
+long runocc; 
+long swpque; 
+long SWPOCC; 
+long iget; 
+long namei; 
+long dirblk; 
+long readch; 
+long writech; 
+long revint; 
+long xmtint; 
+long mdmint; 
+long rawch; 
+long canch; 
+long outch; 
+long msg; 
+long sema; 
+
+
+ADMINISTRATOR’S GUIDE 
+
+
+Page 183 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+ATTACHMENT 11.3 
+
+
+The derivation of the reported items is given in this attachment. Each item discussed below is the data dif- 
+ference sampled at two distinct times t2 and t1. 
+
+
+CPU Utilization & 
+
+
+% -of-cpu-x = cpu-x / (cpu-idle + epu-user + cpu-kernel + epu-wait) * 100 
+
+
+where cpu-x is cpu-idle, epu-user, epu-kernel (epu-sys), or cpu-wait. 
+Cached Hit Ratio 
+% -of-cached-I/O = (logical-I/O — block-I/O) / logical-I/O * 100 & 
+where cached I/O is cached read or cached write. 
+Disk or Tape I/O Activity 
+% -of-busy = 1/O-active / (t2 — t1) * 100; 
+avg-queue-length = I/O-resp / I/O-active; 
+avg-wait = (I/O-resp — I/O-active) / I/O-ops; 
+avg-service-time = I/Q-active / I/O-ops. 
+
+
+Queve Activity 
+
+
+avg-x-queue-length = x-queue / x-queue-occupied-time; 
+% -of-x-queue-occupied-time = x-queue-occupied-time / (t2 — t1); 
+
+
+where x-queue is run queue or swap queue. 
+The Rest of System Activity 
+avg-rate-of-x = x / (t2 — tl) 
+where x is swap in/out, blks swapped in/out, terminal device activities, read/write characters, block read/write, 
+
+
+logical read/write, process switch, system calls, read/write, fork/exec, iget, namei, directory blocks read, disk/ 
+tape I/O activities, message or semaphore activities. 
+
+
+Page 184 
+
+

@@ -1,0 +1,64 @@
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+1. INTRODUCTION 
+
+
+The Administrator’s Guide is a reference volume for those who administer a UNIX system. The guide should 
+be used to supplement the information contained in the UNIX System User’s Manual and the UNIX System 
+Administrator’s Manual. The following paragraphs contain a brief description of each section of the guide. 
+
+
+The section “ADMINISTRATIVE ADVICE (DEC)” contains helpful advice and suggestions for adminis- 
+trators of the UNIX system on DEC processors. 
+
+
+The section “ADMINISTRATIVE ADVICE (3B20S)” contains helpful advice and suggestions for adminis- 
+trators of the UNIX system on the 3B205 Processor. 
+
+
+The section “SETTING UP THE UNIX SYSTEM (DEC)” describes the setup procedures for installing a 
+UNIX operating system on DEC processors. 
+
+
+The section “SETTING UP THE UNIX SYSTEM (3B208S)” describes the setup procedures for installing a 
+UNIX operating system on the 3B20S Processor. 
+
+
+The section “AUTO CALL FACILITY INSTALLATION” outlines the installation procedures for a properly 
+installed (software) automatic call-up facility. 
+
+
+The section “UNIX SYSTEM ACCOUNTING” describes the structure, implementation, and management of 
+the accounting system. 
+
+
+The section “FILE SYSTEM CHECKING” describes the file system check program (fsck) of the UNIX sys- 
+tem, Fsck audits and interactively repairs inconsistency in UNIX file systems. 
+
+
+The section “LP SPOOLING SYSTEM” defines the LP program and describes the role of the LP administra- 
+tor in performing restricted functions and overseeing the smooth operation of LP. 
+
+
+The section “UNIX SYSTEM REMOTE JOB ENTRY” defines the UNIX system remote job entry (RJE) and 
+describes the administrative duties of an RJE administrator. 
+
+
+The section “UNIX SYSTEM ACTIVITY PACKAGR” describes the design and implementation of the UNIX 
+system activity package. The package reports UNIX system-wide statistics. 
+
+
+The section “MODIFICATION REQUEST” describes the procedures for completing and submitting modifi- 
+cation requests (MRs) for the UNIX system. 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+NOTES 
+
+
+Page 12 
+
+
