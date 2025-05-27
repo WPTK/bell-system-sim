@@ -1254,6 +1254,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                 'lcarrier': self.cmd_lcarrier,
                 'multiplex': self.cmd_multiplex,
                 'regenerator': self.cmd_regenerator,
+                'antenna': self.cmd_antenna,
                 
                 # Enhanced UX commands
                 'errors': self.cmd_errors,
@@ -1270,7 +1271,9 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                 'help': self.cmd_help,
                 'man': self.cmd_man,
                 'status': self.cmd_status,
-                'test': self.cmd_test
+                'test': self.cmd_test,
+                'quit': self.cmd_quit,
+                'clear': self.cmd_clear
             }
             
             # Execute command if it exists
@@ -3751,6 +3754,105 @@ All switching functions normal.
 """
         else:
             return f"test: unknown test type '{test_type}'\nUse 'test' for available options"
+
+    def cmd_antenna(self, args: List[str] = None) -> str:
+        """Bell System antenna and microwave equipment management."""
+        if not args:
+            return """ANTENNA SYSTEM STATUS
+===================
+
+Microwave Antennas:
+- Antenna A1: Horn antenna, 6 GHz, aligned
+- Antenna A2: Parabolic dish, 4 GHz, operational
+- Antenna A3: Horn antenna, 11 GHz, maintenance mode
+
+Tower Equipment:
+- Tower height: 250 feet
+- Wind load: 45 mph (normal)
+- Ice loading: None detected
+
+Usage: antenna [status|test|align|maintenance]
+"""
+
+        option = args[0].lower()
+        
+        if option == "status":
+            return """ANTENNA DETAILED STATUS
+=====================
+Test Time: """ + time.strftime("%H:%M:%S") + """
+
+Main Microwave Path (A1):
+  Frequency:         6.125 GHz
+  Power Output:      +10 dBm
+  VSWR:             1.2:1 (Excellent)
+  Alignment:        0.1° deviation (Normal)
+
+Backup Path (A2):
+  Frequency:         4.835 GHz  
+  Power Output:      +8 dBm
+  VSWR:             1.4:1 (Good)
+  Alignment:        On target
+
+All antenna systems operational.
+"""
+        elif option == "test":
+            return """ANTENNA TEST SEQUENCE
+===================
+Initiated: """ + time.strftime("%H:%M:%S") + """
+
+Testing A1 (Main Path):
+  Transmitter Test:    PASS
+  Receiver Test:       PASS
+  Path Loss:          132.5 dB (Normal)
+  Signal Quality:      -45 dBm (Strong)
+
+Testing A2 (Backup):
+  Transmitter Test:    PASS
+  Receiver Test:       PASS
+  Path Loss:          128.2 dB (Normal)
+  Signal Quality:      -42 dBm (Strong)
+
+All antenna tests completed successfully.
+"""
+        elif option == "align":
+            return """ANTENNA ALIGNMENT PROCEDURE
+=========================
+Target: """ + (args[1] if len(args) > 1 else "A1") + """
+Started: """ + time.strftime("%H:%M:%S") + """
+
+Phase 1: Coarse Alignment
+  Azimuth sweep:      COMPLETED
+  Peak signal found:  -38 dBm at 127.5°
+
+Phase 2: Fine Alignment  
+  Elevation adjust:   COMPLETED
+  Final position:     127.4° Az, 2.1° El
+  Signal strength:    -36 dBm (Optimal)
+
+Antenna alignment completed successfully.
+"""
+        else:
+            return f"antenna: unknown option '{option}'\nUse 'antenna' for available commands"
+
+    def cmd_quit(self, args: List[str] = None) -> str:
+        """Exit the Bell System terminal session."""
+        # Save command history if readline is available
+        if hasattr(self, 'history_file') and self.history_file:
+            try:
+                import readline
+                readline.write_history_file(self.history_file)
+            except:
+                pass
+        
+        self.logger.info(f"Session {self.session_id} terminated by user")
+        print("\nBell System session terminated.")
+        print("Thank you for using Bell System UNIX V7 Operations Terminal.")
+        sys.exit(0)
+
+    def cmd_clear(self, args: List[str] = None) -> str:
+        """Clear the terminal screen."""
+        os.system('clear' if os.name == 'posix' else 'cls')
+        return ""
 
 
 def main() -> None:
