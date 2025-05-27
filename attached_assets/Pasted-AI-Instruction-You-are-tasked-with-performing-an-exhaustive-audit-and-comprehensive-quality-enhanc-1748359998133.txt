@@ -1,0 +1,137 @@
+AI Instruction:
+
+You are tasked with performing an exhaustive audit and comprehensive quality enhancement on the entire Python codebase and related materials for a terminal-based simulation program. The program runs exclusively in a terminal environment and must maintain all current functionalities.
+
+Your objectives include:
+
+---
+
+1. CODE AUDIT
+
+- Conduct a line-by-line review of all Python code to verify correctness and logical soundness.  
+- Identify redundant, unreachable, or dead code segments.  
+- Detect inefficient algorithms, excessive computational complexity, or memory-intensive operations.  
+- Check for potential runtime exceptions, edge cases, and improper handling of input/output.  
+- Validate adherence to Pythonic idioms and best practices.  
+- Flag inconsistent naming conventions or style violations relative to PEP 8.
+
+---
+
+2. CODE OPTIMIZATION
+
+- Suggest improvements to algorithms or data structures to enhance runtime performance and reduce resource consumption without changing program output or user experience.  
+- Optimize loops, conditional statements, and data access patterns.  
+- Reduce nested or duplicated code through helper functions or generators where appropriate.  
+- Avoid premature optimization but target obvious bottlenecks.
+
+---
+
+3. REFACTORING FOR READABILITY AND MAINTAINABILITY
+
+- Break large functions or classes into smaller, single-responsibility units following the Single Responsibility Principle.  
+- Rename variables, functions, classes, and modules to meaningful, self-explanatory names adhering to PEP 8 naming conventions (snake_case for functions/variables, PascalCase for classes).  
+- Restructure code for modularity, grouping related functions and classes into appropriately named modules or packages if beneficial.  
+- Replace magic numbers or strings with named constants or enumerations.  
+- Simplify complex conditional logic by using guard clauses or polymorphism where suitable.  
+- Abstract repeated code into reusable utilities or decorators.
+
+---
+
+4. CODE PRETTIFICATION AND FORMATTING
+
+- Format all Python code strictly according to PEP 8 style guide, including:  
+  - Proper indentation (4 spaces per level).  
+  - Maximum line length of 79 characters (or up to 99 if justified).  
+  - Blank lines between top-level functions and classes, and method definitions.  
+  - Proper spacing around operators, after commas, and within parentheses.  
+- Arrange imports in the standard order: standard library, third-party, then local imports, separated by blank lines.  
+- Remove trailing whitespace and unnecessary blank lines.  
+- Consider using automated formatting tools (e.g., black, autopep8) guidelines and replicate style accordingly.
+
+---
+
+5. CLEANUP OF UNUSED OR LEGACY CODE
+
+- Remove unused imports, variables, functions, classes, and code branches.  
+- Remove commented-out code blocks unless critical for understanding legacy behavior, in which case document their purpose and status clearly.  
+- Delete debugging statements, print statements, or logging not relevant for production.  
+- Ensure no leftover placeholders or TODO comments remain unless justified, with explanations.
+
+---
+
+6. COMMENTING AND DOCUMENTATION
+
+- Add or improve docstrings for all functions, classes, and modules, using PEP 257 conventions (Google or NumPy style preferred). Include:  
+  - Clear summary of purpose.  
+  - Parameters with types and descriptions.  
+  - Return values with types and descriptions.  
+  - Raised exceptions where applicable.  
+- Add inline comments explaining rationale behind complex logic, non-obvious decisions, or important side effects.  
+- Avoid comments stating the obvious or redundant with code.  
+- Ensure comment style is consistent throughout the codebase.  
+- Align comments with the planned user-facing documentation to ensure consistency in terminology and behavior description.
+
+---
+
+7. PRESERVATION OF FUNCTIONALITY AND OPERATIONAL CONSTRAINTS
+
+- Confirm no change to existing user commands, workflows, outputs, or behaviors.  
+- Ensure the program remains fully operational in a terminal environment only; do not introduce or require GUI components, libraries, or dependencies.  
+- Maintain compatibility with existing configurations, scripts, or integration points unless explicitly documented otherwise.
+
+---
+
+8. ERROR HANDLING AND ROBUSTNESS
+
+- Review existing try-except blocks and error management; improve clarity and specificity of exceptions caught.  
+- Ensure errors are handled gracefully with informative messages without program crashes or undefined states.  
+- Add validation for user inputs where missing.  
+- Address edge cases and boundary conditions to prevent unexpected failures.
+
+---
+
+9. REPORTING AND DOCUMENTING CHANGES
+
+- Provide a detailed summary of all changes made during the audit and refactor, including:  
+  - Key optimizations and rationale.  
+  - Refactoring decisions and architectural changes.  
+  - Removed code and justification.  
+  - Commenting improvements and documentation updates.  
+- Highlight any assumptions made or areas where trade-offs were considered.
+
+---
+
+10. ADDITIONAL GUIDANCE
+
+- Follow Python community best practices and idiomatic code patterns.  
+- Use meaningful and descriptive identifiers avoiding abbreviations unless widely understood.  
+- Group related code logically and use clear module, class, and function boundaries.  
+- Maintain consistent style, spacing, and naming conventions to enhance code readability and maintainability.  
+- Use exceptions rather than error codes for error handling, consistent with Python idioms.
+
+---
+
+Output Requirements:
+
+- Submit the fully refactored, clean, commented Python codebase, ready for immediate use.  
+- Preserve original file and directory structure unless a clear modular restructuring improves clarity or maintainability; if restructuring occurs, provide an explanation.  
+- Do not alter or remove any functional features or user commands.
+
+---
+
+Important Note:
+
+- The program must remain a terminal-only simulation; no GUI elements or dependencies should be introduced.
+
+---
+
+Optional Clarifications (to customize):
+
+- Should audit suggest or scaffold automated tests?  
+- Are there priority areas (e.g., performance, readability, specific modules)?  
+- Exclude any proprietary or sensitive code from modification?  
+- Desired commenting style: Google or NumPy docstrings?
+
+---
+
+Please confirm any preferences or provide clarifications before execution.
