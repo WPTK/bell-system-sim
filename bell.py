@@ -28,12 +28,26 @@ Date: November 2024
 import os
 import sys
 import time
+import logging
+import logging.handlers
+import readline
+import uuid
+from collections import defaultdict, deque
 import random
 import functools
 import logging
+import logging.handlers
+import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union, Callable
 from pathlib import Path
+from collections import defaultdict, deque
+
+try:
+    import readline  # For command history and line editing
+    READLINE_AVAILABLE = True
+except ImportError:
+    READLINE_AVAILABLE = False
 
 
 # Bell System Constants
@@ -84,33 +98,103 @@ class BellSystemTerminal:
     during 1978-1983, including authentic commands, procedures, and workflows.
     """
 
-    # Command aliases for improved user experience
+    # Enhanced command aliases for improved user experience
     COMMAND_ALIASES = {
+        # Traditional UNIX aliases
         'h': 'help',
-        '?': 'help', 
+        '?': 'help',
         'q': 'quit',
         'exit': 'quit',
+        'logout': 'quit',
         'cls': 'clear',
+        'clear': 'clear',
+        
+        # Bell System operation aliases
         'st': 'status',
-        'ls': 'list',
+        'stat': 'status',
         'tst': 'test',
+        'chk': 'test',
         'alm': 'alarm',
+        'alert': 'alarm',
         'mnt': 'maintenance',
+        'maint': 'maintenance',
         'perf': 'performance',
+        'monitor': 'performance',
+        
+        # Technical system aliases
         'rad': 'radio',
+        'mw': 'microwave',
         't1': 't1carrier',
+        'ds1': 't1carrier',
         'lc': 'lcarrier',
+        'coax': 'lcarrier',
         'mult': 'multiplex',
-        'regen': 'regenerator'
+        'mux': 'multiplex',
+        'regen': 'regenerator',
+        'reg': 'regenerator',
+        
+        # Directory and file aliases
+        'ls': 'list',
+        'll': 'list',
+        'la': 'list',
+        'dir': 'list',
+        
+        # System monitoring aliases
+        'top': 'ps',
+        'proc': 'ps',
+        'users': 'who',
+        'w': 'who',
+        'disk': 'df',
+        
+        # Bell System specific shortcuts
+        'bsp': 'bsp',
+        'practices': 'bsp',
+        'tnds': 'tnds',
+        'sarts': 'sarts',
+        'tsps': 'tsps',
+        'toll': 'toll',
+        'trace': 'trace',
+        'route': 'routing',
+        'cap': 'capacity',
+        'traf': 'traffic',
+        'bill': 'billing',
+        'cust': 'custdb',
+        'db': 'dbquery',
+        'net': 'netplan',
+        'switch': 'switch',
+        'trunk': 'trunk',
+        'crossbar': 'crossbar',
+        'events': 'events',
+        'handoff': 'handoff',
+        'tariff': 'tariff',
+        'train': 'training',
+        '5ess': '5ess',
+        'western': 'western',
+        'coer': 'coer',
+        'lmos': 'lmos'
     }
 
     def __init__(self) -> None:
         """Initialize the Bell System terminal simulation environment."""
+        # Setup enhanced logging first
+        self._setup_logging()
+        self.logger = logging.getLogger('BellSystem')
+        
         # Performance monitoring
         self._performance_log = {}
         self.session_start_time = time.time()
         self.session_id = f"BELL-{int(time.time())}-{os.getpid()}"
         self.failed_command_attempts = 0
+        
+        # Enhanced UX features - command history and error tracking
+        self.command_history = deque(maxlen=1000)
+        self.error_counts = defaultdict(int)
+        self.recent_errors = deque(maxlen=50)
+        self.log_verbosity = 'INFO'
+        
+        # Setup command history for readline if available
+        if READLINE_AVAILABLE:
+            self._setup_readline()
         
         # System environment
         self.current_directory: str = "/usr/users/sysop"
@@ -135,6 +219,124 @@ class BellSystemTerminal:
         
         # Generate initial shift events
         self.generate_shift_events()
+        
+        # Log successful initialization
+        self.logger.info(f"Bell System Terminal initialized - Session {self.session_id}")
+
+    def _setup_logging(self) -> None:
+        """Setup comprehensive logging system with rotation."""
+        # Create logs directory if it doesn't exist
+        os.makedirs('logs', exist_ok=True)
+        
+        # Setup main logger
+        logger = logging.getLogger('BellSystem')
+        logger.setLevel(logging.DEBUG)
+        
+        # Remove existing handlers to avoid duplicates
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+        
+        # File handler with rotation
+        file_handler = logging.handlers.RotatingFileHandler(
+            'logs/bell_system.log',
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5
+        )
+        file_handler.setLevel(logging.DEBUG)
+        
+        # Console handler for errors/warnings only
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.WARNING)
+        
+        # Detailed formatter
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
+        )
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+        
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+
+    def _setup_readline(self) -> None:
+        """Setup readline for command history and editing."""
+        try:
+            # Load command history if it exists
+            history_file = 'logs/bell_system_history.txt'
+            if os.path.exists(history_file):
+                readline.read_history_file(history_file)
+            
+            # Set history length
+            readline.set_history_length(1000)
+            
+            # Enable tab completion (basic)
+            readline.parse_and_bind('tab: complete')
+            
+            self.history_file = history_file
+            self.logger.debug("Readline setup completed successfully")
+            
+        except Exception as e:
+            self.logger.warning(f"Could not setup readline: {e}")
+            self.history_file = None
+
+    def _handle_command_error(self, command: str, error_msg: str) -> str:
+        """Enhanced error handling with suggestions."""
+        self.error_counts[command] += 1
+        self.recent_errors.append({
+            'command': command,
+            'error': error_msg,
+            'timestamp': datetime.now(),
+            'count': self.error_counts[command]
+        })
+        
+        self.logger.warning(f"Command error: {command} - {error_msg}")
+        
+        # Generate helpful response
+        response = f"Error: {error_msg}\n"
+        
+        # Add suggestions based on command
+        suggestions = self._get_command_suggestions(command)
+        if suggestions:
+            response += f"\nDid you mean:\n"
+            for suggestion in suggestions[:3]:  # Limit to 3 suggestions
+                response += f"  • {suggestion}\n"
+        
+        # Add general help for repeated errors
+        if self.error_counts[command] > 2:
+            response += f"\nHint: Type 'help' for available commands or 'man {command}' for detailed help.\n"
+            response += "Type 'errors' to see recent error summary.\n"
+        
+        return response
+
+    def _get_command_suggestions(self, command: str) -> List[str]:
+        """Get command suggestions based on failed command."""
+        suggestions = []
+        
+        # Check aliases first
+        all_commands = list(self.COMMAND_ALIASES.keys())
+        
+        # Simple fuzzy matching (commands that start with same letters)
+        if len(command) >= 2:
+            prefix_matches = [cmd for cmd in all_commands 
+                             if cmd.startswith(command[:2]) and cmd != command]
+            suggestions.extend(prefix_matches[:2])
+        
+        # Common typo corrections
+        typo_corrections = {
+            'hlep': 'help',
+            'quti': 'quit',
+            'statu': 'status',
+            'tets': 'test',
+            'laarm': 'alarm',
+            'raido': 'radio',
+            'swithc': 'switch',
+            'trnuk': 'trunk'
+        }
+        
+        if command in typo_corrections:
+            suggestions.insert(0, typo_corrections[command])
+        
+        return list(dict.fromkeys(suggestions))  # Remove duplicates
 
     def _initialize_ticket_system(self) -> None:
         """Initialize the Bell System trouble ticket management system."""
@@ -954,14 +1156,20 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
 
     def execute_command(self, command_line: str) -> str:
         """
-        Execute Bell System commands with authentic behavior.
+        Execute Bell System commands with enhanced UX features and logging.
         
         Args:
             command_line: The complete command line entered by user
             
         Returns:
-            Command output string or error message
+            Command output string or enhanced error message
         """
+        start_time = time.time()
+        
+        # Add to command history
+        if command_line.strip():
+            self.command_history.append(command_line)
+        
         try:
             parts = command_line.split()
             if not parts:
@@ -969,6 +1177,23 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
             
             command = parts[0].lower()
             args = parts[1:] if len(parts) > 1 else []
+            
+            # Log command execution
+            self.logger.debug(f"Executing command: {command} with args: {args}")
+            
+            # Handle command aliases
+            original_command = command
+            if command in self.COMMAND_ALIASES:
+                # Handle complex aliases like 'll' -> 'list -l'
+                alias_expansion = self.COMMAND_ALIASES[command]
+                if ' ' in alias_expansion:
+                    alias_parts = alias_expansion.split()
+                    command = alias_parts[0]
+                    args = alias_parts[1:] + args
+                else:
+                    command = alias_expansion
+                
+                self.logger.debug(f"Command alias expanded: {original_command} -> {command} {' '.join(args)}")
             
             # Map commands to their handler methods
             command_handlers = {
@@ -1025,6 +1250,11 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                 'netdata': self.cmd_netdata,
                 'analysis': self.cmd_analysis,
                 
+                # Enhanced UX commands
+                'errors': self.cmd_errors,
+                'verbosity': self.cmd_verbosity,
+                'history': self.cmd_history,
+                
                 # Standard UNIX commands
                 'ps': self.cmd_ps,
                 'who': self.cmd_who,
@@ -1037,13 +1267,27 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
             }
             
             # Execute command if it exists
+            # Execute command
             if command in command_handlers:
-                return command_handlers[command](args)
+                result = command_handlers[command](args)
+                
+                # Log performance metrics
+                execution_time = time.time() - start_time
+                self.logger.debug(f"Command '{command}' completed in {execution_time:.3f}s")
+                
+                # Update command statistics
+                self.command_counts[command] += 1
+                
+                return result
             else:
-                return f"{command}: command not found"
+                # Enhanced error handling with suggestions
+                error_msg = f"{command}: command not found"
+                return self._handle_command_error(command, error_msg)
                 
         except Exception as e:
-            return f"Command execution error: {e}"
+            error_msg = f"Command execution error: {e}"
+            self.logger.error(f"Exception in command '{command}': {e}")
+            return self._handle_command_error(command, error_msg)
 
     def _initialize_man_pages(self) -> Dict[str, str]:
         """
@@ -3353,6 +3597,80 @@ Regenerator Spacing:
 
         else:
             return f"regenerator: unknown option '{args[0]}'\nUse 'regenerator' for available commands"
+
+    def cmd_errors(self, args: List[str] = None) -> str:
+        """Display recent command errors and troubleshooting information."""
+        if not self.recent_errors:
+            return "No recent errors recorded.\n"
+        
+        result = "RECENT COMMAND ERRORS\n"
+        result += "=" * 50 + "\n\n"
+        
+        for i, error in enumerate(self.recent_errors[-10:], 1):  # Show last 10
+            timestamp = error['timestamp'].strftime("%H:%M:%S")
+            result += f"{i}. [{timestamp}] Command: {error['command']}\n"
+            result += f"   Error: {error['error']}\n"
+            result += f"   Count: {error['count']} time(s)\n\n"
+        
+        # Add troubleshooting tips
+        result += "TROUBLESHOOTING TIPS:\n"
+        result += "- Type 'help' for available commands\n"
+        result += "- Use 'man <command>' for detailed help\n"
+        result += "- Check command spelling and syntax\n"
+        result += "- Use command aliases (h=help, st=status, etc.)\n"
+        
+        return result
+
+    def cmd_verbosity(self, args: List[str]) -> str:
+        """Control logging verbosity level."""
+        if not args:
+            current_level = self.logger.level
+            level_names = {10: 'DEBUG', 20: 'INFO', 30: 'WARNING', 40: 'ERROR'}
+            current_name = level_names.get(current_level, 'UNKNOWN')
+            return f"Current logging level: {current_name} ({current_level})\n" + \
+                   "Usage: verbosity [debug|info|warning|error]\n"
+        
+        level = args[0].upper()
+        level_map = {
+            'DEBUG': logging.DEBUG,
+            'INFO': logging.INFO, 
+            'WARNING': logging.WARNING,
+            'ERROR': logging.ERROR
+        }
+        
+        if level in level_map:
+            self.logger.setLevel(level_map[level])
+            self.logger.info(f"Logging level changed to {level}")
+            return f"Logging verbosity set to: {level}\n"
+        else:
+            return f"Invalid level '{args[0]}'. Use: debug, info, warning, error\n"
+
+    def cmd_history(self, args: List[str] = None) -> str:
+        """Display command history with optional filtering."""
+        if not self.command_history:
+            return "No command history available.\n"
+        
+        result = "COMMAND HISTORY\n"
+        result += "=" * 40 + "\n\n"
+        
+        # Show last 20 commands by default
+        history_slice = self.command_history[-20:]
+        
+        for i, cmd in enumerate(history_slice, 1):
+            result += f"{i:2d}. {cmd}\n"
+        
+        if len(self.command_history) > 20:
+            result += f"\n... showing last 20 of {len(self.command_history)} commands\n"
+        
+        # Add usage statistics
+        if hasattr(self, 'command_counts'):
+            result += f"\nMOST USED COMMANDS:\n"
+            sorted_commands = sorted(self.command_counts.items(), 
+                                   key=lambda x: x[1], reverse=True)
+            for cmd, count in sorted_commands[:5]:
+                result += f"  {cmd}: {count} times\n"
+        
+        return result
 
 
 def main() -> None:
