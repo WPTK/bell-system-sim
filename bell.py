@@ -109,11 +109,8 @@ class BellSystemTerminal:
         # Performance monitoring
         self._performance_log = {}
         self.session_start_time = time.time()
-        self.session_id = self._generate_session_id()
+        self.session_id = f"BELL-{int(time.time())}-{os.getpid()}"
         self.failed_command_attempts = 0
-        
-        # Initialize logging
-        self._setup_logging()
         
         # System environment
         self.current_directory: str = "/usr/users/sysop"
