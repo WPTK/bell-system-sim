@@ -1,0 +1,170 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 20 14% 4%;
+  --muted: 60 5% 96%;
+  --muted-foreground: 25 5% 45%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 20 14% 4%;
+  --card: 0 0% 100%;
+  --card-foreground: 20 14% 4%;
+  --border: 20 6% 90%;
+  --input: 20 6% 90%;
+  --primary: 207 90% 54%;
+  --primary-foreground: 211 100% 99%;
+  --secondary: 60 5% 96%;
+  --secondary-foreground: 24 10% 10%;
+  --accent: 60 5% 96%;
+  --accent-foreground: 24 10% 10%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 60 9% 98%;
+  --ring: 20 14% 4%;
+  --radius: 0.5rem;
+  
+  /* UNIX Terminal Colors */
+  --terminal-black: 0 0% 0%;
+  --terminal-green: 120 100% 50%;
+  --terminal-amber: 45 100% 50%;
+  --crt-dark: 120 100% 3%;
+  --phosphor: 120 100% 80%;
+}
+
+.dark {
+  --background: 240 10% 4%;
+  --foreground: 0 0% 98%;
+  --muted: 240 4% 16%;
+  --muted-foreground: 240 5% 65%;
+  --popover: 240 10% 4%;
+  --popover-foreground: 0 0% 98%;
+  --card: 240 10% 4%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 4% 16%;
+  --input: 240 4% 16%;
+  --primary: 207 90% 54%;
+  --primary-foreground: 211 100% 99%;
+  --secondary: 240 4% 16%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 240 4% 16%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 240 5% 84%;
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* Terminal-specific styles */
+.terminal-black {
+  background-color: hsl(var(--terminal-black));
+}
+
+.terminal-green {
+  color: hsl(var(--terminal-green));
+}
+
+.terminal-amber {
+  color: hsl(var(--terminal-amber));
+}
+
+.crt-dark {
+  background-color: hsl(var(--crt-dark));
+}
+
+.phosphor {
+  color: hsl(var(--phosphor));
+}
+
+/* CRT screen effects */
+.crt-screen {
+  border-radius: 8px;
+  box-shadow: 
+    inset 0 0 50px rgba(0, 255, 0, 0.1),
+    0 0 20px rgba(0, 255, 0, 0.2);
+  background: linear-gradient(135deg, hsl(var(--crt-dark)) 0%, hsl(var(--terminal-black)) 50%, hsl(var(--crt-dark)) 100%);
+}
+
+/* Scanlines effect */
+.scanlines::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(transparent 50%, rgba(0, 255, 0, 0.03) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Terminal scrollbar */
+.terminal-output {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--terminal-green)) hsl(var(--terminal-black));
+}
+
+.terminal-output::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-output::-webkit-scrollbar-track {
+  background: hsl(var(--terminal-black));
+}
+
+.terminal-output::-webkit-scrollbar-thumb {
+  background: hsl(var(--terminal-green));
+  border-radius: 4px;
+}
+
+.terminal-output::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--phosphor));
+}
+
+/* Blinking cursor animation */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink 1s infinite;
+}
+
+/* Paper texture for manual panels */
+.bg-paper {
+  background-color: #F5F5DC;
+  background-image: 
+    linear-gradient(90deg, transparent 79px, #ccc 79px, #ccc 81px, transparent 81px),
+    linear-gradient(#eee .1em, transparent .1em);
+  background-size: 100% 1.2em;
+}
+
+/* Amber color for UI elements */
+.text-amber {
+  color: hsl(var(--terminal-amber));
+}
+
+.bg-amber {
+  background-color: hsl(var(--terminal-amber));
+}
+
+/* Unix gray color */
+.bg-unix-gray {
+  background-color: #333333;
+}
+
+.text-unix-gray {
+  color: #333333;
+}
