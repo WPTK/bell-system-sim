@@ -54,7 +54,7 @@ class BellSystemTerminal:
             "custserv": "Customer Service Interface Technician"
         }
         
-        # Enhanced trouble ticket system with multi-stage workflows
+        # Enhanced trouble ticket system with multi-stage workflows and project numbering
         self.ticket_system = {
             "open": {},
             "pending": {},
@@ -71,6 +71,40 @@ class BellSystemTerminal:
                 "EMERGENCY-SERVICES": {"escalation_multiplier": 0.25, "priority_boost": 2},
                 "BUSINESS-CRITICAL": {"escalation_multiplier": 0.75, "priority_boost": 1},
                 "RESIDENTIAL": {"escalation_multiplier": 1.0, "priority_boost": 0}
+            }
+        }
+        
+        # Project and work order numbering system
+        self.project_numbers = {
+            "netplan": {
+                "current": "NP-8301",
+                "name": "Northeast Corridor Expansion Project",
+                "budget": "$4.2M",
+                "timeline": "Q1-Q4 1983"
+            },
+            "capacity": {
+                "current": "CP-8302", 
+                "name": "Digital Switching Migration Phase II",
+                "budget": "$12.8M",
+                "timeline": "1983-1985"
+            },
+            "crossbar": {
+                "current": "XB-8303",
+                "name": "Crossbar Modernization Initiative",
+                "budget": "$6.5M", 
+                "timeline": "1983-1984"
+            },
+            "maintenance": {
+                "current": "MT-8304",
+                "name": "Preventive Maintenance Program Enhancement",
+                "budget": "$2.1M",
+                "timeline": "Ongoing"
+            },
+            "training": {
+                "current": "TR-8305",
+                "name": "Employee Development and Certification Update",
+                "budget": "$890K",
+                "timeline": "1983-1984"
             }
         }
         
@@ -324,6 +358,7 @@ class BellSystemTerminal:
         
         Creates detailed documentation for every command and sub-command with
         authentic Bell System terminology, usage examples, and cross-references.
+        Includes project numbering system for complex operations.
         
         Returns:
             dict: Complete man page documentation system
@@ -2038,102 +2073,464 @@ Parts Inventory:
         return "crossbar: invalid option"
 
     def cmd_netplan(self, args):
-        """Network planning and route optimization"""
+        """Network planning and route optimization (Project NP-8301)"""
         if not args:
-            return f"""Bell System Network Planning
+            project = self.project_numbers["netplan"]
+            return f"""Bell System Network Planning System
+Project: {project['current']} - {project['name']}
+Budget: {project['budget']} | Timeline: {project['timeline']}
 Updated: {datetime.now().strftime("%H:%M:%S")}
 
-Current Planning Projects:
-- Area Code 201 Implementation (Q2 1983)
-- Boston-NYC Route Enhancement (In Progress)
-- DDD Capacity Expansion (Planning Phase)
-- Satellite Link Integration (Study Phase)
+ACTIVE PLANNING PROJECTS:
+NP-8301: Northeast Corridor Expansion Phase 3 - CURRENT
+AC-8302: Area Code 201 Implementation (Northern NJ)
+RE-8303: Boston-NYC Route Enhancement 
+CP-8304: DDD Capacity Expansion Phase II
+SL-8305: Satellite Link Integration Study
 
-Network Growth Analysis:
-- Annual Call Volume Growth: +15%
-- New Customer Connections: +12%
-- Long Distance Usage: +28%
-- Data Service Demand: +45%
+NETWORK GROWTH ANALYSIS:
+Annual Call Volume Growth: +15%
+New Customer Connections: +12%
+Long Distance Usage: +28%
+Data Service Demand: +45%
 
-Capacity Planning Status:
-Northeast Region: On schedule
-Southeast Region: Ahead of schedule
+REGIONAL CAPACITY STATUS:
+Northeast Region: On schedule (NP-8301)
+Southeast Region: Ahead of schedule  
 Central Region: Requires acceleration
-West Region: Study phase
+West Region: Planning phase
 
-Use 'netplan project <name>' for project details
-Use 'netplan capacity' for capacity analysis"""
+WORK ORDERS IN PROGRESS:
+WO-83047: Route diversity analysis NYC-WAS corridor
+WO-83048: Electronic switching capacity planning
+WO-83049: Rural exchange modernization study
+
+Available commands:
+netplan project <id>     - View project details (use project ID)
+netplan capacity         - Detailed capacity analysis
+netplan forecast         - 5-year growth projections
+netplan routes           - Route optimization analysis
+netplan economic         - Financial planning reports"""
         
         elif args[0] == "project" and len(args) > 1:
-            project = " ".join(args[1:]).upper()
-            return f"""Network Planning Project - {project}
-Status Report: {datetime.now().strftime("%H:%M:%S")}
-
-Project Overview:
-- Start Date: January 15, 1983
-- Target Completion: June 30, 1983
-- Budget: $4.2M allocated
-- Current Spend: $1.8M (43%)
-
-Technical Scope:
-- New area code 201 for Northern New Jersey
-- 147 central office modifications required
-- 2.3M customer records to update
-- 890 trunk route modifications
-
-Implementation Phases:
-✓ Phase 1: Planning and Design (Complete)
-✓ Phase 2: Equipment Procurement (Complete)
-→ Phase 3: Installation (65% complete)
-- Phase 4: Testing and Cutover (Pending)
-- Phase 5: Customer Notification (Pending)
-
-Critical Path Items:
-- Central office equipment delivery
-- Software modifications and testing
-- Customer education campaign
-- Coordination with regulatory authorities
-
-Risk Assessment:
-- Technical Risk: LOW
-- Schedule Risk: MEDIUM
-- Budget Risk: LOW
-- Regulatory Risk: LOW"""
+            project_id = args[1].upper()
+            
+            projects = {
+                "NP-8301": {
+                    "name": "Northeast Corridor Expansion Phase 3",
+                    "manager": "Richardson, D. (Principal Planning Engineer)",
+                    "budget": "$4.2M",
+                    "spent": "$2.8M (67%)",
+                    "start": "January 15, 1983",
+                    "target": "December 31, 1983",
+                    "status": "Implementation Phase",
+                    "completion": "75%",
+                    "description": "High-capacity digital route between NYC and Boston with redundant path protection",
+                    "scope": [
+                        "Install 24 T1 carrier systems on diverse routes",
+                        "Upgrade 12 intermediate switching points to digital",
+                        "Implement Bell System standard dynamic routing",
+                        "Add microwave backup path via Hartford"
+                    ],
+                    "phases": {
+                        "Phase 1": "Engineering design and route survey - COMPLETE",
+                        "Phase 2": "Equipment procurement and testing - COMPLETE",
+                        "Phase 3": "Installation and cable placement - 85% complete",
+                        "Phase 4": "System integration testing - 45% complete",
+                        "Phase 5": "Service cutover and verification - Scheduled Q4 1983"
+                    },
+                    "critical_path": [
+                        "Microwave tower construction (weather dependent)",
+                        "5ESS software load testing and certification",
+                        "Coordination with regional Bell companies",
+                        "FCC Type Acceptance for new transmission equipment"
+                    ]
+                },
+                "AC-8302": {
+                    "name": "Area Code 201 Implementation (Northern New Jersey)",
+                    "manager": "Stevens, M. (Numbering Plan Administrator)",
+                    "budget": "$3.1M",
+                    "spent": "$1.9M (61%)",
+                    "start": "October 1, 1982",
+                    "target": "May 1, 1983",
+                    "status": "Final Implementation",
+                    "completion": "92%",
+                    "description": "Split area code 201 to relieve numbering exhaustion in Northern New Jersey",
+                    "scope": [
+                        "Modify 147 central office translation tables",
+                        "Update 2.3M customer database records",
+                        "Reprogram 890 trunk group routing tables",
+                        "Coordinate customer notification campaign"
+                    ]
+                },
+                "RE-8303": {
+                    "name": "Boston-NYC Route Enhancement",
+                    "manager": "O'Brien, P. (Transmission Engineering)",
+                    "budget": "$5.7M",
+                    "spent": "$1.2M (21%)",
+                    "start": "March 1, 1983",
+                    "target": "September 30, 1984",
+                    "status": "Design Phase",
+                    "completion": "35%",
+                    "description": "Increase capacity and improve reliability on critical Northeast corridor"
+                }
+            }
+            
+            if project_id in projects:
+                proj = projects[project_id]
+                output = [f"=== BELL SYSTEM PROJECT DETAIL: {project_id} ==="]
+                output.append(f"Project Name: {proj['name']}")
+                output.append(f"Project Manager: {proj['manager']}")
+                output.append(f"Budget: {proj['budget']} | Spent: {proj['spent']}")
+                output.append(f"Timeline: {proj['start']} to {proj['target']}")
+                output.append(f"Status: {proj['status']} ({proj['completion']} complete)")
+                output.append("")
+                output.append(f"DESCRIPTION:")
+                output.append(f"{proj['description']}")
+                output.append("")
+                output.append("PROJECT SCOPE:")
+                for item in proj['scope']:
+                    output.append(f"• {item}")
+                
+                if 'phases' in proj:
+                    output.append("")
+                    output.append("IMPLEMENTATION PHASES:")
+                    for phase, status in proj['phases'].items():
+                        marker = "✓" if "COMPLETE" in status else "→" if "%" in status else "○"
+                        output.append(f"{marker} {phase}: {status}")
+                
+                if 'critical_path' in proj:
+                    output.append("")
+                    output.append("CRITICAL PATH ITEMS:")
+                    for item in proj['critical_path']:
+                        output.append(f"⚠ {item}")
+                        
+                output.append("")
+                output.append(f"Last Updated: {datetime.now().strftime('%m/%d/%Y %H:%M')}")
+                output.append(f"Next Review: {(datetime.now() + timedelta(days=7)).strftime('%m/%d/%Y')}")
+                        
+                return "\n".join(output)
+            else:
+                return f"Project {project_id} not found. Active projects: NP-8301, AC-8302, RE-8303, CP-8304, SL-8305"
         
         elif args[0] == "capacity":
-            return f"""Network Capacity Planning Analysis
-Generated: {datetime.now().strftime("%H:%M:%S")}
+            return f"""Bell System Network Capacity Analysis
+Work Order: WO-83048 | Generated: {datetime.now().strftime("%m/%d/%Y %H:%M")}
 
-5-Year Growth Projections:
-1983: +15% call volume, +12% customers
-1984: +18% call volume, +14% customers
-1985: +22% call volume, +16% customers
-1986: +25% call volume, +18% customers
-1987: +28% call volume, +20% customers
+CURRENT NETWORK UTILIZATION:
+Electronic Switching Systems (5ESS):
+- Total Capacity: 2.4M call attempts/hour
+- Current Usage: 1.8M call attempts/hour (75%)
+- Peak Usage: 2.1M call attempts/hour (88%)
+- Growth Rate: +1.2% monthly
 
-Infrastructure Requirements:
-New Central Offices Needed:
-- 1983: 12 offices (6 planned, 6 proposed)
-- 1984: 18 offices (planning phase)
-- 1985: 25 offices (study phase)
+Crossbar Switching Systems:
+- Total Capacity: 1.2M call attempts/hour  
+- Current Usage: 950K call attempts/hour (79%)
+- Modernization Schedule: 18 months remaining
+- Conversion Priority: HIGH
 
-Trunk Capacity Expansion:
-- Interstate: +450 trunk groups
-- Intrastate: +280 trunk groups
-- International: +45 trunk groups
+TRUNK GROUP ANALYSIS:
+Interstate Trunk Groups:
+- High Usage Groups: 847 groups (82% utilization)
+- Final Route Groups: 234 groups (67% utilization)
+- Blocking Threshold: P.01 (achieved: P.008)
 
-Investment Analysis:
-Total 5-Year Investment: $245M
-- Equipment: $156M (64%)
-- Installation: $67M (27%)
-- Engineering: $22M (9%)
+Regional Capacity Status:
+Northeast: 2,400 circuits (78% utilized) - NP-8301 will add 480
+Southeast: 1,800 circuits (67% utilized) - On target
+Central: 2,100 circuits (84% utilized) - Requires expansion
+West: 1,650 circuits (72% utilized) - Planning phase
 
-Return on Investment:
-- Break-even: 3.2 years
-- NPV (10%): $89M positive
-- IRR: 18.5%"""
+5-YEAR GROWTH PROJECTIONS:
+Voice Traffic Growth:
+1983: +15% call volume, +12% access lines
+1984: +18% call volume, +14% access lines
+1985: +22% call volume, +16% access lines
+1986: +19% call volume, +15% access lines
+1987: +16% call volume, +13% access lines
+
+Data Services (New):
+1983: 45,000 circuit-hours/month (initial deployment)
+1984: 180,000 circuit-hours/month (+300% growth)
+1985: 420,000 circuit-hours/month (+133% growth)
+1986: 780,000 circuit-hours/month (+86% growth)
+1987: 1,200,000 circuit-hours/month (+54% growth)
+
+INFRASTRUCTURE REQUIREMENTS:
+New Central Offices Required:
+1983: 12 offices (6 funded, 6 proposed)
+1984: 18 offices (engineering phase)
+1985: 25 offices (planning phase)
+
+Equipment Additions Needed:
+- Electronic Switches: 45 additional systems
+- Transmission: 890 T1 carrier spans
+- Digital Cross-Connect: 24 systems
+- Signaling: CCS7 implementation (67 nodes)
+
+INVESTMENT ANALYSIS:
+Total 5-Year Capital: $245M
+Equipment (64%): $156M
+Installation (27%): $67M  
+Engineering (9%): $22M
+
+Financial Metrics:
+Break-even Period: 3.2 years
+NPV (10% discount): $89M positive
+IRR: 18.5%
+Payback Period: 4.1 years
+
+Risk Assessment: MEDIUM
+Primary Risks: Competition, regulatory changes, technology evolution"""
         
-        return "netplan: invalid option"
+        elif args[0] == "forecast":
+            return f"""Bell System Network Growth Forecast
+Project: NP-8301 | Forecast Period: 1983-1988
+Generated: {datetime.now().strftime("%m/%d/%Y %H:%M")}
+
+DEMAND FORECASTING MODEL:
+Base Year 1983 Traffic: 
+- Total Call Attempts: 47.2 billion
+- Average Call Duration: 4.1 minutes
+- Peak Hour Concentration: 12.4%
+- Seasonal Variation: ±7% (Dec peak, Aug trough)
+
+TRAFFIC GROWTH DRIVERS:
+Economic Factors:
+- GNP Growth: +2.8% annually (Reagan recovery)
+- Business Formation: +4.2% annually
+- Population Growth: +0.9% annually
+- Household Formation: +1.8% annually
+
+Technology Adoption:
+- Touch-tone Penetration: 67% → 95% by 1988
+- Extension Phones: +3.2% annually
+- Business Systems: +8.7% annually
+- International Direct Dial: +15% annually
+
+DETAILED PROJECTIONS:
+
+1984 FORECAST:
+Call Volume: +17.8% (55.5 billion attempts)
+New Access Lines: +13.2% (890,000 lines)
+Long Distance: +21.4% (driven by rate reductions)
+Data Communications: +85% (new service category)
+Investment Required: $67M
+
+1985 FORECAST:
+Call Volume: +19.2% (66.2 billion attempts)
+New Access Lines: +14.8% (1,020,000 lines)
+Electronic Switching: 78% of network (vs 65% in 1983)
+Digital Transmission: 45% of inter-office trunks
+Investment Required: $89M
+
+1986-1988 PROJECTIONS:
+Compound Annual Growth Rate:
+- Local Calls: +12.4%
+- Toll Calls: +16.8%
+- International: +22.3%
+- Data Services: +156% (rapid adoption)
+
+CAPACITY PLANNING IMPLICATIONS:
+Switch Installations Needed:
+1984: 23 electronic switches
+1985: 31 electronic switches  
+1986: 28 electronic switches
+1987: 22 electronic switches
+1988: 18 electronic switches
+
+Transmission Expansion:
+Digital T1 Spans: +2,400 by 1988
+Microwave Circuits: +890 by 1988
+Fiber Optic: Initial deployment 1985-1986
+Satellite Circuits: +156 by 1988
+
+FINANCIAL FORECAST:
+Revenue Growth: +14.2% CAGR
+Capital Investment: $478M (5-year total)
+Operating Expenses: +9.8% CAGR
+Net Income Growth: +18.7% CAGR
+
+Confidence Level: HIGH (±5% variance)
+Model Validation: Bell Labs Traffic Engineering Standards
+Next Update: Quarterly (June 1983)"""
+        
+        elif args[0] == "routes":
+            return f"""Bell System Route Optimization Analysis
+Work Order: WO-83047 | Analysis Date: {datetime.now().strftime("%m/%d/%Y")}
+
+ROUTE DIVERSITY ANALYSIS:
+Primary Routes (High Usage):
+NYC-WAS: 3 diverse paths (I-95 corridor, I-80 alternate, microwave)
+NYC-BOS: 2 diverse paths (I-95 coastal, I-84 inland)
+NYC-CHI: 4 diverse paths (maximum diversity achieved)
+NYC-LA: 3 diverse paths (southern, central, northern routes)
+
+TRAFFIC ENGINEERING OPTIMIZATION:
+Current Efficiency Metrics:
+- Overall Network: 94.2% efficiency
+- High-Usage Routes: 96.8% efficiency
+- Final Routes: 89.1% efficiency
+- Overflow Efficiency: 87.3%
+
+Route Loading Analysis:
+Busy Hour Erlang Measurements:
+NYC-WAS: 2,847 CCS (target: 2,900) - 98% efficient
+NYC-BOS: 1,934 CCS (target: 2,100) - 92% efficient
+NYC-PHI: 1,567 CCS (target: 1,650) - 95% efficient
+WAS-ATL: 1,234 CCS (target: 1,400) - 88% efficient
+
+OPTIMIZATION RECOMMENDATIONS:
+Route Enhancement Projects:
+1. NYC-WAS Corridor (Priority 1):
+   - Add 24 T1 circuits to primary route
+   - Implement load balancing algorithms
+   - Cost: $890,000 | ROI: 2.1 years
+
+2. Central Region Diversity (Priority 2):
+   - Establish CHI-STL-KC diverse routing
+   - Add microwave backup paths
+   - Cost: $1.2M | ROI: 2.8 years
+
+3. International Gateway (Priority 3):
+   - Enhance NYC-LONDON satellite circuits
+   - Add terrestrial backup via Canada
+   - Cost: $2.1M | ROI: 1.9 years
+
+ALTERNATE ROUTING ANALYSIS:
+Dynamic Routing Implementation:
+- Completed Routes: 67% of network
+- Target Completion: December 1984
+- Efficiency Gain: +8.7% average
+- Blocking Reduction: 23% improvement
+
+Real-Time Traffic Management:
+- Automatic Route Selection: Operational
+- Congestion Detection: <2 second response
+- Load Balancing: ±3% variance (target: ±5%)
+- Overflow Optimization: 94% efficient
+
+ECONOMIC IMPACT:
+Revenue Protection:
+Current Blocking Loss: $2.3M annually
+Post-Optimization: $0.8M annually
+Net Benefit: $1.5M annually
+
+Investment Summary:
+Total Optimization Cost: $4.2M
+Annual Savings: $1.5M
+Payback Period: 2.8 years
+5-Year NPV: $3.1M
+
+Implementation Schedule:
+Phase 1 (Q2 1983): High-priority routes
+Phase 2 (Q3 1983): Regional diversity
+Phase 3 (Q4 1983): International optimization
+Phase 4 (Q1 1984): Final route completion"""
+        
+        elif args[0] == "economic":
+            return f"""Bell System Economic Planning Report
+Project: NP-8301 | Report Date: {datetime.now().strftime("%m/%d/%Y")}
+
+FINANCIAL OVERVIEW:
+Current Network Investment: $890M (book value)
+Annual Revenue: $156M
+Operating Expenses: $89M
+Net Operating Income: $67M
+Return on Investment: 7.5%
+
+5-YEAR INVESTMENT PLAN:
+Capital Expenditure Forecast:
+1983: $67M (18% electronic switching completion)
+1984: $89M (digital transmission expansion)
+1985: $112M (rural modernization program)
+1986: $98M (advanced services implementation)
+1987: $87M (network optimization completion)
+Total: $453M
+
+REVENUE PROJECTIONS:
+Service Category Growth:
+Local Service: +8.2% CAGR (mature market)
+Long Distance: +16.8% CAGR (price elasticity)
+Special Services: +24.3% CAGR (business growth)
+New Services: +156% CAGR (data communications)
+
+Revenue Mix Evolution:
+1983: Local 58%, Toll 38%, Special 4%
+1988: Local 45%, Toll 41%, Special 8%, Data 6%
+
+COST ANALYSIS:
+Operating Expense Categories:
+Plant Operations: $34M (38%)
+Customer Service: $18M (20%)
+Network Maintenance: $15M (17%)
+Administration: $12M (13%)
+Marketing: $6M (7%)
+Engineering: $4M (5%)
+
+Unit Cost Trends:
+Cost per Access Line: $67 (declining due to electronics)
+Cost per Circuit Mile: $234 (stable)
+Cost per Call Attempt: $0.0089 (declining automation)
+
+PROFITABILITY ANALYSIS:
+Service Profitability:
+Local Service: 23% operating margin
+Interstate Toll: 34% operating margin
+Intrastate Toll: 28% operating margin
+Special Services: 41% operating margin
+International: 52% operating margin
+
+Geographic Profitability:
+Urban Markets: 31% operating margin
+Suburban Markets: 27% operating margin
+Rural Markets: 12% operating margin (cross-subsidy)
+
+FINANCIAL RATIOS:
+Liquidity:
+Current Ratio: 1.8:1
+Quick Ratio: 1.2:1
+Cash Flow Coverage: 3.4x
+
+Leverage:
+Debt-to-Equity: 0.47:1
+Interest Coverage: 8.9x
+Debt Service Coverage: 4.2x
+
+Efficiency:
+Asset Turnover: 0.18x
+Plant Utilization: 73%
+Employee Productivity: $89K revenue/employee
+
+BELL SYSTEM ECONOMIC TARGETS:
+Earnings: 12-15% return on equity
+Growth: 8-12% revenue CAGR
+Efficiency: <2% annual unit cost inflation
+Service: 99.5% availability target
+
+REGULATORY ENVIRONMENT:
+Rate Case Status:
+- Interstate: Filed January 1983
+- New York: Pending (July filing)
+- New Jersey: Approved December 1982
+- Connecticut: Filed February 1983
+
+Divestiture Impact:
+Estimated Transition Cost: $23M
+Revenue Impact: -$12M (access charge changes)
+Timeline: January 1, 1984 implementation
+
+Risk Assessment:
+- Regulatory: MEDIUM (rate approval uncertainty)
+- Competition: HIGH (bypass technologies)
+- Economic: MEDIUM (recession recovery)
+- Technology: LOW (Bell Labs advantage)
+
+Investment Recommendation: PROCEED
+Overall Financial Health: STRONG"""
+        
+        return "netplan: invalid option. Use 'netplan' for available commands."
 
     def cmd_dbquery(self, args):
         """Database query and management tools"""
