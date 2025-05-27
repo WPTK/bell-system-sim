@@ -461,7 +461,13 @@ class BellSystemTerminal:
         print(f"\n{'='*60}")
         print(f"BELL SYSTEM SHIFT BRIEFING - {current_date}")
         print(f"Shift Start Time: {current_time}")
-        print(f"Role: {BELL_SYSTEM_ROLES[list(BELL_SYSTEM_ROLES.keys())[list(BELL_SYSTEM_ROLES.values()).index((self.role, next(name for key, name in BELL_SYSTEM_ROLES.values() if key == self.role)))]}")
+        # Find the role name for display
+        role_name = "Unknown Role"
+        for role_id, (role_key, name) in BELL_SYSTEM_ROLES.items():
+            if role_key == self.role:
+                role_name = name
+                break
+        print(f"Role: {role_name}")
         print(f"{'='*60}")
 
         # Role-specific briefings
