@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-UNIX Version 7 Terminal Simulation
-Based on Bell Telephone Laboratories documentation from 1976-1979
-Implements authentic V7 commands and behavior
+Bell System UNIX V7 Terminal Simulation
+Authentic AT&T Internal Operations Workstation (1978-1983)
+Four Role Simulation: Systems Operator, Switching Technician, Field Liaison, NOC Analyst
 """
 
 import os
@@ -13,15 +13,25 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-class UnixV7Terminal:
+class BellSystemTerminal:
     def __init__(self):
-        self.current_directory = "/root"
-        self.username = "root"
-        self.hostname = "pdp11"
+        self.current_directory = "/usr/users/sysop"
+        self.username = "sysop"
+        self.hostname = "bell-unix"
         self.shell = "/bin/sh"
         self.command_history = []
+        self.role = None
+        self.shift_events = []
         
-        # Simulate authentic UNIX V7 file system
+        # Bell System specific environment
+        self.roles = {
+            "sysop": "UNIX Systems Operator",
+            "switch": "Switching Station Technician", 
+            "field": "Field Support Liaison",
+            "noc": "National NOC Analyst"
+        }
+        
+        # Simulate authentic Bell System UNIX file system
         self.filesystem = {
             "/": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 512, "files": ["bin", "dev", "etc", "lib", "tmp", "usr", "home", "root"]},
             "/bin": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 1024, "files": ["sh", "ls", "cat", "cp", "mv", "rm", "mkdir", "rmdir", "ps", "who", "date", "grep", "ed", "cc", "as", "ld"]},
