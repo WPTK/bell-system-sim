@@ -29,8 +29,11 @@ import os
 import sys
 import time
 import random
+import functools
+import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Callable
+from pathlib import Path
 
 
 # Bell System Constants
@@ -81,8 +84,37 @@ class BellSystemTerminal:
     during 1978-1983, including authentic commands, procedures, and workflows.
     """
 
+    # Command aliases for improved user experience
+    COMMAND_ALIASES = {
+        'h': 'help',
+        '?': 'help', 
+        'q': 'quit',
+        'exit': 'quit',
+        'cls': 'clear',
+        'st': 'status',
+        'ls': 'list',
+        'tst': 'test',
+        'alm': 'alarm',
+        'mnt': 'maintenance',
+        'perf': 'performance',
+        'rad': 'radio',
+        't1': 't1carrier',
+        'lc': 'lcarrier',
+        'mult': 'multiplex',
+        'regen': 'regenerator'
+    }
+
     def __init__(self) -> None:
         """Initialize the Bell System terminal simulation environment."""
+        # Performance monitoring
+        self._performance_log = {}
+        self.session_start_time = time.time()
+        self.session_id = self._generate_session_id()
+        self.failed_command_attempts = 0
+        
+        # Initialize logging
+        self._setup_logging()
+        
         # System environment
         self.current_directory: str = "/usr/users/sysop"
         self.username: str = "sysop"
@@ -621,7 +653,11 @@ class BellSystemTerminal:
 
         print(f"\nShift Events:")
         for i, event in enumerate(self.shift_events[:5], 1):
-            print(f"  {i}. {event}")
+            priority_marker = "*** " if event["priority"] == "CRITICAL" else "** " if event["priority"] == "HIGH" else "* " if event["priority"] == "MEDIUM" else ""
+            print(f"  {i}. {event['time']} [{event['type']}] {priority_marker}{event['status']}")
+            print(f"     {event['title']}")
+            print(f"     ID: {event['id']}")
+            print()
 
         print(f"\nCurrent System Status:")
         print(f"  Network Operations: NORMAL")
