@@ -1,0 +1,138 @@
+AI Instruction:
+
+You are tasked with creating two extensive, professional-quality documentation files for a complex terminal-based simulation program based on all the documents provided so far. The documentation must fully explain the simulation itself, all commands and sub-commands, reference material, the historical/authentic context, and roles with their job functions.
+
+Your output must include two files:
+
+- manual.txt — a plain text, terminal-friendly user manual  
+- readme.md — a Markdown formatted README suitable for display on code hosting platforms like GitHub
+
+---
+
+1. Introduction / Overview
+
+- Provide a clear, concise summary of what the simulation is, including its purpose and key features.  
+- Explain the simulation’s historical or authentic context that inspired or informs it.  
+- State explicitly that the simulation runs entirely within a terminal environment with no GUI components.
+
+2. Installation and Setup
+
+- Describe the environment requirements (OS, terminal types, dependencies, language runtimes).  
+- Provide detailed, step-by-step installation and setup instructions.  
+- Include any environment variables, configuration files, or prerequisite software.
+
+3. General Usage and Navigation
+
+- Explain how users start and exit the simulation.  
+- Describe the input method (typing commands, keyboard navigation, etc.).  
+- Detail how users can access help or usage summaries within the program (e.g., help, man, --help).
+
+4. Commands and Sub-Commands
+
+- List every primary command with a brief description of its function.  
+- For each primary command, list all sub-commands and explain their purpose.  
+- For all commands and sub-commands, provide:
+
+  - Syntax format including required and optional arguments  
+  - Examples demonstrating common and advanced usage  
+  - Description of output/results for each command  
+  - Notes on parameters, flags, or switches, including default values if applicable  
+  - Any constraints, edge cases, or error messages the user might encounter
+
+- Organize this section logically (e.g., alphabetically or by function group).
+
+5. Simulation Context and Workflow
+
+- Describe the work roles or job functions simulated and how commands relate to those roles.  
+- Explain any historical or period-specific terminology, procedures, or workflows incorporated to enhance realism.  
+- If applicable, describe how the simulation handles realistic data or events, including sources or inspiration for authenticity.
+
+6. Roles and Job Functions (for readme.md)
+
+- Provide detailed descriptions for each role included in the simulation.  
+- For each role, explain its daily tasks and responsibilities as they would appear in the simulated environment.  
+- Highlight how the commands and workflows reflect the real-life functions of these roles.  
+- Include any relevant historical or operational context that clarifies why these roles are structured as they are.
+
+7. Reference Material and Additional Resources
+
+- Provide citations or links to manuals, documents, or other sources that inspired or support the simulation design.  
+- Include any glossaries, abbreviations, or terminology lists relevant to understanding commands or context.
+
+8. Help and Support
+
+- Describe how users can access help within the simulation at runtime.  
+- Suggest troubleshooting steps or common user issues and how to resolve them.
+
+9. Developer Notes (for readme.md)
+
+- Outline code organization, commenting conventions, and guidelines for contributing or extending the program.  
+- Mention any coding standards or testing practices used.  
+- Include contact or repository information if relevant.
+
+---
+
+Formatting Guidelines and Documentation Standards
+
+- For manual.txt:
+
+  - Structure the manual like a Unix/Linux man page, using clear sections such as NAME, SYNOPSIS, DESCRIPTION, OPTIONS, EXAMPLES, and SEE ALSO.  
+  - Use uppercase for section headers and indentation for readability in terminals.  
+  - Use consistent formatting for command syntax (e.g., command [options] <arguments>).  
+  - Avoid special characters that might not render well in all terminal environments.  
+  - Use indentation and spacing generously to improve readability.
+
+- For readme.md:
+
+  - Use Markdown syntax with hierarchical headings (#, ##, ###) for clear sections.  
+  - Use fenced code blocks for command syntax and examples.  
+  - Use bullet and numbered lists, tables, and links to organize information clearly.  
+  - Use bold and italics for emphasis and clarity.  
+  - Optionally include badges, table of contents, and links to external resources or related documents.  
+  - Follow popular open-source README conventions as seen on platforms like GitHub.
+
+- Maintain consistent terminology throughout both documents for commands, flags, arguments, roles, and key concepts.  
+- Explain jargon or abbreviations on first use or in a glossary section.  
+- Use clear, concise, and professional language suitable for both technical and semi-technical users.  
+- Write in active voice wherever possible.  
+- Provide examples with expected outputs wherever applicable.  
+- Include versioning and metadata such as software/documentation version, date, and authorship/contact information (typically in the README).
+
+---
+
+Completeness and Accuracy
+
+- Include every command and sub-command currently present in the program or documents.  
+- Provide full explanations for each command’s purpose, syntax, parameters, and usage.  
+- Integrate relevant historical or contextual details to enhance immersion and understanding.  
+- Provide examples covering typical usage scenarios and possible edge cases.  
+- Explain error messages and suggest troubleshooting or corrective actions where appropriate.  
+- Cross-reference related commands or sections (“See also”).
+
+---
+
+Output Requirements
+
+- Deliver two separate, fully fleshed-out files named manual.txt and readme.md.  
+- Both files must be complete, clear, and ready for direct use by end users and developers.  
+- Ensure the content is self-contained and does not require external interpretation to understand the simulation, commands, roles, or context.
+
+---
+
+Important Operational Constraint
+
+- The simulation program runs entirely in a terminal environment; do NOT add or suggest any graphical user interface (GUI) components or dependencies.
+
+---
+
+Optional Clarifications (if needed for customization):
+
+- Include command aliases and shortcuts?  
+- Include troubleshooting or FAQ sections?  
+- Level of detail preferred in examples (minimal vs comprehensive)?  
+- Include future roadmap or planned enhancements?  
+- Include proprietary or sensitive info exclusions?
+
+---
+
+Please confirm any additional preferences or provide answers to the above clarifications before proceeding, if desired.
