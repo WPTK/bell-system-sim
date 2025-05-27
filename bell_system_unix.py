@@ -54,6 +54,62 @@ class BellSystemTerminal:
             "custserv": "Customer Service Interface Technician"
         }
         
+        # Enhanced trouble ticket system with multi-stage workflows
+        self.ticket_system = {
+            "open": {},
+            "pending": {},
+            "closed": {},
+            "escalated": {},
+            "priorities": {
+                "CRITICAL": {"response_time": 15, "escalation": 30},
+                "HIGH": {"response_time": 60, "escalation": 120},
+                "MEDIUM": {"response_time": 240, "escalation": 480},
+                "LOW": {"response_time": 1440, "escalation": 2880}
+            },
+            "customer_classes": {
+                "GOVERNMENT-PRIORITY": {"escalation_multiplier": 0.5, "priority_boost": 1},
+                "EMERGENCY-SERVICES": {"escalation_multiplier": 0.25, "priority_boost": 2},
+                "BUSINESS-CRITICAL": {"escalation_multiplier": 0.75, "priority_boost": 1},
+                "RESIDENTIAL": {"escalation_multiplier": 1.0, "priority_boost": 0}
+            }
+        }
+        
+        # Authentic Bell System shift handoff data
+        self.shift_handoff = {
+            "previous_shift": {
+                "operator": "Johnson, R.",
+                "end_time": "07:59",
+                "summary": "Routine night operations - 3 tickets transferred",
+                "key_issues": [
+                    "RIDGE-X1 intermittent alarms - monitoring",
+                    "UUCP queue backup - resolved 06:30",
+                    "Crossbar maintenance scheduled 09:15"
+                ],
+                "open_tickets": ["SW-2847", "MX-2156", "FD-1293"],
+                "system_status": "All systems operational",
+                "special_instructions": "Monitor trunk TG-047 for blocking threshold"
+            }
+        }
+        
+        # Enhanced rate structures and tariff information
+        self.rate_structures = {
+            "interstate": {
+                "day": {"first_minute": 0.45, "additional": 0.34},
+                "evening": {"first_minute": 0.32, "additional": 0.24},
+                "night": {"first_minute": 0.18, "additional": 0.15}
+            },
+            "intrastate": {
+                "day": {"first_minute": 0.28, "additional": 0.22},
+                "evening": {"first_minute": 0.21, "additional": 0.17},
+                "night": {"first_minute": 0.14, "additional": 0.12}
+            },
+            "international": {
+                "uk": {"first_minute": 2.50, "additional": 1.80},
+                "canada": {"first_minute": 0.65, "additional": 0.45},
+                "mexico": {"first_minute": 1.20, "additional": 0.85}
+            }
+        }
+        
         # Bell System file system with authentic AT&T structure
         self.filesystem = {
             "/": {"type": "dir", "owner": "root", "group": "bell", "mode": "drwxr-xr-x", "size": 512, "files": ["bin", "dev", "etc", "lib", "tmp", "usr", "var", "att"]},
@@ -99,36 +155,168 @@ class BellSystemTerminal:
         self.generate_shift_events()
 
     def generate_shift_events(self):
-        """Generate authentic Bell System operational events"""
-        events = [
+        """Generate authentic Bell System operational events with seasonal and contextual variations"""
+        import random
+        from datetime import datetime
+        
+        # Determine current conditions for realistic scenario generation
+        current_hour = datetime.now().hour
+        current_month = datetime.now().month
+        is_weekend = datetime.now().weekday() >= 5
+        
+        # Base events that always occur
+        base_events = [
             {
                 "time": "08:45",
                 "type": "SYSTEM",
-                "message": "Daily system backup initiated - /att/backup/daily_080283",
-                "priority": "LOW"
-            },
-            {
-                "time": "09:15", 
-                "type": "SWITCH",
-                "message": "RIDGE-X1 switching center reporting intermittent trunk failures",
-                "priority": "MEDIUM",
-                "ticket": "SW-2847"
-            },
-            {
-                "time": "10:30",
-                "type": "UUCP",
-                "message": "Network mail queue backup detected - 47 messages pending",
-                "priority": "MEDIUM"
-            },
-            {
-                "time": "11:45",
-                "type": "FIELD",
-                "message": "Field tech dispatch required - Equipment failure at DOWNTOWN-CO",
-                "priority": "HIGH",
-                "ticket": "FD-1293"
+                "message": "Daily system backup initiated - /att/backup/daily_" + datetime.now().strftime("%m%d%y"),
+                "priority": "LOW",
+                "procedure": "SOP-SYS-001"
             }
         ]
-        self.shift_events = events
+        
+        # Weather and seasonal events
+        seasonal_events = []
+        if current_month in [12, 1, 2]:  # Winter
+            seasonal_events.extend([
+                {
+                    "time": "07:30",
+                    "type": "WEATHER",
+                    "message": "Ice storm warning - Increased cable fault potential in rural areas",
+                    "priority": "MEDIUM",
+                    "procedure": "WINTER-OPS-003"
+                },
+                {
+                    "time": "14:20",
+                    "type": "FIELD",
+                    "message": "Cable fault reported - Frozen ground delaying repair crews",
+                    "priority": "HIGH",
+                    "ticket": "WX-" + str(random.randint(1000, 9999))
+                }
+            ])
+        elif current_month in [11, 12]:  # Holiday season
+            seasonal_events.append({
+                "time": "10:15",
+                "type": "TRAFFIC",
+                "message": "Holiday traffic surge detected - 23% above normal long distance volume",
+                "priority": "MEDIUM",
+                "procedure": "HOLIDAY-TRAFFIC-001"
+            })
+        
+        # Time-based operational events
+        operational_events = []
+        if current_hour < 10:  # Morning shift
+            operational_events.extend([
+                {
+                    "time": "08:30",
+                    "type": "HANDOFF",
+                    "message": "Night shift handoff complete - 3 pending tickets transferred",
+                    "priority": "LOW",
+                    "details": "NIGHT-RPT-" + datetime.now().strftime("%m%d")
+                },
+                {
+                    "time": "09:15",
+                    "type": "MAINTENANCE",
+                    "message": "Scheduled crossbar maintenance EASTGATE-CO - 15 minute service window",
+                    "priority": "MEDIUM",
+                    "ticket": "MX-" + str(random.randint(2000, 2999))
+                }
+            ])
+        
+        # Equipment-specific events based on authentic Bell System challenges
+        equipment_events = [
+            {
+                "time": "09:47",
+                "type": "1AESS",
+                "message": "1A ESS RIDGE-X1 memory diagnostic alert - Module 3A requires attention",
+                "priority": "HIGH",
+                "ticket": "ESS-" + str(random.randint(3000, 3999)),
+                "procedure": "1AESS-DIAG-007"
+            },
+            {
+                "time": "11:23",
+                "type": "CROSSBAR",
+                "message": "Crossbar MIDTOWN-CO selector step rate degradation - 8.7 steps/sec",
+                "priority": "MEDIUM",
+                "ticket": "XB-" + str(random.randint(4000, 4999)),
+                "procedure": "XBAR-MAINT-014"
+            },
+            {
+                "time": "13:56",
+                "type": "TSPS",
+                "message": "TSPS position 14 conference bridge malfunction - Operator reassigned",
+                "priority": "MEDIUM",
+                "ticket": "TS-" + str(random.randint(5000, 5999))
+            }
+        ]
+        
+        # Customer service events with authentic classifications
+        customer_events = [
+            {
+                "time": "10:12",
+                "type": "CUSTOMER",
+                "message": "Government customer escalation - Pentagon dedicated line service issue",
+                "priority": "CRITICAL",
+                "ticket": "GOV-" + str(random.randint(6000, 6999)),
+                "class": "GOVERNMENT-PRIORITY"
+            },
+            {
+                "time": "14:33",
+                "type": "CUSTOMER",
+                "message": "Hospital emergency line test failure - St. Mary's Medical Center",
+                "priority": "CRITICAL",
+                "ticket": "EMRG-" + str(random.randint(7000, 7999)),
+                "class": "EMERGENCY-SERVICES"
+            }
+        ]
+        
+        # Network performance events
+        network_events = [
+            {
+                "time": "12:18",
+                "type": "TRUNK",
+                "message": "Trunk group TG-047-BOS blocking threshold exceeded - 2.3% blocking rate",
+                "priority": "HIGH",
+                "ticket": "TG-" + str(random.randint(8000, 8999)),
+                "procedure": "TRUNK-OVERFLOW-002"
+            },
+            {
+                "time": "15:41",
+                "type": "ROUTING",
+                "message": "Alternative routing activated NYC-WAS due to cable fault I-95 corridor",
+                "priority": "MEDIUM",
+                "ticket": "RT-" + str(random.randint(9000, 9999))
+            }
+        ]
+        
+        # Regulatory and business events (1980s context)
+        regulatory_events = [
+            {
+                "time": "16:30",
+                "type": "REGULATORY",
+                "message": "FCC filing deadline reminder - Tariff revision documentation due Friday",
+                "priority": "MEDIUM",
+                "procedure": "REG-FILING-001"
+            },
+            {
+                "time": "11:00",
+                "type": "BUSINESS",
+                "message": "Divestiture planning meeting - Regional operations transition discussion",
+                "priority": "LOW",
+                "procedure": "DIVEST-PLAN-001"
+            }
+        ]
+        
+        # Combine all events and randomly select appropriate ones
+        all_events = base_events + seasonal_events + operational_events + equipment_events + customer_events + network_events + regulatory_events
+        
+        # Select 6-8 events for the shift to avoid overwhelming the user
+        selected_events = base_events + random.sample([e for e in all_events if e not in base_events], min(7, len(all_events) - len(base_events)))
+        
+        # Sort by time
+        selected_events.sort(key=lambda x: x["time"])
+        
+        self.shift_events = selected_events
 
     def _initialize_man_pages(self):
         """
@@ -793,96 +981,258 @@ Overall System: 97.9% OPERATIONAL
 Last Full Test: {time}""".format(time=datetime.now().strftime("%H:%M"))
 
     def cmd_emergency(self, args):
-        """Emergency dispatch and escalation system"""
+        """Enhanced emergency dispatch and escalation system with disaster recovery"""
         if not args:
-            return """Emergency Command Center
-Status: STANDBY
+            return f"""Bell System Emergency Command Center
+Status: STANDBY | Updated: {datetime.now().strftime("%H:%M:%S")}
 
+=== CURRENT SITUATION ===
 Active Emergencies: 0
-Standby Personnel: 12
+Standby Personnel: 12 (All stations manned)
 Response Teams: 4 available
+Emergency Power: 100% (Generators tested)
+Backup Communications: OPERATIONAL
 
-Emergency Levels:
-1. MINOR    - Local equipment failure
-2. MAJOR    - Service affecting multiple customers  
-3. CRITICAL - Regional outage
-4. DISASTER - Multi-state emergency
+=== EMERGENCY CLASSIFICATION ===
+Level 1 (MINOR): Local equipment failure, <100 customers
+  Response Time: 30 minutes | Escalation: 2 hours
+
+Level 2 (MAJOR): Service affecting 100-1000 customers
+  Response Time: 15 minutes | Escalation: 1 hour
+
+Level 3 (CRITICAL): Regional outage, >1000 customers  
+  Response Time: 5 minutes | Escalation: 30 minutes
+
+Level 4 (DISASTER): Multi-state emergency, infrastructure damage
+  Response Time: IMMEDIATE | Auto-escalation to VP Operations
+
+=== DISASTER RECOVERY STATUS ===
+Primary NOC: OPERATIONAL
+Backup NOC (Denver): STANDBY
+Emergency Power: 72 hours capacity
+Satellite Links: 8 circuits available
+Mobile Command Units: 3 deployed regionally
 
 Use 'emergency alert <level> <description>' to create alert
-Use 'emergency status' for current situation
-Use 'emergency teams' for response team status"""
+Use 'emergency status' for detailed situation report
+Use 'emergency disaster' for disaster recovery procedures
+Use 'emergency backup' for backup facility status"""
         
         elif args[0] == "alert" and len(args) > 2:
             level = args[1].upper()
             description = " ".join(args[2:])
-            alert_id = f"EM{random.randint(100,999)}"
-            return f"""EMERGENCY ALERT CREATED
+            
+            alert_id = f"EM-{random.randint(1000, 9999)}"
+            
+            # Validate emergency level
+            if level not in ["1", "2", "3", "4", "MINOR", "MAJOR", "CRITICAL", "DISASTER"]:
+                return "Invalid emergency level. Use: 1-4 or MINOR/MAJOR/CRITICAL/DISASTER"
+            
+            # Convert numeric to text
+            level_map = {"1": "MINOR", "2": "MAJOR", "3": "CRITICAL", "4": "DISASTER"}
+            if level in level_map:
+                level = level_map[level]
+            
+            # Emergency response procedures
+            response_times = {
+                "MINOR": "30 minutes",
+                "MAJOR": "15 minutes", 
+                "CRITICAL": "5 minutes",
+                "DISASTER": "IMMEDIATE"
+            }
+            
+            escalation_procedures = {
+                "MINOR": "Field Supervisor → Regional Manager",
+                "MAJOR": "Regional Manager → District Operations",
+                "CRITICAL": "District Operations → VP Operations",
+                "DISASTER": "AUTO-ESCALATION → VP Operations → Emergency Management"
+            }
+            
+            return f"""=== EMERGENCY ALERT ACTIVATED ===
 Alert ID: {alert_id}
 Level: {level}
-Time: {datetime.now().strftime("%H:%M:%S")}
+Time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 Description: {description}
 
-Notification sent to:
-- Emergency Coordinator
-- Regional NOC
-- Field Supervisor
-- On-call Manager
+IMMEDIATE ACTIONS INITIATED:
+✓ Emergency personnel notified
+✓ Response team dispatched  
+✓ Backup systems activated
+✓ Management escalation initiated
 
-Response team assignment: AUTOMATIC
-Expected response time: 15 minutes
+RESPONSE REQUIREMENTS:
+Target Response: {response_times[level]}
+Escalation Path: {escalation_procedures[level]}
 
-Alert logged in /att/emergency/{alert_id.lower()}.log"""
+RESOURCES DEPLOYED:
+- Emergency Response Team Alpha
+- Field Operations Support
+- Customer Communications Team
+- Technical Recovery Specialists
 
+NEXT STEPS:
+1. Situation assessment and containment
+2. Customer impact evaluation
+3. Service restoration planning
+4. Regular status updates every 15 minutes
+
+Alert logged in emergency management system.
+All personnel have been notified via emergency paging system.
+
+=== ALERT STATUS: ACTIVE ==="""
+        
         elif args[0] == "status":
-            return f"""Emergency Status Report
-Generated: {datetime.now().strftime("%H:%M:%S")}
+            return f"""Bell System Emergency Status Report
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
-Current Situation: NORMAL
-Active Alerts: 0
-Resolved Today: 2
+=== SYSTEM WIDE STATUS ===
+Overall Status: NORMAL OPERATIONS
+Service Availability: 99.97%
+Customer Impact: MINIMAL
+Active Incidents: 0 emergencies, 3 routine tickets
 
-Recent Activity:
-06:30 - Minor equipment failure resolved (EM847)
-04:15 - Scheduled maintenance completed (EM845)
+=== REGIONAL STATUS ===
+Northeast: OPERATIONAL (456,789 customers served)
+Southeast: OPERATIONAL (234,567 customers served)  
+Central: OPERATIONAL (345,678 customers served)
+West: OPERATIONAL (567,890 customers served)
 
-Personnel Status:
-- Emergency Coordinator: ON_DUTY
-- Field Teams: 4/4 AVAILABLE  
-- NOC Coverage: FULL
+=== CRITICAL INFRASTRUCTURE ===
+Primary Switching: 47/48 centers operational (97.9%)
+Long Distance: All trunk groups within normal parameters
+Emergency Services: 911 service 100% operational
+Government Lines: All priority circuits operational
 
-Weather Advisory: Thunderstorms possible 14:00-18:00
-Preparedness Level: NORMAL"""
+=== BACKUP SYSTEMS ===
+Emergency Power: All sites >95% fuel reserves
+Backup Communications: Satellite links on standby
+Mobile Facilities: 3 units positioned regionally
+Disaster Recovery: Denver backup NOC on standby
 
-        elif args[0] == "teams":
-            return """Response Team Status
-Last Updated: {time}
+=== WEATHER CONDITIONS ===
+Current: Clear conditions nationwide
+Forecast: No severe weather expected 48 hours
+Ice Storm Watch: None active
+Flood Conditions: None reported
 
-Team Alpha (ELECTRONICS):
-Status: AVAILABLE
-Location: CENTRAL_DEPOT
-Personnel: 3/3
-Equipment: FULL
+=== PERSONNEL STATUS ===
+Emergency Teams: 4 teams available (100% staffed)
+On-Call Technicians: 47 personnel available
+Management: All levels reachable
+External Contractors: 12 crews on standby
 
-Team Beta (SWITCHING):  
-Status: AVAILABLE
-Location: DOWNTOWN_CO
-Personnel: 4/4
-Equipment: FULL
+Last Updated: {datetime.now().strftime("%H:%M:%S")}
+Next Scheduled Update: {(datetime.now() + timedelta(hours=1)).strftime("%H:%M")}"""
+        
+        elif args[0] == "disaster":
+            return f"""Bell System Disaster Recovery Procedures
+Document: DR-PROC-001 | Version: 3.2 | Date: March 1983
 
-Team Gamma (TRANSMISSION):
-Status: AVAILABLE  
-Location: WESTSIDE_CO
-Personnel: 3/3
-Equipment: FULL
+=== DISASTER RECOVERY ACTIVATION ===
 
-Team Delta (POWER):
-Status: AVAILABLE
-Location: MOBILE_UNIT_1
-Personnel: 2/2
-Equipment: FULL
+PHASE 1: IMMEDIATE RESPONSE (0-15 minutes)
+✓ Damage assessment and personnel safety
+✓ Emergency power activation  
+✓ Backup communications establishment
+✓ Customer impact evaluation
+✓ Emergency personnel notification
 
-All teams at full readiness.""".format(time=datetime.now().strftime("%H:%M"))
+PHASE 2: SERVICE RESTORATION (15 minutes - 2 hours)
+→ Alternative routing activation
+→ Mobile switching unit deployment
+→ Emergency repair team dispatch
+→ Customer notification systems
+→ Government/emergency services priority
 
+PHASE 3: FULL RECOVERY (2-24 hours)
+→ Primary facility restoration
+→ Equipment replacement procedures
+→ Service quality verification
+→ Normal operations resumption
+→ Post-incident analysis
+
+=== BACKUP FACILITIES ===
+Primary NOC: Murray Hill, NJ
+Backup NOC: Denver, CO (Auto-switchover capability)
+Emergency Centers: 12 regional locations
+Mobile Command: 3 self-contained units
+
+=== EMERGENCY CONTACTS ===
+VP Operations: Emergency hotline 1-800-BELL-OP
+FCC Emergency: 202-555-EMRG
+National Guard: State coordination centers
+FEMA: Regional emergency management
+
+=== RESOURCE ALLOCATION ===
+Emergency Budget: $5M pre-authorized
+Equipment Reserves: 30-day supply maintained
+Personnel: 500 emergency response qualified
+Transportation: 24 emergency vehicles fleet
+
+=== COMMUNICATIONS PRIORITY ===
+Level 1: Emergency services (911, police, fire)
+Level 2: Government communications
+Level 3: Hospital and medical facilities
+Level 4: Critical business services
+Level 5: Residential service restoration
+
+Recovery Time Objectives:
+Emergency Services: <15 minutes
+Government Lines: <30 minutes  
+Critical Business: <2 hours
+Full Service: <24 hours"""
+        
+        elif args[0] == "backup":
+            return f"""Bell System Backup Facility Status
+Query Time: {datetime.now().strftime("%H:%M:%S")}
+
+=== PRIMARY BACKUP NOC (DENVER) ===
+Status: STANDBY-READY
+Staffing: 8/8 positions manned
+Power Status: Grid + Generator (tested weekly)
+Communications: All circuits operational
+Switching Capability: 2.5M calls/hour capacity
+
+Equipment Status:
+- Switching Systems: 12 units (100% operational)
+- Transmission: All circuits tested and verified
+- Power Systems: Dual redundancy + 72hr fuel
+- Environmental: Climate control operational
+
+=== REGIONAL EMERGENCY CENTERS ===
+Boston Emergency Center: OPERATIONAL
+Atlanta Emergency Center: OPERATIONAL  
+Chicago Emergency Center: OPERATIONAL
+Dallas Emergency Center: OPERATIONAL
+Los Angeles Emergency Center: OPERATIONAL
+
+=== MOBILE COMMAND UNITS ===
+Unit Alpha (Northeast): Positioned Hartford, CT
+Unit Beta (Southeast): Positioned Atlanta, GA
+Unit Gamma (Central): Positioned Chicago, IL
+
+Mobile Capabilities per Unit:
+- Switching: 50,000 call capacity
+- Power: 48-hour independent operation
+- Communications: Satellite uplink + microwave
+- Staffing: 6-person crew + equipment
+
+=== EMERGENCY POWER SYSTEMS ===
+Diesel Generators: 47 sites (100% tested monthly)
+Battery Backup: 8-hour minimum at all sites
+Fuel Reserves: 72-hour operation capability
+Fuel Delivery: Contracts with 3 suppliers
+
+=== SATELLITE COMMUNICATIONS ===
+Primary Satellite: WESTAR-3 (operational)
+Backup Satellite: SATCOM-2 (standby)
+Ground Stations: 8 locations operational
+Capacity: 1,000 voice circuits available
+
+Backup Status: FULLY OPERATIONAL
+Last Test: February 28, 1983
+Next Scheduled Test: March 28, 1983"""
+        
         return "emergency: invalid option"
 
     def cmd_ticket(self, args):
@@ -2248,6 +2598,307 @@ Eligible Candidates: 6 operators"""
         
         return "tsps: invalid option"
 
+    def cmd_handoff(self, args):
+        """Authentic Bell System shift handoff procedures"""
+        if not args:
+            return f"""Bell System Shift Handoff Report
+Generated: {datetime.now().strftime("%H:%M:%S on %m/%d/%Y")}
+
+=== PREVIOUS SHIFT SUMMARY ===
+Operator: {self.shift_handoff['previous_shift']['operator']}
+Shift End: {self.shift_handoff['previous_shift']['end_time']}
+Summary: {self.shift_handoff['previous_shift']['summary']}
+
+Key Issues from Night Shift:
+• {chr(10).join('• ' + issue for issue in self.shift_handoff['previous_shift']['key_issues'])}
+
+Open Tickets Transferred:
+{', '.join(self.shift_handoff['previous_shift']['open_tickets'])}
+
+System Status: {self.shift_handoff['previous_shift']['system_status']}
+
+Special Instructions:
+{self.shift_handoff['previous_shift']['special_instructions']}
+
+=== CURRENT SHIFT STATUS ===
+Current Events: {len(self.shift_events)} operational events pending
+Active Tickets: {len([e for e in self.shift_events if 'ticket' in e])} tickets require attention
+
+Use 'handoff create' to generate shift-end report
+Use 'handoff tickets' to review transferred tickets"""
+        
+        elif args[0] == "create":
+            return f"""Bell System Shift Handoff Report - OUTGOING
+Date: {datetime.now().strftime("%m/%d/%Y")} Time: {datetime.now().strftime("%H:%M")}
+Operator: {self.username.upper()}
+Role: {self.roles.get(self.role, 'Unknown')}
+
+SHIFT SUMMARY:
+- Operational Events Handled: {len(self.shift_events)}
+- System Status: All major systems operational
+- Network Performance: Within normal parameters
+- Equipment Status: No critical failures
+
+OUTSTANDING ISSUES:
+• Monitor RIDGE-X1 switching center for intermittent alarms
+• Trunk group TG-047-BOS approaching capacity threshold
+• Crossbar maintenance EASTGATE-CO completed successfully
+
+TICKETS FOR NEXT SHIFT:
+- Critical: 1 (Government customer issue)
+- High: 2 (Equipment failures requiring field dispatch)
+- Medium: 4 (Routine maintenance and monitoring)
+
+SPECIAL INSTRUCTIONS:
+- Watch for weather impact on rural cable systems
+- Holiday traffic patterns expected through weekend
+- FCC filing deadline Friday - coordinate with regulatory team
+
+Next Operator: _________________ Time: _______
+Signature: ____________________
+
+Report filed in: /att/handoff/shift_{datetime.now().strftime('%m%d%y')}"""
+        
+        elif args[0] == "tickets":
+            transferred_tickets = []
+            for event in self.shift_events:
+                if 'ticket' in event:
+                    transferred_tickets.append({
+                        "id": event['ticket'],
+                        "type": event['type'],
+                        "priority": event['priority'],
+                        "message": event['message']
+                    })
+            
+            if not transferred_tickets:
+                return "No tickets transferred from previous shift"
+            
+            output = ["Tickets Transferred from Previous Shift:", ""]
+            for ticket in transferred_tickets:
+                output.append(f"Ticket: {ticket['id']} | Priority: {ticket['priority']} | Type: {ticket['type']}")
+                output.append(f"Issue: {ticket['message']}")
+                output.append("")
+            
+            return "\n".join(output)
+        
+        return "handoff: invalid option. Use 'handoff', 'handoff create', or 'handoff tickets'"
+
+    def cmd_tariff(self, args):
+        """Bell System tariff and rate structure information"""
+        if not args:
+            return f"""Bell System Tariff Information
+Effective: January 1, 1983 | Tariff Schedule: FCC No. 260
+
+INTERSTATE LONG DISTANCE RATES (per minute):
+                First Min    Additional
+Day (8AM-5PM):    $0.45       $0.34
+Evening (5PM-11PM): $0.32     $0.24  
+Night (11PM-8AM):   $0.18     $0.15
+
+INTRASTATE RATES (per minute):
+Day:              $0.28       $0.22
+Evening:          $0.21       $0.17
+Night:            $0.14       $0.12
+
+INTERNATIONAL RATES (per minute):
+United Kingdom:   $2.50       $1.80
+Canada:           $0.65       $0.45
+Mexico:           $1.20       $0.85
+
+SPECIAL SERVICES:
+Conference Calling: $8.50 setup + $2.25/participant
+Directory Assistance: $0.50 per call (after 3 free monthly)
+Operator Assistance: $1.25 per call
+Person-to-Person: $2.75 additional charge
+
+Use 'tariff rates <type>' for detailed rate information
+Use 'tariff calculate <minutes> <type>' to estimate charges"""
+        
+        elif args[0] == "rates" and len(args) > 1:
+            rate_type = args[1].lower()
+            if rate_type in self.rate_structures:
+                rates = self.rate_structures[rate_type]
+                output = [f"Detailed Rate Information - {rate_type.upper()}", ""]
+                for period, pricing in rates.items():
+                    output.append(f"{period.upper()}:")
+                    output.append(f"  First Minute: ${pricing['first_minute']:.2f}")
+                    output.append(f"  Additional Minutes: ${pricing['additional']:.2f}")
+                    output.append("")
+                return "\n".join(output)
+            else:
+                return f"Rate type '{rate_type}' not found. Available: interstate, intrastate, international"
+        
+        elif args[0] == "calculate" and len(args) > 2:
+            try:
+                minutes = int(args[1])
+                rate_type = args[2].lower()
+                
+                if rate_type == "interstate":
+                    current_hour = datetime.now().hour
+                    if 8 <= current_hour < 17:
+                        period = "day"
+                    elif 17 <= current_hour < 23:
+                        period = "evening"
+                    else:
+                        period = "night"
+                    
+                    rates = self.rate_structures["interstate"][period]
+                    total = rates["first_minute"] + (max(0, minutes - 1) * rates["additional"])
+                    
+                    return f"""Call Cost Calculation - Interstate
+Duration: {minutes} minutes
+Time Period: {period.upper()}
+First Minute: ${rates['first_minute']:.2f}
+Additional {max(0, minutes-1)} minutes: ${(max(0, minutes-1) * rates['additional']):.2f}
+Total Charge: ${total:.2f}
+
+Note: Taxes and surcharges not included"""
+                else:
+                    return "Currently supports 'interstate' calculation. Use 'tariff rates' for other rate types."
+            except ValueError:
+                return "Invalid minutes value. Use: tariff calculate <minutes> <type>"
+        
+        return "tariff: invalid option"
+
+    def cmd_events(self, args):
+        """Bell System operational events and shift activity"""
+        if not args:
+            output = [f"Bell System Operational Events - Shift {self.current_shift}", ""]
+            for event in self.shift_events:
+                priority_marker = "***" if event["priority"] == "CRITICAL" else "**" if event["priority"] == "HIGH" else "*" if event["priority"] == "MEDIUM" else ""
+                output.append(f"{event['time']} [{event['type']}] {priority_marker}")
+                output.append(f"  {event['message']}")
+                if 'ticket' in event:
+                    output.append(f"  Ticket: {event['ticket']}")
+                if 'procedure' in event:
+                    output.append(f"  Procedure: {event['procedure']}")
+                output.append("")
+            
+            output.append("Use 'events detail <time>' for event details")
+            output.append("Use 'events priority <level>' to filter by priority")
+            return "\n".join(output)
+        
+        elif args[0] == "priority" and len(args) > 1:
+            priority = args[1].upper()
+            filtered_events = [e for e in self.shift_events if e["priority"] == priority]
+            
+            if not filtered_events:
+                return f"No events found with priority '{priority}'"
+            
+            output = [f"Events with Priority: {priority}", ""]
+            for event in filtered_events:
+                output.append(f"{event['time']} [{event['type']}]")
+                output.append(f"  {event['message']}")
+                if 'ticket' in event:
+                    output.append(f"  Ticket: {event['ticket']}")
+                output.append("")
+            
+            return "\n".join(output)
+        
+        return "events: invalid option"
+
+    def cmd_training(self, args):
+        """Bell System training programs and procedures"""
+        if not args:
+            return f"""Bell System Training Center
+Updated: {datetime.now().strftime("%H:%M:%S")}
+
+ACTIVE TRAINING PROGRAMS:
+
+Operator Training:
+• New TSPS Operator Certification (4 weeks)
+• Advanced Call Handling Techniques (2 weeks)  
+• Emergency Services Protocol (1 week)
+• International Calling Procedures (3 days)
+
+Technical Training:
+• 1A ESS Maintenance Certification (6 weeks)
+• Crossbar System Operations (4 weeks)
+• Digital Transmission Systems (3 weeks)
+• Network Planning Methods (2 weeks)
+
+Customer Service Training:
+• Business Customer Relations (2 weeks)
+• Billing Dispute Resolution (1 week)
+• Service Order Processing (3 days)
+
+UPCOMING SESSIONS:
+March 15: 1A ESS Troubleshooting Workshop
+March 18: TSPS Quality Assurance Review
+March 22: Network Planning Seminar
+March 25: Customer Service Excellence
+
+CERTIFICATION STATUS:
+Level 1 (Basic): 247 employees certified
+Level 2 (Advanced): 156 employees certified
+Level 3 (Specialist): 89 employees certified
+Level 4 (Supervisor): 34 employees certified
+
+Use 'training schedule' for detailed schedules
+Use 'training status <employee>' for individual status"""
+        
+        elif args[0] == "schedule":
+            return f"""Bell System Training Schedule - Week of {datetime.now().strftime('%B %d, %Y')}
+
+MONDAY:
+08:00-12:00: New Operator Orientation (Room A)
+13:00-17:00: 1A ESS Diagnostic Procedures (Lab 1)
+14:00-16:00: Customer Service Skills (Room B)
+
+TUESDAY:
+08:00-10:00: Safety Procedures Review (All Staff)
+10:30-12:00: TSPS System Updates (TSPS Room)
+13:00-17:00: Crossbar Maintenance Workshop (Lab 2)
+
+WEDNESDAY:
+08:00-12:00: Network Planning Methods (Room C)
+13:00-15:00: Billing System Training (Room A)
+15:30-17:00: Emergency Response Drill
+
+THURSDAY:
+08:00-12:00: Advanced Troubleshooting (Lab 1)
+13:00-17:00: Regulatory Compliance Review (Room B)
+
+FRIDAY:
+08:00-10:00: Weekly Performance Review
+10:30-12:00: Technology Update Session
+13:00-17:00: Hands-on Equipment Practice
+
+Training Coordinator: Mary Patterson ext 4-TRAIN
+Registration: Contact supervisor or call ext 4-TRNG"""
+        
+        elif args[0] == "status" and len(args) > 1:
+            employee = args[1].upper()
+            return f"""Training Status Report - {employee}
+Query Date: {datetime.now().strftime("%m/%d/%Y")}
+
+Employee: {employee}
+Department: Switching Operations
+Supervisor: Johnson, R.
+
+COMPLETED CERTIFICATIONS:
+✓ Basic TSPS Operations (Level 1) - 02/15/83
+✓ Safety Procedures (Required) - 01/10/83
+✓ Customer Service Fundamentals - 03/01/83
+
+IN PROGRESS:
+→ Advanced Call Handling (Level 2) - 75% complete
+→ Emergency Protocol Certification - Started 03/05/83
+
+REQUIRED TRAINING:
+• Annual Safety Review (Due: 12/31/83)
+• Technology Update Session (Due: 06/30/83)
+
+RECOMMENDED TRAINING:
+• Billing Dispute Resolution Workshop
+• Network Planning Fundamentals
+
+Next Scheduled: Advanced Call Handling - March 15, 09:00
+Training Hours YTD: 47 hours
+Certification Level: 1 (Basic)"""
+        
+        return "training: invalid option"
+
     def run(self):
         """Main Bell System terminal session"""
         # Show Bell System banner
@@ -2372,6 +3023,14 @@ Eligible Candidates: 6 operators"""
             return self.cmd_collect(args)
         elif cmd == "tsps":
             return self.cmd_tsps(args)
+        elif cmd == "handoff":
+            return self.cmd_handoff(args)
+        elif cmd == "tariff":
+            return self.cmd_tariff(args)
+        elif cmd == "events":
+            return self.cmd_events(args)
+        elif cmd == "training":
+            return self.cmd_training(args)
         else:
             return f"{cmd}: command not found"
 
