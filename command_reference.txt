@@ -1,0 +1,212 @@
+===============================================================================
+                    BELL SYSTEM UNIX V7 TERMINAL SIMULATION
+                         COMMAND REFERENCE CHEAT SHEET
+                           Version 2.0 - November 2024
+===============================================================================
+
+BASIC COMMANDS
+--------------
+help [command]          Show available commands or detailed help
+  Syntax: help | help <command>
+  Example: help radio | help
+
+man <command>           Display full manual page for command
+  Syntax: man <command>
+  Example: man t1carrier | man emergency
+
+events [action] [id]    View and interact with shift events
+  Syntax: events | events detail <id> | events work <id>
+  Example: events | events detail EV-8001
+
+ticket <action> [args]  Trouble ticket management system
+  Syntax: ticket create | ticket status | ticket <number>
+  Example: ticket create | ticket T-83047
+
+SYSTEM INFORMATION
+------------------
+ps                      Display running Bell System processes
+who                     Show logged-in users
+date                    Show current system date and time
+df                      Display filesystem disk usage
+pwd                     Print current working directory
+ls [options]            List directory contents
+
+BELL SYSTEM OPERATIONS
+----------------------
+switch <action>         Switching center management
+  Syntax: switch status | switch test <switch>
+  Example: switch status | switch test 4ESS-NYC-001
+
+3a <action>             3A Central Control switching operations
+  Syntax: 3a status | 3a test | 3a maintenance
+  Example: 3a status | 3a test CCS-001
+
+trunk <action>          Trunk status and management
+  Syntax: trunk status | trunk test <trunk>
+  Example: trunk status | trunk test T1-NYC-001
+
+testboard <action>      Line testing equipment
+  Syntax: testboard status | testboard test <line>
+  Example: testboard status | testboard test 212-555-1234
+
+TRANSMISSION SYSTEMS
+--------------------
+t1carrier <action>      T1 Digital Carrier System operations
+  Syntax: t1carrier status | t1carrier test <circuit>
+  Example: t1carrier status | t1carrier test DS1-NYC-001
+
+lcarrier <action>       L-Carrier Coaxial Cable systems
+  Syntax: lcarrier status | lcarrier test <route>
+  Example: lcarrier status | lcarrier pilot
+
+radio <action>          TH-3 microwave radio system operations
+  Syntax: radio status | radio fade | radio weather
+  Example: radio status | radio path NYC-WAS-001
+
+multiplex <action>      Digital multiplexing operations
+  Syntax: multiplex status | multiplex m12 | multiplex m23
+  Example: multiplex m12 | multiplex stuff
+
+regenerator <action>    Digital signal regenerator management
+  Syntax: regenerator status | regenerator test <id>
+  Example: regenerator status | regenerator power
+
+NETWORK OPERATIONS
+------------------
+tnds <action>           Total Network Data System operations
+  Syntax: tnds status | tnds query | tnds report
+  Example: tnds status | tnds query traffic
+
+traffic <action>        Network traffic analysis
+  Syntax: traffic status | traffic analysis | traffic forecast
+  Example: traffic status | traffic analysis NYC-WAS
+
+routing <action>        Call routing and path analysis
+  Syntax: routing status | routing analyze <path>
+  Example: routing status | routing trace 212-555-1234
+
+capacity <action>       Network capacity planning
+  Syntax: capacity status | capacity forecast | capacity report
+  Example: capacity status | capacity forecast Q4-1983
+
+CUSTOMER SERVICES
+-----------------
+billing <action>        Customer billing operations
+  Syntax: billing status | billing query <account>
+  Example: billing status | billing query 212-555-1234
+
+service <action>        Service order management
+  Syntax: service status | service provision <order>
+  Example: service status | service provision SO-83047
+
+operator <action>       Operator services and assisted calling
+  Syntax: operator status | operator queue | operator assist
+  Example: operator status | operator queue NYC
+
+tsps <action>           Traffic Service Position System
+  Syntax: tsps status | tsps position <pos> | tsps queue
+  Example: tsps status | tsps position POS-001
+
+SPECIALIZED SYSTEMS
+-------------------
+5ess <action>           5ESS Electronic Switching System
+  Syntax: 5ess status | 5ess test | 5ess maintenance
+  Example: 5ess status | 5ess test NYC-001
+
+coer <action>           Central Office Equipment Reports
+  Syntax: coer status | coer generate | coer query
+  Example: coer status | coer generate monthly
+
+lmos <action>           Loop Maintenance Operations System
+  Syntax: lmos status | lmos test <circuit> | lmos locate
+  Example: lmos status | lmos test 212-555-1234
+
+sarts <action>          Special service remote testing
+  Syntax: sarts status | sarts test <circuit>
+  Example: sarts status | sarts test DS1-NYC-001
+
+western <action>        Western Electric equipment specs
+  Syntax: western catalog | western specs <model>
+  Example: western catalog | western specs WE-5ESS
+
+DATABASE OPERATIONS
+-------------------
+dbquery <action>        Database query and management
+  Syntax: dbquery status | dbquery search <criteria>
+  Example: dbquery status | dbquery search customer
+
+custdb <action>         Customer database operations
+  Syntax: custdb status | custdb lookup <number>
+  Example: custdb status | custdb lookup 212-555-1234
+
+EMERGENCY PROCEDURES
+--------------------
+emergency <action>      Emergency dispatch and escalation
+  Syntax: emergency status | emergency escalate <level>
+  Example: emergency status | emergency escalate CRITICAL
+
+alarm <action>          Central office alarm monitoring
+  Syntax: alarm status | alarm ack <alarm> | alarm clear
+  Example: alarm status | alarm ack ALM-83047
+
+DOCUMENTATION
+-------------
+bsp <action>            Bell System Practices (procedures)
+  Syntax: bsp index | bsp search <topic> | bsp <section>
+  Example: bsp index | bsp 100-010-001
+
+training <action>       Bell System training programs
+  Syntax: training catalog | training enroll <course>
+  Example: training catalog | training status
+
+nroff <file>            Document formatting with nroff
+troff <file>            Typesetting with troff
+pic <file>              Picture drawing language
+eqn <file>              Mathematical equation formatting
+
+MAINTENANCE & TESTING
+---------------------
+provision <action>      Service provisioning procedures
+  Syntax: provision status | provision order <type>
+  Example: provision status | provision order T1
+
+handoff <action>        Shift handoff procedures
+  Syntax: handoff status | handoff create | handoff review
+  Example: handoff status | handoff create
+
+COMMAND ALIASES
+---------------
+h, ?     = help          q        = quit
+st       = status        tst      = test
+alm      = alarm         mnt      = maintenance
+perf     = performance   cls      = clear
+
+QUICK TIPS
+----------
+• Most commands accept 'status' as first argument for overview
+• Use 'help <command>' for syntax and examples
+• Type 'events' to see current shift activities
+• Commands can be abbreviated (e.g., 'rad st' for 'radio status')
+• All ticket numbers follow format: T-XXXXX, EV-XXXX
+• Emergency procedures use 'emergency' command with escalation levels
+
+ROLE-SPECIFIC ACCESS
+--------------------
+Commands available vary by operational role:
+1. UNIX Systems Operator    - System commands, processes
+2. Switching Technician     - Switch operations, testing  
+3. Field Support           - Customer interface, provisioning
+4. NOC Analyst             - Network monitoring, traffic
+5. TSPS Operator           - Operator services, assistance
+6. Database Administrator  - Database operations, queries
+7. Network Planning        - Capacity, routing, forecasting
+8. Customer Service        - Service orders, billing
+9. Radio/Microwave Tech    - Transmission systems, testing
+10. TNDS Analyst           - Network data, analysis
+11. SARTS Technician       - Special testing, circuits
+12. Document Specialist    - Documentation, training
+
+===============================================================================
+Bell System UNIX V7 Terminal Simulation - Internal Operations Training System
+For questions or support, contact your shift supervisor or training coordinator
+===============================================================================
