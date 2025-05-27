@@ -188,6 +188,7 @@ class BellSystemTerminal:
         
         # Enhanced UX features - command history and error tracking
         self.command_history = deque(maxlen=1000)
+        self.command_counts = defaultdict(int)
         self.error_counts = defaultdict(int)
         self.recent_errors = deque(maxlen=50)
         self.log_verbosity = 'INFO'
@@ -1249,6 +1250,10 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                 'refer': self.cmd_refer,
                 'netdata': self.cmd_netdata,
                 'analysis': self.cmd_analysis,
+                't1carrier': self.cmd_t1carrier,
+                'lcarrier': self.cmd_lcarrier,
+                'multiplex': self.cmd_multiplex,
+                'regenerator': self.cmd_regenerator,
                 
                 # Enhanced UX commands
                 'errors': self.cmd_errors,
@@ -1263,7 +1268,9 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                 'date': self.cmd_date,
                 'df': self.cmd_df,
                 'help': self.cmd_help,
-                'man': self.cmd_man
+                'man': self.cmd_man,
+                'status': self.cmd_status,
+                'test': self.cmd_test
             }
             
             # Execute command if it exists
@@ -3606,7 +3613,8 @@ Regenerator Spacing:
         result = "RECENT COMMAND ERRORS\n"
         result += "=" * 50 + "\n\n"
         
-        for i, error in enumerate(self.recent_errors[-10:], 1):  # Show last 10
+        recent_errors_list = list(self.recent_errors)[-10:]  # Convert to list and get last 10
+        for i, error in enumerate(recent_errors_list, 1):
             timestamp = error['timestamp'].strftime("%H:%M:%S")
             result += f"{i}. [{timestamp}] Command: {error['command']}\n"
             result += f"   Error: {error['error']}\n"
@@ -3671,6 +3679,78 @@ Regenerator Spacing:
                 result += f"  {cmd}: {count} times\n"
         
         return result
+
+    def cmd_status(self, args: List[str] = None) -> str:
+        """Display Bell System operational status overview."""
+        return """BELL SYSTEM STATUS OVERVIEW
+=============================
+
+System Time:           """ + time.strftime("%Y-%m-%d %H:%M:%S") + """
+Session ID:            """ + str(self.session_id) + """
+Current Role:          """ + (str(self.role) if self.role else "Not selected") + """
+Active Shift:          """ + str(self.current_shift) + """
+
+Network Status:        OPERATIONAL
+Switching Centers:     12 active, 0 maintenance
+Trunk Groups:          47 active, 3 busy
+Emergency Services:    NORMAL
+
+Recent Activity:
+- """ + str(len(self.command_history)) + """ commands executed this session
+- """ + str(len(self.recent_errors)) + """ errors in last hour
+- """ + str(len(self.shift_events)) + """ shift events logged
+
+Type 'help' for available commands.
+"""
+
+    def cmd_test(self, args: List[str] = None) -> str:
+        """Bell System equipment testing interface."""
+        if not args:
+            return """BELL SYSTEM TEST INTERFACE
+============================
+
+Available Test Categories:
+- trunk      Test trunk group connectivity
+- switch     Test switching equipment
+- line       Test subscriber line equipment
+- radio      Test microwave radio systems
+- carrier    Test digital carrier systems
+
+Usage: test <category> [options]
+Example: test trunk TG-001
+"""
+        
+        test_type = args[0].lower()
+        
+        if test_type == "trunk":
+            return """TRUNK GROUP TEST RESULTS
+======================
+Test Target: """ + (args[1] if len(args) > 1 else "All Groups") + """
+Test Time: """ + time.strftime("%H:%M:%S") + """
+
+Continuity:    PASS
+Signaling:     PASS  
+Traffic Load:  67% (Normal)
+Error Rate:    <0.001% (Excellent)
+
+All trunk circuits operational.
+"""
+        elif test_type == "switch":
+            return """SWITCHING EQUIPMENT TEST
+=====================
+Equipment: Crossbar No. 5
+Status: OPERATIONAL
+Test Completed: """ + time.strftime("%H:%M:%S") + """
+
+Register Tests:     PASS
+Marker Tests:       PASS
+Connector Tests:    PASS
+Selector Tests:     PASS
+
+All switching functions normal.
+"""
+        else:
+            return f"test: unknown test type '{test_type}'\nUse 'test' for available options"
 
 
 def main() -> None:
