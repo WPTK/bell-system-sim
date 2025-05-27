@@ -1,0 +1,947 @@
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+9. LP SPOOLING SYSTEM 
+GENERAL 
+
+
+The LP program is a system of commands which performs diverse spooling functions under the UNIX oper- 
+ating system. Since the primary LP application is off-line printing, this document focuses mainly on spooling 
+to line printers. LP allows administrators to customize the system to spool to a collection of line printers of any 
+type and to group printers into logical classes in order to maximize the throughput of the devices. Users are 
+provided the capabilities of queuing and canceling print requests, preventing and allowing queuing to and print- 
+ing on devices, starting and stopping LP from processing requests, changing configuration of printers and find- 
+ing status of the LP system. This section describes the role of an LP Administrator in performing restricted 
+functions and overseeing the smooth operation of LP. 
+
+
+Throughout this section, each reference of the form name(1M), name(7), or name(8) refers to entries in 
+the UNIX System Administrator's Manual. All other references to entries of the form name(N), where “N” 
+is a number (1 through 6) possibly followed by a letter, refers to entry name in Section “N” of the UNIX System 
+User’s Manual. 
+
+
+~ OVERVIEW OF LP FEATURES 
+
+
+A. Definitions 
+
+
+Several terms must be defined before presenting a brief summary of LP commands. The LP was designed 
+with the flexibility to meet the needs of users on different UNIX systems. Changes to the LP configuration are 
+performed by the lpadmin(1M) command. 
+
+
+LP makes a distinction between printers and printing devices. A device is a physical peripheral device or 
+a file and is represented by a full UNIX system pathname. A printer is a logical name that represents a device. 
+At different points in time, a printer may be associated with different devices. A class is a name given to an 
+ordered list of printers. Every class must contain at least one printer. Each printer may be a member of zero 
+or more classes. A destination is a printer or a class. One destination may be designated as the system default 
+destination. The Ip(1) command will direct all output to this destination unless the user specifies otherwise. 
+Output that is routed to a printer will be printed only by that printer, whereas output directed to a class will 
+be printed by the first available class member. 
+
+
+Each invocation of Ip creates an output request that consists of the files to be printed and options from the 
+Ip command line. An interface program which formats requests must be supplied for each printer. The LP sched- 
+uler, lpsehed(1M), services requests for all destinations by routing requests to interface programs to do the 
+printing on devices. An LP configuration for a system consists of devices, destinations, and interface programs. 
+B. Commands 
+
+
+Commands for General Use 
+
+
+The Ip(1) command is used to request the printing of files. It creates an output request and returns a request 
+id of the form 
+
+
+dest-seqno 
+
+
+to the user, where seqno is a unique sequence number across the entire LP system, and dest is the destination 
+where the request was routed. 
+
+
+Cancel is used to cancel output requests. The user supplies request ids as returned by Ip or printer names, 
+in which case the currently printing requests on those printers are canceled. 
+
+
+Page 141 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+Disable prevents Ipsched from routing output requests to printers. * 
+
+Enable(1) allows Ipsched to route output requests to printers. 
+Commands for LP Administrators 
+
+Each LP system must designate a person or persons as LP administrator to perform the restricted functions & 
+listed below. Either the superuser or any user who is logged into the UNIX system as Ip qualifies asan LP Ad- ~ 
+ministrator. All LP files and commands are owned by Ip, except for Ipadmin and Ipsched which are owned 
+
+
+by root. The following commands will be described in more detail later in this section. 
+
+
+Lpadmin(1M) Modifies LP configuration. Many features of this command cannot be used when Ipsched 
+
+
+is running. 
+Lpsched(1M) Routes output requests to interface programs which do the printing on devices. & 
+Lpshut Stops lpsched from running. All printing activity is halted, but other LP commands may 
+still be used. 
+Accept(1M) Allows Ip to accept output requests for destinations. 
+Reject Prevents Ip from accepting requests for destinations. 
+Lpmove Moves output requests from one destination to another. Whole destinations may be moved 
+
+
+at once. This command cannot be used when Ipsched is running. 
+
+
+BUILDING LP ey 
+
+
+All LP commands are built from source code that resides in the /usr/sre/cmd/Ip directory including the 
+make file, Jp.mk. Unless some of the definitions in /p.mk are changed, LP may be installed only by the superuser. 
+Before installing a new LP system, make sure there is a login called /pon your system and that the spool directo- 
+ry, /usr/spool/Ip, does not exist. To install LP, perform the following: 
+
+
+ed /usr/sre/emd/|p 
+make —f |p.mk install 
+
+
+This builds all LP commands and creates an initial LP configuration consisting of no printers, classes, or default 
+destination. LP must be configured by an LP administrator using the lpadmin command in order to create a 
+useful spooler. 
+
+
+In addition, add the following code to /etc/re: & 
+rm —f /usr/spool/Ip/SCHEDLOCK 
+/usr/lib/lpsched 
+echo "LP scheduler started " 
+
+
+This starts the LP scheduler each time that the UNIX system is restarted. 
+
+
+Several variables in Jp.mk may be changed before installing LP to customize the system: ee 
+Variable Default Value Meaning 
+SPOOL /usr/spool/Ip spool directory 
+~ ADMIN Ip logname of LP Administrator 
+
+
+Page 142 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+GROUP bin group owning LP commands/data 
+ADMDIR /usr/lib commands of administrator 
+USRDIR /usr/bin user commands reside here 
+
+
+If an existing LP spool directory is corrupted (but not the LP programs) or if it needs to be rebuilt from 
+ee scratch, make sure that Ipsched is not running and perform the following as superuser: 
+
+
+1. Make copies of any interface programs that are not standard LP software. DO NOT make these copies 
+underneath the spool directory. The pathname for printer “p” is /usr/spool/lp/interface/p. 
+
+
+2. rm —fr /usr/spool/Ip 
+3. Make —f Ip.mk new. (This recreates the bare LP configuration described above.) 
+se PRECAUTIONS: 
+
+
+1. Some LP commands invoke other LP commands. Moving them after they are built will cause some com- 
+mands to fail. 
+
+
+2. The files under the SPOOL directory should be modified only by LP commands. 
+
+
+3. All LP commands require set-user-id permission. If this is removed, the commands will fail. 
+CONFIGURING LP—THE “Ipadmin’’ COMMAND 
+
+
+Changes to the LP configuration should be made by using the Ipadmin command and not by hand. 
+Lpadmin will not attempt to alter the LP configuration when Ipsched is running, except where explicitly 
+
+
+@ noted below. 
+A. 
+
+
+Introducing New Destinations 
+The following information must be supplied to lpadmin when introducing a new printer: 
+1. The printer name (—p printer) is an arbitrary name which must conform to the following rules: 
+e It must be no longer than 14 characters. 
+e It must consist solely of alphanumeric characters and underscores. 
+e It must not be the name of an existing LP destination (printer or class). 
+
+
+2. The device associated with the printer (—v device). This is the pathname of a hardwired printer, a login 
+terminal, or other file that is writable by lp. 
+
+
+3. The printer interface program. This may be specified in one of three ways: 
+e It may be selected from a list of model interfaces supplied with LP (—m model). 
+e It may be the same interface that an existing printer uses (~e printer). 
+© e It may be a program supplied by the LP administrator (—i interface). 
+Information which need not always be supplied when creating a new printer includes: 
+
+
+1. The user may specify —h to indicate that the device for the printer is hardwired or the device is the name 
+@ of a file (this is assumed by default). If, on the other hand, the device is the pathname of a login terminal, 
+
+
+Page 143 
+
+
+ee ENT ete Sete PERSE RP Se SSE NDE Umea 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+able this printer each time /psched starts running. This fact is reported by /pstat when it indicates printer 
+
+
+then —] must be included on the command line. This indicates to Ipsched that it must automatically dis- & 
+status: 
+
+
+$ lpstat —pa 
+printer a (login terminal) disabled Oct 31 11:15— 
+disabled by scheduler: login terminal & 
+
+
+This is done because device names for login terminals can be (and usually are) associated with different 
+physical devices from day to day. If the scheduler did not take this action, somebody might log in and 
+be surprised that LP is spooling to his/her terminal! 
+
+
+. The new printer may be added to an existing class or added to a new class (—eclass). New class names 
+
+
+must conform to the same rules for new printer names. & 
+
+
+EXAMPLES 
+
+
+The following examples will be referenced by further examples in later sections. 
+
+
+Lt 
+
+
+Create a printer called prl whose device is /dev/printer and whose interface program is the model hp 
+interface: 
+
+
+$ /usr/lib/Ipadmin —ppr1 —v/dev/printer —mhp 
+
+
+. Add a printer called pr2 whose device is /dev/tty22 and whose interface is a variation of the model prx 
+
+
+interface. It is also a login terminal: 
+
+
+$ cp /usr/spool/lp/model/prx xxx 
+< edit xxx > 
+
+
+$ /usr/lib/lpadmin —ppr2 —v/dev/tty22 —ixxx —] 
+
+
+. Create a printer called pr3 whose device is /dev/tty23. The pr3 will be added to a new class called cll and 
+
+
+will use the same interface as printer pr2: 
+
+
+$ /usr/lib/lpadmin —ppr3 —v/dev/tty23 —epr2 —cel1 
+
+
+B. Modifying Existing Destinations 
+
+
+Modifications to existing destinations must always be made with respect to a printer name (—p printer). 
+The modifications may be one or more of the following: 
+
+
+. The device for the printer may be changed (—v device). If this is the only modification, then this may & 
+
+
+. The printer may be added to a new or existing class (—eclass). * 
+
+
+. The printer may be removed from an existing class (—r class). Removing the last remaining member of 
+‘a class causes the class to be deleted. No destination may be removed if it has pending requests. In that 
+
+
+be done even while Jpsched is running. This facilitates changing devices for login terminals. 
+
+
+. The printer interface program may be changed (—m model, —e printer, —i interface). 
+
+
+. The printer may be specified as hardwired (—h ) or as a login terminal (—1 ). 
+
+
+case, lpmove or cancel should be used to move or delete the pending requests. 
+
+
+Page 144 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+EXAMPLES 
+These examples are based on the LP configuration created by those in the previous section. 
+1. Add printer pr2 to class cl1: 
+
+
+co $ /usr/lib/lpadmin —ppr2 —ccll 
+
+
+2. Change pr2’s interface program to the model prx interface, change its device to /dev/tty24, and add it 
+to a new class called ¢l2: 
+
+
+§ /usr/lib/Ipadmin —ppr2 —mprx —v/dev/tty24 —ecl2 
+
+
+Note that printers pr2 and pr3 now use different interface programs even though pr3 was originally cre- 
+ated with the same interface as pr2. Printer pr2 is now a member of two classes. 
+
+
+ee 3. Specify printer pr2 as a hardwired printer: 
+
+
+$ /usr/lib/lpadmin —ppr2 —h 
+
+
+4. Add printer pr1 to class cl2: 
+$ /usr/lib/lpadmin —ppr1 —ccl2 
+The members of class cl2 are now pr2 and pr1, in that order. Requests routed to class cl2 will be serviced 
+by pr2 if both pr2 and prl are ready to print; otherwise, they will be printed by the one which is next 
+ready to print. 
+
+
+@ 5. Remove printers pr2 and pré from class cll: 
+
+
+$ /usr/lib/lpadmin —ppr2 —rcll 
+$ /usr/lib/lpadmin —ppr3 —rel1 
+
+
+Since pr3 was the last remaining member of class cll, the class is removed. 
+
+
+6. Add pr3 to a new class called el3. 
+
+
+$ /usr/lib/lpadmin —ppr3 —ecl3 
+C. Specifying the System Default Destination 
+
+
+The system default destination may be changed even when Ipsched is running. 
+CE EXAMPLES 
+1. Establish class cll as the system default destination: 
+$ /usr/lib/lpadmin —dell 
+
+
+2. Establish no default destination: 
+
+
+& $ /usr/lib/lpadmin —d 
+
+
+D. Removing Destinations 
+
+
+Classes and printers may be removed only if there are no pending requests that were routed to them. Pend- 
+ing requests must either be canceled using cancel or moved to other destinations using Ipmove before destina- 
+tions may be removed. If the removed destination is the system default destination, then the system will have 
+
+
+Page 145 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 
+
+
+no default destination until the default destination is respecified. When the last remaining member of a class 
+is removed, then the class is also removed. The removal of a class never implies the removal of printers. 
+
+
+EXAMPLES 
+1. Make printer prl1 the system default destination: 
+$ /usr/lib/lpadmin —dpr1 
+Remove printer prl: 
+$ /usr/lib/lpadmin —xprl 
+Now there is no system default destination. 
+2. Remove printer pr2: 
+
+
+$ /usr/lib/lpadmin —xpr2 
+
+
+Class cl2 is also removed since pr2 was its only member. 
+
+
+3. Remove class el3: 
+$ /usr/lib/lpadmin —xcl3 
+Class cl3 is removed, but printer pr3 remains. 
+
+
+MAKING AN OUTPUT REQUEST—THE “Ip’’ COMMAND 
+
+
+Once LP destinations have been created, users may request output by using the lp command. The request S 
+id that is returned may be used to see if the request has been printed or to cancel the request. 
+
+
+The LP program determines the destination of a request by checking the following list in order: 
+e If the user specifies —d dest on the command line, then the request is routed to dest. 
+e If the environment variable LPDEST is set, the request is routed to the value of LPDEST. 
+
+
+e If there is a system default destination, then the request is routed there. 
+
+
+e Otherwise, the request is rejected. 
+
+
+EXAMPLES 
+
+
+1. There are at least four ways to print the password file on the system default destination: 
+
+
+lp /etc/passwd 
+
+Ip < /ete/passwd 
+cat /etc/passwd | lp 
+Ip —c /etc/passwd 
+
+
+The last three ways cause copies of the file to be printed, whereas the first way prints the file directly. 
+‘Thus, if the file is modified between the time the request is made and the time it is actually printed, then 
+
+
+the changes will be reflected in the output. 
+
+
+Page 146 
+
+
+6/82 ISSUE 1 ADMINISTRATOR'S GUIDE 
+
+
+es 2. Print two copies of file abe on printer xyz and title the output “my file”: 
+pr abe! lp —dxyz —n2 —t" my file" 
+
+
+3. Print file xxx on a Diablo* 1640 printer called zoo in 12-pitch and write to the user’s terminal when print- 
+
+
+& ing has completed: 
+
+
+lp —dzoo —012 —w xxx 
+
+
+In this example, “12” is an option that is meaningful to the model Diablo 1640 interface program that 
+prints output in 12-pitch mode [see lpadmin(1M)]. 
+
+
+FINDING LP STATUS—LPSTAT 
+& The Ipstat command is used to find status information about LP requests, destinations, and the scheduler. 
+EXAMPLES 
+1. List the status of all pending output requests made by this user: 
+Ipstat 
+
+
+The status information for a request includes the request id, the logname of the user, the total number 
+| of characters to be printed, and the date and time the request was made. 
+
+
+2. List the status of printers pl and p2: 
+
+
+e& Ipstat —pp1,p2 
+
+
+CANCELING REQUESTS— CANCEL 
+
+
+The LP requests may be canceled using the cancel command. Two kinds of arguments may be given to the 
+command—request ids and printer names. The requests named by the request ids are canceled and requests that 
+are currently printing on the named printers are canceled. Both types of arguments may be intermixed. 
+
+
+EXAMPLE 
+Cancel the request that is now printing on printer xyz: 
+
+
+é cancel xyz 
+
+
+If the user that is canceling a request is not the same one that made the request, then mail is sent to the owner 
+of the request. LP allows any user to cancel requests in order to eliminate the need for users to find LP adminis- 
+trators when unusual output should be purged from printers. 
+
+
+ALLOWING AND REFUSING REQUESTS— ACCEPT AND REJECT 
+
+
+is sure that it is set up correctly, he or she should allow Ip to accept requests for that destination. The accept 
+
+
+& When a new destination is created, Ip will reject requests that are routed to it. When the LP administrator 
+command performs this function. 
+
+
+Sometimes it is necessary to prevent Ip from routing requests to destinations. If printers have been removed 
+& or are waiting to be repaired or if too many requests are building for printers, then it may be desirable to cause 
+
+
+* Trademark of Diablo Systems, Ine. 
+
+
+Page 147 
+
+
+ee a ee ee ee ee ee ee 
+
+
+ADMINISTRATOR'S GUIDE ISSUE 1 6/82 
+
+
+Ip to reject requests for those destinations. The reject command performs this function. After the condition 
+that led to the rejection of requests has been remedied, the accept command should be used to allow requests 
+to be taken again. 
+The acceptance status of destinations is reported by the —a option of Ipstat. 
+EXAMPLES ee 
+1. Cause Ip to reject requests for destination xyz: 
+
+
+/usr/lib/reject —r" printer xyz needs repair" xyz 
+
+
+Any users that try to route requests to xyz will encounter the following: 
+
+
+$ lp —dxyz file & 
+
+
+lp: can not accept requests for destination " xyz 
+—printer xyz needs repair 
+
+
+2. Allow Ip to accept requests routed to destination xyz: 
+
+
+/usr/lib/accept xyz 
+
+
+ALLOWING AND INHIBITING PRINTING—ENABLE AND DISABLE 
+
+
+The enable command allows the LP scheduler to print requests on printers. That is, the scheduler routes 
+requests only to the interface programs of enabled printers. Note that it is possible to enable a printer but to & 
+
+
+prevent further requests from being routed to it. 
+
+
+The disable command cancels the effects of the enable command. It prevents the scheduler from routing 
+requests to printers, independently of whether or not Ip is allowing them to accept requests. Printers may be 
+disabled for several reasons including malfunctioning hardware, paper jams, and end of day shutdowns. If a 
+printer is busy at the time it is disabled, then the request that it was printing will be reprinted in its entirety 
+either on another printer (if the request was originally routed to a class of printers) or on the same one when 
+the printer is reenabled. The —e option causes the currently printing requests on busy printers to be canceled 
+in addition to disabling the printers. This is useful if strange output is causing a printer to behave abnormally. 
+
+
+EXAMPLE 
+
+
+Disable printer xyz because of a paper jam: 
+
+
+$ disable —r" paper jam" xyz S 
+
+
+printer "xyz" now disabled 
+
+
+" 
+
+
+Find the status of printer xyz: 
+
+
+$ Ipstat —pxyz 
+printer "xyz" disabled since Jan 5 10:15 — 
+paper jam & 
+
+
+Now, reenable xyz: 
+
+
+$ enable xyz 
+printer " xyz 
+
+
+now enabled 
+
+
+Page 148 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+MOVING REQUESTS BETWEEN DESTINATIONS —LPMOVE 
+
+
+Occasionally, it is useful for LP administrators to move output requests between destinations. For instance, 
+when a printer is down for repairs, it may be desirable to move all of its pending requests to a working printer. 
+This is one way to use the Ipmove command. The other use of this command is to move specific requests to 
+a different destination. Lpmove will refuse to move requests while the LP scheduler is running. 
+
+
+EXAMPLES 
+1. Move all requests for printer abe to printer xyz: 
+$ /usr/lib/lpmove abe xyz 
+
+
+All of the moved requests are renamed from abe-nnn to xyz-nnn. As a side effect, destination abc is no 
+longer accepting further requests. 
+
+
+2. Move requests z00-543 and abc-1200 to printer xyz: 
+§ /usr/lib/lpmove zo0-543 abc-1200 xyz 
+The two requests are now renamed xyz-543 and xyz-1200. 
+STOPPING AND STARTING THE SCHEDULER—LPSHUT AND LPSCHED 
+
+
+Lpsched is the program that routes the output requests that were made with Ip through the appropriate 
+printer interface programs to be printed on line printers. Each time the scheduler routes a request to an inter- 
+face program, it records an entry in the log file, /usr/spool/Ip/log. This entry contains the logname of the user 
+that made the request, the request id, the name of the printer that the request is being printed on, and the date 
+and time that printing first started. In the case that a request has been restarted, more than one entry in the 
+log file may refer to the request. The scheduler also records error messages in the log file. When Ipsched is 
+started, it renames /usr/spool/Ip/log to /usr/spool/Ip/oldlog and starts a new log file. 
+
+
+No printing will be performed by the LP system unless Ipsched is running. Use the command 
+lIpstat —r 
+to find the status of the LP scheduler. 
+Lpsched is normally started by the /ete/re program as described above and continues to run until the 
+UNIX system is shut down. The scheduler operates in the /usr/spool/Ip directory. When it starts running, it 
+will exit immediately if a file called SCHEDLOCK exists. Otherwise, it creates this file in order to prevent more 
+
+
+than one scheduler from running at the same time. 
+
+
+Occasionally, it is necessary to shut down the scheduler in order to reconfigure LP or to rebuild the LP soft- 
+ware. The command 
+
+
+/usr/lib/Ipshut 
+
+
+causes Ipsched to stop running and terminates all printing activity. All requests that were in the middle of 
+printing will be reprinted in their entirety when the scheduler is restarted. 
+
+
+To restart the LP scheduler, use the command 
+
+
+/usr/lib/lpsched 
+
+
+Page 149 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+Shortly after this command is entered, Ipstat should report that the scheduler is running. If not, it is possible 
+that a previous invocation of Ipsched exited without removing SCHEDLOCK, so try the following: 
+
+
+rm —f /usr/spool/lp/SCHEDLOCK 
+/usr/lib/lpsched 
+
+
+The scheduler should be running now. & 
+PRINTER INTERFACE PROGRAMS 
+
+
+Every LP printer must have an interface program which does the actual printing on the device that is cur- 
+rently associated with the printer. Interface programs may be shell procedures, C programs, or any other exe- 
+cutable programs. The LP model interfaces are all written as shell procedures and can be found in the /usr/ 
+spool/lp/model directory. At the time Ipsched routes an output request to a printer P, the interface program 
+for P is invoked in the directory /usr/spool/Ip as follows: & 
+
+
+interface/P id user title copies options file ... 
+where 
+
+id is the request id returned by Ip 
+
+user is logname of user who made the request 
+title is optional title specified by the user 
+copies is number of copies requested by user 
+options is a blank-separated list of class or 
+printer-dependent options specified by user 
+file is the full pathname of a file to be printed 
+
+
+EXAMPLES 
+
+
+The following examples are requests made by user “smith” with a system default destination of printer & 
+“xyz”. Each example lists an lp command line followed by the corresponding command line generated for 
+printer xyz’s interface program: 
+
+
+1. lp /etc/passwd /etc/group 
+interface/xyz xyz-52 smith" " 1 " " /etc/passwd /ete/group 
+
+
+2. pr /etc/passwd it lp —t" users" —n5 
+interface/xyz xyz-53 smith users5 =" " 
+/usr/spool/lp/request/xyz/d0-53 
+
+
+3. lp /etc/passwd —oa —ob & 
+
+
+interface/xyz xyz-54 smith " " 1 "ab" /etc/passwd 
+
+
+When the interface program is invoked, its standard input comes from /dev/nulland both the standard out- 
+put and standard error output are directed to the printer’s device. Devices are opened for reading as well as 
+
+
+Page 150 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+writing when file modes permit. In the case where a device is a regular file, all output is appended to the end 
+of the file. 
+
+
+Given the command line arguments and the output directed to a device, interface programs may format 
+their output in any way they choose. Interface programs must ensure that the proper stty modes (terminal char- 
+acteristics such as baud rate, output options, etc.) are in effect on the output device. This may be done as follows 
+in a shell interface only if the device is opened for reading: 
+
+
+stty mode ... <&1 
+That is, take the standard input for the stty command from the device. 
+
+
+When printing has completed, it is the responsibility of the interface program to exit with a code indicative 
+of the success of the print job. Exit codes are interpreted by Ipsched as follows: 
+
+
+CODE MEANING TO LPSCHED 
+zero The print job has completed successfully. 
+Lto127 A problem was encountered in printing this particular request (e.g., too many nonprintable 
+
+
+characters). This problem will not affect future print jobs. Lpsched notifies users by mail 
+that there was an error in printing the request. 
+
+
+greater than 127 These codes are reserved for internal use by Ipsched. Interface programs must not exit 
+with codes in this range. 
+
+
+When problems that are likely to affect future print jobs occur (e.g., a device filter program is missing), 
+the interface programs would be wise to disable printers so that print requests are not lost. When a busy printer 
+is disabled, the interface program will be terminated with signal 15. 
+
+SETTING UP HARDWIRED DEVICES AND LOGIN TERMINALS AS LP PRINTERS 
+
+
+A. Hardwired Devices 
+
+
+As an example of how to set up a hardwired device for use as an LP printer, let us consider using tty line 
+15 as printer xyz. As superuser, perform the following: 
+
+
+1. Avoid unwanted output from non-LP processes and ensure that LP can write to the device: 
+
+
+$ chown lp /dev/tty15 
+$ chmod 600 /dev/tty15 
+
+
+2. Change /etc/inittab so that tty15 is not a login terminal. In other words, ensure that /etc/getty is not 
+trying to log users in at this terminal. Change the entries for line 15 to: 
+
+
+T1520: 
+2:15:0: 
+
+
+Enter the command: 
+$ init 2 
+If there is currently an invocation of /etc/getty running on tty15, kill it. Now, and when the UNIX system 
+
+
+is rebooted, tty15 will be initialized with default stty modes. Thus, it is up to LP interface programs to 
+establish the proper baud rate and other stty modes for correct printing to occur. 
+
+
+Page 151 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+3. Introduce printer xyz to LP using the model prx interface program: 
+
+
+$ /usr/lib/lpadmin —pxyz —v/dev/tty15 —~mprx 
+
+
+4. When xyz is created, it will initially be disabled and Ip will be rejecting requests routed to it. If it is de- 
+sired, allow Ip to accept requests for xyz: 
+
+
+/usr/lib/accept xyz 
+This will allow requests to build up for xyz, and to be printed when it is enabled at a later time. 
+. When it is desired for printing to occur, be sure that the printer is ready to receive output. For several 
+
+
+printers, this means that the top of form has been adjusted and that the printer is on-line. Enable print- 
+ing to occur on xyz: 
+
+
+an 
+
+
+enable xyz 
+
+
+When requests have been routed to xyz, they will begin printing. 
+
+
+- B. Login Terminals 
+
+
+| Login terminals may also be used as LP printers. To do this for a Diablo 1640 terminal called abe, perform 
+| the following: 
+
+
+1. Introduce printer abe to LP using the model 1640 interface program: 
+
+
+$ /usr/lib/lpadmin —pabe —v/dev/null —m1640 —! 
+
+
+Note that /dev/null is used as abe’s device because we will specify the actual device each time that abe 
+is enabled. This device may be different from day to day. When abc is created, it will initially be disabled; 
+and Ip will be rejecting requests routed to it. If it is desired, allow Ip to accept requests for abe: 
+
+
+/usr/lib/accept abc 
+
+
+This will allow requests to build up for abe and to be printed when it is enabled at a later time. It is not 
+advisable to enable abe for printing, however, until the following steps have been taken. 
+
+
+2. Log terminal in if this has not already been done. 
+
+
+3. Assuming the tty(1) command reports that this terminal is /dev/tty02, associate this device with printer 
+abe: 
+
+
+$ /usr/lib/lpadmin —pabe —v/dev/tty02 
+Note that Ipadmin may be used only by an LPA. If it is desired for other users to routinely perform this 
+step, then an LPA may establish a program owned by Ip or by root with set-user-id permission that per- 
+
+
+forms this function. 
+
+
+4. When it is desired for printing to occur, be sure that the printer is ready to receive output. For several = 
+printers, this means that the top of form has been adjusted. Enable printing to occur on abe: 
+
+
+enable abc 
+
+
+When requests have been routed to abe, they will begin printing. oR 
+
+
+Page 152 
+
+
+6/82 ISSUE 1 ADMINISTRATOR’S GUIDE 
+
+
+5. When all printing has stopped on abe or when you want it back as a regular login terminal, you may pre- 
+Ge vent it from printing more output:. 
+
+
+$ disable abe 
+
+
+printer "abe" now disabled 
+
+
+S If abc is enabled when the UNIX system is rebooted or when Ipsched is restarted, it will be disabled 
+automatically. 
+
+
+SUMMARY 
+The administrative functions of the LP administrator have been described in detail. These functions include 
+configuring and reconfiguring LP; maintaining printer interface programs; accepting, rejecting, and moving 
+print requests; stopping and starting the LP scheduler; and enabling and disabling printers. LP offers adminis- 
+e trators the following advantages over other centrally supported printer packages: 
+e Printers may be grouped into classes. 
+e LP may be configured to meet the needs of each site. 
+
+
+e Administrators may supply interface programs to format output in any way desirable. 
+
+
+e LP functions are performed by simple commands and not by hand. 
+
+
+Page 153 
+
+
+ADMINISTRATOR’S GUIDE ISSUE 1 6/82 
+
+
+NOTES 
+
+
+Page 154 
+
+

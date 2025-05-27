@@ -1,0 +1,127 @@
+UNIX 
+PROGRAMMING 
+STARTER PACKAGE 
+
+
+nH HmRReH He EHF FE & 
+
+
+COMPUTING INFORMATION SERVICE 
+LIBRARIES AND INFORMATION SYSTEMS CENTER 
+BELL LABORATORIES 
+
+
+Compiled by 
+Claudine Tartanella 
+MH 2F-128 
+
+
+NOT FOR USE OR DISCLOSURE 
+OUTSIDE BELL LABORATORIES 
+
+
+EH 
+
+
+EE 
+
+
+Copyright © 1980 Bell Telephone Laboratories, Inc. 
+
+
+UNIX is a Trademark of Bell Telephone Laboratories, Inc. 
+
+
+1 
+
+
+TABLE OF CONTENTS 
+
+
+TITEE 
+
+
+UNIX Documentation Road Map 
+by G. A. Snyder and J. R. Mashey 
+
+
+A Tutorial Introduction to the 
+UNIX Text Editor 
+by B. W. Kernighan 
+
+
+UNIX for Beginners-Second Edition 
+by B. W. Kernighan 
+
+
+UNIX Shell Tutorial 
+by G. A. Snyder and J. R. Mashey 
+
+
+The C Programming 
+Language-Reference Manual 
+by D. M. Ritchie 
+
+
+UNIX Programming (Second Edition) 
+by B. W. Kernighan and D. M. Ritchie 
+
+
+UNIX NO. 
+
+
+1485 
+
+
+1000 
+
+
+1042 
+
+
+1189 
+
+
+1002 
+
+
+1073 
+
+
+Additional Information: 
+
+
+For further information on the C programming language, see the following book available 
+(from the Bell Labs Library Network): 
+
+
+B. W. Kernighan and D. M. Ritchie 
+C Programming Language 
+Prentice, 1978 
+
+
+001.6424C11/K39c 144689(BTL-Libraries) 
+
+
+For additional information on UNIX, refer to the: 
+
+
+UNIX User’s Manual. 
+
+
+Individual copies of the documents listed above are available from your local Computing Infor- 
+mation Library: 
+
+
+HO 6D-106 X4561 
+IH 6F-136 X3514 
+MH 2F-128 X6058 
+PY - = 2H-210> “A7679 
+
+
+WH 2A-395 X3363 
+
+
+nee He He Hee HEHEHE HeHeHeHe eee 
+
+
