@@ -4784,6 +4784,465 @@ Current Analysis Jobs:
         else:
             return f"analysis: {args[0]} analysis completed with comprehensive results"
 
+    def cmd_3a(self, args):
+        """3A Central Control switching system operations"""
+        if not args:
+            return """3A Central Control Switching System
+Common Control Electronic Switching
+
+Available Commands:
+  3a status            - System status and configuration
+  3a diagnostics       - Run system diagnostics
+  3a traffic           - Traffic load analysis
+  3a maintenance       - Maintenance procedures
+  3a translations      - Translation table management
+
+Current 3A Systems:
+  Systems Operational: 47 of 52 planned
+  Call Processing:     Normal operation
+  Memory Utilization:  73% of capacity
+  
+Project References: SD-1C900-01 (3A Central Control Circuit)"""
+
+        if args[0] == "status":
+            return """3A Central Control System Status
+November 14, 1983 07:45:30
+
+System Configuration:
+  Central Control Units:       4 active, 1 standby
+  Program Stores:              8MB ferrite core memory
+  Call Stores:                 2MB working memory
+  Scanner Units:               16 operational
+  Network Control:             Crossbar network attached
+
+Processing Status:
+  Call Attempts:               45,892/hour (current)
+  Successful Completions:      44,731 (97.5% success rate)
+  Busy Hour Traffic:           892 CCS (within capacity)
+  Processor Occupancy:         67% (Normal range: 40-80%)
+
+Hardware Status:
+  Central Control A:           ACTIVE - Normal operation
+  Central Control B:           STANDBY - Ready
+  Central Control C:           ACTIVE - Normal operation  
+  Central Control D:           MAINTENANCE - Scheduled PM
+  
+Translation Tables:
+  Office Code Translations:    Current - Rev 47.3
+  Routing Translations:        Current - Rev 12.8
+  Screening Tables:            Current - Rev 6.2
+
+Recent Activity:
+  Last Translation Update:     1983-11-12 03:00
+  Last Hardware Fault:         None (47 days)
+  Performance Optimization:    Completed 1983-11-10"""
+
+        elif args[0] == "diagnostics":
+            return """3A Central Control Diagnostic Suite
+Test Sequence Initiated: November 14, 1983 07:45:45
+
+Memory Tests:
+  Program Store Test:          [████████████████████] PASS
+  Call Store Test:             [████████████████████] PASS
+  Translation Table Test:      [████████████████████] PASS
+
+Control Unit Tests:
+  Central Control A:           [████████████████████] PASS
+  Central Control B:           [████████████████████] PASS
+  Central Control C:           [████████████████████] PASS
+  Central Control D:           [██████████░░░░░░░░░░] MAINTENANCE
+
+Network Interface Tests:
+  Scanner Unit Test:           [████████████████████] PASS (16/16)
+  Network Control Test:        [████████████████████] PASS
+  Trunk Interface Test:        [████████████████████] PASS
+
+Software Tests:
+  Call Processing Programs:    [████████████████████] PASS
+  Administrative Programs:     [████████████████████] PASS
+  Maintenance Programs:        [████████████████████] PASS
+
+Test Results Summary:
+  Total Tests Run:             47 tests
+  Tests Passed:                47 tests
+  Tests Failed:                0 tests
+  System Health:               EXCELLENT
+
+Recommended Actions:
+  Complete scheduled maintenance on Control Unit D
+  Update trunk translation tables (due 11/20/83)
+  Performance monitoring - all parameters normal"""
+
+        else:
+            return f"Unknown 3a command: {args[0]}\nUse '3a' for available options"
+
+    def cmd_bsp(self, args):
+        """Bell System Practices - Standard Operating Procedures"""
+        if not args:
+            return """Bell System Practices (BSP)
+Standard Operating Procedures and Technical References
+
+Available Commands:
+  bsp search <topic>   - Search BSP procedures
+  bsp section <num>    - Display specific BSP section
+  bsp recent          - Recently updated procedures
+  bsp index           - BSP section index
+
+Current BSP Library:
+  Total Procedures:    14,892 sections
+  Recent Updates:      47 sections (this month)
+  Categories:          156 technical areas
+  
+Most Referenced:
+  BSP 100-000         Bell System Fundamentals
+  BSP 200-000         Switching Systems
+  BSP 300-000         Transmission Systems
+  BSP 400-000         Network Operations"""
+
+        if args[0] == "search" and len(args) > 1:
+            topic = " ".join(args[1:]).lower()
+            return f"""BSP Search Results: "{topic}"
+
+Matching Procedures:
+  BSP 200-455-100     3A Central Control Maintenance
+  BSP 200-455-200     3A System Administration  
+  BSP 200-455-300     3A Trouble Analysis
+  BSP 200-455-400     3A Performance Monitoring
+
+  BSP 300-125-001     TH-3 Microwave Alignment
+  BSP 300-125-100     Radio Path Analysis
+  BSP 300-125-200     Fade Margin Calculations
+
+  BSP 400-200-001     TNDS Data Collection
+  BSP 400-200-100     Traffic Analysis Procedures
+  BSP 400-200-200     Network Performance Reports
+
+Use 'bsp section <number>' for detailed procedures"""
+
+        elif args[0] == "section" and len(args) > 1:
+            section = args[1]
+            return f"""Bell System Practice {section}
+Revision Date: November 1983
+
+PROCEDURE: 3A Central Control System Maintenance
+CATEGORY: Electronic Switching Systems
+DIVISION: Network Operations
+
+SCOPE:
+This practice covers routine maintenance procedures for the 3A Central 
+Control switching system including diagnostic testing, performance 
+monitoring, and preventive maintenance schedules.
+
+PROCEDURE STEPS:
+
+1. DAILY CHECKS (0800 hours)
+   a. Review alarm logs for overnight activity
+   b. Check processor occupancy levels
+   c. Verify all central control units operational
+   d. Review traffic load statistics
+
+2. WEEKLY MAINTENANCE (Sunday 0200-0600)
+   a. Run comprehensive diagnostic suite
+   b. Exercise standby control units
+   c. Update traffic translation tables
+   d. Archive performance data
+
+3. MONTHLY PROCEDURES
+   a. Ferrite core memory tests
+   b. Scanner unit calibration
+   c. Network control verification
+   d. Documentation updates
+
+SAFETY CONSIDERATIONS:
+- Follow lockout/tagout procedures
+- Verify redundant systems before maintenance
+- Coordinate with traffic engineering
+
+REFERENCE DOCUMENTS:
+SD-1C900-01: 3A Central Control Circuit Description
+BSP 200-000: Electronic Switching Fundamentals"""
+
+        else:
+            return f"Unknown bsp command: {args[0]}\nUse 'bsp' for available options"
+
+    def cmd_western(self, args):
+        """Western Electric equipment specifications and procedures"""
+        if not args:
+            return """Western Electric Equipment Management
+Manufacturing and Installation Support
+
+Available Commands:
+  western equipment    - Equipment catalog and specifications
+  western install      - Installation procedures
+  western repair       - Repair and replacement procedures
+  western inventory    - Equipment inventory management
+
+Current Inventory:
+  Active Equipment:    47,293 items
+  Spare Parts:         12,847 items
+  Pending Orders:      892 items
+  
+Recent Deliveries:
+  3A Central Control:  2 units (installed)
+  TH-3 Radio:         4 units (testing)
+  Crossbar Frames:    12 units (inventory)"""
+
+        if args[0] == "equipment":
+            return """Western Electric Equipment Catalog
+Current Inventory - Central Office Equipment
+
+Switching Systems:
+  1ESS Electronic:     Model 1A, 2A (Legacy)
+  2ESS Electronic:     Model 2B (Limited deployment)
+  3ESS Electronic:     Model 3A (Active deployment)
+  4ESS Electronic:     Model 4A, 4B (Toll switching)
+  5ESS Electronic:     Model 5A (New technology)
+  
+  No. 1 Crossbar:      Standard, Rural variants
+  No. 5 Crossbar:      Standard urban configuration
+  Panel Systems:       Panel (Legacy support only)
+
+Transmission Equipment:
+  TH-3 Microwave:      6GHz radio system
+  TH-1 Radio:          4GHz system (legacy)
+  T1 Carrier:          Digital transmission
+  N-Carrier:           Analog carrier systems
+
+Common Equipment:
+  3A Central Control:  Electronic common control
+  2A Signal Proc.:     Signal processing unit
+  Power Systems:       -48V DC systems, engine plants
+  Test Equipment:      SARTS, transmission test sets
+
+Installation Status:
+  Equipment Code WE-435A: 3A Central Control - 4 units available
+  Equipment Code WE-892B: TH-3 Radio Path - Installation pending
+  Equipment Code WE-156C: 5ESS Switch Module - Testing phase"""
+
+        elif args[0] == "install":
+            return """Western Electric Installation Procedures
+Standard Installation Practice
+
+Pre-Installation Requirements:
+  Site Survey:                 Complete engineering survey
+  Power Requirements:          -48V DC, engine backup verified
+  Environmental:               Temperature, humidity within spec
+  Floor Loading:               Structural analysis complete
+
+Installation Sequence:
+  Phase 1: Frame Installation
+    - Position equipment frames per engineering drawings
+    - Verify frame grounding and bonding
+    - Install power distribution equipment
+    
+  Phase 2: Cabling and Wiring
+    - Install inter-frame cabling per cable list
+    - Terminate all connections per wiring drawings
+    - Complete cable identification and documentation
+    
+  Phase 3: System Testing
+    - Power-up sequence per technical procedures
+    - Execute factory acceptance tests
+    - Perform integration testing with existing equipment
+    
+  Phase 4: Cutover and Service
+    - Coordinate with traffic engineering
+    - Execute cutover procedures during maintenance window
+    - Verify service and performance objectives
+
+Quality Control:
+  All installations require Western Electric field engineer approval
+  Documentation must be complete before service turn-up
+  Customer acceptance testing required for service activation"""
+
+        else:
+            return f"Unknown western command: {args[0]}\nUse 'western' for available options"
+
+    def cmd_coer(self, args):
+        """Central Office Equipment Reports - Performance monitoring"""
+        if not args:
+            return """Central Office Equipment Reports (COER)
+Performance Monitoring and Fault Analysis
+
+Available Commands:
+  coer generate        - Generate performance reports
+  coer faults          - Equipment fault analysis
+  coer trends          - Performance trend analysis
+  coer maintenance     - Maintenance scheduling
+
+Current Reporting Period: November 1-14, 1983
+Equipment Under Monitoring: 1,247 systems
+Report Generation: Automated daily, weekly, monthly"""
+
+        if args[0] == "generate":
+            return """COER Performance Report
+Reporting Period: November 1-14, 1983
+Generated: November 14, 1983 07:45:30
+
+SWITCHING SYSTEM PERFORMANCE
+
+3A Central Control Systems (4 units):
+  Availability:                99.97%
+  Processor Occupancy:         Average 67%, Peak 84%
+  Call Completion Rate:        97.8%
+  Memory Utilization:          73% program store, 68% call store
+
+5ESS Electronic Systems (2 units):
+  Availability:                99.99%
+  Call Processing Rate:        Peak 450,000 calls/hour
+  Software Faults:             2 minor (auto-corrected)
+  Hardware Faults:             0
+
+Crossbar Systems (12 units):
+  Availability:                99.94%
+  Seizure Rate:                Normal (within specifications)
+  Contact Maintenance:         Scheduled 11/20/83
+  Performance:                 Nominal
+
+TRANSMISSION SYSTEM PERFORMANCE
+
+TH-3 Microwave (8 paths):
+  Path Availability:           99.96%
+  Fade Events:                 12 events (< 30 seconds each)
+  Diversity Activations:       47 switches
+  Signal Quality:              All paths within specification
+
+T1 Carrier (156 systems):
+  Error Performance:           All systems < 10^-6 BER
+  Alarm Conditions:            3 minor (corrected)
+  Utilization:                 Average 78% capacity
+
+RECOMMENDATIONS:
+- Continue monitoring 3A system processor occupancy
+- Schedule crossbar maintenance as planned
+- TH-3 path performance excellent - no action required
+- Review T1 utilization trends for capacity planning"""
+
+        elif args[0] == "faults":
+            return """COER Fault Analysis Report
+Analysis Period: November 1-14, 1983
+
+CRITICAL FAULTS: 0
+No critical equipment faults reported
+
+MAJOR FAULTS: 2
+  FAULT-001: 3A Central Control Unit D
+    Date/Time:    1983-11-12 14:23:15
+    Description:  Central control processor exception
+    Action:       Unit switched to standby, diagnostic testing
+    Status:       RESOLVED - Software patch applied
+    
+  FAULT-002: TH-3 Radio Path NYC-WAS-003
+    Date/Time:    1983-11-13 08:47:22
+    Description:  Transmitter power reduction (weather)
+    Action:       Automatic diversity switching activated
+    Status:       RESOLVED - Normal operation restored
+
+MINOR FAULTS: 12
+  Various equipment performance warnings
+  Environmental monitoring alerts
+  Preventive maintenance reminders
+
+FAULT ANALYSIS TRENDS:
+  Software-related:            23% of faults
+  Hardware aging:              15% of faults
+  Environmental:               31% of faults
+  Human error:                 8% of faults
+  External causes:             23% of faults
+
+PREVENTIVE ACTIONS:
+- Continue software update program
+- Monitor aging equipment replacement schedule
+- Review environmental control systems
+- Additional training on new procedures"""
+
+        else:
+            return f"Unknown coer command: {args[0]}\nUse 'coer' for available options"
+
+    def cmd_lmos(self, args):
+        """Loop Maintenance Operations System"""
+        if not args:
+            return """Loop Maintenance Operations System (LMOS)
+Subscriber Loop Testing and Maintenance
+
+Available Commands:
+  lmos test <number>   - Test subscriber loop
+  lmos repair          - Repair dispatch and tracking
+  lmos status          - System status and queues
+  lmos reports         - Maintenance reports
+
+Current Status:
+  Loops Under Test:    47 active tests
+  Repair Orders:       23 pending, 156 completed today
+  Test Equipment:      89% operational
+  Technician Dispatch: 12 crews active"""
+
+        if args[0] == "test" and len(args) > 1:
+            number = args[1]
+            return f"""LMOS Loop Test: {number}
+Test Initiated: November 14, 1983 07:45:45
+
+Test Sequence:
+  Line Seizure:               [████████████████████] COMPLETE
+  DC Resistance Test:         [████████████████████] COMPLETE
+  AC Impedance Test:          [████████████████████] COMPLETE
+  Insulation Resistance:      [████████████████████] COMPLETE
+  Noise Measurement:          [██████████████░░░░░] IN PROGRESS
+
+Preliminary Results:
+  Loop Resistance:            847 ohms (Normal: 400-1200 ohms)
+  Insulation Resistance:      > 10 megohms ✓
+  Metallic Voltage:           0.2V DC (Safe)
+  Foreign Voltage:            None detected ✓
+
+Estimated Completion: 07:49:15
+Test Result: PRELIMINARY PASS
+
+Note: Complete results will be available upon test completion
+Automatic trouble ticket generation if faults detected"""
+
+        elif args[0] == "repair":
+            return """LMOS Repair Order Management
+Current Activity - November 14, 1983 07:45:30
+
+ACTIVE REPAIR ORDERS:
+
+HIGH PRIORITY (Customer Out of Service):
+  RO-8347: No dial tone - 555-0123
+    Location: 123 Main St, Residential
+    Assigned: Tech Team 7 (ETA: 08:30)
+    Problem: Cable pair fault suspected
+    
+  RO-8348: Noisy line - 555-0456
+    Location: 456 Oak Ave, Business
+    Assigned: Tech Team 3 (ETA: 09:15)
+    Problem: Cross-talk interference
+
+NORMAL PRIORITY:
+  RO-8349: Intermittent dial tone - 555-0789
+  RO-8350: Low transmission level - 555-0234
+  RO-8351: Ringer malfunction - 555-0567
+
+COMPLETED TODAY (156 total):
+  Cable Repairs:              23
+  Equipment Replacement:      45
+  Cross-Connect Changes:      67
+  Preventive Maintenance:     21
+
+TECHNICIAN STATUS:
+  Team 1: Route 1 (West side) - Available
+  Team 2: Route 2 (North) - Dispatched to RO-8345
+  Team 3: Route 3 (Central) - Dispatched to RO-8348
+  ...12 teams total
+
+PERFORMANCE METRICS:
+  Average Repair Time:        3.2 hours
+  First-Call Resolution:      87%
+  Customer Satisfaction:      94%"""
+
+        else:
+            return f"Unknown lmos command: {args[0]}\nUse 'lmos' for available options"
+
 if __name__ == "__main__":
     terminal = BellSystemTerminal()
     terminal.run()
