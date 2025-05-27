@@ -10,8 +10,8 @@
 
 - [Overview](#overview)
 - [Historical Context](#historical-context)
-- [Features](#features)
 - [Installation](#installation)
+- [Enhanced Features (Version 2.1)](#enhanced-features-version-21)
 - [Quick Start](#quick-start)
 - [Operational Roles](#operational-roles)
 - [Command Reference](#command-reference)
@@ -29,6 +29,11 @@ The Bell System UNIX V7 Terminal Simulation provides a historically accurate rec
 
 - **12 Authentic Bell System Roles** with realistic daily workflows
 - **50+ Period-Accurate Commands** with comprehensive functionality
+- **Enhanced Terminal Experience** with professional UX improvements (Version 2.1)
+- **Command History Navigation** with up/down arrow support
+- **Smart Command Aliases** for improved efficiency (h=help, st=status, rad=radio)
+- **Intelligent Error Handling** with helpful suggestions and examples
+- **Professional Logging System** with dynamic verbosity control
 - **Authentic Equipment Simulation** including 3A Central Control, 5ESS, TH-3 microwave, TNDS
 - **Historical Bell System Practices** integration with real BSP procedures
 - **Comprehensive Documentation** with authentic technical specifications
@@ -69,33 +74,93 @@ The simulation incorporates authentic Bell System equipment, procedures, and ter
 
 3. **Run the simulation:**
    ```bash
-   python3 bell_system_unix.py
+   # Standard version
+   python3 bell.py
+   
+   # Enhanced version (recommended)
+   python3 enhanced_bell_system.py
+   
+   # Interactive tutorial
+   python3 bell_system_tutorial.py
    ```
 
 No additional dependencies or configuration files are required.
 
+## Enhanced Features (Version 2.1)
+
+The enhanced version includes professional-grade improvements while maintaining complete historical authenticity:
+
+### User Experience Enhancements
+- **Command History Navigation**: Use up/down arrows to browse previous commands
+- **Smart Command Aliases**: Quick shortcuts like `h` for help, `st` for status, `rad` for radio
+- **Intelligent Error Recovery**: "Did you mean..." suggestions for typos and unknown commands
+- **Enhanced Error Messages**: Detailed suggestions with examples and troubleshooting tips
+- **Command Line Editing**: Full readline support with left/right arrow movement and backspace
+
+### Professional Logging System
+- **Structured Logging**: Multi-level logging (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- **Dynamic Verbosity Control**: Change logging detail with `verbosity DEBUG/INFO/WARNING` command
+- **Automatic Log Rotation**: Size-based rotation (10MB main, 5MB errors) with backup files
+- **Session Analytics**: Comprehensive command timing and usage statistics
+- **Error Summaries**: Use `errors` command to see recent issues with solutions
+
+### Advanced Features
+- **Automatic Changelog**: System tracks significant events and system changes
+- **Performance Monitoring**: Command execution timing and session metrics
+- **JSON Structured Logs**: Machine-readable session logs for analysis
+- **Professional Cleanup**: Automatic log compression and state management
+
+### New Commands
+- **`errors`**: Display recent error summary with solutions and troubleshooting guidance
+- **`verbosity [LEVEL]`**: Dynamically change logging detail level at runtime
+- **`history [N]`**: Show command history with optional count limit
+- **Enhanced `help`**: Reorganized with role-specific guidance and better categorization
+
 ## Quick Start
 
-1. **Start the simulation:**
+### Standard Version
+1. **Start the original simulation:**
    ```bash
-   python3 bell_system_unix.py
+   python3 bell.py
    ```
 
+### Enhanced Version (Recommended)
+1. **Start the enhanced terminal with professional features:**
+   ```bash
+   python3 enhanced_bell_system.py
+   ```
+
+### Interactive Tutorial (For New Users)
+1. **Learn the system with guided tutorial:**
+   ```bash
+   python3 bell_system_tutorial.py
+   ```
+
+### Using the Simulation
 2. **Select your Bell System role** from the menu (1-12)
 
 3. **Review your shift briefing** with role-specific procedures
 
 4. **Enter commands** at the Unix-style prompt:
    ```
-   bell$ help              # Show available commands
-   bell$ man trunk         # Display manual page for trunk command
-   bell$ trunk status      # Check trunk group status
-   bell$ 3a diagnostics    # Run 3A Central Control diagnostics
+   sysop@bell-ops:/usr/users/sysop$ help              # Show available commands
+   sysop@bell-ops:/usr/users/sysop$ man trunk         # Display manual page for trunk command
+   sysop@bell-ops:/usr/users/sysop$ trunk status      # Check trunk group status
+   sysop@bell-ops:/usr/users/sysop$ 3a diagnostics    # Run 3A Central Control diagnostics
    ```
 
-5. **Exit the simulation:**
+5. **Use enhanced features (Enhanced Version only):**
    ```
-   bell$ exit
+   sysop@bell-ops:/usr/users/sysop$ h                 # Quick help (alias)
+   sysop@bell-ops:/usr/users/sysop$ st                # Status (alias)
+   sysop@bell-ops:/usr/users/sysop$ errors            # View error summary
+   sysop@bell-ops:/usr/users/sysop$ verbosity DEBUG   # Change logging level
+   sysop@bell-ops:/usr/users/sysop$ history 20        # Show command history
+   ```
+
+6. **Exit the simulation:**
+   ```
+   sysop@bell-ops:/usr/users/sysop$ quit
    ```
    or press `Ctrl+C`
 
@@ -446,13 +511,35 @@ The simulation generates authentic Bell System operational events including:
 ### Code Organization
 
 ```
-bell_system_unix.py          # Main simulation program
-├── BellSystemTerminal       # Primary simulation class
-├── Role Management          # 12 authentic Bell System roles
-├── Command Processing       # 50+ period-accurate commands
-├── Event Generation         # Realistic operational events
-├── Documentation System     # Comprehensive man pages
-└── Historical Data          # Authentic Bell System procedures
+Project Structure:
+├── bell.py                        # Original Bell System terminal simulation
+├── enhanced_bell_system.py        # Enhanced version with UX improvements (v2.1)
+├── bell_system_tutorial.py        # Interactive tutorial for new users
+├── logging_enhancements.py        # Professional logging system module
+├── ux_command_enhancements.py     # Advanced UX enhancement engine
+├── performance_profiling.py       # Performance monitoring tools
+├── logging_diagnostics.py         # Diagnostics and analysis tools
+├── command_reference.txt          # Complete command cheat sheet
+├── changelog.txt                  # Version history and changes
+├── manual.txt                     # Comprehensive user manual
+├── security_audit.md              # Security guidelines and audit
+├── ux_improvements.md             # UX enhancement documentation
+└── logs/                          # Generated log files and session data
+    ├── bell_system_main.log       # Main application logs
+    ├── bell_system_errors.log     # Error-specific logs
+    ├── session_*.log              # Individual session logs
+    └── bell_system_history.txt    # Command history
+
+Core Components:
+├── BellSystemTerminal             # Primary simulation class
+├── BellSystemEnhancedTerminal     # Enhanced version with UX features
+├── BellSystemLogger               # Professional logging system
+├── CommandEnhancementEngine       # Smart command assistance
+├── Role Management                # 12 authentic Bell System roles
+├── Command Processing             # 50+ period-accurate commands
+├── Event Generation               # Realistic operational events
+├── Documentation System           # Comprehensive man pages
+└── Historical Data                # Authentic Bell System procedures
 ```
 
 ### Key Design Principles
