@@ -336,77 +336,207 @@ class BellSystemTerminal:
 
     def generate_shift_events(self) -> None:
         """
-        Generate authentic Bell System operational events.
+        Generate authentic Bell System operational events with ticket numbers.
         
         Creates realistic operational events based on time of day, season,
-        and historical Bell System operations patterns.
+        and historical Bell System operations patterns. Each event has an
+        assigned ticket number for detailed investigation.
         """
         current_hour = datetime.now().hour
         current_month = datetime.now().month
         is_weekend = datetime.now().weekday() >= 5
 
-        # Base events that occur during any shift
+        # Base events that occur during any shift with ticket numbers
         base_events = [
-            "Routine trunk group monitoring TG-023 to TG-067",
-            "UUCP queue processing - 47 files transferred",
-            "Crossbar system diagnostics completed - all normal",
-            "TNDS data collection cycle 1 of 4 completed",
-            "Emergency services test call verification completed"
+            {
+                "id": "EV-8001",
+                "time": "08:15",
+                "type": "SYSTEM",
+                "title": "Routine trunk group monitoring TG-023 to TG-067",
+                "priority": "LOW",
+                "status": "MONITORING",
+                "description": "Daily trunk group performance monitoring cycle initiated",
+                "details": "All 45 trunk groups showing normal utilization. TG-023 at 67%, TG-045 at 73%, TG-067 at 58%. No blocking events detected.",
+                "actions": ["Review hourly reports", "Monitor for threshold violations", "Document performance metrics"]
+            },
+            {
+                "id": "EV-8002", 
+                "time": "08:30",
+                "type": "SYSTEM",
+                "title": "UUCP queue processing - 47 files transferred",
+                "priority": "LOW",
+                "status": "COMPLETE",
+                "description": "UNIX-to-UNIX Copy network file transfer cycle",
+                "details": "Overnight UUCP queue processed successfully. 47 files transferred between Bell Labs sites. Queue depth now at normal levels.",
+                "actions": ["Verify transfer logs", "Check for failed transfers", "Archive completed jobs"]
+            },
+            {
+                "id": "EV-8003",
+                "time": "08:45", 
+                "type": "TEST",
+                "title": "Emergency services test call verification completed",
+                "priority": "MEDIUM",
+                "status": "COMPLETE",
+                "description": "Daily test of emergency service routing",
+                "details": "All 911 emergency routing paths tested successfully. Average setup time 1.8 seconds, all within specifications.",
+                "actions": ["Document test results", "Report to emergency services coordinator", "Schedule next test cycle"]
+            }
         ]
 
         # Time-specific events
+        time_events = []
         if 6 <= current_hour < 14:  # Day shift
             time_events = [
-                "Business customer service orders processing",
-                "Interstate trunk traffic analysis in progress",
-                "5ESS system cutover preparation scheduled 14:30",
-                "Network planning meeting NP-8301 at 10:00",
-                "Field technician dispatch coordination active"
+                {
+                    "id": "EV-8010",
+                    "time": "09:15",
+                    "type": "MAINTENANCE",
+                    "title": "5ESS system cutover preparation scheduled 14:30",
+                    "priority": "HIGH",
+                    "status": "PENDING",
+                    "description": "Electronic switching system cutover coordination",
+                    "details": "5ESS-NYC-002 cutover from test to production. Requires coordination with traffic engineering and field operations.",
+                    "actions": ["Verify test results", "Coordinate with NOC", "Prepare rollback procedures", "Brief field technicians"]
+                },
+                {
+                    "id": "EV-8011",
+                    "time": "10:00",
+                    "type": "MEETING",
+                    "title": "Network planning meeting NP-8301 at 10:00",
+                    "priority": "MEDIUM", 
+                    "status": "SCHEDULED",
+                    "description": "Northeast Corridor Expansion Project review",
+                    "details": "Quarterly review of NP-8301 project milestones. Discussion of capacity requirements and timeline adjustments.",
+                    "actions": ["Prepare traffic analysis reports", "Review budget status", "Present capacity forecasts"]
+                }
             ]
         elif 14 <= current_hour < 22:  # Evening shift
             time_events = [
-                "Peak traffic period - all trunk groups monitored",
-                "Residential service installation coordination",
-                "TSPS operator training session 16:00-17:30",
-                "Radio propagation analysis for TH-3 paths",
-                "Customer billing cycle processing initiated"
+                {
+                    "id": "EV-8020",
+                    "time": "15:30",
+                    "type": "TRAFFIC",
+                    "title": "Peak traffic period - all trunk groups monitored",
+                    "priority": "HIGH",
+                    "status": "ACTIVE",
+                    "description": "Daily peak traffic management",
+                    "details": "Evening calling peak approaching. All trunk groups under enhanced monitoring. TG-023 approaching 85% capacity.",
+                    "actions": ["Monitor trunk utilization", "Prepare overflow routing", "Coordinate with traffic engineering"]
+                },
+                {
+                    "id": "EV-8021",
+                    "time": "16:00", 
+                    "type": "TRAINING",
+                    "title": "TSPS operator training session 16:00-17:30",
+                    "priority": "MEDIUM",
+                    "status": "SCHEDULED",
+                    "description": "Traffic Service Position System operator certification",
+                    "details": "Monthly TSPS operator training on new procedures and emergency protocols.",
+                    "actions": ["Prepare training materials", "Coordinate with training department", "Document attendance"]
+                }
             ]
         else:  # Night shift
             time_events = [
-                "Preventive maintenance window 02:00-05:00",
-                "International traffic routing optimization",
-                "System backup and archival procedures",
-                "Network configuration updates scheduled",
-                "Equipment testing during low traffic period"
+                {
+                    "id": "EV-8030",
+                    "time": "02:30",
+                    "type": "MAINTENANCE",
+                    "title": "Preventive maintenance window 02:00-05:00",
+                    "priority": "MEDIUM",
+                    "status": "ACTIVE", 
+                    "description": "Scheduled overnight maintenance procedures",
+                    "details": "Crossbar system maintenance at three central offices. Estimated completion 04:30.",
+                    "actions": ["Monitor maintenance progress", "Coordinate with field teams", "Verify service restoration"]
+                }
             ]
+
+        # Equipment-specific events with authentic Bell System issues
+        equipment_events = [
+            {
+                "id": "EV-8040",
+                "time": "09:47",
+                "type": "ALARM",
+                "title": "TH-3 microwave path NYC-WAS fade event detected",
+                "priority": "HIGH",
+                "status": "MONITORING",
+                "description": "Radio path fade margin below threshold",
+                "details": "TH-3 path NYC-WAS-001 experiencing atmospheric fade. Current RSL -65 dBm, fade margin reduced to 12 dB. Space diversity activated.",
+                "actions": ["Monitor signal levels", "Check weather conditions", "Verify diversity operation", "Prepare backup routing"]
+            },
+            {
+                "id": "EV-8041",
+                "time": "11:23",
+                "type": "EQUIPMENT",
+                "title": "3A Central Control Unit D diagnostic alert",
+                "priority": "HIGH",
+                "status": "INVESTIGATING",
+                "description": "Central control processor requires attention",
+                "details": "3A Central Control Unit D reporting memory parity errors. Unit switched to standby. Diagnostic testing in progress.",
+                "actions": ["Run comprehensive diagnostics", "Check memory modules", "Coordinate with maintenance", "Monitor standby unit"]
+            },
+            {
+                "id": "EV-8042",
+                "time": "13:15",
+                "type": "CUSTOMER",
+                "title": "Government priority circuit outage - Pentagon line",
+                "priority": "CRITICAL",
+                "status": "URGENT",
+                "description": "High-priority government customer service interruption",
+                "details": "Dedicated Pentagon communication line experiencing total outage. Customer class: GOVERNMENT-PRIORITY. Immediate response required.",
+                "actions": ["Dispatch emergency team", "Activate backup circuits", "Notify government liaison", "Escalate to Level 3"]
+            }
+        ]
 
         # Seasonal events
         seasonal_events = []
         if current_month in [12, 1, 2]:  # Winter
             seasonal_events = [
-                "Weather impact monitoring for TH-3 microwave paths",
-                "Increased heating load monitoring for central offices",
-                "Holiday traffic pattern analysis in progress"
+                {
+                    "id": "EV-8050",
+                    "time": "07:30",
+                    "type": "WEATHER",
+                    "title": "Ice storm impact on microwave paths",
+                    "priority": "HIGH",
+                    "status": "MONITORING",
+                    "description": "Weather affecting radio propagation",
+                    "details": "Ice accumulation on microwave antennas in northeast corridor. Multiple paths showing degraded performance.",
+                    "actions": ["Monitor all radio paths", "Coordinate ice removal crews", "Implement backup routing", "Track weather conditions"]
+                }
             ]
         elif current_month in [6, 7, 8]:  # Summer
             seasonal_events = [
-                "Air conditioning system monitoring - summer load",
-                "Vacation coverage coordination for field technicians",
-                "Thunderstorm fade analysis for radio paths"
+                {
+                    "id": "EV-8060",
+                    "time": "14:20",
+                    "type": "WEATHER",
+                    "title": "Thunderstorm fade analysis for radio paths",
+                    "priority": "MEDIUM",
+                    "status": "MONITORING",
+                    "description": "Summer storm impact assessment",
+                    "details": "Thunderstorm activity affecting multiple TH-3 paths. Increased fade events expected through evening hours.",
+                    "actions": ["Monitor fade events", "Verify diversity switching", "Prepare traffic rerouting", "Document performance"]
+                }
             ]
 
-        # Weekend events
-        weekend_events = []
-        if is_weekend:
-            weekend_events = [
-                "Reduced staffing - emergency coverage only",
-                "Scheduled maintenance window extended",
-                "Weekend traffic pattern monitoring"
-            ]
-
-        # Combine and randomize events
-        all_events = base_events + time_events + seasonal_events + weekend_events
-        self.shift_events = random.sample(all_events, min(8, len(all_events)))
+        # Combine all events and select appropriate ones for the shift
+        all_events = base_events + time_events + equipment_events + seasonal_events
+        
+        # Always include base events, then add others based on current conditions
+        selected_events = base_events.copy()
+        
+        # Add time-appropriate events
+        selected_events.extend(time_events)
+        
+        # Add 2-3 equipment/customer events randomly
+        if equipment_events:
+            selected_events.extend(random.sample(equipment_events, min(2, len(equipment_events))))
+            
+        # Add seasonal events if applicable
+        selected_events.extend(seasonal_events)
+        
+        # Sort by time and limit to reasonable number
+        selected_events.sort(key=lambda x: x["time"])
+        self.shift_events = selected_events[:8]  # Limit to 8 events per shift
 
     def select_role(self) -> None:
         """
@@ -1869,7 +1999,138 @@ Performance Metrics:
 
     def cmd_events(self, args: List[str]) -> str:
         """Bell System operational events and shift activity"""
-        return "Operational events - implementation follows pattern"
+        if not args:
+            output = [f"Bell System Operational Events - Shift {self.current_shift}"]
+            output.append("=" * 55)
+            output.append("")
+            
+            for i, event in enumerate(self.shift_events, 1):
+                priority_marker = "*** " if event["priority"] == "CRITICAL" else "** " if event["priority"] == "HIGH" else "* " if event["priority"] == "MEDIUM" else ""
+                output.append(f"{i:2d}. {event['time']} [{event['type']}] {priority_marker}{event['status']}")
+                output.append(f"    {event['title']}")
+                output.append(f"    Event ID: {event['id']}")
+                output.append("")
+            
+            output.append("Commands:")
+            output.append("  events detail <event_id>     - View detailed event information")
+            output.append("  events work <event_id>       - Work on specific event")
+            output.append("  events priority <level>      - Filter by priority (CRITICAL, HIGH, MEDIUM, LOW)")
+            output.append("  events status <status>       - Filter by status")
+            output.append("")
+            return "\n".join(output)
+        
+        elif args[0] == "detail" and len(args) > 1:
+            event_id = args[1].upper()
+            event = next((e for e in self.shift_events if e["id"] == event_id), None)
+            
+            if not event:
+                return f"Event {event_id} not found. Use 'events' to see available events."
+            
+            output = [f"BELL SYSTEM EVENT DETAILS: {event['id']}"]
+            output.append("=" * 50)
+            output.append("")
+            output.append(f"Time:        {event['time']}")
+            output.append(f"Type:        {event['type']}")
+            output.append(f"Priority:    {event['priority']}")
+            output.append(f"Status:      {event['status']}")
+            output.append(f"Title:       {event['title']}")
+            output.append("")
+            output.append(f"Description:")
+            output.append(f"  {event['description']}")
+            output.append("")
+            output.append(f"Details:")
+            output.append(f"  {event['details']}")
+            output.append("")
+            output.append(f"Recommended Actions:")
+            for i, action in enumerate(event['actions'], 1):
+                output.append(f"  {i}. {action}")
+            output.append("")
+            output.append(f"Use 'events work {event_id}' to begin working this event")
+            output.append("")
+            return "\n".join(output)
+        
+        elif args[0] == "work" and len(args) > 1:
+            event_id = args[1].upper()
+            event = next((e for e in self.shift_events if e["id"] == event_id), None)
+            
+            if not event:
+                return f"Event {event_id} not found. Use 'events' to see available events."
+            
+            # Update event status to indicate work started
+            event["status"] = "IN_PROGRESS"
+            
+            output = [f"WORKING EVENT: {event['id']} - {event['title']}"]
+            output.append("=" * 60)
+            output.append("")
+            output.append(f"Event Type: {event['type']}")
+            output.append(f"Priority: {event['priority']}")
+            output.append("")
+            output.append("WORK LOG INITIATED:")
+            output.append(f"  {datetime.now().strftime('%H:%M')} - Work started by {self.username}")
+            output.append(f"  {datetime.now().strftime('%H:%M')} - Reviewing event details and recommended actions")
+            output.append("")
+            output.append("NEXT STEPS:")
+            for i, action in enumerate(event['actions'], 1):
+                output.append(f"  {i}. {action}")
+            output.append("")
+            
+            # Role-specific guidance
+            role_guidance = {
+                "radio": "Use 'radio' commands to investigate microwave path issues",
+                "switch": "Use 'switch' and '3a' commands for switching system problems", 
+                "noc": "Coordinate with other teams and monitor network impact",
+                "field": "Dispatch field technicians and coordinate on-site activities",
+                "sysop": "Check system logs and coordinate with development teams"
+            }
+            
+            if self.role in role_guidance:
+                output.append(f"Role-Specific Guidance:")
+                output.append(f"  {role_guidance[self.role]}")
+                output.append("")
+            
+            output.append("Use relevant Bell System commands to investigate and resolve this event.")
+            output.append("Document progress with 'ticket create' if escalation needed.")
+            output.append("")
+            return "\n".join(output)
+        
+        elif args[0] == "priority" and len(args) > 1:
+            priority = args[1].upper()
+            filtered_events = [e for e in self.shift_events if e["priority"] == priority]
+            
+            if not filtered_events:
+                return f"No events found with priority '{priority}'"
+            
+            output = [f"Events with Priority: {priority}"]
+            output.append("=" * 40)
+            output.append("")
+            for event in filtered_events:
+                output.append(f"{event['time']} [{event['type']}] {event['status']}")
+                output.append(f"  {event['title']}")
+                output.append(f"  Event ID: {event['id']}")
+                output.append("")
+            
+            return "\n".join(output)
+        
+        elif args[0] == "status" and len(args) > 1:
+            status = args[1].upper()
+            filtered_events = [e for e in self.shift_events if e["status"] == status]
+            
+            if not filtered_events:
+                return f"No events found with status '{status}'"
+            
+            output = [f"Events with Status: {status}"]
+            output.append("=" * 40)
+            output.append("")
+            for event in filtered_events:
+                output.append(f"{event['time']} [{event['type']}] {event['priority']}")
+                output.append(f"  {event['title']}")
+                output.append(f"  Event ID: {event['id']}")
+                output.append("")
+            
+            return "\n".join(output)
+        
+        else:
+            return f"events: unknown option '{args[0]}'\nUse 'events' for available commands"
 
     def cmd_training(self, args: List[str]) -> str:
         """Bell System training programs and procedures"""
@@ -1897,8 +2158,391 @@ Performance Metrics:
         return "SARTS testing - implementation follows pattern"
 
     def cmd_radio(self, args: List[str]) -> str:
-        """TH-3 microwave radio system management"""
-        return "Radio system operations - implementation follows pattern"
+        """TH-3 microwave radio system monitoring and maintenance"""
+        if not args:
+            return """TH-3 Microwave Radio System Management
+Bell System Long-Haul Radio Network
+
+Available Commands:
+  radio status         - System status and performance overview
+  radio path <route>   - Analyze specific radio path performance
+  radio fade           - Fade margin analysis and monitoring
+  radio diversity      - Diversity switching status and control
+  radio alignment      - Antenna alignment procedures
+  radio maintenance    - Maintenance schedules and procedures
+  radio propagation    - Propagation analysis and predictions
+  radio interference   - Interference detection and mitigation
+  radio power          - Transmitter power monitoring
+  radio frequency      - Frequency coordination and management
+  radio weather        - Weather impact assessment
+  radio backup         - Backup path and diversity routing
+
+Current Network Status:
+  Radio Paths Active:           347 of 351 (98.9%)
+  Total Route Miles:            47,293 miles
+  System Availability:          99.97%
+  Average Fade Margin:          32.4 dB
+  
+Current Radio Paths:
+  NYC-WAS-001:         NORMAL    RSL: -42 dBm    Fade Margin: 31 dB
+  NYC-BOS-002:         FADE      RSL: -67 dBm    Diversity Active
+  WAS-ATL-003:         NORMAL    RSL: -38 dBm    Fade Margin: 35 dB
+  CHI-DET-004:         MAINT     Scheduled alignment 14:30
+
+Project References: TP-8311 (Microwave Radio Diversity Implementation)
+Work Orders: WO-83051 (TH-3 microwave system alignment)"""
+
+        elif args[0] == "status":
+            return """TH-3 Microwave Radio System Status
+November 14, 1983 07:45:30
+
+Network Overview:
+  Total Radio Sites:            1,247 sites
+  Active Radio Paths:           347 paths
+  Total Circuit Capacity:       184,320 voice circuits
+  Current Utilization:          73.8%
+
+Performance Metrics (24-hour period):
+  System Availability:          99.97%
+  Path Outages:                 2 (< 30 seconds each)
+  Diversity Switches:           47 activations
+  Maintenance Actions:          8 completed
+
+Path Performance Summary:
+  NYC-WAS Corridor:            99.99% availability
+  CHI-STL Route:               99.98% availability
+  LAX-SFO Path:                99.95% availability
+  BOS-NYC Link:                99.99% availability
+
+Current Weather Impact:
+  High Pressure System:        Excellent propagation
+  Rain Activity:               Minimal (< 2mm/hr)
+  Atmospheric Ducting:         None detected
+  Fade Predictions:            Normal conditions
+
+Equipment Status:
+  Transmitter Power:           Normal (all sites)
+  Receiver Sensitivity:       Within specifications
+  Antenna Pointing:           Optimal alignment
+  Diversity Equipment:        OPERATIONAL
+
+Alerts:
+  SITE-147: Backup power test scheduled 14:00
+  PATH-23: Fade margin below threshold (monitoring)
+  ROUTE-89: Scheduled maintenance 11/15/83"""
+
+        elif args[0] == "path" and len(args) > 1:
+            route = args[1].upper()
+            return f"""TH-3 Radio Path Analysis: {route}
+Analysis Time: November 14, 1983 07:45:45
+
+Path Configuration:
+  Route Distance:              89.3 miles
+  Number of Hops:              4 hops
+  Frequency Band:              6 GHz
+  Channel Capacity:            1,800 voice circuits
+  
+Current Performance:
+  Received Signal Level:       -42.3 dBm
+  Fade Margin:                 31.7 dB (Excellent)
+  Bit Error Rate:              < 10^-9
+  Path Availability:           99.98% (30-day average)
+
+Hop-by-Hop Analysis:
+  Hop 1 (Terminal-Relay1):     31.2 miles, -38.4 dBm, 34.1 dB margin
+  Hop 2 (Relay1-Relay2):      28.7 miles, -41.2 dBm, 29.8 dB margin
+  Hop 3 (Relay2-Relay3):      15.8 miles, -35.6 dBm, 36.7 dB margin
+  Hop 4 (Relay3-Terminal):    13.6 miles, -33.9 dBm, 38.2 dB margin
+
+Weather Sensitivity:
+  Rain Fade Threshold:         15 mm/hr
+  Atmospheric Fade Risk:       Low
+  Multipath Probability:       0.02%
+  
+Diversity Protection:
+  Space Diversity:             ACTIVE (all hops)
+  Frequency Diversity:         STANDBY
+  Route Diversity:             Available via ROUTE-47
+
+Maintenance History:
+  Last Alignment:              1983-10-15
+  Next Scheduled:              1983-12-15
+  Performance Trend:           STABLE"""
+
+        elif args[0] == "fade":
+            return """TH-3 Radio Fade Analysis
+Real-time Fade Monitoring System
+
+Current Fade Events:
+  PATH NYC-WAS-001:           Normal operation (31.2 dB margin)
+  PATH NYC-BOS-002:           FADE EVENT - Space diversity active
+    Current RSL:              -67.4 dBm
+    Fade Depth:               25.1 dB
+    Duration:                 47 seconds
+    Diversity Switch:         Automatic at 09:23:15
+    
+  PATH WAS-ATL-003:           Normal operation (35.1 dB margin)
+  PATH CHI-DET-004:           Maintenance mode
+
+Fade Statistics (24-hour period):
+  Total Fade Events:           23 events
+  Average Duration:            12.3 seconds
+  Maximum Fade Depth:          28.7 dB
+  Diversity Activations:       18 successful
+
+Weather Correlation:
+  Current Conditions:         Clear, high pressure
+  Rain Rate:                  0.0 mm/hr
+  Atmospheric Conditions:     Stable
+  K-Factor:                   1.33 (normal)
+
+Fade Predictions:
+  Next 6 hours:               Stable conditions expected
+  Weather Front:              Approaching from west (18:00 EST)
+  Rain Fade Risk:             Low to moderate after 20:00
+
+Use 'radio weather' for detailed meteorological analysis"""
+
+        elif args[0] == "diversity":
+            return """TH-3 Diversity System Status
+Space and Frequency Diversity Operations
+
+System Overview:
+  Total Diversity Sites:       156 sites equipped
+  Space Diversity:             ACTIVE on all critical paths
+  Frequency Diversity:         Available on 23 paths
+  Route Diversity:             12 alternate routes available
+
+Current Diversity Activity:
+  Active Switches:             3 paths currently on diversity
+  
+  NYC-BOS-002 (Space Diversity):
+    Main Path RSL:             -67.4 dBm (fade condition)
+    Diversity Path RSL:        -43.2 dBm (normal)
+    Switch Status:             DIVERSITY ACTIVE
+    Switch Time:               09:23:15
+    
+  LAX-SFO-007 (Frequency Diversity):
+    Primary Frequency:         6,175 MHz - Normal
+    Backup Frequency:          6,475 MHz - Standby
+    Protection Status:         PROTECTED
+    
+  CHI-STL-012 (Route Diversity):
+    Primary Route:             Direct path - Normal
+    Alternate Route:           Via MIL relay - Available
+
+Diversity Performance:
+  Switch Success Rate:         99.97%
+  Average Switch Time:         < 50 milliseconds
+  Failed Switches (30-day):    2 events
+  
+Protection Thresholds:
+  Space Diversity:             -58 dBm
+  Frequency Diversity:         -62 dBm
+  Automatic Switch:            ENABLED
+  Manual Override:             Available
+
+Use 'radio path <route>' for specific diversity analysis"""
+
+        elif args[0] == "alignment":
+            return """TH-3 Antenna Alignment Procedures
+Microwave Antenna Pointing and Optimization
+
+Scheduled Alignments Today:
+  SITE-CHI-004:               14:30 - Quarterly maintenance
+  SITE-DET-007:               16:00 - Performance optimization
+  
+Alignment Status:
+  Last 30 Days:               47 sites aligned
+  Performance Improvement:    Average 2.3 dB gain
+  Alignment Accuracy:         ±0.1 degree achieved
+
+Alignment Procedure Checklist:
+  1. Weather Assessment:       Clear conditions required
+  2. Traffic Coordination:     Low-traffic period preferred
+  3. Equipment Preparation:    Alignment tools calibrated
+  4. Safety Procedures:        Tower safety protocol active
+  5. Backup Planning:          Diversity/alternate route ready
+
+Current Site Conditions:
+  SITE-CHI-004:
+    Current Pointing:          247.3° azimuth, 1.2° elevation
+    Signal Strength:           -44.7 dBm
+    Optimization Target:       -42.0 dBm (2.7 dB improvement)
+    Weather:                   Clear, wind 8 mph
+    Safety Status:             CLEARED for maintenance
+
+Alignment Tools Required:
+  - Precision inclinometer
+  - Signal level meter
+  - Tower safety equipment
+  - Backup communication link
+
+Coordination Required:
+  - NOC notification (traffic rerouting)
+  - Field maintenance team dispatch
+  - Safety coordinator approval
+
+Use 'radio maintenance' for detailed procedures"""
+
+        elif args[0] == "maintenance":
+            return """TH-3 Radio System Maintenance
+Preventive and Corrective Maintenance Operations
+
+Today's Maintenance Schedule:
+  09:00 - SITE-NYC-001:      Monthly transmitter calibration
+  14:30 - SITE-CHI-004:      Antenna alignment (TP-8311)
+  16:00 - SITE-DET-007:      Waveguide inspection
+  22:00 - SITE-BOS-003:      Backup power system test
+
+Maintenance Categories:
+  PREVENTIVE (Scheduled):
+    Quarterly:                Antenna alignment, waveguide checks
+    Monthly:                  Transmitter calibration, power supplies
+    Weekly:                   Site inspections, alarm tests
+    Daily:                    Performance monitoring, log review
+    
+  CORRECTIVE (As Required):
+    Equipment Failures:       Component replacement, repair
+    Performance Degradation:  Optimization, troubleshooting
+    Weather Damage:           Storm repair, realignment
+    
+Current Maintenance Tickets:
+  WO-83051: TH-3 microwave system alignment
+    Sites: 12 locations
+    Priority: MEDIUM
+    Completion: 85%
+    
+  WO-83052: Waveguide pressurization system
+    Sites: 8 locations  
+    Priority: HIGH
+    Completion: 60%
+
+Equipment Status:
+  Transmitters:               98.7% operational
+  Receivers:                  99.2% operational
+  Antennas:                   97.8% optimal alignment
+  Waveguides:                 99.1% pressurized
+  Power Systems:              99.4% operational
+
+Spare Parts Inventory:
+  Transmitter Modules:        23 units available
+  Receiver Components:        67 units available
+  Waveguide Sections:         12 units available
+  Antenna Hardware:           Available per requirements
+
+Use 'radio power' for transmitter details
+Use 'radio weather' for environmental impact assessment"""
+
+        elif args[0] == "weather":
+            return """TH-3 Radio Weather Impact Assessment
+Meteorological Analysis for Microwave Propagation
+
+Current Weather Conditions:
+  Temperature:                 47°F (8°C)
+  Humidity:                    62%
+  Barometric Pressure:         30.15 inches Hg (rising)
+  Wind Speed:                  8 mph, gusting to 12 mph
+  Visibility:                  10+ miles
+
+Propagation Conditions:
+  Atmospheric Stability:       STABLE
+  K-Factor:                    1.33 (normal propagation)
+  Refractive Index:            315 N-units (standard)
+  Multipath Activity:          MINIMAL
+
+Weather Impact on Paths:
+  NYC-WAS-001:                NO IMPACT - Clear path
+  NYC-BOS-002:                MINIMAL - Light haze
+  WAS-ATL-003:                NO IMPACT - Excellent conditions
+  CHI-DET-004:                NO IMPACT - Clear and cool
+
+6-Hour Forecast:
+  14:00-16:00:                Continued stable conditions
+  16:00-18:00:                Possible light cloud development
+  18:00-20:00:                Weather front approaching from west
+  
+Fade Risk Assessment:
+  Rain Fade Risk:             LOW (0-10% probability)
+  Atmospheric Fade Risk:      LOW (stable conditions)
+  Multipath Risk:             MINIMAL (good K-factor)
+  
+Historical Weather Impact:
+  Rain Fade Events (30-day):  12 events
+  Average Duration:           8.3 minutes
+  Maximum Fade Depth:         31.2 dB
+  Recovery Rate:              99.8%
+
+Critical Weather Thresholds:
+  Rain Rate for Fade:         > 8 mm/hr
+  K-Factor Limit:             < 0.8 or > 1.8
+  Temperature Gradient:       > 4°C per 100m
+
+Weather Monitoring:
+  Automatic Stations:         47 locations
+  Manual Observations:        12 locations
+  Radar Integration:          NOAA WSR-74 network
+  Forecast Updates:           Every 3 hours
+
+Use 'radio fade' for current fade event analysis"""
+
+        elif args[0] == "power":
+            return """TH-3 Transmitter Power Monitoring
+RF Power Output and Performance Analysis
+
+System Power Status:
+  Total Transmitters:         347 units
+  Operational:                342 units (98.6%)
+  Reduced Power:              3 units (maintenance)
+  Out of Service:             2 units (repair)
+
+Power Output Monitoring:
+  NYC-WAS-001:               +37.2 dBm (nominal +37.0 dBm)
+  NYC-BOS-002:               +36.8 dBm (nominal +37.0 dBm)
+  WAS-ATL-003:               +37.1 dBm (nominal +37.0 dBm)
+  CHI-DET-004:               MAINTENANCE MODE
+
+Power System Performance:
+  Average Output Power:       36.95 dBm
+  Power Stability:            ±0.2 dB (excellent)
+  Amplifier Efficiency:       47.3%
+  Heat Dissipation:           Normal (all sites)
+
+Power Supply Systems:
+  Primary AC Power:           NORMAL (all sites)
+  Battery Backup:             TESTED (monthly cycle)
+  Engine Generators:          AVAILABLE (12 sites)
+  Uninterruptible Power:      OPERATIONAL
+
+Recent Power Events:
+  SITE-BOS-003:              Power reduction to 75% (cooling issue)
+    Status:                   Repair scheduled 22:00
+    Impact:                   Minimal (diversity available)
+    
+  SITE-LAX-009:              Transmitter replacement
+    Status:                   New unit installed 11/12/83
+    Performance:              Exceeds specifications
+
+Power Quality Monitoring:
+  Voltage Regulation:         ±2% (within spec)
+  Frequency Stability:        ±0.1 Hz (excellent)
+  Harmonic Distortion:        < 1% (all transmitters)
+  
+Alarm Thresholds:
+  Low Power Warning:          < 90% of nominal
+  Critical Power Alarm:       < 80% of nominal
+  Automatic Shutdown:         < 70% of nominal
+
+Power Optimization:
+  Automatic Level Control:    ACTIVE (all transmitters)
+  Temperature Compensation:   ENABLED
+  Aging Compensation:         ACTIVE
+  
+Use 'radio maintenance' for power system maintenance
+Use 'radio alignment' for antenna optimization"""
+
+        else:
+            return f"Unknown radio command: {args[0]}\nUse 'radio' for available options"
 
     def cmd_microwave(self, args: List[str]) -> str:
         """Microwave system analysis"""
