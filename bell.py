@@ -4421,7 +4421,160 @@ Performance Metrics:
 
     def cmd_service(self, args: List[str]) -> str:
         """Service order management and provisioning"""
-        return "Service order management - implementation follows pattern"
+        if not args:
+            return f"""Bell System Service Orders - {datetime.now().strftime("%H:%M:%S EST")}
+============================================================
+
+Current Service Queue Status:
+  Pending Repairs:           12 tickets
+  New Installations:         23 orders  
+  Service Changes:           8 orders
+  Emergency Priority:        3 tickets
+
+Active Repair Tickets:
+  EV-8042: Pentagon priority circuit - URGENT
+  EV-8039: Hospital emergency line - HIGH
+  EV-8041: Police station backup - HIGH
+
+Priority Queue (Government/Emergency):
+  Position 1: EV-8042 - Pentagon line outage
+  Position 2: EV-8039 - St. Mary's Hospital
+  Position 3: EV-8041 - 14th Precinct backup
+
+Commands:
+  service repair <ticket>    Process repair ticket
+  service install <order>    Installation coordination  
+  service status <id>        Check order status
+  service queue              View full queue"""
+
+        elif len(args) >= 2 and args[0] == "repair":
+            ticket = args[1]
+            if ticket == "EV-8042":
+                return f"""URGENT REPAIR TICKET: EV-8042
+Pentagon Priority Circuit Outage
+============================================================
+Ticket Created: {datetime.now().strftime("%Y-%m-%d %H:%M:%S EST")}
+Priority Level: GOVERNMENT EMERGENCY
+Customer: Department of Defense - Pentagon
+Circuit ID: T1-PENTAGON-MAIN-01
+
+OUTAGE DETAILS:
+  Circuit Type: Dedicated T1 Digital Circuit
+  Affected Services: Primary Pentagon communications
+  Outage Start: 13:15 EST
+  Impact: CRITICAL - Government operations affected
+  
+DISPATCH STATUS:
+  Field Technician: Team Alpha-7 (Security Cleared)
+  ETA Pentagon: 14:30 EST  
+  Equipment Status: Emergency repair kit loaded
+  Access Clearance: DOD Security approved
+  
+TECHNICAL ANALYSIS:
+  Fault Location: Pentagon Building entrance facility
+  Circuit Path: Pentagon -> Arlington CO -> DC-4 Toll
+  Test Results: Loss of carrier signal at building demarc
+  Probable Cause: Facility cable damage or equipment failure
+  
+REPAIR PROGRESS:
+  ✓ Emergency dispatch authorized
+  ✓ DOD security clearance confirmed
+  ✓ Field team en route with emergency equipment
+  → Arrival and fault isolation: 14:30 EST
+  → Repair completion target: 16:00 EST
+  
+ESCALATION CONTACTS:
+  Pentagon Comm Center: (703) 545-6700 Priority Line
+  Bell System NOC: Emergency Desk ext 911
+  DOD Liaison Office: Contact when service restored
+  
+Next Update: 15:00 EST or upon status change"""
+            else:
+                return f"""REPAIR TICKET: {ticket}
+============================================================
+Ticket Status: {ticket}
+Created: {datetime.now().strftime("%Y-%m-%d %H:%M:%S EST")}
+
+Standard Repair Process:
+1. Trouble ticket analysis
+2. Field technician dispatch  
+3. Fault isolation and testing
+4. Repair completion
+5. Service verification
+6. Customer notification
+
+Use 'service repair EV-8042' for Pentagon priority ticket
+Use 'service status {ticket}' for detailed ticket information"""
+
+        elif len(args) >= 2 and args[0] == "status":
+            order_id = args[1]
+            return f"""SERVICE ORDER STATUS: {order_id}
+============================================================
+Order Number: {order_id}
+Status Check: {datetime.now().strftime("%H:%M:%S EST")}
+
+Order Information:
+  Customer Type: Business Service
+  Service Address: [Address on file]
+  Order Priority: Standard
+  Due Date: Within 5 business days
+
+Current Status:
+  → Order received and validated
+  → Engineering review completed
+  → Installation scheduled
+  → Equipment allocation confirmed
+  
+Progress Tracking:
+  Order Processing: COMPLETE
+  Equipment Status: AVAILABLE
+  Installation Team: ASSIGNED
+  Completion Target: On schedule
+
+Contact your service representative for detailed updates."""
+
+        elif args[0] == "queue":
+            return f"""COMPLETE SERVICE QUEUE - {datetime.now().strftime("%H:%M:%S EST")}
+============================================================
+
+EMERGENCY REPAIRS (Government/Critical):
+  EV-8042: Pentagon circuit outage - ACTIVE REPAIR
+  EV-8039: Hospital emergency line - Dispatched
+  EV-8041: Police backup circuit - Pending
+
+HIGH PRIORITY REPAIRS:
+  TK-4789: Bank data circuit - Testing
+  TK-4791: Airport communication - Scheduled 15:30
+  TK-4793: Fire department backup - Parts ordered
+
+STANDARD REPAIRS:
+  TK-4785: Business line static - Scheduled tomorrow
+  TK-4787: Residential no dial tone - Team assigned
+  TK-4788: PBX trunk problem - Customer callback
+
+NEW INSTALLATIONS:
+  SO-8847: 50-line business system - Cable survey
+  SO-8849: Residential service - Standard install
+  SO-8851: Centrex upgrade - Equipment ordered
+
+SERVICE CHANGES:
+  SC-2134: Office relocation - Coordination phase
+  SC-2136: Line additions - Installation ready"""
+
+        else:
+            return f"""Bell System Service Management
+============================================================
+Available Commands:
+
+  service repair <ticket>    Handle repair tickets
+  service status <order>     Check order status  
+  service queue              View complete queue
+  service install <order>    Installation coordination
+
+Current Active Issues:
+  EV-8042: Pentagon priority circuit - NEEDS IMMEDIATE ATTENTION
+
+For immediate Pentagon repair: service repair EV-8042"""
 
     def cmd_operator(self, args: List[str]) -> str:
         """Operator services and assisted calling"""
