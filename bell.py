@@ -3588,64 +3588,34 @@ UNIX V7 PROGRAMMER'S MANUAL
 """
         }
 
-            "3a": """
-NAME
-     3a - 3A Central Control switching system operations
-
-SYNOPSIS
-     3a [status|diagnostics|traffic|maintenance|translations]
-
-DESCRIPTION
-     Monitor and manage 3A Central Control switching systems. The 3A
-     Central Control provides common control processing for electronic
-     switching systems with ferrite core memory and redundant processors.
-
-OPTIONS
-     status          System configuration and performance
-     diagnostics     Run comprehensive diagnostic suite
-     traffic         Traffic load analysis
-     maintenance     Maintenance procedures
-     translations    Translation table management
-
-EXAMPLES
-     3a status                       Display system status
-     3a diagnostics                  Run full diagnostics
-     3a traffic                      Analyze traffic load
-
-TECHNICAL SPECIFICATIONS
-     Central Control Units: 4 active, 1 standby
-     Program Store: 8MB ferrite core memory
-     Call Store: 2MB working memory
-     Scanner Units: 16 operational
-
-SEE ALSO
-     5ess(1), switch(1), western(1)
-
-REFERENCE
-     SD-1C900-01: 3A Central Control Circuit Description
-""",
-
-            "help": """
-NAME
-     help - Display available Bell System commands
-
-SYNOPSIS
-     help [command]
-
-DESCRIPTION
-     Display available commands based on your Bell System role or show
-     specific help for a command. For detailed information, use man(1).
-
-EXAMPLES
-     help                            Show all commands
-     help trunk                      Show trunk command help
-
-SEE ALSO
-     man(1), bsp(1)
-"""
-        }
-
-    # Command implementations will continue in the next part...
+    def cmd_ps(self, args: List[str] = None) -> str:
+        """
+        Display Bell System processes in authentic UNIX V7 format.
+        
+        Shows currently running processes on the Bell System workstation
+        including system daemons, switching processes, and user sessions.
+        
+        Returns:
+            Process listing formatted in traditional ps output style
+        """
+        current_time = datetime.now().strftime("%a %b %d %H:%M:%S EST %Y")
+        processes = [
+            "    1  ?        0:01 init",
+            "   23  ?        0:00 cron", 
+            "   45  ?        0:02 switching_monitor",
+            "   67  ?        0:01 ama_collector",
+            "   89  ?        0:00 billing_daemon",
+            "  112  ?        0:03 tnds_agent",
+            "  134  ?        0:01 tsps_monitor",
+            "  156  tty01    0:00 -sh (bell)",
+            "  178  tty02    0:00 -sh (sysop)",
+            "  201  tty03    0:00 -sh (netplan)"
+        ]
+        
+        header = f"Bell System UNIX V7 - Process Status - {current_time}\n"
+        header += "   PID TTY      TIME CMD\n"
+        
+        return header + "\n".join(processes)
 
     def cmd_help(self, args: List[str] = None) -> str:
         """
