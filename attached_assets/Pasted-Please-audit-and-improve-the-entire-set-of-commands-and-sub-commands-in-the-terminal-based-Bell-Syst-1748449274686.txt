@@ -1,0 +1,38 @@
+Please audit and improve the entire set of commands and sub-commands in the terminal-based Bell System UNIX V7 simulation program, with a focus on making each command operate like a real system in a true simulation environment.
+
+Specifically, for **every single command and sub-command**:
+
+1. **Realistic Behavior and Output**  
+- Modify commands to produce realistic, varied outputs reflecting the behavior of actual Bell System UNIX V7 operations.  
+- Introduce appropriate variability or randomness in command responses where applicable (e.g., fluctuating system stats, random event outcomes, probabilistic failures or warnings).  
+- Ensure the outputs and side effects emulate authentic operational workflows and typical system conditions from the 1978-1983 Bell System era.
+
+2. **Simulation Depth**  
+- Implement internal state changes where relevant (e.g., system load, ticket status, network conditions) that commands affect or reflect.  
+- Simulate interactions between commands and system components realistically, including error states, resource constraints, and dependencies.  
+- Ensure commands have meaningful effects that persist during the session or until changed by other actions.
+
+3. **Error and Edge Case Handling**  
+- Enhance input validation and error handling to simulate realistic failure modes or user mistakes.  
+- Provide varied, informative error messages consistent with authentic UNIX system behavior and Bell System terminology.
+
+4. **Role and Permission Awareness**  
+- Enforce role-based access controls rigorously so each command behaves differently or is limited depending on the user’s assigned role.  
+- Reflect these permissions in command outputs, success/failure states, and available options.
+
+5. **Command Interactivity and Feedback**  
+- Add interactive prompts or progress indicators where appropriate to simulate system processing time or operator input.  
+- Provide detailed feedback about command effects, system status, or next steps after command execution.
+
+6. **Maintain Terminal-Only Operation**  
+- All enhancements must operate purely in the terminal environment, with no GUI or external system dependencies.  
+- Preserve historical and operational authenticity while improving simulation fidelity.
+
+---
+
+Output Requirements:
+
+- Provide updated implementations for every command and sub-command reflecting the above improvements.  
+- Include comments explaining changes related to realism and simulation accuracy.  
+- Deliver examples of varied outputs and state changes for demonstration.  
+- Maintain consistent formatting and coding style as per existing project standards.
