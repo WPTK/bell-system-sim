@@ -4264,63 +4264,522 @@ Contact: Central Maintenance Office ext 4200"""
     # Bell System Core Commands Implementation
     
     def cmd_switch(self, args: List[str]) -> str:
-        """Switching center management command"""
+        """Enhanced switching center management with realistic operational dynamics."""
+        import random
+        
+        # Update switching system states
+        self._update_switching_states()
+        
         if not args:
-            return """Bell System Switching Center Status
-November 14, 1983 07:45:30
+            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            
+            # Calculate dynamic metrics
+            total_calls = sum(system["calls_hour"] for system in self.switching_systems.values())
+            active_systems = len([s for s in self.switching_systems.values() if s["status"] == "ACTIVE"])
+            total_systems = len(self.switching_systems)
+            avg_completion = random.uniform(0.975, 0.995)
+            
+            status_output = f"""Bell System Switching Center Status
+{current_time}
 
-Electronic Switching Systems:
-  1ESS-NYC-001:     ACTIVE    - 47,892 calls/hour
-  2ESS-WAS-001:     ACTIVE    - 32,156 calls/hour  
-  3ESS-BOS-001:     ACTIVE    - 28,734 calls/hour
-  4ESS-CHI-001:     ACTIVE    - 89,245 calls/hour (Toll)
-  5ESS-NYC-002:     TESTING   - Cutover scheduled 14:30
-
-Crossbar Systems:
-  XB-NYC-003:       ACTIVE    - Normal operation
-  XB-PHL-001:       MAINT     - PM scheduled 09:15
-  XB-BOS-002:       ACTIVE    - Normal operation
+Electronic Switching Systems:"""
+            
+            for switch_id, system in self.switching_systems.items():
+                load_indicator = f"{system['load']}%" if system["status"] == "ACTIVE" else "OFF"
+                uptime_days = system["uptime"] // 24
+                status_detail = f"- {system['calls_hour']:,} calls/hour"
+                if system["status"] == "TESTING":
+                    status_detail = "- Cutover operations in progress"
+                elif uptime_days < 7:
+                    status_detail = f"- {uptime_days} days uptime"
+                
+                status_output += f"\n  {switch_id:<15} {system['status']:<8} {load_indicator:<5} {status_detail}"
+            
+            # Add crossbar systems
+            status_output += f"\n\nCrossbar Systems:"
+            for xb_id, xb_system in self.crossbar_systems.items():
+                load_indicator = f"{xb_system['load']}%" if xb_system["status"] == "ACTIVE" else "OFF"
+                maint_note = " - PM due" if xb_system["maintenance_due"] else " - Normal operation"
+                status_output += f"\n  {xb_id:<15} {xb_system['status']:<8} {load_indicator:<5}{maint_note}"
+            
+            # System-wide performance metrics
+            status_output += f"""
 
 System Performance:
-  Total Call Attempts:      245,678/hour
-  Call Completion Rate:     97.8%
-  Average Setup Time:       2.1 seconds
-  Processor Occupancy:      73% (within normal range)
+  Active Systems:           {active_systems}/{total_systems} electronic + {len([x for x in self.crossbar_systems.values() if x['status'] == 'ACTIVE'])}/{len(self.crossbar_systems)} crossbar
+  Total Call Attempts:      {total_calls:,}/hour
+  Call Completion Rate:     {avg_completion:.1%}
+  Average Setup Time:       {random.uniform(1.8, 2.4):.1f} seconds
+  Network Processor Load:   {sum(s['load'] for s in self.switching_systems.values() if s['status'] == 'ACTIVE') // active_systems}% average
 
-Use 'switch diagnostics <switch-id>' for detailed testing"""
+Recent Events:"""
+            
+            # Add recent switching events
+            events = []
+            if any(s["status"] == "TESTING" for s in self.switching_systems.values()):
+                events.append("⚡ 5ESS cutover operations scheduled")
+            if any(x["maintenance_due"] for x in self.crossbar_systems.values()):
+                events.append("🔧 Crossbar maintenance scheduled")
+            if not events:
+                events.append("✓ All systems operating normally")
+            
+            for event in events[:3]:
+                status_output += f"\n  {event}"
+            
+            status_output += """
 
-        if args[0] == "diagnostics" and len(args) > 1:
+Commands:
+  switch diagnostics <id>   Run comprehensive diagnostics
+  switch performance <id>   Real-time performance monitoring
+  switch maintenance <id>   Maintenance schedule and status
+  switch cutover <id>       Cutover operations (5ESS only)"""
+            
+            return status_output
+
+        elif args[0] == "diagnostics" and len(args) > 1:
             switch_id = args[1].upper()
-            return f"""Switching System Diagnostics: {switch_id}
-Test Sequence Initiated: November 14, 1983 07:46:15
+            
+            # Check if switch exists
+            if switch_id not in self.switching_systems and switch_id not in self.crossbar_systems:
+                return f"switch: ERROR - Switch {switch_id} not found\nAvailable systems: {', '.join(list(self.switching_systems.keys()) + list(self.crossbar_systems.keys()))}"
+            
+            # Determine system type and get data
+            if switch_id in self.switching_systems:
+                system = self.switching_systems[switch_id]
+                is_electronic = True
+            else:
+                system = self.crossbar_systems[switch_id]
+                is_electronic = False
+            
+            if system["status"] not in ["ACTIVE", "TESTING"]:
+                return f"switch: Cannot run diagnostics on {switch_id} - system status: {system['status']}"
+            
+            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            
+            # Simulate realistic diagnostic sequence
+            diag_output = f"""Switching System Diagnostics: {switch_id}
+Test Sequence Initiated: {current_time}
+System Type: {'Electronic Stored Program Control' if is_electronic else 'Crossbar Electromechanical'}
 
-Hardware Tests:
-  Central Processing Unit:     [████████████████████] PASS
-  Memory Systems:              [████████████████████] PASS  
-  I/O Controllers:             [████████████████████] PASS
-  Network Interface:           [████████████████████] PASS
+Running Bell System Standard Diagnostic Suite:
+"""
+            
+            # Different tests for electronic vs crossbar
+            if is_electronic:
+                tests = [
+                    ("Central Processing Unit", 0.98),
+                    ("Program Memory", 0.96),
+                    ("Call Memory", 0.97),
+                    ("I/O Controllers", 0.95),
+                    ("Network Interface", 0.94),
+                    ("Trunk Interface", 0.93),
+                    ("Line Interface", 0.92),
+                    ("Signal Processing", 0.96),
+                    ("Call Processing Programs", 0.90),
+                    ("Administrative Programs", 0.94),
+                    ("Maintenance Programs", 0.95),
+                    ("Database Integrity", 0.89),
+                    ("Real-Time Clock", 0.98),
+                    ("Interrupt System", 0.95)
+                ]
+            else:
+                tests = [
+                    ("Marker Selection", 0.92),
+                    ("Crossbar Switch Matrix", 0.88),
+                    ("Register Circuits", 0.90),
+                    ("Sender Circuits", 0.87),
+                    ("Connector Circuits", 0.85),
+                    ("Common Control", 0.91),
+                    ("Trunk Circuits", 0.89),
+                    ("Line Circuits", 0.86),
+                    ("Ringing Circuits", 0.93),
+                    ("Power Systems", 0.95)
+                ]
+            
+            # Run tests with realistic pass/fail based on system condition
+            test_results = []
+            base_reliability = 0.95 if system["status"] == "ACTIVE" else 0.85
+            
+            for test_name, base_pass_rate in tests:
+                # Adjust pass rate based on system load and uptime
+                if is_electronic:
+                    load_factor = max(0.8, 1.0 - (system["load"] - 70) * 0.002) if system["load"] > 70 else 1.0
+                    uptime_factor = max(0.9, 1.0 - (system["uptime"] - 8760) * 0.00005) if system["uptime"] > 8760 else 1.0
+                else:
+                    load_factor = max(0.7, 1.0 - (system["load"] - 60) * 0.003) if system["load"] > 60 else 1.0
+                    uptime_factor = 0.85 if system["maintenance_due"] else 1.0
+                
+                adjusted_pass_rate = base_pass_rate * base_reliability * load_factor * uptime_factor
+                passed = random.random() < adjusted_pass_rate
+                
+                # Generate realistic test values
+                if passed:
+                    if "memory" in test_name.lower():
+                        value = f" ({random.randint(95, 100)}% utilized)"
+                    elif "processing" in test_name.lower() or "cpu" in test_name.lower():
+                        value = f" ({random.uniform(0.8, 2.5):.1f}ms response)"
+                    elif "interface" in test_name.lower():
+                        value = f" ({random.randint(98, 100)}% availability)"
+                    else:
+                        value = ""
+                    status = f"PASS{value}"
+                else:
+                    if "memory" in test_name.lower():
+                        value = " (parity error detected)"
+                    elif "circuit" in test_name.lower():
+                        value = " (intermittent failure)"
+                    elif "interface" in test_name.lower():
+                        value = " (signal degradation)"
+                    else:
+                        value = " (parameter out of range)"
+                    status = f"FAIL{value}"
+                
+                progress_bar = "█" * 20
+                diag_output += f"\n{test_name:<25} [{progress_bar}] {status}"
+                test_results.append(passed)
+            
+            # Summary
+            passed_count = sum(test_results)
+            total_count = len(test_results)
+            overall_pass = passed_count >= total_count * 0.9  # 90% pass rate required
+            
+            test_end = datetime.now().strftime("%H:%M:%S")
+            duration = random.randint(120, 300)
+            
+            diag_output += f"""
 
-Software Tests:
-  Call Processing Programs:    [████████████████████] PASS
-  Administrative Programs:     [████████████████████] PASS
-  Maintenance Programs:        [████████████████████] PASS
+Diagnostic Sequence Completed: {test_end}
+Total Duration: {duration} seconds
 
-Network Interface Tests:
-  Trunk Interface:             [████████████████████] PASS
-  Line Interface:              [████████████████████] PASS
-  Signal Processing:           [████████████████████] PASS
+Results Summary:
+  Tests Executed: {total_count}
+  Tests Passed:   {passed_count}
+  Tests Failed:   {total_count - passed_count}
+  Success Rate:   {passed_count/total_count:.1%}
+  Overall Status: {'OPERATIONAL' if overall_pass else 'DEGRADED'}
+"""
+            
+            if overall_pass:
+                diag_output += f"  Recommendation: {switch_id} certified for continued operation"
+                if is_electronic and system["load"] < 85:
+                    diag_output += f"\n  Performance: Excellent - ready for increased traffic load"
+            else:
+                diag_output += f"  Recommendation: Schedule maintenance for {switch_id}"
+                diag_output += f"\n  Action Required: Investigate failed diagnostic phases"
+                if not is_electronic and not system["maintenance_due"]:
+                    # Mark crossbar for maintenance
+                    system["maintenance_due"] = True
+            
+            diag_output += f"""
 
-Performance Tests:
-  Call Processing Rate:        [████████████████████] PASS
-  Memory Utilization:          [████████████████████] PASS
-  Response Time:               [████████████████████] PASS
+Diagnostic Log: /att/switching/diag/{switch_id.lower()}_{datetime.now().strftime('%m%d_%H%M')}.log
+Next Diagnostic: {(datetime.now() + timedelta(days=7)).strftime('%B %d, %Y')}
 
-Test Results Summary:
-  Total Tests: 47    Passed: 47    Failed: 0
-  System Status: OPERATIONAL
-  Recommended Action: Continue normal operation"""
+Bell System Practice: BSP-100-300-001 (Electronic Switching Diagnostics)"""
+            
+            return diag_output
 
-        return f"switch: unknown option '{args[0]}'"
+        elif args[0] == "performance" and len(args) > 1:
+            switch_id = args[1].upper()
+            
+            if switch_id not in self.switching_systems and switch_id not in self.crossbar_systems:
+                return f"switch: ERROR - Switch {switch_id} not found"
+            
+            return self._show_switch_performance_monitor(switch_id)
+
+        elif args[0] == "maintenance" and len(args) > 1:
+            switch_id = args[1].upper()
+            
+            if switch_id not in self.switching_systems and switch_id not in self.crossbar_systems:
+                return f"switch: ERROR - Switch {switch_id} not found"
+            
+            return self._show_switch_maintenance_status(switch_id)
+
+        elif args[0] == "cutover" and len(args) > 1:
+            switch_id = args[1].upper()
+            
+            if switch_id not in self.switching_systems:
+                return f"switch: ERROR - Cutover operations only available for electronic switching systems"
+            
+            system = self.switching_systems[switch_id]
+            if "5ESS" not in system["type"]:
+                return f"switch: ERROR - Cutover operations only supported on 5ESS systems"
+            
+            return self._perform_switch_cutover(switch_id, system)
+
+        else:
+            available_commands = ["diagnostics", "performance", "maintenance", "cutover"]
+            return f"switch: Unknown option '{args[0] if args else 'missing'}'\nAvailable commands: {', '.join(available_commands)}"
+
+    def _update_switching_states(self) -> None:
+        """Update switching system states based on operational patterns."""
+        import random
+        
+        for switch_id, system in self.switching_systems.items():
+            if system["status"] == "ACTIVE":
+                # Vary call processing load
+                load_change = random.randint(-2, 4)
+                system["load"] = max(30, min(95, system["load"] + load_change))
+                
+                # Update call volume based on load
+                base_calls = {"1ESS": 50000, "2ESS": 35000, "3ESS": 30000, "4ESS": 90000, "5ESS": 25000}
+                system["calls_hour"] = int(base_calls[system["type"]] * (system["load"] / 100) * random.uniform(0.9, 1.1))
+                
+                # Increment uptime
+                system["uptime"] += random.uniform(0.8, 1.2)
+
+    def _show_switch_performance_monitor(self, switch_id: str) -> str:
+        """Show real-time performance monitoring for a switching system."""
+        import random
+        
+        current_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        if switch_id in self.switching_systems:
+            system = self.switching_systems[switch_id]
+            is_electronic = True
+        else:
+            system = self.crossbar_systems[switch_id]
+            is_electronic = False
+        
+        if system["status"] not in ["ACTIVE", "TESTING"]:
+            return f"Performance monitoring unavailable - {switch_id} status: {system['status']}"
+        
+        monitor_output = f"""Real-Time Performance Monitor: {switch_id}
+Monitor Time: {current_time}
+Update Interval: 30 seconds
+
+System Status: {system['status']}"""
+        
+        if is_electronic:
+            monitor_output += f"""
+Current Load: {system['load']}%
+Call Processing Rate: {system['calls_hour']:,} calls/hour
+Memory Utilization: {random.randint(65, 85)}%
+
+Real-Time Metrics (Last 10 minutes):
+Time     CPU%  Mem%  Calls/min  Setup(ms)  Completion%
+------   ----  ----  ---------  ---------  -----------"""
+            
+            # Generate 10 minutes of performance data
+            for i in range(10):
+                time_ago = 9 - i
+                sample_time = (datetime.now() - timedelta(minutes=time_ago)).strftime("%H:%M")
+                cpu_load = max(40, min(95, system["load"] + random.randint(-5, 5)))
+                mem_util = random.randint(60, 90)
+                calls_min = system["calls_hour"] // 60 + random.randint(-50, 50)
+                setup_time = random.randint(800, 2400)
+                completion = random.uniform(0.975, 0.995)
+                
+                monitor_output += f"\n{sample_time}    {cpu_load:>3}%  {mem_util:>3}%  {calls_min:>9}  {setup_time:>9}  {completion:>10.1%}"
+        
+        else:  # Crossbar system
+            monitor_output += f"""
+Current Load: {system['load']}%
+Marker Busy Time: {random.randint(15, 35)}%
+Register Utilization: {random.randint(40, 70)}%
+
+Electromechanical Status:
+Crossbar Switches: {random.randint(890, 920)}/920 operational
+Markers: {random.randint(18, 20)}/20 in service
+Senders: {random.randint(45, 50)}/50 available
+Connectors: {random.randint(180, 200)}/200 active"""
+        
+        # Add alerts based on performance
+        alerts = []
+        if is_electronic:
+            if system["load"] > 90:
+                alerts.append("⚠ CRITICAL: CPU load above 90%")
+            elif system["load"] > 80:
+                alerts.append("⚠ WARNING: High CPU utilization")
+        else:
+            if system["load"] > 85:
+                alerts.append("⚠ WARNING: High traffic load on electromechanical system")
+            if system["maintenance_due"]:
+                alerts.append("🔧 NOTICE: Preventive maintenance overdue")
+        
+        if alerts:
+            monitor_output += "\n\nActive Alerts:"
+            for alert in alerts:
+                monitor_output += f"\n  {alert}"
+        else:
+            monitor_output += "\n\n✓ All performance metrics within normal range"
+        
+        return monitor_output
+
+    def _show_switch_maintenance_status(self, switch_id: str) -> str:
+        """Show maintenance status and schedule for a switching system."""
+        import random
+        
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        if switch_id in self.switching_systems:
+            system = self.switching_systems[switch_id]
+            is_electronic = True
+        else:
+            system = self.crossbar_systems[switch_id]
+            is_electronic = False
+        
+        maint_output = f"""Maintenance Status: {switch_id}
+Report Generated: {current_time}
+System Type: {'Electronic Stored Program Control' if is_electronic else 'Crossbar Electromechanical'}
+
+Current Status: {system['status']}"""
+        
+        if is_electronic:
+            last_maint = datetime.now() - timedelta(days=random.randint(30, 180))
+            next_maint = datetime.now() + timedelta(days=random.randint(7, 90))
+            uptime_hours = int(system["uptime"])
+            
+            maint_output += f"""
+Uptime: {uptime_hours // 24} days, {uptime_hours % 24} hours
+Last Maintenance: {last_maint.strftime('%B %d, %Y')}
+Next Scheduled: {next_maint.strftime('%B %d, %Y %H:%M')}
+
+Maintenance History:
+  Program Memory Test: {(datetime.now() - timedelta(days=7)).strftime('%b %d')} - PASSED
+  I/O Controller Check: {(datetime.now() - timedelta(days=14)).strftime('%b %d')} - PASSED
+  Database Backup: {(datetime.now() - timedelta(days=21)).strftime('%b %d')} - COMPLETED
+  Environmental Check: {(datetime.now() - timedelta(days=28)).strftime('%b %d')} - PASSED
+
+Recommended Actions:"""
+            
+            if uptime_hours > 8760:  # More than 1 year
+                maint_output += "\n  • Schedule comprehensive maintenance cycle"
+            elif system["load"] > 85:
+                maint_output += "\n  • Monitor closely due to high utilization"
+            else:
+                maint_output += "\n  • Continue routine monitoring"
+        
+        else:  # Crossbar
+            maint_output += f"""
+Maintenance Due: {'YES - OVERDUE' if system['maintenance_due'] else 'Current'}
+Last Preventive Maintenance: {(datetime.now() - timedelta(days=random.randint(60, 200))).strftime('%B %d, %Y')}
+
+Mechanical Component Status:
+  Crossbar Switches: {'Lubrication due' if system['maintenance_due'] else 'Good condition'}
+  Relay Contacts: {'Cleaning required' if system['maintenance_due'] else 'Recently cleaned'}
+  Motor Drives: {'Inspection due' if system['maintenance_due'] else 'Operating normally'}
+  Wire Spring Relays: {'Testing required' if system['maintenance_due'] else 'Tested recently'}
+
+Scheduled Maintenance Tasks:"""
+            
+            if system["maintenance_due"]:
+                maint_output += """
+  • URGENT: Contact cleaning and adjustment
+  • Crossbar switch lubrication
+  • Relay timing verification
+  • Motor brush inspection
+  • Wire spring relay testing"""
+            else:
+                maint_output += """
+  • Routine contact inspection (monthly)
+  • Lubrication schedule (quarterly)
+  • Timing adjustment check (semi-annual)"""
+        
+        maint_output += f"""
+
+Contact: Central Office Maintenance - ext 4300
+Work Order System: Use 'service' command for maintenance requests"""
+        
+        return maint_output
+
+    def _perform_switch_cutover(self, switch_id: str, system: dict) -> str:
+        """Perform 5ESS cutover operations with realistic procedures."""
+        import random
+        
+        if system["status"] != "TESTING":
+            return f"switch: ERROR - {switch_id} must be in TESTING status for cutover operations"
+        
+        current_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        cutover_output = f"""5ESS Cutover Operations: {switch_id}
+Cutover Initiated: {current_time}
+
+BELL SYSTEM 5ESS CUTOVER PROCEDURE BSP-100-500-001
+⚠ WARNING: This operation will affect live customer traffic
+
+Pre-Cutover Checklist:
+✓ All diagnostic tests completed successfully
+✓ Customer notification procedures completed
+✓ Backup switching arrangements confirmed
+✓ Technical staff positioned at critical locations
+✓ Emergency rollback procedures verified
+
+Cutover Sequence:"""
+        
+        # Simulate realistic cutover steps
+        cutover_steps = [
+            ("Traffic monitoring baseline established", 0.99),
+            ("Administrative data verification", 0.95),
+            ("Customer database synchronization", 0.92),
+            ("Trunk group configuration transfer", 0.88),
+            ("Line equipment initialization", 0.90),
+            ("Billing system interface activation", 0.85),
+            ("Emergency service verification", 0.98),
+            ("Traffic load balancing activation", 0.87),
+            ("Final system integration test", 0.83),
+            ("Customer service verification", 0.80)
+        ]
+        
+        all_successful = True
+        for step_num, (step_name, success_rate) in enumerate(cutover_steps, 1):
+            success = random.random() < success_rate
+            status = "COMPLETE" if success else "FAILED"
+            
+            if not success:
+                all_successful = False
+            
+            cutover_output += f"\nStep {step_num:>2}: {step_name:<35} [{status}]"
+            
+            if not success:
+                cutover_output += f"\n         ERROR: Step {step_num} requires manual intervention"
+                break
+        
+        completion_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        if all_successful:
+            # Successful cutover
+            system["status"] = "ACTIVE"
+            system["load"] = random.randint(45, 65)  # Start with moderate load
+            system["calls_hour"] = random.randint(15000, 25000)
+            
+            cutover_output += f"""
+
+Cutover Completed Successfully: {completion_time}
+Duration: {random.randint(45, 90)} minutes
+
+POST-CUTOVER STATUS:
+  System Status: ACTIVE
+  Initial Load: {system['load']}%
+  Call Processing: {system['calls_hour']:,} calls/hour
+  Customer Impact: NONE - seamless transition achieved
+
+IMMEDIATE ACTIONS:
+  ✓ Customer service monitoring activated
+  ✓ Performance baseline collection started
+  ✓ 24-hour close monitoring period initiated
+  ✓ All backup systems returned to standby
+
+Next Review: {(datetime.now() + timedelta(hours=24)).strftime('%B %d, %Y %H:%M')}
+Project Completion: SUCCESSFUL"""
+        
+        else:
+            # Failed cutover
+            cutover_output += f"""
+
+Cutover FAILED: {completion_time}
+Status: ROLLBACK INITIATED
+
+EMERGENCY PROCEDURES ACTIVATED:
+  • Customer traffic restored to original switching system
+  • Technical teams investigating failure points
+  • Customer service impact minimized
+  • Full investigation procedures initiated
+
+Estimated Resolution: {random.randint(2, 8)} hours
+Emergency Contact: Bell System NOC ext 911"""
+        
+        return cutover_output
 
     def cmd_3a(self, args: List[str]) -> str:
         """3A Central Control switching system operations"""
@@ -4571,86 +5030,431 @@ Use 'ticket update {new_ticket}' to add information"""
         return f"ticket: unknown option '{args[0]}'"
 
     def cmd_tnds(self, args: List[str]) -> str:
-        """Total Network Data System operations"""
+        """Enhanced Total Network Data System with realistic operational dynamics."""
+        import random
+        
+        # Update TNDS state based on current time and network conditions
+        self._update_tnds_state()
+        
         if not args:
-            return """Total Network Data System (TNDS)
-Network Traffic Data Collection and Analysis
+            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            cycle = self._get_current_collection_cycle()
+            
+            return f"""Total Network Data System (TNDS) - Version 3.2A
+Bell System Network Traffic Data Collection and Analysis
+{current_time}
+
+Current Operations Status:
+  Collection Cycle:        {cycle['name']} ({cycle['time_range']})
+  Data Points Collected:   {self.tnds_data['records_today']:,} (today)
+  Processing Status:       {self.tnds_data['processing_status']}
+  Storage Utilization:     {self.tnds_data['storage_used']}% of {self.tnds_data['storage_capacity']}GB
+
+System Performance:
+  Collection Success Rate: {self.tnds_data['collection_success']:.1%}
+  Processing Efficiency:   {self.tnds_data['processing_efficiency']:.1%}
+  Data Quality Index:      {self.tnds_data['data_quality']:.1%}
+  Forecast Accuracy:       {self.tnds_data['forecast_accuracy']:.1%}
 
 Available Commands:
-  tnds status          - System operational status
-  tnds collect         - Data collection operations
-  tnds analysis        - Traffic analysis reports
-  tnds forecast        - Traffic growth forecasting
-  tnds export          - Data export procedures
+  tnds status             - Detailed system operational status
+  tnds collect            - Data collection operations and control
+  tnds analysis           - Traffic analysis reports and statistics
+  tnds forecast           - Traffic growth forecasting models
+  tnds hierarchy          - Network hierarchy analysis
+  tnds routing            - Dynamic routing analysis  
+  tnds reports            - Generate standardized reports
+  tnds export             - Data export for engineering studies
 
-Current Operations:
-  Collection Cycle:    1 of 4 daily cycles
-  Data Points:         2,847,392 collected today
-  Processing Status:   Normal operation
-  Storage Utilization: 67% of capacity"""
+Current Priority: {self._get_tnds_priority_task()}
+Next Scheduled Operation: {self._get_next_tnds_operation()}
 
-        if args[0] == "status":
-            return """TNDS System Status
-November 14, 1983 07:46:00
+Project References: NP-8306 (TNDS Phase III Implementation)
+Work Orders: WO-83054 (Data quality improvement initiatives)"""
 
-Data Collection Status:
-  Collection Points:          1,247 active
-  Data Streams:               47 trunk groups monitored
-  Collection Interval:        5-minute samples
-  Current Cycle:              Cycle 1 (00:00-06:00)
+        elif args[0] == "status":
+            return self._show_tnds_detailed_status()
 
-Processing Status:
-  Data Processor A:           ACTIVE - Normal operation
-  Data Processor B:           STANDBY - Ready
-  Storage System:             67% utilized
-  Analysis Engine:            Processing cycle 4 data
-
-Traffic Analysis:
-  Peak Traffic Period:        14:00-16:00 EST
-  Current Network Load:       67% of capacity
-  Forecast Accuracy:          94.7% (last month)
-  
-Quality Metrics:
-  Data Completeness:          99.8%
-  Collection Errors:          < 0.1%
-  Processing Delays:          None
-
-Scheduled Operations:
-  Next Archive:               Sunday 02:00
-  Forecast Update:            Daily 18:00
-  Report Generation:          Weekly Monday 08:00"""
+        elif args[0] == "collect":
+            if len(args) > 1:
+                return self._handle_tnds_collection_command(args[1:])
+            else:
+                return self._show_tnds_collection_status()
 
         elif args[0] == "analysis":
-            return """TNDS Traffic Analysis Report
-Analysis Period: November 7-14, 1983
+            if len(args) > 1:
+                return self._generate_tnds_analysis_report(args[1])
+            else:
+                return self._generate_tnds_analysis_report("standard")
 
-Network Performance Summary:
-  Total Call Attempts:        12,847,392
-  Successful Completions:     12,567,248 (97.8%)
-  Average Setup Time:         2.1 seconds
-  Network Efficiency:         94.3%
+        elif args[0] == "forecast":
+            if len(args) > 1:
+                return self._generate_tnds_forecast(args[1])
+            else:
+                return self._generate_tnds_forecast("monthly")
 
-Traffic Patterns:
-  Peak Hour:                  Thursday 14:30 (892 CCS)
-  Busy Season Factor:         1.15 (Holiday adjustment)
-  Growth Rate:                +3.2% vs last month
-  
-Trunk Group Utilization:
-  Average Utilization:        67%
-  Peak Utilization:           84% (TG-023 NYC-BOS)
-  Overflow Events:            12 (all recovered < 30 sec)
+        elif args[0] == "hierarchy":
+            return self._show_network_hierarchy_analysis()
 
-Forecasting Results:
-  December Peak Forecast:     945 CCS (+6% vs November)
-  Capacity Requirements:      3 additional trunk groups
-  Investment Requirement:     $1.2M for expansion
+        elif args[0] == "routing":
+            return self._show_dynamic_routing_analysis()
 
-Recommendations:
-  1. Monitor TG-023 for capacity upgrade
-  2. Implement load balancing on Route 1
-  3. Schedule capacity review meeting"""
+        elif args[0] == "reports":
+            if len(args) > 1:
+                return self._generate_tnds_report(args[1])
+            else:
+                return self._show_available_tnds_reports()
 
-        return f"tnds: unknown option '{args[0]}'"
+        elif args[0] == "export":
+            if len(args) > 1:
+                return self._handle_tnds_export(args[1:])
+            else:
+                return self._show_tnds_export_options()
+
+        else:
+            available_commands = ["status", "collect", "analysis", "forecast", "hierarchy", "routing", "reports", "export"]
+            return f"tnds: Unknown option '{args[0]}'\nAvailable commands: {', '.join(available_commands)}"
+
+    def _update_tnds_state(self) -> None:
+        """Update TNDS operational state based on time and network conditions."""
+        import random
+        
+        if not hasattr(self, 'tnds_data'):
+            # Initialize TNDS operational data
+            hour = datetime.now().hour
+            base_records = 2800000  # Base daily record count
+            
+            self.tnds_data = {
+                'records_today': int(base_records * (hour / 24) * random.uniform(0.95, 1.05)),
+                'processing_status': random.choice(['Normal operation', 'High volume processing', 'Backlog processing']),
+                'storage_used': random.randint(65, 85),
+                'storage_capacity': random.choice([50, 75, 100]),  # GB capacity
+                'collection_success': random.uniform(0.995, 0.999),
+                'processing_efficiency': random.uniform(0.92, 0.98),
+                'data_quality': random.uniform(0.996, 0.999),
+                'forecast_accuracy': random.uniform(0.94, 0.97),
+                'collection_points': random.randint(1240, 1260),
+                'active_streams': random.randint(45, 50),
+                'last_update': datetime.now()
+            }
+        else:
+            # Update existing data with small variations
+            time_since_update = (datetime.now() - self.tnds_data['last_update']).total_seconds() / 60
+            if time_since_update > 5:  # Update every 5 minutes
+                self.tnds_data['records_today'] += random.randint(1000, 5000)
+                self.tnds_data['storage_used'] = min(95, self.tnds_data['storage_used'] + random.randint(-1, 2))
+                self.tnds_data['last_update'] = datetime.now()
+
+    def _get_current_collection_cycle(self) -> dict:
+        """Get current TNDS collection cycle information."""
+        hour = datetime.now().hour
+        
+        if 0 <= hour < 6:
+            return {"name": "Cycle 1", "time_range": "00:00-06:00", "description": "Overnight processing"}
+        elif 6 <= hour < 12:
+            return {"name": "Cycle 2", "time_range": "06:00-12:00", "description": "Morning business traffic"}
+        elif 12 <= hour < 18:
+            return {"name": "Cycle 3", "time_range": "12:00-18:00", "description": "Peak traffic period"}
+        else:
+            return {"name": "Cycle 4", "time_range": "18:00-24:00", "description": "Evening traffic analysis"}
+
+    def _get_tnds_priority_task(self) -> str:
+        """Get current TNDS priority task based on time and conditions."""
+        import random
+        
+        hour = datetime.now().hour
+        
+        priority_tasks = {
+            "morning": ["Peak traffic forecast validation", "Overnight data processing completion", "System health verification"],
+            "business": ["Real-time traffic monitoring", "Capacity utilization analysis", "Performance optimization"],
+            "peak": ["Traffic load balancing analysis", "Overflow pattern monitoring", "Revenue optimization tracking"],
+            "evening": ["Daily report generation", "Archive preparation", "Forecast model updates"]
+        }
+        
+        if 6 <= hour < 12:
+            period = "morning"
+        elif 12 <= hour < 18:
+            period = "peak"
+        elif 18 <= hour < 22:
+            period = "evening"
+        else:
+            period = "business"
+        
+        return random.choice(priority_tasks[period])
+
+    def _get_next_tnds_operation(self) -> str:
+        """Get next scheduled TNDS operation."""
+        import random
+        
+        next_ops = [
+            f"Archive cycle: {(datetime.now() + timedelta(hours=random.randint(2, 8))).strftime('%H:%M')}",
+            f"Forecast update: {(datetime.now() + timedelta(hours=random.randint(1, 4))).strftime('%H:%M')}",
+            f"Report generation: {(datetime.now() + timedelta(hours=random.randint(4, 12))).strftime('%H:%M')}",
+            f"Data quality check: {(datetime.now() + timedelta(hours=random.randint(1, 6))).strftime('%H:%M')}"
+        ]
+        
+        return random.choice(next_ops)
+
+    def _show_tnds_detailed_status(self) -> str:
+        """Show detailed TNDS system status."""
+        import random
+        
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+        cycle = self._get_current_collection_cycle()
+        
+        status_output = f"""TNDS System Status - Detailed Operations Report
+Generated: {current_time}
+
+Data Collection Status:
+  Collection Points Online:    {self.tnds_data['collection_points']} of 1,255 total ({self.tnds_data['collection_points']/1255:.1%})
+  Data Streams Active:         {self.tnds_data['active_streams']} trunk groups monitored
+  Collection Interval:         5-minute samples (standard)
+  Current Cycle:              {cycle['name']} - {cycle['description']}
+  Collection Success Rate:     {self.tnds_data['collection_success']:.2%}
+
+Processing Infrastructure:
+  Data Processor A:            {'ACTIVE' if random.random() > 0.1 else 'MAINTENANCE'} - Primary processing unit
+  Data Processor B:            {'STANDBY' if random.random() > 0.2 else 'ACTIVE'} - Backup/overflow processing
+  Storage System:              {self.tnds_data['storage_used']}% utilized ({self.tnds_data['storage_capacity']}GB capacity)
+  Analysis Engine:             {self.tnds_data['processing_status']}
+  Database Server:             {'Online' if random.random() > 0.05 else 'Performance degraded'}
+
+Current Data Flow (Last Hour):
+  Call Detail Records:         {random.randint(45000, 85000):,} records
+  Traffic Measurements:        {random.randint(8000, 15000):,} samples  
+  Network Performance Data:    {random.randint(3000, 8000):,} measurements
+  Billing Records:             {random.randint(18000, 35000):,} transactions
+  Equipment Status Reports:    {random.randint(500, 1200):,} status updates
+
+Quality Metrics:
+  Data Completeness:           {self.tnds_data['data_quality']:.2%}
+  Validation Error Rate:       {(1 - self.tnds_data['data_quality']):.3%}
+  Missing Timestamps:          {random.uniform(0.001, 0.01):.3%}
+  Format Compliance:           {random.uniform(0.998, 0.999):.2%}
+  Cross-Reference Accuracy:    {random.uniform(0.994, 0.998):.2%}
+
+Performance Indicators:
+  Processing Efficiency:       {self.tnds_data['processing_efficiency']:.1%}
+  Average Response Time:       {random.uniform(0.8, 2.1):.1f} seconds
+  Peak Hour Capacity:          {random.randint(85, 95)}% of maximum
+  Forecast Accuracy:           {self.tnds_data['forecast_accuracy']:.1%} (30-day average)
+
+Network Analysis Results:
+  Peak Traffic Hour:           {random.randint(14, 16)}:{random.randint(0, 59):02d} - {random.randint(16, 18)}:{random.randint(0, 59):02d} EST
+  Current Network Load:        {sum(tg['utilization'] for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE') // len([tg for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE'])}% of capacity
+  Blocking Probability:        {random.uniform(0.001, 0.008):.3f} (Target: <0.01)
+  Revenue per Hour:            ${random.randint(45000, 85000):,}
+
+Scheduled Operations:
+  Next Archive Cycle:          {(datetime.now() + timedelta(hours=random.randint(4, 8))).strftime('%A %H:%M')}
+  Forecast Model Update:       Daily at 18:00 EST
+  Weekly Report Generation:    Monday 08:00 EST
+  Database Maintenance:        Sunday 02:00-04:00 EST
+
+Active Alerts:"""
+        
+        # Generate realistic alerts
+        alerts = []
+        if self.tnds_data['storage_used'] > 85:
+            alerts.append("⚠ WARNING: Storage utilization above 85%")
+        if self.tnds_data['collection_success'] < 0.998:
+            alerts.append("⚠ NOTICE: Collection success rate below target")
+        if random.random() < 0.2:
+            alerts.append("ℹ INFO: High volume processing due to peak traffic")
+        
+        if alerts:
+            for alert in alerts:
+                status_output += f"\n  {alert}"
+        else:
+            status_output += "\n  ✓ All systems operating within normal parameters"
+        
+        status_output += f"""
+
+Contact Information:
+  TNDS Operations Center:      ext 4800
+  Database Administration:     ext 4825
+  Network Analysis Team:       ext 4850"""
+        
+        return status_output
+
+    def _show_tnds_collection_status(self) -> str:
+        """Show TNDS data collection operations status."""
+        import random
+        
+        current_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        collection_output = f"""TNDS Data Collection Operations
+Status Report: {current_time}
+
+Collection Infrastructure:
+  Remote Collection Points:    {self.tnds_data['collection_points']} locations
+  Data Communication Links:    T1 dedicated circuits
+  Collection Frequency:        5-minute intervals (288 samples/day)
+  Backup Collection System:    {'Active' if random.random() > 0.9 else 'Standby'}
+
+Current Collection Status:
+  Points Responding:           {self.tnds_data['collection_points'] - random.randint(0, 8)} of {self.tnds_data['collection_points']}
+  Data Streams Active:         {self.tnds_data['active_streams']} trunk groups
+  Collection Success Rate:     {self.tnds_data['collection_success']:.2%}
+  Average Response Time:       {random.uniform(0.5, 1.8):.1f} seconds
+
+Collection Volume (Last 24 Hours):
+  Call Detail Records:         {random.randint(850000, 1200000):,}
+  Traffic Measurements:        {random.randint(180000, 250000):,}
+  Performance Metrics:         {random.randint(65000, 95000):,}
+  Equipment Status:            {random.randint(12000, 18000):,}
+  Billing Transactions:        {random.randint(420000, 580000):,}
+
+Collection Points by Region:
+  Northeast Corridor:          {random.randint(280, 320)} points (NYC, BOS, PHL, WAS)
+  Southeast Region:            {random.randint(180, 220)} points (ATL, MIA, TAM, CHA)
+  Central Region:              {random.randint(220, 260)} points (CHI, DET, STL, CLE)
+  Western Region:              {random.randint(160, 200)} points (LAX, SFO, SEA, DEN)
+  Southwest Region:            {random.randint(140, 180)} points (DAL, HOU, PHX, SAN)
+
+Data Quality Assessment:
+  Format Validation:           {random.uniform(0.998, 0.999):.3%} pass rate
+  Timestamp Accuracy:          {random.uniform(0.999, 1.000):.3%} compliance
+  Cross-Reference Check:       {random.uniform(0.995, 0.998):.3%} validation
+  Completeness Index:          {self.tnds_data['data_quality']:.2%}
+
+Collection Schedule:
+  Standard Collection:         Continuous 24/7 operation
+  Peak Period Enhancement:     14:00-16:00 EST (1-minute intervals)
+  Maintenance Window:          Sunday 02:00-04:00 EST
+  Archive Transfer:            Daily 01:00 EST to Bell Labs
+
+Commands:
+  tnds collect start           Initiate collection cycle
+  tnds collect stop            Halt collection (emergency only)
+  tnds collect test            Test collection point connectivity
+  tnds collect status <region> Regional collection status"""
+        
+        return collection_output
+
+    def _generate_tnds_analysis_report(self, report_type: str) -> str:
+        """Generate TNDS traffic analysis report with realistic data patterns."""
+        import random
+        
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        if report_type == "standard":
+            period = "November 7-14, 1983"
+            days = 7
+        elif report_type == "monthly":
+            period = "November 1983"
+            days = 30
+        elif report_type == "weekly":
+            period = f"Week of {(datetime.now() - timedelta(days=7)).strftime('%B %d, %Y')}"
+            days = 7
+        else:
+            period = "Custom Period"
+            days = 7
+        
+        # Generate realistic traffic metrics
+        base_calls = 850000 * days
+        completion_rate = random.uniform(0.975, 0.995)
+        total_attempts = int(base_calls * random.uniform(0.95, 1.05))
+        successful_calls = int(total_attempts * completion_rate)
+        
+        analysis_output = f"""TNDS Traffic Analysis Report
+Generated: {current_time}
+Analysis Period: {period}
+
+NETWORK PERFORMANCE SUMMARY
+{'=' * 50}
+Total Call Attempts:          {total_attempts:,}
+Successful Completions:       {successful_calls:,} ({completion_rate:.1%})
+Average Call Setup Time:      {random.uniform(1.8, 2.4):.1f} seconds
+Network Efficiency:           {random.uniform(0.94, 0.97):.1%}
+Revenue Generated:            ${random.randint(450000 * days, 650000 * days):,}
+
+TRAFFIC PATTERNS ANALYSIS
+{'=' * 50}"""
+        
+        # Generate daily peak traffic data
+        peak_hours = []
+        for day in range(min(days, 7)):  # Show up to 7 days of peaks
+            day_name = (datetime.now() - timedelta(days=day)).strftime('%A')
+            peak_time = f"{random.randint(14, 16)}:{random.randint(0, 59):02d}"
+            peak_ccs = random.randint(850, 950)
+            peak_hours.append((day_name, peak_time, peak_ccs))
+        
+        for day_name, peak_time, peak_ccs in peak_hours:
+            analysis_output += f"\n{day_name:<12} Peak: {peak_time} EST ({peak_ccs} CCS)"
+        
+        analysis_output += f"""
+
+Busy Season Factor:           {random.uniform(1.10, 1.20):.2f} (Holiday adjustment)
+Growth Rate vs Previous:      {random.uniform(2.8, 4.2):+.1f}% call volume change
+Weekend Traffic Factor:       {random.uniform(0.65, 0.75):.2f} of weekday volume
+
+TRUNK GROUP UTILIZATION
+{'=' * 50}
+Average Network Utilization:  {sum(tg['utilization'] for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE') // len([tg for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE'])}%"""
+        
+        # Show top utilized trunk groups
+        sorted_trunks = sorted([(name, tg['utilization'], tg['route']) for name, tg in self.trunk_groups.items() if tg['status'] == 'ACTIVE'], 
+                              key=lambda x: x[1], reverse=True)
+        
+        for i, (tg_name, utilization, route) in enumerate(sorted_trunks[:5]):
+            utilization_status = "HIGH" if utilization > 80 else "NORMAL" if utilization > 40 else "LOW"
+            analysis_output += f"\n{i+1}. {tg_name:<12} {utilization:>3}% ({utilization_status:<6}) {route}"
+        
+        analysis_output += f"""
+
+Overflow Events:              {random.randint(8, 25)} occurrences (all recovered <30 sec)
+Peak Trunk Utilization:       {max(tg['utilization'] for tg in self.trunk_groups.values())}% 
+Load Balancing Efficiency:    {random.uniform(0.91, 0.96):.1%}
+
+REVENUE AND ECONOMIC ANALYSIS
+{'=' * 50}
+Revenue per Call:             ${random.uniform(0.45, 0.75):.2f} average
+Peak Hour Revenue Rate:       ${random.randint(25000, 45000):,}/hour
+Interstate Long Distance:     {random.uniform(0.35, 0.45):.1%} of total revenue
+International Traffic:        {random.uniform(0.08, 0.15):.1%} of total revenue
+Operator Assisted:            {random.uniform(0.12, 0.18):.1%} of total revenue
+
+FORECASTING RESULTS
+{'=' * 50}
+Next Month Peak Forecast:     {random.randint(920, 980)} CCS ({random.uniform(5, 8):+.1f}% vs current)
+Capacity Requirements:        {random.randint(2, 5)} additional trunk groups recommended
+Investment Requirement:       ${random.uniform(1.0, 2.5):.1f}M for network expansion
+Growth Projection (6 months): {random.uniform(12, 18):+.1f}% call volume increase
+
+RECOMMENDATIONS
+{'=' * 50}"""
+        
+        # Generate realistic recommendations
+        recommendations = []
+        high_util_trunks = [name for name, tg in self.trunk_groups.items() if tg['utilization'] > 80 and tg['status'] == 'ACTIVE']
+        
+        if high_util_trunks:
+            recommendations.append(f"1. Monitor {high_util_trunks[0]} for immediate capacity upgrade")
+        else:
+            recommendations.append("1. All trunk groups operating within capacity")
+        
+        recommendations.extend([
+            "2. Implement Dynamic Non-Hierarchical Routing (DNHR) on high-traffic routes",
+            "3. Schedule capacity planning review for Q1 1984",
+            "4. Continue TNDS data quality improvement initiatives",
+            f"5. Evaluate load balancing effectiveness on {random.choice(['Route 1', 'Route 3', 'Eastern Corridor'])}"
+        ])
+        
+        for rec in recommendations:
+            analysis_output += f"\n{rec}"
+        
+        analysis_output += f"""
+
+Report Distribution:
+  Network Planning Engineering: Copy 1
+  Traffic Engineering: Copy 2  
+  Revenue Analysis: Copy 3
+  Bell Laboratories: Copy 4 (for research)
+
+Next Analysis Report: {(datetime.now() + timedelta(days=7)).strftime('%B %d, %Y')}"""
+        
+        return analysis_output
 
     def cmd_bsp(self, args: List[str]) -> str:
         """Bell System Practices - Standard Operating Procedures"""
@@ -4742,22 +5546,555 @@ BSP 200-000: Electronic Switching Fundamentals"""
 
     # Additional essential commands
     def cmd_traffic(self, args: List[str]) -> str:
-        """Network traffic analysis and monitoring"""
-        return """Network Traffic Analysis
-Real-time traffic monitoring and statistics
+        """Enhanced network traffic analysis with real-time monitoring capabilities."""
+        import random
+        
+        # Update traffic state for realistic behavior
+        self._update_traffic_state()
+        
+        if not args:
+            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            
+            # Calculate dynamic metrics from network state
+            total_load = sum(tg['utilization'] for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE') // len([tg for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE'])
+            
+            traffic_output = f"""Bell System Network Traffic Analysis
+Real-Time Monitoring and Statistics
+{current_time}
 
-Current Network Status:
-  Total Traffic Load:    67% of capacity
-  Peak Period:          14:00-16:00 EST
-  Call Completion:      97.8%
-  Average Hold Time:    3.2 minutes
+CURRENT NETWORK STATUS
+{'=' * 40}
+Total Traffic Load:       {total_load}% of network capacity
+Peak Period Today:        {self._get_peak_period()}
+Call Completion Rate:     {self.network_metrics['call_completion']:.1%}
+Average Hold Time:        {self.traffic_data['avg_duration']:.1f} minutes
+Setup Time Average:       {self.network_metrics['setup_time']:.1f} seconds
 
-Inter-Office Routes:
-  NYC-WAS:             84% utilization
-  NYC-BOS:             67% utilization  
-  WAS-ATL:             45% utilization
+REAL-TIME CALL VOLUME
+{'=' * 40}
+Active Calls:             {self.traffic_data['current_calls']:,}
+Calls Completed Today:    {self.traffic_data['calls_today']:,}
+Revenue Generated:        ${self.traffic_data['revenue_today']:,}
+International Traffic:    {self.traffic_data['international_pct']:.1%} of total
+Toll Traffic:             {self.traffic_data['toll_pct']:.1%} of total
 
-Use 'tnds analysis' for detailed traffic reports"""
+INTER-OFFICE ROUTE STATUS
+{'=' * 40}"""
+            
+            # Show major trunk group utilization
+            major_routes = [
+                ('NYC-WAS', next((tg['utilization'] for name, tg in self.trunk_groups.items() if 'NYC' in name and tg['route'] == 'NYC-WAS'), random.randint(75, 90))),
+                ('NYC-BOS', next((tg['utilization'] for name, tg in self.trunk_groups.items() if 'BOS' in name and tg['route'] == 'NYC-BOS'), random.randint(60, 80))),
+                ('WAS-ATL', next((tg['utilization'] for name, tg in self.trunk_groups.items() if 'WAS' in name and tg['route'] == 'WAS-ATL'), random.randint(40, 70))),
+                ('CHI-NYC', next((tg['utilization'] for name, tg in self.trunk_groups.items() if 'CHI' in name and tg['route'] == 'CHI-NYC'), random.randint(35, 65)))
+            ]
+            
+            for route, utilization in major_routes:
+                status = "HIGH" if utilization > 80 else "NORMAL" if utilization > 40 else "LOW"
+                calls_hour = int((utilization / 100) * random.randint(15000, 45000))
+                traffic_output += f"\n{route:<15} {utilization:>3}% utilization  {status:<8} ({calls_hour:,} calls/hour)"
+            
+            # Regional traffic distribution
+            traffic_output += f"""
+
+REGIONAL TRAFFIC DISTRIBUTION
+{'=' * 40}"""
+            
+            for region, data in self.regional_traffic.items():
+                pct = (data['calls'] / self.traffic_data['current_calls']) * 100
+                traffic_output += f"\n{region.title():<12} {data['calls']:>8,} calls ({pct:>4.1f}%)  Revenue: ${data['revenue']:,}"
+            
+            # Traffic quality metrics
+            traffic_output += f"""
+
+QUALITY METRICS
+{'=' * 40}
+Blocking Rate:            {self.network_metrics['blocking_rate']:.3f} (Target: <0.01)
+Post-Dial Delay:          {self.network_metrics['setup_time']:.1f} seconds average
+Network Efficiency:       {self.traffic_data['completion_rate']:.1%}
+Customer Satisfaction:    {random.uniform(4.1, 4.7):.1f}/5.0 rating
+
+Commands:
+  traffic detail <region>   Regional traffic analysis
+  traffic forecast          Traffic projection and planning
+  traffic routes            Route-specific performance
+  traffic peak              Peak period analysis
+  traffic quality           Quality metrics and trending"""
+            
+            return traffic_output
+
+        elif args[0] == "detail" and len(args) > 1:
+            region = args[1].lower()
+            return self._show_regional_traffic_detail(region)
+
+        elif args[0] == "forecast":
+            return self._generate_traffic_forecast()
+
+        elif args[0] == "routes":
+            return self._show_route_performance()
+
+        elif args[0] == "peak":
+            return self._show_peak_analysis()
+
+        elif args[0] == "quality":
+            return self._show_traffic_quality_metrics()
+
+        else:
+            available_commands = ["detail", "forecast", "routes", "peak", "quality"]
+            return f"traffic: Unknown option '{args[0] if args else 'missing'}'\nAvailable commands: {', '.join(available_commands)}"
+
+    def _update_traffic_state(self) -> None:
+        """Update traffic state with realistic time-based variations."""
+        import random
+        
+        hour = datetime.now().hour
+        
+        # Adjust traffic patterns based on time of day
+        if 8 <= hour <= 10:  # Morning business peak
+            multiplier = random.uniform(1.1, 1.3)
+        elif 14 <= hour <= 16:  # Afternoon peak
+            multiplier = random.uniform(1.2, 1.4)
+        elif 19 <= hour <= 21:  # Evening social peak
+            multiplier = random.uniform(0.9, 1.1)
+        elif 22 <= hour or hour <= 6:  # Overnight
+            multiplier = random.uniform(0.3, 0.5)
+        else:  # Regular business hours
+            multiplier = random.uniform(0.8, 1.0)
+        
+        # Update regional traffic with realistic variations
+        base_total = sum(data['calls'] for data in self.regional_traffic.values())
+        for region, data in self.regional_traffic.items():
+            variation = random.uniform(0.95, 1.05) * multiplier
+            data['calls'] = int(data['calls'] * variation)
+            data['revenue'] = int(data['revenue'] * variation * random.uniform(0.98, 1.02))
+
+    def _show_regional_traffic_detail(self, region: str) -> str:
+        """Show detailed traffic analysis for a specific region."""
+        import random
+        
+        current_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        if region not in self.regional_traffic:
+            available_regions = list(self.regional_traffic.keys())
+            return f"traffic: Unknown region '{region}'\nAvailable regions: {', '.join(available_regions)}"
+        
+        region_data = self.regional_traffic[region]
+        
+        detail_output = f"""Regional Traffic Detail - {region.title()}
+Analysis Time: {current_time}
+
+CURRENT ACTIVITY
+{'=' * 30}
+Active Calls:             {region_data['calls']:,}
+Revenue This Hour:        ${region_data['revenue']:,}
+Peak Hour Calls:          {int(region_data['calls'] * random.uniform(1.2, 1.5)):,} (estimated)
+Market Share:             {(region_data['calls'] / sum(d['calls'] for d in self.regional_traffic.values())) * 100:.1f}% of total network
+
+TRAFFIC PATTERNS
+{'=' * 30}"""
+        
+        # Generate realistic traffic breakdown by type
+        business_pct = random.uniform(0.60, 0.75) if region == 'northeast' else random.uniform(0.45, 0.65)
+        residential_pct = 1.0 - business_pct - random.uniform(0.08, 0.15)  # Subtract toll/international
+        
+        detail_output += f"""
+Business Hours (08:00-17:00):  {business_pct:.1%} of daily volume
+Residential (17:00-22:00):     {residential_pct:.1%} of daily volume
+Overnight (22:00-08:00):       {(1 - business_pct - residential_pct):.1%} of daily volume
+
+MAJOR DESTINATIONS FROM {region.upper()}
+{'=' * 30}"""
+        
+        # Define realistic destination patterns by region
+        if region == 'northeast':
+            destinations = [
+                ('Washington DC', random.randint(8000, 15000), random.uniform(1.2, 1.8)),
+                ('Boston', random.randint(6000, 12000), random.uniform(0.8, 1.4)),
+                ('Philadelphia', random.randint(4000, 8000), random.uniform(0.6, 1.0)),
+                ('Chicago', random.randint(3000, 6000), random.uniform(1.5, 2.2))
+            ]
+        elif region == 'southeast':
+            destinations = [
+                ('Miami', random.randint(5000, 9000), random.uniform(0.9, 1.5)),
+                ('New York', random.randint(4000, 8000), random.uniform(1.8, 2.5)),
+                ('Tampa', random.randint(3000, 6000), random.uniform(0.7, 1.2)),
+                ('Charlotte', random.randint(2000, 4000), random.uniform(0.8, 1.3))
+            ]
+        elif region == 'central':
+            destinations = [
+                ('Detroit', random.randint(6000, 10000), random.uniform(0.8, 1.4)),
+                ('New York', random.randint(5000, 9000), random.uniform(2.0, 2.8)),
+                ('St. Louis', random.randint(4000, 7000), random.uniform(0.6, 1.1)),
+                ('Cleveland', random.randint(3000, 5000), random.uniform(0.7, 1.2))
+            ]
+        else:  # west
+            destinations = [
+                ('San Francisco', random.randint(4000, 7000), random.uniform(0.5, 0.9)),
+                ('New York', random.randint(3000, 6000), random.uniform(2.8, 3.5)),
+                ('Seattle', random.randint(2000, 4000), random.uniform(0.8, 1.4)),
+                ('Denver', random.randint(2000, 3500), random.uniform(1.2, 1.8))
+            ]
+        
+        for i, (dest, calls, avg_rate) in enumerate(destinations, 1):
+            revenue = int(calls * avg_rate)
+            detail_output += f"\n{i}. {dest:<15} {calls:>6,} calls  ${revenue:>5,} revenue  (${avg_rate:.2f} avg)"
+        
+        detail_output += f"""
+
+QUALITY INDICATORS
+{'=' * 30}
+Service Level:            {random.uniform(0.975, 0.995):.1%}
+Call Completion Rate:     {random.uniform(0.970, 0.990):.1%}
+Customer Satisfaction:    {random.uniform(4.0, 4.6):.1f}/5.0 rating
+Technical Quality:        {'Excellent' if random.random() > 0.3 else 'Good'}
+
+NETWORK UTILIZATION
+{'=' * 30}
+Trunk Utilization:        {random.randint(65, 85)}% average
+Peak Period Load:         {random.randint(85, 95)}%
+Overflow Events:          {random.randint(0, 3)} (last 24 hours)
+Backup Route Usage:       {random.randint(2, 8)}% of traffic
+
+Use 'trunk detail <TG-xxx>' for specific trunk group analysis"""
+        
+        return detail_output
+
+    def _generate_traffic_forecast(self) -> str:
+        """Generate traffic forecasting analysis."""
+        import random
+        
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        forecast_output = f"""Traffic Forecasting Analysis
+Generated: {current_time}
+
+IMMEDIATE FORECAST (Next 4 Hours)
+{'=' * 45}"""
+        
+        current_hour = datetime.now().hour
+        base_calls = sum(data['calls'] for data in self.regional_traffic.values())
+        
+        for i in range(4):
+            forecast_hour = (current_hour + i + 1) % 24
+            
+            # Apply realistic hourly patterns
+            if 8 <= forecast_hour <= 10:
+                multiplier = random.uniform(1.15, 1.35)
+                period_desc = "Morning Peak"
+            elif 14 <= forecast_hour <= 16:
+                multiplier = random.uniform(1.25, 1.45)
+                period_desc = "Afternoon Peak"
+            elif 19 <= forecast_hour <= 21:
+                multiplier = random.uniform(0.95, 1.15)
+                period_desc = "Evening Social"
+            elif 22 <= forecast_hour or forecast_hour <= 6:
+                multiplier = random.uniform(0.35, 0.55)
+                period_desc = "Overnight"
+            else:
+                multiplier = random.uniform(0.85, 1.05)
+                period_desc = "Regular Business"
+            
+            forecast_calls = int(base_calls * multiplier)
+            capacity_pct = min(100, int(multiplier * 70))
+            
+            forecast_output += f"\n{forecast_hour:02d}:00-{(forecast_hour+1)%24:02d}:00  {forecast_calls:>7,} calls  {capacity_pct:>3}% capacity  {period_desc}"
+        
+        forecast_output += f"""
+
+WEEKLY TRENDS ANALYSIS
+{'=' * 45}
+Monday-Thursday:          Heavy business traffic pattern
+Friday:                   Moderate business, increasing personal calls
+Saturday:                 Light traffic, family-oriented calls
+Sunday:                   Moderate traffic with evening peak
+
+SPECIAL CONSIDERATIONS
+{'=' * 45}"""
+        
+        # Generate realistic special events
+        special_events = []
+        if datetime.now().month == 12:
+            special_events.append("Holiday season: +15-20% expected volume")
+        if datetime.now().weekday() == 4:  # Friday
+            special_events.append("Weekend effect: +10% Friday evening traffic")
+        if random.random() < 0.3:
+            special_events.append("Weather system may affect rural areas")
+        if random.random() < 0.2:
+            special_events.append(f"Major sporting event: +25% regional traffic expected")
+        
+        if special_events:
+            for event in special_events:
+                forecast_output += f"\n• {event}"
+        else:
+            forecast_output += "\n• No special events expected"
+        
+        forecast_output += f"""
+
+CAPACITY RECOMMENDATIONS
+{'=' * 45}
+High-Traffic Routes:      Enable overflow routing during peaks
+Operator Staffing:        Pre-position additional operators for peak periods
+Trunk Monitoring:         Monitor utilization closely on major routes
+Load Balancing:           Activate dynamic routing algorithms
+
+GROWTH PROJECTIONS
+{'=' * 45}
+Next Month:               {random.uniform(3, 7):+.1f}% call volume increase
+Quarter Forecast:         {random.uniform(8, 15):+.1f}% growth expected
+Annual Growth Rate:       {random.uniform(12, 18):+.1f}% projected
+
+Revenue Impact:           ${random.randint(25000, 45000):,} additional daily revenue
+Infrastructure Needs:     {random.randint(2, 4)} new trunk groups by Q2 1984"""
+        
+        return forecast_output
+
+    def _show_route_performance(self) -> str:
+        """Show route-specific performance analysis."""
+        import random
+        
+        current_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        route_output = f"""Route Performance Analysis
+Updated: {current_time}
+
+MAJOR ROUTE PERFORMANCE
+{'=' * 35}"""
+        
+        # Define major Bell System routes with realistic performance
+        major_routes = [
+            ('NYC-WAS', 'Northeast Corridor', random.randint(15000, 25000), random.uniform(0.975, 0.995)),
+            ('NYC-BOS', 'New England Route', random.randint(12000, 18000), random.uniform(0.980, 0.998)),
+            ('CHI-NYC', 'Central-East Route', random.randint(18000, 28000), random.uniform(0.970, 0.990)),
+            ('LAX-SFO', 'California Corridor', random.randint(8000, 15000), random.uniform(0.985, 0.995)),
+            ('WAS-ATL', 'Southeast Route', random.randint(10000, 16000), random.uniform(0.975, 0.992)),
+            ('CHI-LAX', 'Transcontinental', random.randint(14000, 22000), random.uniform(0.965, 0.985))
+        ]
+        
+        for route, description, calls_hour, completion in major_routes:
+            setup_time = random.uniform(1.5, 2.8)
+            revenue_rate = random.randint(25, 45)
+            status = "EXCELLENT" if completion > 0.99 else "GOOD" if completion > 0.98 else "FAIR"
+            
+            route_output += f"""
+{route} ({description})
+  Calls/Hour:     {calls_hour:,}
+  Completion:     {completion:.1%}
+  Setup Time:     {setup_time:.1f} seconds
+  Revenue/Hour:   ${calls_hour * revenue_rate // 1000:,}
+  Status:         {status}"""
+        
+        route_output += f"""
+
+ROUTE QUALITY METRICS
+{'=' * 35}
+Signal Quality:           {random.uniform(0.92, 0.98):.1%} acceptable or better
+Echo Control:             {random.uniform(0.88, 0.96):.1%} within standards
+Noise Level:              {random.uniform(0.90, 0.97):.1%} below threshold
+Transmission Delay:       {random.uniform(0.85, 0.95):.1%} within limits
+
+ALTERNATE ROUTING STATUS
+{'=' * 35}"""
+        
+        # Show overflow and alternate routing
+        alt_routes = [
+            ('NYC-WAS via Philadelphia', random.randint(0, 15)),
+            ('CHI-NYC via Cleveland', random.randint(0, 25)),
+            ('LAX-SFO via Sacramento', random.randint(0, 8))
+        ]
+        
+        for alt_route, usage_pct in alt_routes:
+            status = "ACTIVE" if usage_pct > 5 else "STANDBY"
+            route_output += f"\n{alt_route:<25} {usage_pct:>3}% usage  {status}"
+        
+        route_output += f"""
+
+TRAFFIC ENGINEERING NOTES
+{'=' * 35}
+• Dynamic routing algorithms active on all major routes
+• Load balancing optimization in progress
+• Capacity planning review scheduled for next quarter
+• New routing patterns being tested on select routes
+
+Use 'trunk detail <TG-xxx>' for specific trunk group analysis"""
+        
+        return route_output
+
+    def _show_peak_analysis(self) -> str:
+        """Show peak period traffic analysis."""
+        import random
+        
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        peak_output = f"""Peak Period Traffic Analysis
+Generated: {current_time}
+
+TODAY'S PEAK ANALYSIS
+{'=' * 30}"""
+        
+        # Generate realistic peak periods
+        morning_peak = {
+            'time': f"{random.randint(8, 10)}:{random.randint(15, 45):02d}",
+            'calls': random.randint(45000, 65000),
+            'duration': random.randint(45, 90),
+            'completion': random.uniform(0.970, 0.990)
+        }
+        
+        afternoon_peak = {
+            'time': f"{random.randint(14, 16)}:{random.randint(0, 45):02d}",
+            'calls': random.randint(55000, 75000),
+            'duration': random.randint(60, 120),
+            'completion': random.uniform(0.965, 0.985)
+        }
+        
+        peak_output += f"""
+Morning Peak:
+  Time:           {morning_peak['time']} EST
+  Call Volume:    {morning_peak['calls']:,} calls/hour
+  Duration:       {morning_peak['duration']} minutes
+  Completion:     {morning_peak['completion']:.1%}
+  
+Afternoon Peak:
+  Time:           {afternoon_peak['time']} EST  
+  Call Volume:    {afternoon_peak['calls']:,} calls/hour
+  Duration:       {afternoon_peak['duration']} minutes
+  Completion:     {afternoon_peak['completion']:.1%}
+
+PEAK HOUR CAPACITY ANALYSIS
+{'=' * 30}
+Network Capacity:         {random.randint(75000, 85000):,} calls/hour maximum
+Current Peak Load:        {max(morning_peak['calls'], afternoon_peak['calls']):,} calls/hour
+Capacity Utilization:     {(max(morning_peak['calls'], afternoon_peak['calls']) / 80000) * 100:.1f}%
+Safety Margin:            {((80000 - max(morning_peak['calls'], afternoon_peak['calls'])) / 80000) * 100:.1f}%
+
+HISTORICAL PEAK TRENDS
+{'=' * 30}"""
+        
+        # Generate weekly peak trend data
+        days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        for day in days:
+            peak_calls = random.randint(40000, 70000)
+            peak_time = f"{random.randint(14, 16)}:{random.randint(0, 59):02d}"
+            trend = random.choice(['+', '+', '-']) + f"{random.uniform(0.5, 5.0):.1f}%"
+            
+            peak_output += f"\n{day:<10} {peak_calls:>6,} calls at {peak_time}  ({trend} vs last week)"
+        
+        peak_output += f"""
+
+PEAK PERIOD CHALLENGES
+{'=' * 30}
+Trunk Utilization:        {random.randint(85, 95)}% on major routes during peaks
+Operator Wait Times:      {random.uniform(8, 15):.1f} seconds average
+System Response:          {random.uniform(2.1, 3.2):.1f} seconds call setup
+Overflow Events:          {random.randint(3, 12)} occurrences today
+
+CAPACITY MANAGEMENT
+{'=' * 30}
+• Dynamic routing activated during peak periods
+• Additional operators scheduled for busy hours
+• Overflow trunks available on all major routes
+• Real-time load monitoring and adjustment active
+
+RECOMMENDATIONS
+{'=' * 30}
+• Monitor trunk utilization closely during peaks
+• Consider capacity expansion for routes exceeding 90%
+• Optimize routing algorithms for better load distribution
+• Schedule maintenance during off-peak hours only"""
+        
+        return peak_output
+
+    def _show_traffic_quality_metrics(self) -> str:
+        """Show traffic quality metrics and trending."""
+        import random
+        
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        quality_output = f"""Traffic Quality Metrics and Trending
+Report Generated: {current_time}
+
+CURRENT QUALITY INDICATORS
+{'=' * 40}
+Call Completion Rate:     {self.traffic_data['completion_rate']:.2%}
+Post-Dial Delay:          {self.network_metrics['setup_time']:.1f} seconds average
+Network Blocking:         {self.network_metrics['blocking_rate']:.3f} probability
+Signal Quality Index:     {random.uniform(0.92, 0.98):.1%}
+Customer Satisfaction:    {random.uniform(4.1, 4.7):.1f}/5.0 rating
+
+QUALITY TREND ANALYSIS (30 Days)
+{'=' * 40}"""
+        
+        # Generate 30-day quality trends
+        metrics = [
+            ('Completion Rate', 0.980, '%'),
+            ('Setup Time', 2.1, 'sec'),
+            ('Blocking Rate', 0.005, ''),
+            ('Signal Quality', 0.95, '%'),
+            ('Satisfaction', 4.3, '/5.0')
+        ]
+        
+        for metric_name, baseline, unit in metrics:
+            trend_direction = random.choice(['↑', '↑', '↓', '→'])  # Bias toward improvement
+            if trend_direction == '↑':
+                change = f"+{random.uniform(0.1, 2.5):.1f}"
+            elif trend_direction == '↓':
+                change = f"-{random.uniform(0.1, 1.5):.1f}"
+            else:
+                change = "0.0"
+            
+            current_value = baseline * random.uniform(0.98, 1.02)
+            if unit == '%':
+                quality_output += f"\n{metric_name:<18} {current_value:.1%} ({trend_direction} {change}{unit})"
+            elif unit == 'sec':
+                quality_output += f"\n{metric_name:<18} {current_value:.1f}{unit} ({trend_direction} {change}{unit})"
+            elif unit == '/5.0':
+                quality_output += f"\n{metric_name:<18} {current_value:.1f}{unit} ({trend_direction} {change})"
+            else:
+                quality_output += f"\n{metric_name:<18} {current_value:.3f} ({trend_direction} {change})"
+        
+        quality_output += f"""
+
+QUALITY BY ROUTE TYPE
+{'=' * 40}
+Local Calls:              {random.uniform(0.985, 0.995):.1%} completion
+Long Distance:            {random.uniform(0.975, 0.990):.1%} completion
+International:            {random.uniform(0.960, 0.980):.1%} completion
+Operator Assisted:        {random.uniform(0.970, 0.985):.1%} completion
+
+TECHNICAL QUALITY METRICS
+{'=' * 40}
+Transmission Quality:     {random.uniform(0.88, 0.96):.1%} excellent/good
+Echo Control:             {random.uniform(0.85, 0.94):.1%} within standards
+Noise Level:              {random.uniform(0.90, 0.97):.1%} below threshold
+Cross-Talk:               {random.uniform(0.95, 0.99):.1%} within limits
+Frequency Response:       {random.uniform(0.92, 0.98):.1%} acceptable
+
+CUSTOMER EXPERIENCE
+{'=' * 40}
+Average Hold Time:        {self.traffic_data['avg_duration']:.1f} minutes
+Dial Tone Delay:          {random.uniform(0.2, 0.8):.1f} seconds
+Wrong Number Rate:        {random.uniform(0.008, 0.025):.3f}
+Dropped Call Rate:        {random.uniform(0.002, 0.012):.3f}
+Service Difficulty:       {random.uniform(0.005, 0.020):.3f}
+
+QUALITY IMPROVEMENT INITIATIVES
+{'=' * 40}
+• Digital switching deployment increasing completion rates
+• Echo canceller installation on long-haul routes
+• Improved operator training reducing handle times
+• Network optimization reducing post-dial delay
+• Customer feedback system implementation
+
+TARGET PERFORMANCE STANDARDS
+{'=' * 40}
+Completion Rate Target:   98.5% or better
+Setup Time Target:        Under 2.0 seconds
+Blocking Target:          Less than 0.01 probability
+Quality Index Target:     95% excellent/good ratings
+Satisfaction Target:      4.5/5.0 or better
+
+Next Quality Review: {(datetime.now() + timedelta(days=7)).strftime('%B %d, %Y')}"""
+        
+        return quality_output
 
     def cmd_billing(self, args: List[str]) -> str:
         """Customer billing and toll charge calculation"""
@@ -4794,24 +6131,527 @@ Network Links:
 Use 'uucp status' for detailed queue information"""
 
     def cmd_tsps(self, args: List[str]) -> str:
-        """Traffic Service Position System operations"""
-        return """Traffic Service Position System (TSPS)
+        """Enhanced Traffic Service Position System with realistic operator management."""
+        import random
+        
+        # Update TSPS state for realistic operational behavior
+        self._update_tsps_state()
+        
+        if not args:
+            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            
+            return f"""Traffic Service Position System (TSPS)
 Operator Services and Assisted Calling
+{current_time}
 
-Current Operations:
-  Active Positions:     47 of 52 staffed
-  Position Occupancy:   78% (busy hour)
-  Average Work Time:    23 seconds per call
-  
-Service Types:
-  Person-to-Person:     23% of calls
-  Collect Calls:        31% of calls
-  Directory Assistance: 46% of calls
+CURRENT OPERATIONS STATUS
+{'=' * 35}
+Active Positions:         {self.tsps_data['active_positions']} of {self.tsps_data['total_positions']} staffed
+Position Occupancy:       {self.tsps_data['occupancy']:.1f}% ({self._get_tsps_period()})
+Queue Length:             {self.tsps_data['queue_length']} calls waiting
+Average Work Time:        {self.tsps_data['avg_work_time']:.1f} seconds per call
+Answer Time:              {self.tsps_data['answer_time']:.1f} seconds average
 
-Performance Metrics:
-  Answer Time:          3.2 seconds average
-  Service Quality:      97.8% satisfactory
-  Operator Productivity: Within standards"""
+SERVICE TYPE DISTRIBUTION
+{'=' * 35}
+Person-to-Person:         {self.tsps_data['person_to_person']:.1f}% of calls
+Collect Calls:            {self.tsps_data['collect_calls']:.1f}% of calls  
+Directory Assistance:     {self.tsps_data['directory_assist']:.1f}% of calls
+Conference Setup:         {self.tsps_data['conference']:.1f}% of calls
+International:            {self.tsps_data['international']:.1f}% of calls
+Billing Inquiries:        {self.tsps_data['billing']:.1f}% of calls
+
+PERFORMANCE METRICS
+{'=' * 35}
+Service Quality:          {self.tsps_data['service_quality']:.1%} satisfactory
+Operator Productivity:    {self.tsps_data['productivity_rating']}
+First Call Resolution:    {self.tsps_data['first_call_resolution']:.1%}
+Customer Satisfaction:    {self.tsps_data['customer_satisfaction']:.1f}/5.0 rating
+System Availability:      {self.tsps_data['system_availability']:.1%}
+
+Commands:
+  tsps position <id>      Individual position status
+  tsps operators          Operator staffing and performance
+  tsps training           Training programs and certification
+  tsps queue              Call queue management
+  tsps reports            Performance and productivity reports"""
+
+        elif args[0] == "position" and len(args) > 1:
+            position_id = args[1]
+            return self._show_tsps_position_detail(position_id)
+
+        elif args[0] == "operators":
+            return self._show_tsps_operator_status()
+
+        elif args[0] == "training":
+            return self._show_tsps_training_programs()
+
+        elif args[0] == "queue":
+            return self._show_tsps_queue_management()
+
+        elif args[0] == "reports":
+            if len(args) > 1:
+                return self._generate_tsps_report(args[1])
+            else:
+                return self._show_available_tsps_reports()
+
+        else:
+            available_commands = ["position", "operators", "training", "queue", "reports"]
+            return f"tsps: Unknown option '{args[0] if args else 'missing'}'\nAvailable commands: {', '.join(available_commands)}"
+
+    def _update_tsps_state(self) -> None:
+        """Update TSPS operational state with realistic patterns."""
+        import random
+        
+        if not hasattr(self, 'tsps_data'):
+            # Initialize TSPS operational data
+            hour = datetime.now().hour
+            
+            # Adjust staffing and load based on time of day
+            if 8 <= hour <= 17:  # Business hours
+                base_positions = random.randint(45, 52)
+                base_occupancy = random.uniform(75, 90)
+            elif 17 <= hour <= 22:  # Evening
+                base_positions = random.randint(25, 35)
+                base_occupancy = random.uniform(60, 80)
+            else:  # Overnight
+                base_positions = random.randint(8, 15)
+                base_occupancy = random.uniform(40, 65)
+            
+            self.tsps_data = {
+                'total_positions': 52,
+                'active_positions': base_positions,
+                'occupancy': base_occupancy,
+                'queue_length': random.randint(0, 25),
+                'avg_work_time': random.uniform(20, 45),
+                'answer_time': random.uniform(2.5, 8.0),
+                'person_to_person': random.uniform(20, 28),
+                'collect_calls': random.uniform(25, 35),
+                'directory_assist': random.uniform(40, 50),
+                'conference': random.uniform(3, 8),
+                'international': random.uniform(2, 6),
+                'billing': random.uniform(8, 15),
+                'service_quality': random.uniform(0.95, 0.99),
+                'productivity_rating': random.choice(['Excellent', 'Above Average', 'Average']),
+                'first_call_resolution': random.uniform(0.88, 0.96),
+                'customer_satisfaction': random.uniform(4.2, 4.8),
+                'system_availability': random.uniform(0.995, 0.999),
+                'last_update': datetime.now()
+            }
+        else:
+            # Update existing data with small variations
+            time_since_update = (datetime.now() - self.tsps_data['last_update']).total_seconds() / 60
+            if time_since_update > 2:  # Update every 2 minutes
+                self.tsps_data['queue_length'] = max(0, self.tsps_data['queue_length'] + random.randint(-3, 5))
+                self.tsps_data['answer_time'] = max(1.0, self.tsps_data['answer_time'] + random.uniform(-0.5, 0.8))
+                self.tsps_data['last_update'] = datetime.now()
+
+    def _get_tsps_period(self) -> str:
+        """Get current TSPS period description."""
+        hour = datetime.now().hour
+        if 8 <= hour <= 17:
+            return "busy hour"
+        elif 17 <= hour <= 22:
+            return "evening shift"
+        else:
+            return "night shift"
+
+    def _show_tsps_position_detail(self, position_id: str) -> str:
+        """Show detailed status for a specific TSPS position."""
+        import random
+        
+        current_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        # Generate realistic operator data
+        operators = [
+            {"name": "Susan Johnson", "id": "4472", "experience": "3.5 years", "level": "Advanced"},
+            {"name": "Mary Williams", "id": "4481", "experience": "2.8 years", "level": "Intermediate"},
+            {"name": "Barbara Davis", "id": "4495", "experience": "5.2 years", "level": "Senior"},
+            {"name": "Patricia Miller", "id": "4503", "experience": "1.9 years", "level": "Basic"},
+            {"name": "Linda Wilson", "id": "4517", "experience": "4.1 years", "level": "Advanced"}
+        ]
+        
+        operator = random.choice(operators)
+        shift_hours = self._get_shift_hours()
+        
+        position_output = f"""TSPS Position Status - {position_id}
+Query Time: {current_time}
+
+OPERATOR INFORMATION
+{'=' * 30}
+Operator ID:              {operator['id']}
+Name:                     {operator['name']}
+Shift:                    {shift_hours}
+Experience Level:         {operator['experience']}
+Certification:            {operator['level']} Level Certified
+Union Local:              Communications Workers Local 1101
+
+CURRENT ACTIVITY
+{'=' * 30}
+Status:                   {'ACTIVE' if random.random() > 0.1 else 'ON BREAK'}"""
+        
+        if random.random() > 0.1:  # Active status
+            call_types = ['Person-to-Person NYC to BOS', 'Collect call to Chicago', 'Directory assistance request', 
+                         'Conference call setup', 'International call to London', 'Billing inquiry']
+            current_call = random.choice(call_types)
+            position_output += f"""
+Call in Progress:         {current_call}
+Call Duration:            {random.randint(15, 180)} seconds
+Queue Position:           Handling priority call
+Customer Location:        {random.choice(['Manhattan, NY', 'Boston, MA', 'Philadelphia, PA', 'Washington, DC'])}
+
+PERFORMANCE TODAY
+{'=' * 30}
+Calls Handled:            {random.randint(85, 145)}
+Average Handle Time:      {random.uniform(25, 40):.1f} seconds
+Customer Rating:          {random.uniform(4.5, 5.0):.1f}/5.0
+Resolution Rate:          {random.uniform(0.92, 0.98):.1%}
+Escalations:              {random.randint(0, 3)}
+Break Time Used:          {random.randint(12, 18)} minutes
+
+EQUIPMENT STATUS
+{'=' * 30}
+Headset:                  OPERATIONAL
+Position Terminal:        ONLINE
+Conference Bridge:        AVAILABLE  
+Recording System:         ACTIVE
+Billing Interface:        CONNECTED
+Directory Database:       ACCESSIBLE
+
+SUPERVISOR NOTES
+{'=' * 30}"""
+            
+            notes = [
+                "Excellent performance maintaining service standards",
+                "Assisting with new operator training today",
+                "Recommended for advanced certification program",
+                "Consistently exceeds productivity targets",
+                "Strong customer service skills demonstrated"
+            ]
+            position_output += f"• {random.choice(notes)}"
+        
+        else:  # On break
+            position_output += f"""
+Break Type:               {random.choice(['Scheduled 15-minute', 'Lunch break', 'Relief break'])}
+Return Time:              {(datetime.now() + timedelta(minutes=random.randint(5, 30))).strftime('%H:%M')}
+Coverage:                 Position covered by relief operator"""
+        
+        return position_output
+
+    def _show_tsps_operator_status(self) -> str:
+        """Show comprehensive operator staffing and performance status."""
+        import random
+        
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        operators_output = f"""TSPS Operator Staffing and Performance
+Report Generated: {current_time}
+
+STAFFING STATUS
+{'=' * 25}
+Total Positions:          {self.tsps_data['total_positions']}
+Currently Staffed:        {self.tsps_data['active_positions']}
+On Duty:                  {self.tsps_data['active_positions'] - random.randint(0, 3)}
+On Break:                 {random.randint(0, 3)}
+Relief Operators:         {random.randint(2, 5)}
+Supervisors:              {random.randint(3, 5)}
+
+SHIFT DISTRIBUTION
+{'=' * 25}"""
+        
+        # Generate realistic shift data
+        shifts = [
+            ("Day Shift (08:00-16:00)", random.randint(18, 25)),
+            ("Evening Shift (16:00-24:00)", random.randint(12, 18)),
+            ("Night Shift (24:00-08:00)", random.randint(6, 12))
+        ]
+        
+        for shift_name, operators in shifts:
+            operators_output += f"\n{shift_name:<25} {operators} operators"
+        
+        operators_output += f"""
+
+CERTIFICATION LEVELS
+{'=' * 25}
+Basic Level:              {random.randint(8, 15)} operators
+Intermediate Level:       {random.randint(15, 22)} operators  
+Advanced Level:           {random.randint(12, 18)} operators
+Senior Level:             {random.randint(6, 10)} operators
+Supervisor Track:         {random.randint(3, 6)} operators
+
+PERFORMANCE METRICS
+{'=' * 25}
+Average Experience:       {random.uniform(2.8, 4.2):.1f} years
+Productivity Rating:      {random.uniform(0.92, 0.98):.1%} of standard
+Quality Score:            {random.uniform(4.3, 4.8):.1f}/5.0 average
+Attendance Rate:          {random.uniform(0.94, 0.98):.1%}
+Turnover Rate:            {random.uniform(0.08, 0.15):.1%} annually
+
+TOP PERFORMERS (This Month)
+{'=' * 25}"""
+        
+        top_performers = [
+            ("Barbara Davis", "4495", random.uniform(4.8, 5.0), random.randint(125, 145)),
+            ("Susan Johnson", "4472", random.uniform(4.7, 4.9), random.randint(120, 140)),
+            ("Linda Wilson", "4517", random.uniform(4.6, 4.8), random.randint(115, 135))
+        ]
+        
+        for name, op_id, rating, calls in top_performers:
+            operators_output += f"\n{name:<18} ({op_id})  {rating:.1f}/5.0  {calls} avg calls/day"
+        
+        operators_output += f"""
+
+TRAINING AND DEVELOPMENT
+{'=' * 25}
+New Hires in Training:    {random.randint(2, 6)}
+Certification Testing:    {random.randint(4, 8)} operators scheduled
+Skills Development:       {random.randint(8, 15)} enrolled in programs
+Cross-Training:           {random.randint(5, 12)} operators
+
+SCHEDULING NOTES
+{'=' * 25}
+Peak Coverage:            14:00-16:00 EST (all positions staffed)
+Minimum Staffing:         02:00-06:00 EST ({random.randint(6, 10)} positions)
+Holiday Schedule:         Modified staffing for upcoming holidays
+Overtime Authorized:      Up to {random.randint(8, 15)} hours per week"""
+        
+        return operators_output
+
+    def _show_tsps_training_programs(self) -> str:
+        """Show TSPS training programs and certification status."""
+        import random
+        
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        training_output = f"""TSPS Training Program Status
+Report Generated: {current_time}
+
+ACTIVE TRAINING SESSIONS
+{'=' * 35}"""
+        
+        training_sessions = [
+            ("New Operator Orientation", random.randint(3, 6), "Week 1-2", "Basic"),
+            ("Advanced Call Handling", random.randint(4, 8), "Ongoing", "Advanced"),
+            ("International Procedures", random.randint(6, 12), "2 weeks", "Intermediate"),
+            ("Emergency Protocol Review", random.randint(8, 15), "1 week", "All Levels"),
+            ("Customer Service Excellence", random.randint(5, 10), "3 weeks", "Intermediate"),
+            ("Technology Update Session", random.randint(10, 18), "1 day", "All Levels")
+        ]
+        
+        for session, participants, duration, level in training_sessions:
+            training_output += f"\n{session:<25} {participants:>2} trainees  {duration:<8} {level}"
+        
+        training_output += f"""
+
+CERTIFICATION PROGRAM
+{'=' * 35}
+Certification Levels:     4 levels (Basic through Senior)
+Current Testing Cycle:    {random.choice(['Week 2', 'Week 3', 'Week 4'])} of monthly cycle
+Pass Rate:                {random.uniform(0.85, 0.95):.1%} overall
+Next Exam Date:           {(datetime.now() + timedelta(days=random.randint(7, 21))).strftime('%B %d, %Y')}
+
+CERTIFICATION STATUS
+{'=' * 35}
+Eligible for Testing:     {random.randint(8, 15)} operators
+Pending Results:          {random.randint(2, 6)} operators
+Recent Certifications:    {random.randint(3, 8)} operators (last 30 days)
+Certification Renewals:   {random.randint(5, 12)} operators (next 90 days)
+
+TRAINING EFFECTIVENESS
+{'=' * 35}
+Post-Training Performance: {random.uniform(15, 25):+.0f}% improvement average
+Customer Satisfaction:     {random.uniform(0.3, 0.6):+.1f} point increase
+Error Reduction:          {random.uniform(20, 35):.0f}% decrease
+Handle Time Improvement:   {random.uniform(8, 18):.0f}% faster
+Confidence Rating:         {random.uniform(20, 35):+.0f}% increase
+
+SPECIALIZED TRAINING
+{'=' * 35}
+Emergency Services:       All operators certified
+International Calls:     {random.randint(25, 35)} operators certified
+Conference Setup:         {random.randint(20, 30)} operators certified
+Billing Systems:          {random.randint(15, 25)} operators certified
+Directory Assistance:     All operators certified
+
+UPCOMING TRAINING
+{'=' * 35}"""
+        
+        upcoming_training = [
+            ("New Technology Integration", f"{(datetime.now() + timedelta(days=random.randint(7, 14))).strftime('%B %d')}"),
+            ("Customer Relations Workshop", f"{(datetime.now() + timedelta(days=random.randint(14, 28))).strftime('%B %d')}"),
+            ("Quality Assurance Methods", f"{(datetime.now() + timedelta(days=random.randint(21, 35))).strftime('%B %d')}"),
+            ("Regulatory Compliance Update", f"{(datetime.now() + timedelta(days=random.randint(28, 42))).strftime('%B %d')}")
+        ]
+        
+        for training, date in upcoming_training:
+            training_output += f"\n{training:<30} {date}"
+        
+        training_output += f"""
+
+TRAINING RESOURCES
+{'=' * 35}
+Training Manuals:         Current (Version 3.2)
+Practice Simulators:      {random.randint(8, 12)} systems available
+Instructor Staff:         {random.randint(4, 7)} certified trainers
+Training Facilities:      2 dedicated training centers
+
+Contact: Training Coordinator ext 4225"""
+        
+        return training_output
+
+    def _show_tsps_queue_management(self) -> str:
+        """Show TSPS call queue management and statistics."""
+        import random
+        
+        current_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        queue_output = f"""TSPS Call Queue Management
+Real-Time Status: {current_time}
+
+CURRENT QUEUE STATUS
+{'=' * 30}
+Calls in Queue:           {self.tsps_data['queue_length']}
+Average Wait Time:        {self.tsps_data['answer_time']:.1f} seconds
+Longest Wait:             {max(int(self.tsps_data['answer_time'] * 2), random.randint(45, 180))} seconds
+Queue Growth Rate:        {random.choice(['+', '-'])}{random.randint(1, 8)} calls/minute
+
+QUEUE BY SERVICE TYPE
+{'=' * 30}"""
+        
+        queue_breakdown = [
+            ("Person-to-Person", int(self.tsps_data['queue_length'] * 0.25), "HIGH"),
+            ("Collect Calls", int(self.tsps_data['queue_length'] * 0.35), "NORMAL"),
+            ("Directory Assistance", int(self.tsps_data['queue_length'] * 0.30), "NORMAL"),
+            ("Conference Setup", int(self.tsps_data['queue_length'] * 0.05), "LOW"),
+            ("International", int(self.tsps_data['queue_length'] * 0.05), "LOW")
+        ]
+        
+        for service, calls, priority in queue_breakdown:
+            queue_output += f"\n{service:<20} {calls:>2} calls  {priority} priority"
+        
+        queue_output += f"""
+
+QUEUE PERFORMANCE (Last Hour)
+{'=' * 30}
+Calls Answered:           {random.randint(280, 450)}
+Average Handle Time:      {self.tsps_data['avg_work_time']:.1f} seconds
+Service Level:            {random.uniform(0.92, 0.98):.1%} (answered <20 sec)
+Abandonment Rate:         {random.uniform(0.02, 0.08):.1%}
+Peak Queue Length:        {random.randint(15, 35)} calls
+
+TRAFFIC PATTERNS
+{'=' * 30}"""
+        
+        # Generate hourly queue patterns
+        for hour_offset in range(-3, 1):
+            pattern_hour = (datetime.now().hour + hour_offset) % 24
+            if 8 <= pattern_hour <= 17:
+                queue_size = random.randint(15, 35)
+                pattern = "Business Peak"
+            elif 17 <= pattern_hour <= 22:
+                queue_size = random.randint(8, 20)
+                pattern = "Evening Traffic"
+            else:
+                queue_size = random.randint(2, 8)
+                pattern = "Overnight"
+            
+            time_str = f"{pattern_hour:02d}:00"
+            queue_output += f"\n{time_str}  {queue_size:>2} calls avg  {pattern}"
+        
+        queue_output += f"""
+
+OPERATOR AVAILABILITY
+{'=' * 30}
+Available Operators:      {self.tsps_data['active_positions'] - random.randint(1, 3)}
+Busy Operators:           {random.randint(1, 3)}
+On Break:                 {random.randint(0, 2)}
+In Training:              {random.randint(0, 1)}
+
+QUEUE MANAGEMENT ALERTS
+{'=' * 30}"""
+        
+        alerts = []
+        if self.tsps_data['queue_length'] > 20:
+            alerts.append("⚠ WARNING: Queue length exceeds normal range")
+        if self.tsps_data['answer_time'] > 15:
+            alerts.append("⚠ NOTICE: Answer time above target")
+        if random.random() < 0.3:
+            alerts.append("ℹ INFO: Peak traffic period - additional operators requested")
+        
+        if alerts:
+            for alert in alerts:
+                queue_output += f"\n{alert}"
+        else:
+            queue_output += "\n✓ All queue metrics within normal range"
+        
+        queue_output += f"""
+
+RECOMMENDED ACTIONS
+{'=' * 30}
+• Monitor queue length closely during peak hours
+• Request overflow assistance if queue exceeds 25 calls
+• Implement call-back service for extended wait times
+• Track abandonment rate and adjust staffing accordingly"""
+        
+        return queue_output
+
+    def _get_shift_hours(self) -> str:
+        """Get current shift description."""
+        hour = datetime.now().hour
+        if 8 <= hour < 16:
+            return "Day Shift (08:00-16:00)"
+        elif 16 <= hour < 24:
+            return "Evening Shift (16:00-24:00)"
+        else:
+            return "Night Shift (24:00-08:00)"
+
+    def _show_available_tsps_reports(self) -> str:
+        """Show available TSPS reporting options."""
+        return """Available TSPS Reports:
+
+  tsps reports daily        Daily performance summary
+  tsps reports weekly       Weekly productivity analysis  
+  tsps reports monthly      Monthly operational report
+  tsps reports operators    Individual operator performance
+  tsps reports quality      Service quality metrics
+  tsps reports training     Training effectiveness report
+
+Use 'tsps reports <type>' to generate specific report"""
+
+    def _generate_tsps_report(self, report_type: str) -> str:
+        """Generate specific TSPS performance report."""
+        import random
+        
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        if report_type == "daily":
+            return f"""TSPS Daily Performance Report
+Generated: {current_time}
+
+DAILY SUMMARY
+{'=' * 20}
+Calls Handled:            {random.randint(2800, 4200):,}
+Average Handle Time:      {random.uniform(25, 40):.1f} seconds
+Service Level:            {random.uniform(0.92, 0.98):.1%}
+Customer Satisfaction:    {random.uniform(4.2, 4.8):.1f}/5.0
+Operator Utilization:     {random.uniform(0.75, 0.90):.1%}
+
+Peak traffic occurred at {random.randint(14, 16)}:{random.randint(0, 59):02d} with {random.randint(45, 65)} calls in queue."""
+        
+        elif report_type == "weekly":
+            return f"""TSPS Weekly Productivity Analysis  
+Generated: {current_time}
+
+WEEKLY PERFORMANCE TRENDS
+{'=' * 30}
+Total Calls:              {random.randint(18000, 28000):,}
+Average Daily Volume:     {random.randint(2800, 4200):,}
+Productivity Increase:    {random.uniform(2, 8):+.1f}% vs last week
+Quality Improvement:      {random.uniform(0.1, 0.5):+.1f} points
+Training Impact:          {random.uniform(5, 15):.0f}% improvement"""
+        
+        else:
+            return f"tsps: Report type '{report_type}' not implemented\nUse 'tsps reports' for available options"
 
     # Implement remaining critical commands with similar patterns
     def cmd_toll(self, args: List[str]) -> str:
@@ -4992,20 +6832,829 @@ Current Active Issues:
 For immediate Pentagon repair: service repair EV-8042"""
 
     def cmd_operator(self, args: List[str]) -> str:
-        """Operator services and assisted calling"""
-        return "Operator services - implementation follows pattern"
+        """Enhanced operator services with realistic assisted calling operations."""
+        import random
+        
+        if not args:
+            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            
+            return f"""Bell System Operator Services
+Assisted Calling and Special Services
+{current_time}
+
+CURRENT OPERATIONS STATUS
+{'=' * 35}
+Active Operators:         {random.randint(25, 45)} (Day Shift)
+Call Queue Length:        {random.randint(3, 18)} calls waiting
+Average Answer Time:      {random.uniform(3.2, 8.5):.1f} seconds
+Service Level:            {random.uniform(0.92, 0.98):.1%} (within 20 seconds)
+
+SERVICE TYPES AVAILABLE
+{'=' * 35}
+Person-to-Person:         Available
+Collect Calls:            Available
+Conference Calls:         Available (up to 8 parties)
+International:            Available (120+ countries)
+Directory Assistance:     Available 24/7
+Credit Card Calls:        Available
+Time and Weather:         Available
+
+PERFORMANCE METRICS
+{'=' * 35}
+Calls Completed Today:    {random.randint(2800, 4500):,}
+Average Handle Time:      {random.uniform(35, 55):.1f} seconds
+Customer Satisfaction:    {random.uniform(4.3, 4.8):.1f}/5.0 rating
+First Call Resolution:    {random.uniform(0.88, 0.95):.1%}
+
+Commands:
+  operator assist          Request operator assistance
+  operator conference      Set up conference call
+  operator international   International calling rates
+  operator status          Detailed service status"""
+
+        elif args[0] == "assist":
+            return self._handle_operator_assistance()
+
+        elif args[0] == "conference":
+            return self._setup_conference_call()
+
+        elif args[0] == "international":
+            return self._show_international_rates()
+
+        elif args[0] == "status":
+            return self._show_operator_detailed_status()
+
+        else:
+            available_commands = ["assist", "conference", "international", "status"]
+            return f"operator: Unknown option '{args[0]}'\nAvailable commands: {', '.join(available_commands)}"
+
+    def _handle_operator_assistance(self) -> str:
+        """Handle operator assistance request."""
+        import random
+        
+        assistance_types = [
+            "Person-to-person call to Chicago",
+            "Collect call setup",
+            "Conference call arrangement",
+            "International call to London",
+            "Credit card verification",
+            "Directory assistance request"
+        ]
+        
+        current_request = random.choice(assistance_types)
+        wait_time = random.uniform(2.5, 12.0)
+        
+        return f"""Operator Assistance Request
+{'=' * 30}
+
+Connecting you with the next available operator...
+
+Estimated Wait Time:      {wait_time:.1f} seconds
+Queue Position:           {random.randint(1, 8)}
+Service Type:             {current_request}
+
+Please hold while we connect your call.
+An operator will be with you shortly to assist with your request.
+
+For immediate assistance with emergencies, dial 0-911."""
+
+    def _setup_conference_call(self) -> str:
+        """Set up conference call with realistic procedures."""
+        import random
+        
+        return f"""Bell System Conference Call Setup
+{'=' * 40}
+
+Conference Bridge Available: Bridge-{random.randint(1, 12)}
+Maximum Participants:        8 parties
+Setup Time:                  {random.uniform(2.5, 5.0):.1f} minutes estimated
+
+CONFERENCE PROCEDURES
+{'=' * 30}
+1. Operator will place calls to each participant
+2. Each party will be placed on hold during setup
+3. All parties connected simultaneously when ready
+4. Conference moderator designated (calling party)
+5. Recording available if requested (additional charges apply)
+
+CURRENT RATES
+{'=' * 30}
+Setup Fee:                   $3.50
+Per-Minute Rate:            $0.85 per participant
+Overtime Surcharge:         25% after 6:00 PM
+Recording Fee:              $8.00 per hour
+
+Estimated Total Cost:       ${random.uniform(15.50, 45.75):.2f} for 30-minute call
+
+To proceed, please provide participant phone numbers when operator connects."""
+
+    def _show_international_rates(self) -> str:
+        """Show international calling rates and procedures."""
+        import random
+        
+        return f"""Bell System International Calling
+Rates and Service Information
+{'=' * 40}
+
+POPULAR DESTINATIONS (Per Minute)
+{'=' * 40}
+United Kingdom:              ${random.uniform(1.85, 2.25):.2f}
+France:                      ${random.uniform(2.10, 2.45):.2f}
+West Germany:                ${random.uniform(1.95, 2.35):.2f}
+Japan:                       ${random.uniform(3.25, 3.85):.2f}
+Australia:                   ${random.uniform(2.85, 3.25):.2f}
+Mexico:                      ${random.uniform(1.25, 1.65):.2f}
+Canada:                      ${random.uniform(0.85, 1.15):.2f}
+
+SERVICE OPTIONS
+{'=' * 40}
+Direct Dial International:   Available to 35+ countries
+Operator Assisted:           Available worldwide (120+ countries)
+Station-to-Station:          Standard rate
+Person-to-Person:           Additional $3.75 charge
+Collect Calls:              Accepted by most countries
+
+PEAK/OFF-PEAK RATES
+{'=' * 40}
+Peak Hours (8 AM - 6 PM):   Standard rates (above)
+Off-Peak (6 PM - 8 AM):     25% discount
+Weekend (Sat-Sun):          35% discount
+Holiday Rates:              Peak rates apply
+
+DIALING PROCEDURES
+{'=' * 40}
+Direct Dial:                011 + Country Code + Number
+Operator Assisted:          0 + Country Code + Number
+Emergency International:    Dial 0 for immediate assistance
+
+For current rates to specific countries, dial 0 for operator assistance."""
+
+    def _show_operator_detailed_status(self) -> str:
+        """Show detailed operator service status."""
+        import random
+        
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        return f"""Detailed Operator Services Status
+Report Generated: {current_time}
+
+STAFFING AND CAPACITY
+{'=' * 30}
+Total Operator Positions:    52
+Currently Staffed:          {random.randint(28, 45)}
+Available for Calls:        {random.randint(25, 42)}
+On Break:                   {random.randint(1, 4)}
+In Training:                {random.randint(0, 2)}
+
+CALL VOLUME STATISTICS
+{'=' * 30}
+Calls Today:                {random.randint(3200, 5800):,}
+Average per Hour:           {random.randint(180, 320)}
+Peak Hour Volume:           {random.randint(420, 680)} calls
+Current Queue Length:       {random.randint(2, 25)} calls
+
+SERVICE QUALITY METRICS
+{'=' * 30}
+Answer Time Average:        {random.uniform(3.8, 9.2):.1f} seconds
+Service Level Target:       85% answered within 20 seconds
+Current Service Level:      {random.uniform(0.82, 0.96):.1%}
+Customer Satisfaction:      {random.uniform(4.1, 4.7):.1f}/5.0 rating
+Call Completion Rate:       {random.uniform(0.94, 0.98):.1%}
+
+SPECIALIZED SERVICES
+{'=' * 30}
+Conference Calls Setup:     {random.randint(45, 125)} today
+International Assistance:   {random.randint(180, 340)} calls
+Directory Assistance:       {random.randint(1200, 2100)} requests
+Emergency Services:         {random.randint(8, 25)} calls
+Credit Verification:        {random.randint(95, 180)} transactions
+
+Next Shift Change: {(datetime.now() + timedelta(hours=random.randint(2, 6))).strftime('%H:%M EST')}"""
 
     def cmd_directory(self, args: List[str]) -> str:
-        """Directory assistance and number lookup"""
-        return "Directory assistance - implementation follows pattern"
+        """Enhanced directory assistance with realistic number lookup operations."""
+        import random
+        
+        if not args:
+            return f"""Bell System Directory Assistance
+Information Services and Number Lookup
+{'=' * 45}
+
+CURRENT SERVICE STATUS
+{'=' * 30}
+Service:                     Available 24/7
+Average Response Time:       {random.uniform(4.5, 8.2):.1f} seconds
+Information Accuracy:        {random.uniform(0.96, 0.99):.1%}
+Operator Availability:       {random.randint(18, 32)} operators on duty
+
+REQUEST VOLUME TODAY
+{'=' * 30}
+Directory Requests:          {random.randint(2400, 4200):,}
+Business Listings:           {random.randint(1200, 2100):,}
+Residential Listings:        {random.randint(1100, 1900):,}
+Government Numbers:          {random.randint(95, 180):,}
+
+AVAILABLE SERVICES
+{'=' * 30}
+Local Directory:             Free within calling area
+Long Distance Directory:     $0.50 per request
+Business Information:        Free (includes addresses)
+Government Listings:         Free
+New Listings:               Updated daily
+Unlisted Numbers:           Not available
+
+COVERAGE AREAS
+{'=' * 30}
+Local Exchange:              Complete coverage
+Metropolitan Area:           All exchanges covered
+Interstate:                  48 states + DC
+International:               Major cities only (limited)
+
+To request directory assistance: Dial 411 (local) or 1-Area Code-555-1212 (long distance)"""
+
+        elif args[0] == "lookup" and len(args) > 1:
+            return self._perform_directory_lookup(" ".join(args[1:]))
+
+        elif args[0] == "business":
+            return self._show_business_directory()
+
+        elif args[0] == "government":
+            return self._show_government_directory()
+
+        else:
+            available_commands = ["lookup", "business", "government"]
+            return f"directory: Unknown option '{args[0] if args else 'missing'}'\nAvailable commands: {', '.join(available_commands)}"
+
+    def _perform_directory_lookup(self, search_term: str) -> str:
+        """Perform a realistic directory lookup simulation."""
+        import random
+        
+        # Generate realistic directory entries
+        sample_listings = [
+            ("JOHNSON, ROBERT", "212-555-4729", "147 W 42ND ST"),
+            ("SMITH, MARY E", "212-555-8361", "89 PARK AVE"),
+            ("ACME CORPORATION", "212-555-9000", "250 BROADWAY"),
+            ("BROWN, JAMES", "617-555-2847", "BOSTON, MA"),
+            ("CITY HALL", "212-555-1000", "MUNICIPAL BLDG"),
+            ("WILLIAMS, SUSAN", "718-555-5623", "BROOKLYN, NY")
+        ]
+        
+        found_listing = random.choice(sample_listings)
+        search_time = random.uniform(3.5, 8.5)
+        
+        return f"""Directory Assistance Lookup Result
+{'=' * 40}
+
+Search Term: "{search_term}"
+Search Time: {search_time:.1f} seconds
+
+LISTING FOUND
+{'=' * 20}
+Name:        {found_listing[0]}
+Number:      {found_listing[1]}
+Address:     {found_listing[2]}
+
+Status:      CURRENT LISTING
+Last Update: {(datetime.now() - timedelta(days=random.randint(1, 90))).strftime('%B %Y')}
+
+Charges: {'Free (local)' if random.random() > 0.3 else '$0.50 (long distance)'}
+
+Would you like this number connected automatically?
+Additional charge: $0.25 for direct connection."""
+
+    def _show_business_directory(self) -> str:
+        """Show business directory services."""
+        import random
+        
+        return f"""Business Directory Services
+{'=' * 35}
+
+BUSINESS CATEGORIES
+{'=' * 25}
+Banking and Finance:         {random.randint(180, 320)} listings
+Medical Services:            {random.randint(240, 450)} listings
+Legal Services:              {random.randint(95, 180)} listings
+Restaurants:                 {random.randint(450, 780)} listings
+Retail and Shopping:         {random.randint(680, 1200)} listings
+Transportation:              {random.randint(120, 220)} listings
+Government Services:         {random.randint(85, 150)} listings
+
+FEATURED BUSINESS LISTINGS
+{'=' * 35}
+ABC TAXI SERVICE            212-555-TAXI (8294)
+CITY HOSPITAL               212-555-9911
+FIRST NATIONAL BANK         212-555-2100
+GRAND CENTRAL STATION       212-555-4455
+MACY'S DEPARTMENT STORE     212-555-6700
+
+YELLOW PAGES INFORMATION
+{'=' * 35}
+Total Business Listings:    {random.randint(8500, 12000):,}
+Updated:                    Monthly
+Advertising Available:      Contact 212-555-SELL
+Directory Distribution:     Free to all customers
+
+For specific business lookups, dial 411 or use 'directory lookup <business name>'"""
+
+    def _show_government_directory(self) -> str:
+        """Show government directory listings."""
+        return f"""Government Directory Listings
+{'=' * 40}
+
+EMERGENCY SERVICES
+{'=' * 25}
+Police Emergency:            911
+Fire Department:             911
+Ambulance/EMS:              911
+Poison Control:             212-555-1212
+
+FEDERAL GOVERNMENT
+{'=' * 25}
+Federal Information:         202-555-1212
+Internal Revenue Service:    800-555-1040
+Social Security Admin:       800-555-1213
+Veterans Administration:     212-555-4400
+
+STATE AND LOCAL
+{'=' * 25}
+City Hall:                  212-555-1000
+Department of Motor Vehicles: 212-555-2020
+Public Works:               212-555-3000
+Building Department:        212-555-3500
+Board of Elections:         212-555-8683
+
+COURTS AND LEGAL
+{'=' * 25}
+Municipal Court:            212-555-7000
+County Clerk:               212-555-7500
+Legal Aid Society:          212-555-9200
+
+All government directory assistance is provided free of charge."""
 
     def cmd_crossbar(self, args: List[str]) -> str:
-        """Crossbar switching system controls"""
-        return "Crossbar system operations - implementation follows pattern"
+        """Enhanced crossbar switching system with realistic electromechanical operations."""
+        import random
+        
+        if not args:
+            return f"""Bell System Crossbar Switching Systems
+Electromechanical Central Office Equipment
+{'=' * 50}
+
+CROSSBAR SYSTEMS STATUS
+{'=' * 30}"""
+            
+            # Show crossbar systems from our initialized state
+            crossbar_output = ""
+            for xb_id, xb_data in self.crossbar_systems.items():
+                status_detail = f"Normal operation"
+                if xb_data["maintenance_due"]:
+                    status_detail = "Preventive maintenance due"
+                elif xb_data["status"] == "MAINT":
+                    status_detail = "Under maintenance"
+                    
+                crossbar_output += f"""
+{xb_id}:
+  Status:           {xb_data['status']}
+  Load:             {xb_data['load']}%
+  Condition:        {status_detail}"""
+            
+            crossbar_output += f"""
+
+SYSTEM CHARACTERISTICS
+{'=' * 30}
+Switch Type:                 Electromechanical Crossbar
+Switching Speed:             {random.uniform(0.8, 1.5):.1f} seconds average
+Capacity:                    {random.randint(8000, 12000)} lines per system
+Reliability:                 {random.uniform(0.985, 0.995):.2%} uptime
+
+MECHANICAL COMPONENTS
+{'=' * 30}
+Crossbar Switches:           {random.randint(450, 680)} units
+Markers:                     {random.randint(18, 24)} active
+Senders:                     {random.randint(45, 60)} available
+Connectors:                  {random.randint(180, 240)} operational
+Registers:                   {random.randint(95, 140)} in service
+
+Commands:
+  crossbar status <system>    Detailed system status
+  crossbar test <system>      Run mechanical tests
+  crossbar maintenance        Maintenance schedule
+  crossbar performance        Performance analysis"""
+
+        elif args[0] == "status" and len(args) > 1:
+            system_id = args[1].upper()
+            return self._show_crossbar_system_status(system_id)
+
+        elif args[0] == "test" and len(args) > 1:
+            system_id = args[1].upper()
+            return self._run_crossbar_mechanical_test(system_id)
+
+        elif args[0] == "maintenance":
+            return self._show_crossbar_maintenance()
+
+        elif args[0] == "performance":
+            return self._show_crossbar_performance()
+
+        else:
+            available_commands = ["status", "test", "maintenance", "performance"]
+            return f"crossbar: Unknown option '{args[0] if args else 'missing'}'\nAvailable commands: {', '.join(available_commands)}"
+
+    def _show_crossbar_system_status(self, system_id: str) -> str:
+        """Show detailed crossbar system status."""
+        import random
+        
+        if system_id not in self.crossbar_systems:
+            return f"crossbar: System {system_id} not found\nAvailable systems: {', '.join(self.crossbar_systems.keys())}"
+        
+        system = self.crossbar_systems[system_id]
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        return f"""Crossbar System Status: {system_id}
+Status Report: {current_time}
+
+SYSTEM OVERVIEW
+{'=' * 25}
+System Status:               {system['status']}
+Traffic Load:                {system['load']}%
+Maintenance Due:             {'YES' if system['maintenance_due'] else 'NO'}
+Last Inspection:             {(datetime.now() - timedelta(days=random.randint(30, 180))).strftime('%B %d, %Y')}
+
+MECHANICAL COMPONENTS
+{'=' * 25}
+Crossbar Switches:           {random.randint(85, 100)}% operational
+Contact Condition:           {'GOOD' if not system['maintenance_due'] else 'REQUIRES ATTENTION'}
+Spring Tension:              Within specifications
+Relay Response Time:         {random.uniform(15, 35):.1f} milliseconds
+
+TRAFFIC STATISTICS
+{'=' * 25}
+Calls Processed Today:       {random.randint(15000, 35000):,}
+Peak Hour Load:              {random.randint(85, 98)}%
+Average Setup Time:          {random.uniform(0.8, 2.2):.1f} seconds
+Blocking Rate:               {random.uniform(0.001, 0.015):.3f}
+
+PERFORMANCE METRICS
+{'=' * 25}
+Call Completion Rate:        {random.uniform(0.92, 0.97):.1%}
+Equipment Reliability:       {random.uniform(0.985, 0.995):.2%}
+Maintenance Interval:        {'OVERDUE' if system['maintenance_due'] else 'CURRENT'}
+
+{'RECOMMENDATION: Schedule immediate maintenance' if system['maintenance_due'] else 'STATUS: Normal operation'}"""
+
+    def _run_crossbar_mechanical_test(self, system_id: str) -> str:
+        """Run mechanical tests on crossbar system."""
+        import random
+        
+        if system_id not in self.crossbar_systems:
+            return f"crossbar: System {system_id} not found"
+        
+        system = self.crossbar_systems[system_id]
+        
+        return f"""Crossbar Mechanical Test Sequence: {system_id}
+Test Initiated: {datetime.now().strftime('%H:%M:%S EST')}
+
+MECHANICAL TEST SUITE
+{'=' * 30}
+Contact Resistance Test:     {'PASS' if random.random() > 0.1 else 'FAIL'} ({random.uniform(0.5, 2.8):.1f} ohms)
+Spring Tension Check:        {'PASS' if random.random() > 0.15 else 'MARGINAL'} ({random.uniform(28, 35):.1f} grams)
+Relay Operation Test:        {'PASS' if random.random() > 0.08 else 'FAIL'} ({random.uniform(18, 45):.1f} ms response)
+Switch Matrix Scan:          {'PASS' if random.random() > 0.12 else 'FAIL'} ({random.randint(890, 920)}/920 contacts OK)
+Motor Drive Check:           {'PASS' if random.random() > 0.05 else 'FAIL'} (RPM within spec)
+Timing Verification:         {'PASS' if random.random() > 0.20 else 'MARGINAL'} (±{random.uniform(2, 8):.1f}% deviation)
+
+LUBRICATION STATUS
+{'=' * 30}
+Contact Points:              {'ADEQUATE' if not system['maintenance_due'] else 'LOW'}
+Pivot Bearings:              {'GOOD' if not system['maintenance_due'] else 'DRY'}
+Drive Mechanisms:            {'LUBRICATED' if not system['maintenance_due'] else 'REQUIRES SERVICE'}
+
+Test Duration: {random.randint(45, 180)} seconds
+Overall Result: {'PASS - System operational' if not system['maintenance_due'] else 'MARGINAL - Maintenance recommended'}
+
+Use 'crossbar maintenance' for service scheduling."""
+
+    def _show_crossbar_maintenance(self) -> str:
+        """Show crossbar maintenance requirements and schedule."""
+        import random
+        
+        return f"""Crossbar System Maintenance Schedule
+{'=' * 45}
+
+MAINTENANCE REQUIREMENTS
+{'=' * 35}
+Contact Cleaning:            Every 6 months
+Lubrication:                 Every 3 months  
+Timing Adjustment:           Annually
+Complete Inspection:         Every 18 months
+
+CURRENT MAINTENANCE STATUS
+{'=' * 35}"""
+        
+        maintenance_output = ""
+        for xb_id, xb_data in self.crossbar_systems.items():
+            next_maint = "OVERDUE" if xb_data["maintenance_due"] else f"{random.randint(15, 90)} days"
+            maintenance_output += f"""
+{xb_id}:
+  Last Service:        {(datetime.now() - timedelta(days=random.randint(60, 200))).strftime('%B %d, %Y')}
+  Next Due:            {next_maint}
+  Priority:            {'HIGH' if xb_data['maintenance_due'] else 'NORMAL'}"""
+        
+        maintenance_output += f"""
+
+MAINTENANCE PROCEDURES
+{'=' * 35}
+• Contact cleaning with approved solvents
+• Spring tension adjustment and calibration
+• Relay timing verification and adjustment
+• Motor brush inspection and replacement
+• Lubrication of all mechanical components
+• Complete operational testing
+
+Estimated Service Time: 4-6 hours per system
+Maintenance Window: 02:00-06:00 EST (low traffic period)
+
+Contact: Electromechanical Maintenance Team ext 4380"""
+        
+        return maintenance_output
+
+    def _show_crossbar_performance(self) -> str:
+        """Show crossbar performance analysis."""
+        import random
+        
+        return f"""Crossbar System Performance Analysis
+Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+
+PERFORMANCE COMPARISON
+{'=' * 35}"""
+        
+        performance_output = ""
+        for xb_id, xb_data in self.crossbar_systems.items():
+            efficiency = random.uniform(0.88, 0.95)
+            setup_time = random.uniform(0.9, 2.5)
+            performance_output += f"""
+{xb_id}:
+  Efficiency:          {efficiency:.1%}
+  Avg Setup Time:      {setup_time:.1f} seconds
+  Reliability:         {random.uniform(0.985, 0.996):.2%}
+  Maintenance Score:   {'EXCELLENT' if not xb_data['maintenance_due'] else 'FAIR'}"""
+        
+        performance_output += f"""
+
+HISTORICAL TRENDS
+{'=' * 35}
+Reliability Trend:           {random.choice(['↑ Improving', '→ Stable', '↓ Declining'])}
+Maintenance Costs:           ${random.randint(15000, 35000):,} (last quarter)
+Service Quality:             {random.uniform(0.92, 0.97):.1%} customer satisfaction
+
+TECHNOLOGY COMPARISON
+{'=' * 35}
+Crossbar vs Electronic:      Electronic 40% faster setup
+Maintenance Requirements:    Crossbar requires 3x more service
+Reliability:                 Electronic 15% more reliable
+Cost of Operation:           Crossbar 25% higher operating cost
+
+MODERNIZATION PLANNING
+{'=' * 35}
+Replacement Schedule:        5ESS deployment in progress
+Migration Timeline:          24-36 months for complete conversion
+Training Requirements:       Technician retraining program active"""
+        
+        return performance_output
 
     def cmd_netplan(self, args: List[str]) -> str:
-        """Network planning and route optimization"""
-        return "Network planning - implementation follows pattern"
+        """Enhanced network planning with realistic route optimization and capacity analysis."""
+        import random
+        
+        if not args:
+            return f"""Bell System Network Planning and Engineering
+Route Optimization and Capacity Management
+{'=' * 50}
+
+CURRENT PLANNING ACTIVITIES
+{'=' * 35}
+Active Projects:             {random.randint(8, 15)}
+Capacity Studies:            {random.randint(3, 8)} in progress
+Route Optimization:          {random.randint(2, 6)} analyses
+Equipment Planning:          {random.randint(4, 12)} evaluations
+
+NETWORK GROWTH PROJECTIONS
+{'=' * 35}
+Annual Traffic Growth:       {random.uniform(12, 18):.1f}%
+New Circuit Requirements:    {random.randint(45, 85)} T1 equivalents
+Equipment Expansion:         ${random.uniform(2.5, 8.5):.1f}M investment needed
+Service Area Growth:         {random.randint(3, 8)} new exchanges
+
+CURRENT STUDIES
+{'=' * 35}
+NYC-WAS Corridor:           Capacity upgrade analysis
+Chicago Hub:                Route diversity study  
+West Coast Links:           Fiber optic feasibility
+Rural Coverage:             Economic analysis
+
+Commands:
+  netplan capacity           Network capacity analysis
+  netplan routes             Route planning and optimization
+  netplan growth             Traffic growth projections
+  netplan investment         Capital investment planning"""
+
+        elif args[0] == "capacity":
+            return self._show_network_capacity_analysis()
+
+        elif args[0] == "routes":
+            return self._show_route_planning()
+
+        elif args[0] == "growth":
+            return self._show_traffic_growth_projections()
+
+        elif args[0] == "investment":
+            return self._show_investment_planning()
+
+        else:
+            available_commands = ["capacity", "routes", "growth", "investment"]
+            return f"netplan: Unknown option '{args[0] if args else 'missing'}'\nAvailable commands: {', '.join(available_commands)}"
+
+    def _show_network_capacity_analysis(self) -> str:
+        """Show comprehensive network capacity analysis."""
+        import random
+        
+        return f"""Network Capacity Analysis
+Report Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+
+CURRENT NETWORK UTILIZATION
+{'=' * 40}
+Overall Network Load:        {random.randint(65, 85)}% of capacity
+Peak Hour Utilization:      {random.randint(85, 95)}%
+Reserve Capacity:           {random.randint(15, 35)}% margin
+Critical Routes:            {random.randint(3, 8)} approaching limits
+
+HIGH-UTILIZATION ROUTES
+{'=' * 40}
+NYC-Washington Corridor:     {random.randint(85, 95)}% utilization
+Chicago-New York:           {random.randint(80, 90)}% utilization
+Los Angeles-San Francisco:  {random.randint(70, 85)}% utilization
+Boston-New York:            {random.randint(75, 88)}% utilization
+
+CAPACITY CONSTRAINTS
+{'=' * 40}
+Equipment Limitations:       {random.randint(2, 6)} locations
+Facility Constraints:        {random.randint(1, 4)} rights-of-way
+Economic Thresholds:         {random.randint(3, 7)} marginal routes
+
+EXPANSION RECOMMENDATIONS
+{'=' * 40}
+Immediate (6 months):        {random.randint(15, 25)} new circuits
+Short-term (12 months):      {random.randint(35, 55)} circuit additions
+Long-term (24 months):       {random.randint(65, 95)} circuit expansion
+
+Investment Required:         ${random.uniform(15.5, 35.8):.1f}M total
+Revenue Impact:              ${random.uniform(8.2, 18.5):.1f}M annually
+ROI Projection:             {random.uniform(18, 35):.0f}% over 5 years"""
+
+    def _show_route_planning(self) -> str:
+        """Show route planning and optimization analysis."""
+        import random
+        
+        return f"""Route Planning and Optimization
+Analysis Date: {datetime.now().strftime('%B %d, %Y')}
+
+ROUTE OPTIMIZATION STUDIES
+{'=' * 40}
+Primary Route Analysis:      {random.randint(12, 24)} routes evaluated
+Alternate Path Planning:     {random.randint(6, 15)} backup routes
+Diversity Requirements:      {random.randint(85, 95)}% geographic separation
+Load Balancing Efficiency:  {random.uniform(0.88, 0.95):.1%}
+
+MAJOR ROUTE CORRIDORS
+{'=' * 40}
+Northeast Corridor:
+  Primary Path:              I-95 Fiber Route
+  Utilization:              {random.randint(75, 90)}%
+  Backup Available:         Microwave diversity
+  Expansion Plan:           Additional fiber planned 1984
+
+Transcontinental Routes:
+  Northern Route:           CHI-DEN-SFO via I-80
+  Southern Route:           CHI-DAL-LAX via I-40  
+  Utilization Balance:      {random.randint(65, 85)}% / {random.randint(55, 75)}%
+
+ROUTE ECONOMICS
+{'=' * 40}
+Cost per Circuit Mile:       ${random.randint(285, 450)}
+Installation Time:           {random.randint(8, 18)} months average
+Permit Acquisition:          {random.randint(3, 12)} months
+Environmental Review:        {random.randint(6, 24)} months
+
+TECHNOLOGY PLANNING
+{'=' * 40}
+Fiber Optic Deployment:     35% of new routes
+Digital Microwave:          45% of new routes  
+Satellite Backup:           20% for remote areas
+Copper Retirement:          Systematic replacement program
+
+Next Planning Review: {(datetime.now() + timedelta(days=90)).strftime('%B %d, %Y')}"""
+
+    def _show_traffic_growth_projections(self) -> str:
+        """Show traffic growth projections and forecasting."""
+        import random
+        
+        return f"""Traffic Growth Projections and Forecasting
+Forecast Period: 1984-1988
+{'=' * 50}
+
+HISTORICAL GROWTH ANALYSIS
+{'=' * 40}
+1980-1983 Growth Rate:       {random.uniform(8.5, 15.2):.1f}% annually
+Voice Traffic:              {random.uniform(6.2, 12.8):.1f}% annual growth
+Data Traffic:               {random.uniform(25.5, 45.8):.1f}% annual growth
+International:              {random.uniform(18.2, 28.5):.1f}% annual growth
+
+5-YEAR PROJECTIONS (1984-1988)
+{'=' * 40}
+Total Call Volume Growth:    {random.uniform(65, 125):.0f}% increase
+Peak Hour Calls:            From {random.randint(850, 950)}K to {random.randint(1400, 1800)}K
+Data Communication:          {random.uniform(180, 320):.0f}% growth expected
+Video Services:             Emerging market - 5% by 1988
+
+TECHNOLOGY IMPACT
+{'=' * 40}
+Digital Switching:          85% deployment by 1988
+Fiber Optic Transmission:  70% of long-haul by 1988
+ISDN Services:             15% market penetration
+Mobile Communications:      2% of total traffic
+
+CAPACITY REQUIREMENTS
+{'=' * 40}
+New Switching Capacity:     {random.uniform(2.2, 3.8):.1f}M additional ports
+Transmission Expansion:     {random.uniform(45, 75):.0f}% more circuits
+Operator Positions:         {random.uniform(-15, -25):.0f}% reduction (automation)
+Data Processing:            {random.uniform(250, 450):.0f}% increase
+
+INVESTMENT PROJECTIONS
+{'=' * 40}
+Total Investment (5-year):  ${random.uniform(12.5, 28.8):.1f}B
+Network Expansion:          ${random.uniform(7.2, 15.5):.1f}B
+Technology Upgrade:         ${random.uniform(3.8, 8.5):.1f}B
+Facilities:                 ${random.uniform(1.5, 4.8):.1f}B
+
+Revenue Projections:        ${random.uniform(45.5, 78.2):.1f}B (1988)
+Market Share Target:        {random.uniform(78, 88):.0f}% of US telecommunications"""
+
+    def _show_investment_planning(self) -> str:
+        """Show capital investment planning analysis."""
+        import random
+        
+        return f"""Capital Investment Planning Analysis
+Planning Horizon: 1984-1988
+{'=' * 50}
+
+INVESTMENT CATEGORIES
+{'=' * 40}
+Network Infrastructure:     ${random.uniform(8.5, 15.2):.1f}B ({random.uniform(45, 65):.0f}%)
+Technology Modernization:   ${random.uniform(3.2, 7.8):.1f}B ({random.uniform(18, 28):.0f}%)
+Facilities and Buildings:   ${random.uniform(1.8, 4.5):.1f}B ({random.uniform(10, 18):.0f}%)
+Research and Development:   ${random.uniform(1.2, 2.8):.1f}B ({random.uniform(8, 15):.0f}%)
+
+PRIORITY PROJECTS
+{'=' * 40}
+Electronic Switching:       ${random.uniform(4.5, 8.2):.1f}B
+  - 5ESS Deployment
+  - Legacy System Replacement
+  - Digital Feature Enhancement
+
+Fiber Optic Network:        ${random.uniform(2.8, 5.5):.1f}B
+  - Long-haul Routes
+  - Metropolitan Networks
+  - Customer Access
+
+TNDS Expansion:            ${random.uniform(0.8, 1.8):.1f}B
+  - Processing Capacity
+  - Database Systems
+  - Analysis Tools
+
+FINANCIAL PROJECTIONS
+{'=' * 40}
+Total Capital Required:     ${random.uniform(15.8, 32.5):.1f}B
+Financing Sources:
+  Internal Cash Flow:       {random.uniform(55, 75):.0f}%
+  Long-term Debt:          {random.uniform(20, 35):.0f}%
+  Equipment Leasing:       {random.uniform(5, 15):.0f}%
+
+Expected ROI:              {random.uniform(15, 25):.1f}% over 7 years
+Payback Period:            {random.uniform(4.2, 6.8):.1f} years average
+Risk Assessment:           MODERATE (technology transition)
+
+ECONOMIC IMPACT
+{'=' * 40}
+Job Creation:              {random.randint(15000, 35000):,} new positions
+Economic Stimulus:         ${random.uniform(25.8, 48.5):.1f}B regional impact
+Productivity Gain:         {random.uniform(25, 45):.0f}% operational efficiency
+Service Quality:           {random.uniform(15, 28):.0f}% improvement target
+
+Regulatory Approval:       Required for major projects
+Environmental Impact:      Assessments in progress
+Public Service Benefits:   Universal service expansion"""
+        
+        return investment_output
 
     def cmd_dbquery(self, args: List[str]) -> str:
         """Database query and management tools"""
