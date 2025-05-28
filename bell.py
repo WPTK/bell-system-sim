@@ -224,6 +224,11 @@ class BellSystemTerminal:
         self._initialize_traffic_state()
         self._initialize_alarm_state()
         
+        # Initialize geographic and infrastructure authenticity
+        self._initialize_nanpa_data()
+        self._initialize_bell_system_infrastructure()
+        self._initialize_enhanced_ticket_system()
+        
         # Generate initial shift events
         self.generate_shift_events()
 
@@ -3736,6 +3741,400 @@ UNIX V7 PROGRAMMER'S MANUAL
         header += "   PID TTY      TIME CMD\n"
         
         return header + "\n".join(processes)
+
+    def _initialize_nanpa_data(self) -> None:
+        """Initialize authentic NANPA geographic data for Bell System infrastructure."""
+        import csv
+        import random
+        
+        # Load and process NANPA data for authentic Bell System operations
+        self.nanpa_data = {}
+        self.bell_system_exchanges = {}
+        
+        try:
+            # Read NANPA CSV data
+            with open('attached_assets/full_dataset_csv.csv', 'r') as csvfile:
+                reader = csv.DictReader(csvfile)
+                
+                # Sample and process key Bell System service areas from 1978-1983 era
+                bell_system_areas = ['212', '213', '214', '215', '216', '301', '302', '303', '305', '312', '313', '314', '401', '404', '412', '413', '414', '415', '416', '501', '502', '503', '504', '505', '507', '509', '512', '513', '515', '516', '517', '518', '601', '602', '603', '605', '606', '607', '608', '609', '612', '614', '615', '616', '617', '618', '701', '702', '703', '704', '712', '713', '714', '715', '716', '717', '718', '801', '802', '803', '804', '805', '806', '807', '808', '812', '813', '814', '815', '816', '817', '901', '902', '904', '906', '907', '912', '913', '914', '915', '916', '918', '919']
+                
+                row_count = 0
+                for row in reader:
+                    row_count += 1
+                    if row_count > 50000:  # Limit processing for performance
+                        break
+                        
+                    npa = row['npa']
+                    nxx = row['nxx']
+                    city = row['city']
+                    state = row['state']
+                    
+                    # Focus on US Bell System territories
+                    if npa in bell_system_areas and row['country'] == 'United States':
+                        if npa not in self.nanpa_data:
+                            self.nanpa_data[npa] = {}
+                        
+                        if nxx not in self.nanpa_data[npa]:
+                            self.nanpa_data[npa][nxx] = []
+                        
+                        self.nanpa_data[npa][nxx].append({
+                            'city': city,
+                            'state': state,
+                            'latitude': row.get('latitude', '0'),
+                            'longitude': row.get('longitude', '0')
+                        })
+                        
+        except FileNotFoundError:
+            # Fallback to core Bell System data if file not accessible
+            self.nanpa_data = {
+                '212': {'555': [{'city': 'New York', 'state': 'NY', 'latitude': '40.7128', 'longitude': '-74.0060'}]},
+                '213': {'555': [{'city': 'Los Angeles', 'state': 'CA', 'latitude': '34.0522', 'longitude': '-118.2437'}]},
+                '312': {'555': [{'city': 'Chicago', 'state': 'IL', 'latitude': '41.8781', 'longitude': '-87.6298'}]},
+                '617': {'555': [{'city': 'Boston', 'state': 'MA', 'latitude': '42.3601', 'longitude': '-71.0589'}]},
+                '301': {'555': [{'city': 'Washington', 'state': 'DC', 'latitude': '38.9072', 'longitude': '-77.0369'}]}
+            }
+
+    def _initialize_bell_system_infrastructure(self) -> None:
+        """Initialize authentic Bell System infrastructure based on NANPA data."""
+        import random
+        
+        # Create realistic Bell System central offices and switching centers
+        self.central_offices = {}
+        self.switching_centers = {}
+        self.microwave_sites = {}
+        
+        # Generate central offices based on NANPA data
+        for npa, exchanges in self.nanpa_data.items():
+            for nxx, locations in exchanges.items():
+                if locations:
+                    location = locations[0]  # Use first location for office
+                    office_code = f"{npa}{nxx}"
+                    
+                    # Create central office with authentic Bell System characteristics
+                    self.central_offices[office_code] = {
+                        'npa': npa,
+                        'nxx': nxx,
+                        'city': location['city'],
+                        'state': location['state'],
+                        'switch_type': random.choice(['1ESS', '2ESS', '3ESS', '4ESS', '5ESS', 'CROSSBAR', 'STEP']),
+                        'capacity': random.randint(5000, 40000),
+                        'utilization': random.randint(45, 85),
+                        'trunk_groups': random.randint(12, 48),
+                        'installation_date': f"19{random.randint(65, 83)}",
+                        'maintenance_status': random.choice(['NORMAL', 'SCHEDULED', 'EMERGENCY']),
+                        'coordinates': (location['latitude'], location['longitude'])
+                    }
+        
+        # Generate major switching centers for key metropolitan areas
+        major_metros = [
+            ('212', 'New York', 'NY', '4ESS'), ('213', 'Los Angeles', 'CA', '4ESS'),
+            ('312', 'Chicago', 'IL', '4ESS'), ('617', 'Boston', 'MA', '4ESS'),
+            ('301', 'Washington', 'DC', '4ESS'), ('215', 'Philadelphia', 'PA', '4ESS'),
+            ('313', 'Detroit', 'MI', '4ESS'), ('404', 'Atlanta', 'GA', '4ESS'),
+            ('713', 'Houston', 'TX', '4ESS'), ('415', 'San Francisco', 'CA', '4ESS')
+        ]
+        
+        for npa, city, state, switch_type in major_metros:
+            center_id = f"TSC-{npa}-001"
+            self.switching_centers[center_id] = {
+                'npa': npa,
+                'city': city,
+                'state': state,
+                'type': 'TOLL_SWITCHING_CENTER',
+                'switch_type': switch_type,
+                'capacity': random.randint(100000, 500000),
+                'routes': random.randint(45, 125),
+                'status': 'OPERATIONAL',
+                'traffic_load': random.randint(65, 90)
+            }
+
+    def _initialize_enhanced_ticket_system(self) -> None:
+        """Initialize comprehensive ticket management system with realistic scenarios."""
+        import random
+        
+        # Enhanced ticket categories with Bell System authenticity
+        self.ticket_categories = {
+            'NETWORK_OUTAGE': {
+                'priority_weights': {'CRITICAL': 0.15, 'MAJOR': 0.35, 'MINOR': 0.50},
+                'typical_duration': {'CRITICAL': (30, 240), 'MAJOR': (60, 480), 'MINOR': (120, 720)},
+                'customer_impact': {'CRITICAL': (1000, 50000), 'MAJOR': (100, 5000), 'MINOR': (10, 500)}
+            },
+            'EQUIPMENT_FAILURE': {
+                'priority_weights': {'CRITICAL': 0.20, 'MAJOR': 0.45, 'MINOR': 0.35},
+                'typical_duration': {'CRITICAL': (45, 180), 'MAJOR': (90, 360), 'MINOR': (180, 600)},
+                'customer_impact': {'CRITICAL': (500, 25000), 'MAJOR': (50, 2500), 'MINOR': (5, 250)}
+            },
+            'SERVICE_INTERRUPTION': {
+                'priority_weights': {'CRITICAL': 0.10, 'MAJOR': 0.30, 'MINOR': 0.60},
+                'typical_duration': {'CRITICAL': (15, 120), 'MAJOR': (30, 240), 'MINOR': (60, 480)},
+                'customer_impact': {'CRITICAL': (100, 10000), 'MAJOR': (25, 1000), 'MINOR': (1, 100)}
+            },
+            'MAINTENANCE': {
+                'priority_weights': {'CRITICAL': 0.05, 'MAJOR': 0.25, 'MINOR': 0.70},
+                'typical_duration': {'CRITICAL': (60, 300), 'MAJOR': (120, 480), 'MINOR': (240, 720)},
+                'customer_impact': {'CRITICAL': (0, 5000), 'MAJOR': (0, 500), 'MINOR': (0, 50)}
+            },
+            'TRAFFIC_ANOMALY': {
+                'priority_weights': {'CRITICAL': 0.08, 'MAJOR': 0.32, 'MINOR': 0.60},
+                'typical_duration': {'CRITICAL': (20, 90), 'MAJOR': (45, 180), 'MINOR': (90, 360)},
+                'customer_impact': {'CRITICAL': (1000, 100000), 'MAJOR': (100, 10000), 'MINOR': (10, 1000)}
+            }
+        }
+        
+        # Initialize dynamic ticket generation
+        self.active_tickets = []
+        self.ticket_counter = 4500  # Start from realistic Bell System ticket numbers
+        self.completed_tickets = []
+        
+        # Generate initial realistic ticket scenarios
+        self._generate_initial_tickets()
+
+    def _generate_initial_tickets(self) -> None:
+        """Generate initial realistic trouble tickets for the simulation session."""
+        import random
+        
+        # Generate 8-15 initial tickets for authentic operational load
+        initial_ticket_count = random.randint(8, 15)
+        
+        for _ in range(initial_ticket_count):
+            self._create_realistic_ticket()
+
+    def _create_realistic_ticket(self) -> dict:
+        """Create a realistic trouble ticket with authentic Bell System characteristics."""
+        import random
+        
+        # Select ticket category and priority
+        category = random.choice(list(self.ticket_categories.keys()))
+        category_data = self.ticket_categories[category]
+        
+        # Determine priority based on realistic weights
+        priority_choices = list(category_data['priority_weights'].keys())
+        priority_weights = list(category_data['priority_weights'].values())
+        priority = random.choices(priority_choices, weights=priority_weights)[0]
+        
+        # Generate ticket ID
+        self.ticket_counter += random.randint(1, 5)
+        ticket_id = f"TK-{self.ticket_counter}"
+        
+        # Select affected infrastructure from NANPA data
+        affected_office = self._select_affected_infrastructure()
+        
+        # Generate realistic scenario based on category
+        scenario = self._generate_ticket_scenario(category, priority, affected_office)
+        
+        # Calculate realistic duration and impact
+        duration_range = category_data['typical_duration'][priority]
+        estimated_duration = random.randint(*duration_range)
+        
+        impact_range = category_data['customer_impact'][priority]
+        customer_impact = random.randint(*impact_range)
+        
+        # Create comprehensive ticket
+        ticket = {
+            'id': ticket_id,
+            'category': category,
+            'priority': priority,
+            'title': scenario['title'],
+            'description': scenario['description'],
+            'affected_office': affected_office,
+            'customer_impact': customer_impact,
+            'estimated_duration': estimated_duration,
+            'status': 'OPEN',
+            'assigned_team': scenario['assigned_team'],
+            'created_time': datetime.now() - timedelta(minutes=random.randint(10, 480)),
+            'escalation_level': 1,
+            'technical_details': scenario['technical_details'],
+            'required_actions': scenario['actions'],
+            'equipment_involved': scenario.get('equipment', []),
+            'geographic_scope': scenario.get('scope', 'LOCAL'),
+            'business_impact': self._calculate_business_impact(priority, customer_impact),
+            'resolution_steps': []
+        }
+        
+        self.active_tickets.append(ticket)
+        return ticket
+
+    def _select_affected_infrastructure(self) -> dict:
+        """Select realistic affected infrastructure from Bell System network."""
+        import random
+        
+        if self.central_offices:
+            office_code = random.choice(list(self.central_offices.keys()))
+            return self.central_offices[office_code]
+        else:
+            # Fallback to major metropolitan areas
+            return {
+                'npa': '212',
+                'nxx': '555',
+                'city': 'New York',
+                'state': 'NY',
+                'switch_type': '4ESS',
+                'capacity': 35000,
+                'utilization': 78
+            }
+
+    def _generate_ticket_scenario(self, category: str, priority: str, office: dict) -> dict:
+        """Generate realistic ticket scenario based on category and Bell System operations."""
+        import random
+        
+        city = office['city']
+        state = office['state']
+        switch_type = office['switch_type']
+        npa = office['npa']
+        
+        scenarios = {
+            'NETWORK_OUTAGE': {
+                'CRITICAL': [
+                    {
+                        'title': f"Total service outage - {city} central office",
+                        'description': f"Complete loss of dial tone affecting {npa} area code in {city}, {state}",
+                        'assigned_team': 'Emergency Response Team Alpha',
+                        'technical_details': f"Primary {switch_type} switching system failure. All trunk groups down. Backup power systems operational.",
+                        'actions': ['Dispatch emergency technicians', 'Activate backup switching', 'Notify major customers', 'Coordinate with NOC'],
+                        'equipment': [f'{switch_type}-MAIN', 'POWER-PRIMARY', 'TRUNK-GROUPS'],
+                        'scope': 'REGIONAL'
+                    },
+                    {
+                        'title': f"Inter-office trunk failure - {city} to major hubs",
+                        'description': f"Loss of all long-distance connectivity from {city} affecting interstate traffic",
+                        'assigned_team': 'Network Operations Emergency',
+                        'technical_details': f"Fiber optic cable cut on Route 80 corridor. Microwave backup circuits at capacity.",
+                        'actions': ['Locate cable fault', 'Deploy emergency repair crew', 'Reroute traffic via alternate paths', 'Customer notifications'],
+                        'equipment': ['FIBER-MAIN', 'MICROWAVE-BACKUP', 'ROUTING-SYSTEMS'],
+                        'scope': 'INTERSTATE'
+                    }
+                ],
+                'MAJOR': [
+                    {
+                        'title': f"Partial service degradation - {city} {switch_type} switch",
+                        'description': f"50% capacity loss on {switch_type} switch affecting {city} area",
+                        'assigned_team': 'Switching Maintenance Team',
+                        'technical_details': f"Memory module failure in {switch_type} central processing unit. System running on backup processors.",
+                        'actions': ['Replace faulty memory modules', 'Run comprehensive diagnostics', 'Monitor system performance', 'Prepare for cutover if needed'],
+                        'equipment': [f'{switch_type}-CPU', 'MEMORY-MODULES', 'BACKUP-SYSTEMS'],
+                        'scope': 'LOCAL'
+                    }
+                ],
+                'MINOR': [
+                    {
+                        'title': f"Intermittent service issues - {city} area",
+                        'description': f"Sporadic call setup failures reported in {npa} area code",
+                        'assigned_team': 'Local Maintenance',
+                        'technical_details': f"Line interface circuit experiencing intermittent failures. Error rate: 0.3%",
+                        'actions': ['Test line interface circuits', 'Monitor error patterns', 'Schedule preventive maintenance'],
+                        'equipment': ['LINE-INTERFACE', 'DIAGNOSTIC-SYSTEMS'],
+                        'scope': 'LOCAL'
+                    }
+                ]
+            },
+            'EQUIPMENT_FAILURE': {
+                'CRITICAL': [
+                    {
+                        'title': f"Primary power system failure - {city} CO",
+                        'description': f"Main power feed lost at {city} central office, running on battery backup",
+                        'assigned_team': 'Power Systems Emergency',
+                        'technical_details': f"Utility power failure affecting {city} CO. Battery backup operational for 8 hours. Generator startup failed.",
+                        'actions': ['Repair generator system', 'Monitor battery levels', 'Coordinate with utility company', 'Prepare for emergency shutdown'],
+                        'equipment': ['POWER-MAIN', 'GENERATOR', 'BATTERY-BACKUP'],
+                        'scope': 'LOCAL'
+                    }
+                ],
+                'MAJOR': [
+                    {
+                        'title': f"Crossbar switch mechanical failure - {city}",
+                        'description': f"Crossbar switching matrix experiencing mechanical binding in {city} office",
+                        'assigned_team': 'Electromechanical Repair',
+                        'technical_details': f"Contact spring tension loss causing call setup failures. Estimated 25% capacity reduction.",
+                        'actions': ['Spring tension adjustment', 'Contact cleaning', 'Lubrication service', 'Performance testing'],
+                        'equipment': ['CROSSBAR-MATRIX', 'CONTACT-SPRINGS', 'MECHANICAL-SYSTEMS'],
+                        'scope': 'LOCAL'
+                    }
+                ],
+                'MINOR': [
+                    {
+                        'title': f"Trunk interface card failure - {city}",
+                        'description': f"Single trunk interface card malfunction affecting 24 circuits",
+                        'assigned_team': 'Circuit Maintenance',
+                        'technical_details': f"T1 interface card showing signal level degradation. BER: 10^-4",
+                        'actions': ['Replace interface card', 'Test circuit performance', 'Update maintenance records'],
+                        'equipment': ['T1-INTERFACE', 'TRUNK-CIRCUITS'],
+                        'scope': 'LOCAL'
+                    }
+                ]
+            },
+            'SERVICE_INTERRUPTION': {
+                'CRITICAL': [
+                    {
+                        'title': f"Emergency services circuit down - {city}",
+                        'description': f"911 emergency services losing connectivity in {city} area",
+                        'assigned_team': 'Emergency Services Team',
+                        'technical_details': f"Dedicated emergency trunk group failure. Backup circuits activated but limited capacity.",
+                        'actions': ['Immediate circuit repair', 'Verify backup operations', 'Notify emergency dispatch', 'Monitor call overflow'],
+                        'equipment': ['EMERGENCY-TRUNKS', 'BACKUP-CIRCUITS', 'DISPATCH-SYSTEMS'],
+                        'scope': 'REGIONAL'
+                    }
+                ],
+                'MAJOR': [
+                    {
+                        'title': f"Business customer group outage - {city}",
+                        'description': f"Major business district losing phone service in {city}",
+                        'assigned_team': 'Business Services',
+                        'technical_details': f"Serving area interface failure affecting 500+ business lines. PBX connections down.",
+                        'actions': ['Repair serving area interface', 'Test PBX connections', 'Customer notifications', 'Service verification'],
+                        'equipment': ['SAI-EQUIPMENT', 'PBX-INTERFACES', 'BUSINESS-LINES'],
+                        'scope': 'LOCAL'
+                    }
+                ],
+                'MINOR': [
+                    {
+                        'title': f"Residential area intermittent service - {city}",
+                        'description': f"Sporadic dial tone issues in residential area of {city}",
+                        'assigned_team': 'Residential Services',
+                        'technical_details': f"Line concentrator showing intermittent failures. Affects approximately 50 customers.",
+                        'actions': ['Test line concentrator', 'Check subscriber loops', 'Monitor service quality'],
+                        'equipment': ['LINE-CONCENTRATOR', 'SUBSCRIBER-LOOPS'],
+                        'scope': 'LOCAL'
+                    }
+                ]
+            }
+        }
+        
+        if category in scenarios and priority in scenarios[category]:
+            return random.choice(scenarios[category][priority])
+        else:
+            # Generic fallback scenario
+            return {
+                'title': f"System issue - {city} area",
+                'description': f"Technical issue affecting service in {city}, {state}",
+                'assigned_team': 'General Maintenance',
+                'technical_details': f"System requiring investigation and repair",
+                'actions': ['Investigate issue', 'Implement repair', 'Test service'],
+                'equipment': ['SYSTEM-COMPONENTS'],
+                'scope': 'LOCAL'
+            }
+
+    def _calculate_business_impact(self, priority: str, customer_count: int) -> dict:
+        """Calculate business impact metrics for trouble tickets."""
+        import random
+        
+        # Revenue impact calculations based on 1983 Bell System rates
+        avg_revenue_per_customer_hour = random.uniform(0.85, 2.45)  # 1983 rates
+        
+        impact = {
+            'revenue_loss_hour': int(customer_count * avg_revenue_per_customer_hour),
+            'customer_calls_affected': customer_count * random.randint(2, 8),
+            'business_severity': priority,
+            'regulatory_exposure': priority == 'CRITICAL',
+            'media_attention_risk': customer_count > 10000,
+            'service_level_impact': {
+                'CRITICAL': 'Severe degradation',
+                'MAJOR': 'Moderate impact',
+                'MINOR': 'Minimal impact'
+            }[priority]
+        }
+        
+        return impact
 
     def cmd_help(self, args: List[str] = None) -> str:
         """
@@ -7655,6 +8054,580 @@ Environmental Impact:      Assessments in progress
 Public Service Benefits:   Universal service expansion"""
         
         return investment_output
+
+    def cmd_trouble(self, args: List[str]) -> str:
+        """Enhanced trouble ticket management with authentic Bell System operations."""
+        import random
+        
+        if not args:
+            return self._show_trouble_ticket_dashboard()
+        
+        elif args[0] == "list":
+            priority_filter = args[1] if len(args) > 1 else None
+            return self._list_trouble_tickets(priority_filter)
+        
+        elif args[0] == "detail" and len(args) > 1:
+            ticket_id = args[1].upper()
+            return self._show_trouble_ticket_detail(ticket_id)
+        
+        elif args[0] == "assign" and len(args) > 2:
+            ticket_id = args[1].upper()
+            team = " ".join(args[2:])
+            return self._assign_trouble_ticket(ticket_id, team)
+        
+        elif args[0] == "update" and len(args) > 2:
+            ticket_id = args[1].upper()
+            status = args[2].upper()
+            return self._update_trouble_ticket(ticket_id, status)
+        
+        elif args[0] == "escalate" and len(args) > 1:
+            ticket_id = args[1].upper()
+            return self._escalate_trouble_ticket(ticket_id)
+        
+        elif args[0] == "resolve" and len(args) > 1:
+            ticket_id = args[1].upper()
+            return self._resolve_trouble_ticket(ticket_id)
+        
+        elif args[0] == "create":
+            return self._create_manual_ticket(args[1:] if len(args) > 1 else [])
+        
+        elif args[0] == "geographic":
+            return self._show_geographic_trouble_overview()
+        
+        elif args[0] == "priority":
+            return self._show_priority_analysis()
+        
+        else:
+            available_commands = ["list", "detail", "assign", "update", "escalate", "resolve", "create", "geographic", "priority"]
+            return f"trouble: Unknown option '{args[0]}'\nAvailable commands: {', '.join(available_commands)}"
+
+    def _show_trouble_ticket_dashboard(self) -> str:
+        """Show comprehensive trouble ticket dashboard with real-time status."""
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+        
+        # Calculate ticket statistics
+        critical_tickets = [t for t in self.active_tickets if t['priority'] == 'CRITICAL']
+        major_tickets = [t for t in self.active_tickets if t['priority'] == 'MAJOR']
+        minor_tickets = [t for t in self.active_tickets if t['priority'] == 'MINOR']
+        
+        # Calculate customer impact
+        total_customers_affected = sum(t['customer_impact'] for t in self.active_tickets)
+        revenue_impact = sum(t['business_impact']['revenue_loss_hour'] for t in self.active_tickets)
+        
+        dashboard = f"""Bell System Trouble Ticket Management System
+Real-Time Operations Dashboard
+{current_time}
+
+ACTIVE TROUBLE TICKETS
+{'=' * 40}
+Critical Priority:        {len(critical_tickets)} tickets
+Major Priority:           {len(major_tickets)} tickets  
+Minor Priority:           {len(minor_tickets)} tickets
+Total Active:             {len(self.active_tickets)} tickets
+
+CUSTOMER IMPACT ANALYSIS
+{'=' * 40}
+Customers Affected:       {total_customers_affected:,}
+Revenue Impact (hourly):  ${revenue_impact:,}
+Service Quality Impact:   {'SEVERE' if len(critical_tickets) > 2 else 'MODERATE' if len(major_tickets) > 5 else 'MINIMAL'}
+
+RECENT CRITICAL ISSUES
+{'=' * 40}"""
+        
+        # Show most recent critical tickets
+        recent_critical = sorted(critical_tickets, key=lambda x: x['created_time'], reverse=True)[:3]
+        
+        if recent_critical:
+            for ticket in recent_critical:
+                age = datetime.now() - ticket['created_time']
+                age_str = f"{int(age.total_seconds() // 3600)}h{int((age.total_seconds() % 3600) // 60)}m"
+                dashboard += f"\n{ticket['id']:<8} {age_str:<6} {ticket['affected_office']['city']:<12} {ticket['title'][:45]}"
+        else:
+            dashboard += "\n✓ No critical issues currently active"
+        
+        # Geographic distribution
+        geographic_impact = {}
+        for ticket in self.active_tickets:
+            state = ticket['affected_office']['state']
+            if state not in geographic_impact:
+                geographic_impact[state] = 0
+            geographic_impact[state] += 1
+        
+        dashboard += f"""
+
+GEOGRAPHIC DISTRIBUTION
+{'=' * 40}"""
+        
+        for state, count in sorted(geographic_impact.items(), key=lambda x: x[1], reverse=True)[:8]:
+            dashboard += f"\n{state:<4} {count:>2} active tickets"
+        
+        dashboard += f"""
+
+OPERATIONAL METRICS
+{'=' * 40}
+Average Resolution Time:  {sum(t['estimated_duration'] for t in self.completed_tickets[-20:]) // max(len(self.completed_tickets[-20:]), 1) if self.completed_tickets else 180} minutes
+Escalation Rate:          {len([t for t in self.active_tickets if t['escalation_level'] > 1]) / max(len(self.active_tickets), 1) * 100:.1f}%
+On-Time Resolution:       {85 + random.randint(-5, 10):.1f}%
+
+Commands:
+  trouble list [priority]     List tickets by priority
+  trouble detail <id>         Show detailed ticket information
+  trouble assign <id> <team>  Assign ticket to team
+  trouble escalate <id>       Escalate ticket priority
+  trouble geographic          Geographic trouble overview
+  trouble priority            Priority analysis and trends"""
+        
+        return dashboard
+
+    def _list_trouble_tickets(self, priority_filter: str = None) -> str:
+        """List trouble tickets with optional priority filtering."""
+        current_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        # Filter tickets if priority specified
+        if priority_filter:
+            priority_filter = priority_filter.upper()
+            filtered_tickets = [t for t in self.active_tickets if t['priority'] == priority_filter]
+            title = f"Trouble Tickets - {priority_filter} Priority"
+        else:
+            filtered_tickets = self.active_tickets
+            title = "All Active Trouble Tickets"
+        
+        listing = f"""{title}
+Query Time: {current_time}
+
+{'ID':<10} {'PRIORITY':<8} {'AGE':<6} {'LOCATION':<15} {'CUSTOMERS':<9} {'STATUS':<12} {'DESCRIPTION':<30}
+{'=' * 100}"""
+        
+        # Sort by priority (Critical first) then by age
+        priority_order = {'CRITICAL': 0, 'MAJOR': 1, 'MINOR': 2}
+        sorted_tickets = sorted(filtered_tickets, 
+                              key=lambda x: (priority_order[x['priority']], x['created_time']))
+        
+        for ticket in sorted_tickets:
+            age = datetime.now() - ticket['created_time']
+            age_str = f"{int(age.total_seconds() // 3600)}h{int((age.total_seconds() % 3600) // 60)}m"
+            
+            location = f"{ticket['affected_office']['city']}, {ticket['affected_office']['state']}"
+            customers = f"{ticket['customer_impact']:,}"
+            description = ticket['title'][:28] + ".." if len(ticket['title']) > 30 else ticket['title']
+            
+            listing += f"\n{ticket['id']:<10} {ticket['priority']:<8} {age_str:<6} {location:<15} {customers:<9} {ticket['status']:<12} {description}"
+        
+        if not filtered_tickets:
+            listing += f"\n{'No tickets found matching criteria' if priority_filter else 'No active tickets'}"
+        
+        listing += f"\n\nTotal: {len(filtered_tickets)} tickets"
+        return listing
+
+    def _show_trouble_ticket_detail(self, ticket_id: str) -> str:
+        """Show comprehensive details for a specific trouble ticket."""
+        ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
+        if not ticket:
+            return f"trouble: Ticket {ticket_id} not found\nUse 'trouble list' to see active tickets"
+        
+        age = datetime.now() - ticket['created_time']
+        age_str = f"{int(age.total_seconds() // 3600)}h {int((age.total_seconds() % 3600) // 60)}m"
+        
+        detail = f"""Trouble Ticket Detail: {ticket['id']}
+{'=' * 50}
+
+TICKET IDENTIFICATION
+{'=' * 30}
+Ticket ID:                {ticket['id']}
+Category:                 {ticket['category']}
+Priority:                 {ticket['priority']}
+Status:                   {ticket['status']}
+Escalation Level:         {ticket['escalation_level']}
+Created:                  {ticket['created_time'].strftime('%B %d, %Y %H:%M EST')}
+Age:                      {age_str}
+
+PROBLEM DESCRIPTION
+{'=' * 30}
+Title:                    {ticket['title']}
+
+Description:
+{ticket['description']}
+
+AFFECTED INFRASTRUCTURE
+{'=' * 30}
+Central Office:           {ticket['affected_office']['city']}, {ticket['affected_office']['state']}
+Area Code:                {ticket['affected_office']['npa']}
+Exchange:                 {ticket['affected_office']['nxx']}
+Switch Type:              {ticket['affected_office']['switch_type']}
+Office Capacity:          {ticket['affected_office']['capacity']:,} lines
+Current Utilization:      {ticket['affected_office']['utilization']}%
+
+IMPACT ASSESSMENT
+{'=' * 30}
+Customers Affected:       {ticket['customer_impact']:,}
+Geographic Scope:         {ticket['geographic_scope']}
+Revenue Impact (hourly):  ${ticket['business_impact']['revenue_loss_hour']:,}
+Service Level Impact:     {ticket['business_impact']['service_level_impact']}
+Regulatory Exposure:      {'YES' if ticket['business_impact']['regulatory_exposure'] else 'NO'}
+
+TECHNICAL DETAILS
+{'=' * 30}
+{ticket['technical_details']}
+
+Equipment Involved:       {', '.join(ticket['equipment_involved'])}
+
+ASSIGNMENT AND RESPONSE
+{'=' * 30}
+Assigned Team:            {ticket['assigned_team']}
+Estimated Duration:       {ticket['estimated_duration']} minutes
+Response Time Target:     {15 if ticket['priority'] == 'CRITICAL' else 30 if ticket['priority'] == 'MAJOR' else 60} minutes
+
+REQUIRED ACTIONS
+{'=' * 30}"""
+        
+        for i, action in enumerate(ticket['required_actions'], 1):
+            detail += f"\n{i}. {action}"
+        
+        if ticket['resolution_steps']:
+            detail += f"""
+
+RESOLUTION PROGRESS
+{'=' * 30}"""
+            for i, step in enumerate(ticket['resolution_steps'], 1):
+                detail += f"\n{i}. {step}"
+        
+        detail += f"""
+
+ESCALATION CONTACTS
+{'=' * 30}
+Level 1:                  Field Maintenance Team ext 4350
+Level 2:                  Engineering Support ext 4370
+Level 3:                  Network Operations Center ext 4911
+Emergency:                Bell System Emergency Line ext 911
+
+Commands:
+  trouble assign {ticket_id} <team>     Assign to team
+  trouble update {ticket_id} <status>   Update status
+  trouble escalate {ticket_id}          Escalate priority
+  trouble resolve {ticket_id}           Mark as resolved"""
+        
+        return detail
+
+    def _assign_trouble_ticket(self, ticket_id: str, team: str) -> str:
+        """Assign trouble ticket to a specific team."""
+        ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
+        if not ticket:
+            return f"trouble: Ticket {ticket_id} not found"
+        
+        old_team = ticket['assigned_team']
+        ticket['assigned_team'] = team
+        current_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        # Add resolution step
+        ticket['resolution_steps'].append(f"[{current_time}] Reassigned from '{old_team}' to '{team}' by {self.username}")
+        
+        return f"""Ticket Assignment Updated
+{'=' * 30}
+Ticket ID:        {ticket_id}
+Previous Team:    {old_team}
+New Team:         {team}
+Updated By:       {self.username}
+Time:             {current_time}
+
+Assignment notification sent to {team}.
+Ticket status updated in Bell System Trouble Management Database."""
+
+    def _update_trouble_ticket(self, ticket_id: str, status: str) -> str:
+        """Update trouble ticket status."""
+        ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
+        if not ticket:
+            return f"trouble: Ticket {ticket_id} not found"
+        
+        valid_statuses = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'PENDING', 'TESTING', 'RESOLVED', 'CLOSED']
+        if status not in valid_statuses:
+            return f"trouble: Invalid status '{status}'\nValid statuses: {', '.join(valid_statuses)}"
+        
+        old_status = ticket['status']
+        ticket['status'] = status
+        current_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        # Add resolution step
+        ticket['resolution_steps'].append(f"[{current_time}] Status changed from '{old_status}' to '{status}' by {self.username}")
+        
+        return f"""Ticket Status Updated
+{'=' * 25}
+Ticket ID:        {ticket_id}
+Previous Status:  {old_status}
+New Status:       {status}
+Updated By:       {self.username}
+Time:             {current_time}
+
+Status change recorded in Bell System Operations Log."""
+
+    def _escalate_trouble_ticket(self, ticket_id: str) -> str:
+        """Escalate trouble ticket to higher priority or management level."""
+        ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
+        if not ticket:
+            return f"trouble: Ticket {ticket_id} not found"
+        
+        # Increase escalation level
+        old_level = ticket['escalation_level']
+        ticket['escalation_level'] = min(old_level + 1, 4)  # Max escalation level 4
+        
+        # Escalate priority if appropriate
+        priority_escalation = {
+            'MINOR': 'MAJOR',
+            'MAJOR': 'CRITICAL',
+            'CRITICAL': 'CRITICAL'  # Already at highest
+        }
+        
+        old_priority = ticket['priority']
+        if old_level == 1 and ticket['priority'] != 'CRITICAL':
+            ticket['priority'] = priority_escalation[ticket['priority']]
+        
+        current_time = datetime.now().strftime("%H:%M:%S EST")
+        
+        # Add resolution step
+        escalation_note = f"[{current_time}] Escalated to level {ticket['escalation_level']} by {self.username}"
+        if ticket['priority'] != old_priority:
+            escalation_note += f" - Priority raised from {old_priority} to {ticket['priority']}"
+        
+        ticket['resolution_steps'].append(escalation_note)
+        
+        # Determine escalation contacts
+        escalation_contacts = {
+            2: "Engineering Support ext 4370",
+            3: "Network Operations Manager ext 4950", 
+            4: "Director of Operations ext 4980"
+        }
+        
+        return f"""Ticket Escalation Completed
+{'=' * 35}
+Ticket ID:            {ticket_id}
+Previous Level:       {old_level}
+New Escalation Level: {ticket['escalation_level']}
+Priority:             {old_priority} → {ticket['priority']}
+Escalated By:         {self.username}
+Time:                 {current_time}
+
+Escalation Contact:   {escalation_contacts.get(ticket['escalation_level'], 'Executive Team')}
+
+Automatic notifications sent to management chain.
+Escalation logged in Bell System Operations Database."""
+
+    def _resolve_trouble_ticket(self, ticket_id: str) -> str:
+        """Mark trouble ticket as resolved and move to completed tickets."""
+        ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
+        if not ticket:
+            return f"trouble: Ticket {ticket_id} not found"
+        
+        # Calculate resolution time
+        resolution_time = datetime.now()
+        total_time = resolution_time - ticket['created_time']
+        resolution_minutes = int(total_time.total_seconds() / 60)
+        
+        # Update ticket
+        ticket['status'] = 'RESOLVED'
+        ticket['resolution_time'] = resolution_time
+        ticket['actual_duration'] = resolution_minutes
+        
+        current_time = resolution_time.strftime("%H:%M:%S EST")
+        ticket['resolution_steps'].append(f"[{current_time}] Ticket resolved by {self.username}")
+        
+        # Move to completed tickets
+        self.active_tickets.remove(ticket)
+        self.completed_tickets.append(ticket)
+        
+        # Calculate metrics
+        target_time = 15 if ticket['priority'] == 'CRITICAL' else 30 if ticket['priority'] == 'MAJOR' else 60
+        on_time = resolution_minutes <= target_time
+        
+        return f"""Trouble Ticket Resolved
+{'=' * 30}
+Ticket ID:            {ticket_id}
+Resolution Time:      {current_time}
+Total Duration:       {resolution_minutes} minutes
+Target Time:          {target_time} minutes
+Performance:          {'ON TIME' if on_time else 'EXCEEDED TARGET'}
+
+Customer Impact:      {ticket['customer_impact']:,} customers restored
+Revenue Recovered:    ${ticket['business_impact']['revenue_loss_hour'] * (resolution_minutes / 60):,.0f}
+
+Resolution Details:
+{ticket['technical_details']}
+
+Ticket closed and archived in Bell System Trouble Management Database.
+Service restoration confirmed for affected customers."""
+
+    def _show_geographic_trouble_overview(self) -> str:
+        """Show geographic distribution and analysis of trouble tickets."""
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        # Analyze geographic distribution
+        state_analysis = {}
+        metro_analysis = {}
+        
+        for ticket in self.active_tickets:
+            state = ticket['affected_office']['state']
+            city = ticket['affected_office']['city']
+            
+            # State-level analysis
+            if state not in state_analysis:
+                state_analysis[state] = {
+                    'total': 0, 'critical': 0, 'major': 0, 'minor': 0,
+                    'customers': 0, 'revenue_impact': 0
+                }
+            
+            state_analysis[state]['total'] += 1
+            state_analysis[state][ticket['priority'].lower()] += 1
+            state_analysis[state]['customers'] += ticket['customer_impact']
+            state_analysis[state]['revenue_impact'] += ticket['business_impact']['revenue_loss_hour']
+            
+            # Metro area analysis
+            if city not in metro_analysis:
+                metro_analysis[city] = {'count': 0, 'customers': 0}
+            metro_analysis[city]['count'] += 1
+            metro_analysis[city]['customers'] += ticket['customer_impact']
+        
+        overview = f"""Geographic Trouble Analysis
+Report Generated: {current_time}
+
+STATE-LEVEL IMPACT ANALYSIS
+{'=' * 40}
+{'STATE':<6} {'TOTAL':<5} {'CRIT':<4} {'MAJ':<4} {'MIN':<4} {'CUSTOMERS':<10} {'REV/HR':<8}"""
+        
+        for state, data in sorted(state_analysis.items(), key=lambda x: x[1]['total'], reverse=True):
+            overview += f"\n{state:<6} {data['total']:<5} {data['critical']:<4} {data['major']:<4} {data['minor']:<4} {data['customers']:<10,} ${data['revenue_impact']:<7,.0f}"
+        
+        overview += f"""
+
+METROPOLITAN AREA IMPACT
+{'=' * 40}
+{'CITY':<15} {'TICKETS':<7} {'CUSTOMERS':<10} {'SEVERITY':<8}"""
+        
+        for city, data in sorted(metro_analysis.items(), key=lambda x: x[1]['customers'], reverse=True)[:12]:
+            severity = 'HIGH' if data['customers'] > 5000 else 'MEDIUM' if data['customers'] > 1000 else 'LOW'
+            overview += f"\n{city:<15} {data['count']:<7} {data['customers']:<10,} {severity:<8}"
+        
+        # Network topology impact
+        overview += f"""
+
+NETWORK TOPOLOGY ANALYSIS
+{'=' * 40}
+Interstate Routes:        {len([t for t in self.active_tickets if t['geographic_scope'] == 'INTERSTATE'])} tickets
+Regional Networks:        {len([t for t in self.active_tickets if t['geographic_scope'] == 'REGIONAL'])} tickets
+Local Exchanges:          {len([t for t in self.active_tickets if t['geographic_scope'] == 'LOCAL'])} tickets
+
+INFRASTRUCTURE TYPE IMPACT
+{'=' * 40}"""
+        
+        # Analyze by switch type
+        switch_impact = {}
+        for ticket in self.active_tickets:
+            switch_type = ticket['affected_office']['switch_type']
+            if switch_type not in switch_impact:
+                switch_impact[switch_type] = 0
+            switch_impact[switch_type] += 1
+        
+        for switch_type, count in sorted(switch_impact.items(), key=lambda x: x[1], reverse=True):
+            overview += f"\n{switch_type:<12} {count} tickets affecting this equipment type"
+        
+        # Risk assessment
+        high_risk_areas = [state for state, data in state_analysis.items() if data['critical'] > 0 or data['customers'] > 10000]
+        
+        overview += f"""
+
+RISK ASSESSMENT
+{'=' * 40}
+High Risk Areas:          {len(high_risk_areas)} states/territories
+Critical Situations:      {len([t for t in self.active_tickets if t['priority'] == 'CRITICAL'])} active
+Network Vulnerability:    {'ELEVATED' if len(high_risk_areas) > 3 else 'NORMAL'}
+
+Recommended Actions:
+• Monitor high-impact areas closely
+• Prepare additional resources for critical regions  
+• Review network redundancy in affected areas
+• Coordinate with regional operations centers"""
+        
+        return overview
+
+    def _show_priority_analysis(self) -> str:
+        """Show priority analysis and trends for trouble tickets."""
+        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        
+        # Analyze current priorities
+        priority_stats = {'CRITICAL': 0, 'MAJOR': 0, 'MINOR': 0}
+        for ticket in self.active_tickets:
+            priority_stats[ticket['priority']] += 1
+        
+        total_tickets = len(self.active_tickets)
+        
+        analysis = f"""Trouble Ticket Priority Analysis
+Report Generated: {current_time}
+
+CURRENT PRIORITY DISTRIBUTION
+{'=' * 40}
+Critical Priority:        {priority_stats['CRITICAL']} tickets ({priority_stats['CRITICAL']/max(total_tickets,1)*100:.1f}%)
+Major Priority:           {priority_stats['MAJOR']} tickets ({priority_stats['MAJOR']/max(total_tickets,1)*100:.1f}%)
+Minor Priority:           {priority_stats['MINOR']} tickets ({priority_stats['MINOR']/max(total_tickets,1)*100:.1f}%)
+
+PRIORITY THRESHOLDS
+{'=' * 40}
+Critical Threshold:       Service affecting >1000 customers
+Major Threshold:          Service affecting >100 customers  
+Minor Threshold:          Service affecting <100 customers
+
+ESCALATION ANALYSIS
+{'=' * 40}"""
+        
+        escalated_tickets = [t for t in self.active_tickets if t['escalation_level'] > 1]
+        analysis += f"\nEscalated Tickets:        {len(escalated_tickets)} tickets"
+        analysis += f"\nEscalation Rate:          {len(escalated_tickets)/max(total_tickets,1)*100:.1f}%"
+        
+        # Show escalated tickets
+        if escalated_tickets:
+            analysis += f"\n\nEscalated Ticket Details:"
+            for ticket in escalated_tickets:
+                age = datetime.now() - ticket['created_time']
+                age_str = f"{int(age.total_seconds() // 3600)}h{int((age.total_seconds() % 3600) // 60)}m"
+                analysis += f"\n{ticket['id']:<10} Level {ticket['escalation_level']} {ticket['priority']:<8} {age_str:<6} {ticket['affected_office']['city']}"
+        
+        # Performance metrics
+        if self.completed_tickets:
+            recent_completed = self.completed_tickets[-20:]  # Last 20 completed tickets
+            avg_resolution = sum(t.get('actual_duration', 180) for t in recent_completed) / len(recent_completed)
+            
+            analysis += f"""
+
+RESOLUTION PERFORMANCE
+{'=' * 40}
+Average Resolution Time:  {avg_resolution:.0f} minutes
+Target Performance:
+  Critical (15 min):      {len([t for t in recent_completed if t['priority'] == 'CRITICAL' and t.get('actual_duration', 999) <= 15])}/{len([t for t in recent_completed if t['priority'] == 'CRITICAL'])if recent_completed else 1} on time
+  Major (30 min):         {len([t for t in recent_completed if t['priority'] == 'MAJOR' and t.get('actual_duration', 999) <= 30])}/{len([t for t in recent_completed if t['priority'] == 'MAJOR']) if recent_completed else 1} on time
+  Minor (60 min):         {len([t for t in recent_completed if t['priority'] == 'MINOR' and t.get('actual_duration', 999) <= 60])}/{len([t for t in recent_completed if t['priority'] == 'MINOR']) if recent_completed else 1} on time"""
+        
+        # Trending analysis
+        analysis += f"""
+
+TRENDING ANALYSIS
+{'=' * 40}
+Current Workload:         {'HIGH' if total_tickets > 15 else 'NORMAL' if total_tickets > 8 else 'LOW'}
+Critical Trend:           {'INCREASING' if priority_stats['CRITICAL'] > 2 else 'STABLE'}
+Network Health:           {'DEGRADED' if priority_stats['CRITICAL'] > 0 else 'GOOD'}
+
+RECOMMENDATIONS
+{'=' * 40}"""
+        
+        if priority_stats['CRITICAL'] > 2:
+            analysis += "\n• IMMEDIATE: Activate emergency response procedures"
+            analysis += "\n• Deploy additional technical resources"
+            analysis += "\n• Implement network protection measures"
+        elif priority_stats['MAJOR'] > 8:
+            analysis += "\n• Increase maintenance staffing levels"
+            analysis += "\n• Review preventive maintenance schedules"
+            analysis += "\n• Monitor for pattern development"
+        else:
+            analysis += "\n• Continue normal operations monitoring"
+            analysis += "\n• Maintain current staffing levels"
+            analysis += "\n• Focus on preventive maintenance"
+        
+        return analysis
 
     def cmd_dbquery(self, args: List[str]) -> str:
         """Database query and management tools"""
