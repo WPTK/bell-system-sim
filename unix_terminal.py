@@ -9,7 +9,6 @@ import os
 import sys
 import time
 import random
-import subprocess
 from datetime import datetime
 from pathlib import Path
 

@@ -35,13 +35,10 @@ import uuid
 from collections import defaultdict, deque
 import random
 import functools
-import logging
-import logging.handlers
 import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union, Callable
 from pathlib import Path
-from collections import defaultdict, deque
 
 try:
     import readline  # For command history and line editing
