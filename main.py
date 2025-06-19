@@ -1,6 +1,15 @@
+#!/usr/bin/env python3
+"""
+Bell System UNIX/TS Alternative Terminal Implementation
+======================================================
+
+Simplified four-role Bell System terminal simulation with core functionality.
+This is an alternative implementation to the main bell.py simulation.
+"""
+
 import os
-from datetime import datetime
 import time
+from datetime import datetime
 from random import choice, random
 
 class UnixTerminal:
