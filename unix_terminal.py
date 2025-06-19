@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 """
+import random
+
+from datetime import datetime
+from pathlib import Path
+
 Bell System UNIX V7 Terminal Simulation
 Authentic AT&T Internal Operations Workstation (1978-1983)
 Four Role Simulation: Systems Operator, Switching Technician, Field Liaison, NOC Analyst
@@ -8,9 +13,6 @@ Four Role Simulation: Systems Operator, Switching Technician, Field Liaison, NOC
 import os
 import sys
 import time
-import random
-from datetime import datetime
-from pathlib import Path
 
 class BellSystemTerminal:
     def __init__(self):
@@ -21,15 +23,15 @@ class BellSystemTerminal:
         self.command_history = []
         self.role = None
         self.shift_events = []
-        
+
         # Bell System specific environment
         self.roles = {
             "sysop": "UNIX Systems Operator",
-            "switch": "Switching Station Technician", 
+            "switch": "Switching Station Technician",
             "field": "Field Support Liaison",
             "noc": "National NOC Analyst"
         }
-        
+
         # Simulate authentic Bell System UNIX file system
         self.filesystem = {
             "/": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 512, "files": ["bin", "dev", "etc", "lib", "tmp", "usr", "home", "root"]},
@@ -51,7 +53,7 @@ class BellSystemTerminal:
             "/root/hello.c": {"type": "file", "owner": "root", "group": "wheel", "mode": "-rw-r--r--", "size": 78, "content": "#include <stdio.h>\n\nmain()\n{\n    printf(\"hello, world\\n\");\n}\n"},
             "/root/.profile": {"type": "file", "owner": "root", "group": "wheel", "mode": "-rw-r--r--", "size": 112, "content": "# User profile for root\nPATH=/bin:/usr/bin\nexport PATH\nHOME=/root\nexport HOME\nSHELL=/bin/sh\nexport SHELL\n"}
         }
-        
+
         # Simulate running processes (authentic V7 system processes)
         self.processes = [
             {"pid": 0, "command": "swapper", "tty": "?", "time": "0:00"},
@@ -62,7 +64,7 @@ class BellSystemTerminal:
             {"pid": 89, "command": "sh", "tty": "01", "time": "0:00"},
             {"pid": 102, "command": "cron", "tty": "?", "time": "0:00"},
         ]
-        
+
         # Bell Labs users from historical documentation
         self.users = [
             {"user": "root", "tty": "console", "login": "Mar 10 08:30"},
@@ -80,7 +82,7 @@ class BellSystemTerminal:
         print("\nCopyright (c) 1976 Bell Telephone Laboratories, Incorporated.")
         print("All rights reserved.")
         print("\nlogin: ", end="")
-        
+
     def login_sequence(self):
         """Simulate authentic V7 login"""
         username = input().strip()
@@ -89,11 +91,11 @@ class BellSystemTerminal:
             # In real V7, password wouldn't echo
             password = input()
             print()
-            
+
             # Show message of the day
             if "/etc/motd" in self.filesystem:
                 print(self.filesystem["/etc/motd"]["content"])
-            
+
             print("You have mail.")
             print()
             return True
@@ -126,10 +128,10 @@ class BellSystemTerminal:
     def format_ls_output(self, files, long_format=False, show_all=False):
         """Format ls output in authentic V7 style"""
         output = []
-        
+
         if not show_all:
             files = [f for f in files if not f.startswith('.')]
-        
+
         if long_format:
             total_blocks = 0
             for filename in files:
@@ -138,9 +140,9 @@ class BellSystemTerminal:
                     file_info = self.filesystem[filepath]
                     size = file_info.get('size', 0)
                     total_blocks += (size + 511) // 512  # Round up to blocks
-            
+
             output.append(f"total {total_blocks}")
-            
+
             for filename in sorted(files):
                 filepath = self.resolve_path(filename)
                 if filepath in self.filesystem:
@@ -149,10 +151,10 @@ class BellSystemTerminal:
                     owner = file_info.get('owner', 'root')
                     group = file_info.get('group', 'wheel')
                     size = file_info.get('size', 0)
-                    
+
                     # Format date (simplified)
                     date_str = "Mar 10 12:34"
-                    
+
                     output.append(f"{mode}  1 {owner:<8} {group:<8} {size:>7} {date_str} {filename}")
         else:
             # Simple format - just filenames
@@ -171,22 +173,22 @@ class BellSystemTerminal:
                         if idx < len(sorted_files):
                             row.append(sorted_files[idx].ljust(12))
                     output.append(''.join(row).rstrip())
-        
+
         return '\n'.join(output)
 
     def cmd_ls(self, args):
         """Implement ls command"""
         long_format = '-l' in args
         show_all = '-a' in args
-        
+
         # Remove flags from args to get target directory
         paths = [arg for arg in args if not arg.startswith('-')]
         target_dir = paths[0] if paths else self.current_directory
         target_path = self.resolve_path(target_dir)
-        
+
         if target_path not in self.filesystem:
             return f"ls: {target_dir}: No such file or directory"
-        
+
         file_info = self.filesystem[target_path]
         if file_info['type'] == 'file':
             if long_format:
@@ -198,33 +200,33 @@ class BellSystemTerminal:
                 return f"{mode}  1 {owner:<8} {group:<8} {size:>7} {date_str} {target_dir}"
             else:
                 return target_dir
-        
+
         files = file_info.get('files', [])
         if show_all:
             files = ['.', '..'] + files
-        
+
         return self.format_ls_output(files, long_format, show_all)
 
     def cmd_cat(self, args):
         """Implement cat command"""
         if not args:
             return "cat: missing file operand"
-        
+
         output = []
         for filename in args:
             filepath = self.resolve_path(filename)
             if filepath not in self.filesystem:
                 output.append(f"cat: {filename}: No such file or directory")
                 continue
-            
+
             file_info = self.filesystem[filepath]
             if file_info['type'] == 'dir':
                 output.append(f"cat: {filename}: Is a directory")
                 continue
-            
+
             content = file_info.get('content', '')
             output.append(content)
-        
+
         return '\n'.join(output)
 
     def cmd_pwd(self, args):
@@ -237,15 +239,15 @@ class BellSystemTerminal:
             target = "/root"  # cd with no args goes to home
         else:
             target = args[0]
-        
+
         target_path = self.resolve_path(target)
-        
+
         if target_path not in self.filesystem:
             return f"cd: {target}: No such file or directory"
-        
+
         if self.filesystem[target_path]['type'] != 'dir':
             return f"cd: {target}: Not a directory"
-        
+
         self.current_directory = target_path
         return ""
 
@@ -253,22 +255,22 @@ class BellSystemTerminal:
         """Implement ps command"""
         show_all = 'a' in ''.join(args) or '-a' in args
         long_format = 'l' in ''.join(args) or '-l' in args
-        
+
         output = []
         header = "  PID TTY      TIME CMD"
         output.append(header)
-        
+
         for proc in self.processes:
             if not show_all and proc['tty'] == '?':
                 continue
-            
+
             pid = str(proc['pid']).rjust(5)
             tty = proc['tty'].ljust(8)
             time_str = proc['time'].ljust(8)
             cmd = proc['command']
-            
+
             output.append(f"{pid} {tty} {time_str} {cmd}")
-        
+
         return '\n'.join(output)
 
     def cmd_who(self, args):
@@ -292,48 +294,48 @@ class BellSystemTerminal:
         """Implement grep command (simplified)"""
         if len(args) < 2:
             return "grep: missing operand"
-        
+
         pattern = args[0]
         filename = args[1]
         filepath = self.resolve_path(filename)
-        
+
         if filepath not in self.filesystem:
             return f"grep: {filename}: No such file or directory"
-        
+
         file_info = self.filesystem[filepath]
         if file_info['type'] == 'dir':
             return f"grep: {filename}: Is a directory"
-        
+
         content = file_info.get('content', '')
         lines = content.split('\n')
         matches = [line for line in lines if pattern in line]
-        
+
         return '\n'.join(matches)
 
     def cmd_wc(self, args):
         """Implement wc command"""
         if not args:
             return "wc: missing file operand"
-        
+
         output = []
         for filename in args:
             filepath = self.resolve_path(filename)
             if filepath not in self.filesystem:
                 output.append(f"wc: {filename}: No such file or directory")
                 continue
-            
+
             file_info = self.filesystem[filepath]
             if file_info['type'] == 'dir':
                 output.append(f"wc: {filename}: Is a directory")
                 continue
-            
+
             content = file_info.get('content', '')
             lines = len(content.split('\n')) - (1 if content.endswith('\n') else 0)
             words = len(content.split()) if content.strip() else 0
             chars = len(content)
-            
+
             output.append(f"{lines:>8} {words:>7} {chars:>7} {filename}")
-        
+
         return '\n'.join(output)
 
     def cmd_ed(self, args):
@@ -360,27 +362,27 @@ class BellSystemTerminal:
         """Implement du command"""
         target = args[0] if args else self.current_directory
         target_path = self.resolve_path(target)
-        
+
         # Simplified calculation
         total_size = 0
         for path, info in self.filesystem.items():
             if path.startswith(target_path):
                 total_size += (info.get('size', 0) + 511) // 512
-        
+
         return f"{total_size}\t{target_path}"
 
     def cmd_find(self, args):
         """Implement find command (simplified)"""
         if not args:
             return "find: missing path"
-        
+
         search_path = self.resolve_path(args[0])
         results = []
-        
+
         for path in self.filesystem:
             if path.startswith(search_path):
                 results.append(path)
-        
+
         return '\n'.join(sorted(results))
 
     def cmd_help(self, args):
@@ -422,9 +424,9 @@ This is UNIX Version 7 from Bell Telephone Laboratories (1976)."""
         """Implement man command"""
         if not args:
             return "man: missing command name"
-        
+
         command = args[0]
-        
+
         # Basic manual pages for key commands
         manual_pages = {
             'ls': """LS(1)                    UNIX Programmer's Manual                    LS(1)
@@ -446,7 +448,7 @@ DESCRIPTION
           in bytes, and time of last modification for each file.
 
 Bell Telephone Laboratories        March 1976                           LS(1)""",
-            
+
             'cat': """CAT(1)                   UNIX Programmer's Manual                   CAT(1)
 
 NAME
@@ -461,7 +463,7 @@ DESCRIPTION
      the files and displays the result.
 
 Bell Telephone Laboratories        March 1976                          CAT(1)""",
-            
+
             'ps': """PS(1)                    UNIX Programmer's Manual                    PS(1)
 
 NAME
@@ -481,7 +483,7 @@ DESCRIPTION
 
 Bell Telephone Laboratories        March 1976                           PS(1)"""
         }
-        
+
         if command in manual_pages:
             return manual_pages[command]
         else:
@@ -491,15 +493,15 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
         """Execute a command and return output"""
         if not command_line.strip():
             return ""
-        
+
         # Add to history
         self.command_history.append(command_line)
-        
+
         # Parse command
         parts = command_line.strip().split()
         cmd = parts[0]
         args = parts[1:] if len(parts) > 1 else []
-        
+
         # Built-in commands
         if cmd == 'exit' or cmd == 'logout':
             return "LOGOUT"
@@ -510,7 +512,7 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
             return '\n'.join(f"{i+1:4d}  {cmd}" for i, cmd in enumerate(self.command_history[-20:]))
         elif cmd == 'help':
             return self.cmd_help(args)
-        
+
         # File system commands
         command_map = {
             'ls': self.cmd_ls,
@@ -529,7 +531,7 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
             'find': self.cmd_find,
             'man': self.cmd_man,
         }
-        
+
         if cmd in command_map:
             try:
                 result = command_map[cmd](args)
@@ -552,17 +554,17 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
         print("\nlogin: root")
         print("Password: ")
         print()
-        
+
         # Show message of the day
         if "/etc/motd" in self.filesystem:
             print(self.filesystem["/etc/motd"]["content"])
-        
+
         print("You have mail.")
         print()
         print("Type 'help' for available commands or 'man <command>' for detailed help.")
         print("Type 'exit' or 'logout' to quit.")
         print()
-        
+
         # Main command loop
         try:
             while True:
@@ -573,16 +575,16 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
                 except EOFError:
                     print("\nlogout")
                     break
-                
+
                 # Execute command
                 result = self.execute_command(command)
-                
+
                 if result == "LOGOUT":
                     print("logout")
                     break
                 elif result:
                     print(result)
-                
+
         except KeyboardInterrupt:
             print("\n^C")
             print("logout")

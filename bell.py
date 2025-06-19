@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
 """
+import functools
+import json
+import logging
+import logging.handlers
+import os
+import random
+import sys
+import time
+import uuid
+
+from collections import defaultdict, deque
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, List, Optional, Any, Union, Callable
+
 Bell System UNIX V7 Terminal Simulation
 ========================================
 
@@ -8,7 +23,7 @@ workstations from the transformative period of 1978-1983.
 
 This module provides an authentic recreation of Bell System operations based on
 extensive documentation from the Bell System Technical Journal, Engineering and
-Operations manuals, and authentic AT&T internal procedures from the 
+Operations manuals, and authentic AT&T internal procedures from the
 pre-divestiture era.
 
 Features:
@@ -25,20 +40,20 @@ Version: 2.0
 Date: November 2024
 """
 
-import os
-import sys
-import time
-import logging
-import logging.handlers
-import readline
-import uuid
-from collections import defaultdict, deque
-import random
 import functools
 import json
+import logging
+import logging.handlers
+import os
+import random
+import readline
+import sys
+import time
+import uuid
+from collections import defaultdict, deque
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Union, Callable
 from pathlib import Path
+from typing import Dict, List, Optional, Any, Union, Callable
 
 try:
     import readline  # For command history and line editing
@@ -90,7 +105,7 @@ PROJECT_PREFIXES = {
 class BellSystemTerminal:
     """
     Main Bell System UNIX V7 Terminal Simulation Class.
-    
+
     Provides a historically accurate simulation of Bell System operations
     during 1978-1983, including authentic commands, procedures, and workflows.
     """
@@ -105,7 +120,7 @@ class BellSystemTerminal:
         'logout': 'quit',
         'cls': 'clear',
         'clear': 'clear',
-        
+
         # Bell System operation aliases
         'st': 'status',
         'stat': 'status',
@@ -117,7 +132,7 @@ class BellSystemTerminal:
         'maint': 'maintenance',
         'perf': 'performance',
         'monitor': 'performance',
-        
+
         # Technical system aliases
         'rad': 'radio',
         'mw': 'microwave',
@@ -129,20 +144,20 @@ class BellSystemTerminal:
         'mux': 'multiplex',
         'regen': 'regenerator',
         'reg': 'regenerator',
-        
+
         # Directory and file aliases
         'ls': 'list',
         'll': 'list',
         'la': 'list',
         'dir': 'list',
-        
+
         # System monitoring aliases
         'top': 'ps',
         'proc': 'ps',
         'users': 'who',
         'w': 'who',
         'disk': 'df',
-        
+
         # Bell System specific shortcuts
         'bsp': 'bsp',
         'practices': 'bsp',
@@ -176,24 +191,24 @@ class BellSystemTerminal:
         # Setup enhanced logging first
         self._setup_logging()
         self.logger = logging.getLogger('BellSystem')
-        
+
         # Performance monitoring
         self._performance_log = {}
         self.session_start_time = time.time()
         self.session_id = f"BELL-{int(time.time())}-{os.getpid()}"
         self.failed_command_attempts = 0
-        
+
         # Enhanced UX features - command history and error tracking
         self.command_history = deque(maxlen=1000)
         self.command_counts = defaultdict(int)
         self.error_counts = defaultdict(int)
         self.recent_errors = deque(maxlen=50)
         self.log_verbosity = 'INFO'
-        
+
         # Setup command history for readline if available
         if READLINE_AVAILABLE:
             self._setup_readline()
-        
+
         # System environment
         self.current_directory: str = "/usr/users/sysop"
         self.username: str = "sysop"
@@ -214,25 +229,24 @@ class BellSystemTerminal:
         self._initialize_users()
         self._initialize_shift_handoff()
         self.man_pages = self._initialize_man_pages()
-        
+
         # Initialize realistic system state management
         self._initialize_network_state()
         self._initialize_equipment_state()
         self._initialize_traffic_state()
         self._initialize_alarm_state()
-        
+
         # Initialize geographic and infrastructure authenticity
         self._initialize_nanpa_data()
         self._initialize_bell_system_infrastructure()
         self._initialize_enhanced_ticket_system()
-        
+
         # Generate initial shift events
         self.generate_shift_events()
 
     def _initialize_network_state(self) -> None:
         """Initialize dynamic network state for realistic simulation behavior."""
-        import random
-        
+
         # Trunk group states with realistic utilization patterns
         self.trunk_groups = {
             "TG-001-NYC": {"capacity": 24, "utilization": random.randint(45, 85), "status": "ACTIVE", "route": "NYC-WAS", "quality": random.uniform(0.995, 0.999)},
@@ -242,7 +256,7 @@ class BellSystemTerminal:
             "TG-089-CHI": {"capacity": 24, "utilization": random.randint(20, 60), "status": "ACTIVE", "route": "CHI-NYC", "quality": random.uniform(0.993, 0.998)},
             "TG-104-DET": {"capacity": 48, "utilization": 0, "status": "MAINT", "route": "DET-CHI", "quality": 0.000}
         }
-        
+
         # Network performance metrics with time-based variation
         hour = datetime.now().hour
         base_load = 40 + (30 * max(0, min(1, (hour - 8) / 8))) if 8 <= hour <= 16 else 25
@@ -258,7 +272,7 @@ class BellSystemTerminal:
     def _initialize_equipment_state(self) -> None:
         """Initialize switching equipment states with realistic operational patterns."""
         import random
-        
+
         # Electronic switching systems with varied performance
         self.switching_systems = {
             "1ESS-NYC-001": {"type": "1ESS", "status": "ACTIVE", "load": random.randint(65, 85), "calls_hour": random.randint(45000, 55000), "uptime": random.randint(720, 8760)},
@@ -267,7 +281,7 @@ class BellSystemTerminal:
             "4ESS-CHI-001": {"type": "4ESS", "status": "ACTIVE", "load": random.randint(70, 90), "calls_hour": random.randint(80000, 100000), "uptime": random.randint(504, 6570)},
             "5ESS-NYC-002": {"type": "5ESS", "status": random.choice(["TESTING", "ACTIVE"]), "load": random.randint(20, 45), "calls_hour": random.randint(15000, 25000), "uptime": random.randint(72, 720)}
         }
-        
+
         # Crossbar systems (legacy equipment)
         self.crossbar_systems = {
             "XB-NYC-003": {"status": "ACTIVE", "load": random.randint(40, 70), "maintenance_due": random.choice([True, False])},
@@ -277,11 +291,10 @@ class BellSystemTerminal:
 
     def _initialize_traffic_state(self) -> None:
         """Initialize traffic patterns with realistic time-based variations."""
-        import random
-        
+
         hour = datetime.now().hour
         day_of_week = datetime.now().weekday()  # 0=Monday, 6=Sunday
-        
+
         # Business hours traffic multiplier
         if 8 <= hour <= 17 and day_of_week < 5:  # Business hours, weekday
             traffic_multiplier = 1.0 + random.uniform(0.2, 0.4)
@@ -291,7 +304,7 @@ class BellSystemTerminal:
             traffic_multiplier = 0.4 + random.uniform(0.1, 0.2)
         else:  # Overnight
             traffic_multiplier = 0.2 + random.uniform(0.05, 0.15)
-        
+
         base_calls = 850000  # Base daily call volume
         self.traffic_data = {
             "current_calls": int(base_calls * traffic_multiplier / 24),
@@ -303,7 +316,7 @@ class BellSystemTerminal:
             "international_pct": random.uniform(0.08, 0.15),
             "toll_pct": random.uniform(0.35, 0.45)
         }
-        
+
         # Regional distribution with realistic patterns
         self.regional_traffic = {
             "northeast": {"calls": int(self.traffic_data["current_calls"] * 0.38), "revenue": random.randint(180000, 250000)},
@@ -315,7 +328,7 @@ class BellSystemTerminal:
     def _initialize_alarm_state(self) -> None:
         """Initialize alarm system with realistic fault conditions."""
         import random
-        
+
         # Generate realistic alarm conditions
         possible_alarms = [
             {"id": "AL-4472", "type": "TRUNK_DEGRADED", "severity": "MINOR", "system": "TG-004", "description": "Intermittent failures on trunk group"},
@@ -324,7 +337,7 @@ class BellSystemTerminal:
             {"id": "AL-4475", "type": "POWER_SUPPLY", "severity": "MINOR", "system": "PWR-NYC-002", "description": "Backup power supply voltage low"},
             {"id": "AL-4476", "type": "RADIO_FADE", "severity": "MAJOR", "system": "TH3-CHI-007", "description": "Microwave path experiencing excessive fade"}
         ]
-        
+
         # Randomly select active alarms based on time and conditions
         self.active_alarms = []
         for alarm in possible_alarms:
@@ -332,7 +345,7 @@ class BellSystemTerminal:
                 alarm["timestamp"] = datetime.now() - timedelta(minutes=random.randint(5, 480))
                 alarm["acknowledged"] = random.choice([True, False])
                 self.active_alarms.append(alarm)
-        
+
         # System health metrics
         self.system_health = {
             "overall_status": "OPERATIONAL" if len(self.active_alarms) < 3 else "DEGRADED",
@@ -342,7 +355,7 @@ class BellSystemTerminal:
             "uptime_days": random.randint(45, 365),
             "last_outage": datetime.now() - timedelta(days=random.randint(7, 90))
         }
-        
+
         # Log successful initialization
         self.logger.info(f"Bell System Terminal initialized - Session {self.session_id}")
 
@@ -350,15 +363,15 @@ class BellSystemTerminal:
         """Setup comprehensive logging system with rotation."""
         # Create logs directory if it doesn't exist
         os.makedirs('logs', exist_ok=True)
-        
+
         # Setup main logger
         logger = logging.getLogger('BellSystem')
         logger.setLevel(logging.DEBUG)
-        
+
         # Remove existing handlers to avoid duplicates
         for handler in logger.handlers[:]:
             logger.removeHandler(handler)
-        
+
         # File handler with rotation
         file_handler = logging.handlers.RotatingFileHandler(
             'logs/bell_system.log',
@@ -366,18 +379,18 @@ class BellSystemTerminal:
             backupCount=5
         )
         file_handler.setLevel(logging.DEBUG)
-        
+
         # Console handler for errors/warnings only
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.WARNING)
-        
+
         # Detailed formatter
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s'
         )
         file_handler.setFormatter(formatter)
         console_handler.setFormatter(formatter)
-        
+
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)
 
@@ -388,16 +401,16 @@ class BellSystemTerminal:
             history_file = 'logs/bell_system_history.txt'
             if os.path.exists(history_file):
                 readline.read_history_file(history_file)
-            
+
             # Set history length
             readline.set_history_length(1000)
-            
+
             # Enable tab completion (basic)
             readline.parse_and_bind('tab: complete')
-            
+
             self.history_file = history_file
             self.logger.debug("Readline setup completed successfully")
-            
+
         except Exception as e:
             self.logger.warning(f"Could not setup readline: {e}")
             self.history_file = None
@@ -411,39 +424,39 @@ class BellSystemTerminal:
             'timestamp': datetime.now(),
             'count': self.error_counts[command]
         })
-        
+
         self.logger.warning(f"Command error: {command} - {error_msg}")
-        
+
         # Generate helpful response
         response = f"Error: {error_msg}\n"
-        
+
         # Add suggestions based on command
         suggestions = self._get_command_suggestions(command)
         if suggestions:
             response += f"\nDid you mean:\n"
             for suggestion in suggestions[:3]:  # Limit to 3 suggestions
                 response += f"  • {suggestion}\n"
-        
+
         # Add general help for repeated errors
         if self.error_counts[command] > 2:
             response += f"\nHint: Type 'help' for available commands or 'man {command}' for detailed help.\n"
             response += "Type 'errors' to see recent error summary.\n"
-        
+
         return response
 
     def _get_command_suggestions(self, command: str) -> List[str]:
         """Get command suggestions based on failed command."""
         suggestions = []
-        
+
         # Check aliases first
         all_commands = list(self.COMMAND_ALIASES.keys())
-        
+
         # Simple fuzzy matching (commands that start with same letters)
         if len(command) >= 2:
-            prefix_matches = [cmd for cmd in all_commands 
+            prefix_matches = [cmd for cmd in all_commands
                              if cmd.startswith(command[:2]) and cmd != command]
             suggestions.extend(prefix_matches[:2])
-        
+
         # Common typo corrections
         typo_corrections = {
             'hlep': 'help',
@@ -455,10 +468,10 @@ class BellSystemTerminal:
             'swithc': 'switch',
             'trnuk': 'trunk'
         }
-        
+
         if command in typo_corrections:
             suggestions.insert(0, typo_corrections[command])
-        
+
         return list(dict.fromkeys(suggestions))  # Remove duplicates
 
     def _initialize_ticket_system(self) -> None:
@@ -476,19 +489,19 @@ class BellSystemTerminal:
             },
             "customer_classes": {
                 "GOVERNMENT-PRIORITY": {
-                    "escalation_multiplier": 0.5, 
+                    "escalation_multiplier": 0.5,
                     "priority_boost": 1
                 },
                 "EMERGENCY-SERVICES": {
-                    "escalation_multiplier": 0.25, 
+                    "escalation_multiplier": 0.25,
                     "priority_boost": 2
                 },
                 "BUSINESS-CRITICAL": {
-                    "escalation_multiplier": 0.75, 
+                    "escalation_multiplier": 0.75,
                     "priority_boost": 1
                 },
                 "RESIDENTIAL": {
-                    "escalation_multiplier": 1.0, 
+                    "escalation_multiplier": 1.0,
                     "priority_boost": 0
                 }
             }
@@ -560,7 +573,7 @@ class BellSystemTerminal:
             "/bin": {
                 "type": "dir", "owner": "root", "group": "bell",
                 "mode": "drwxr-xr-x", "size": 1024,
-                "files": ["sh", "ls", "cat", "ps", "who", "uucp", "mail", 
+                "files": ["sh", "ls", "cat", "ps", "who", "uucp", "mail",
                          "wall", "write"]
             },
             "/usr": {
@@ -691,7 +704,7 @@ class BellSystemTerminal:
     def generate_shift_events(self) -> None:
         """
         Generate authentic Bell System operational events with ticket numbers.
-        
+
         Creates realistic operational events based on time of day, season,
         and historical Bell System operations patterns. Each event has an
         assigned ticket number for detailed investigation.
@@ -714,7 +727,7 @@ class BellSystemTerminal:
                 "actions": ["Review hourly reports", "Monitor for threshold violations", "Document performance metrics"]
             },
             {
-                "id": "EV-8002", 
+                "id": "EV-8002",
                 "time": "08:30",
                 "type": "SYSTEM",
                 "title": "UUCP queue processing - 47 files transferred",
@@ -726,7 +739,7 @@ class BellSystemTerminal:
             },
             {
                 "id": "EV-8003",
-                "time": "08:45", 
+                "time": "08:45",
                 "type": "TEST",
                 "title": "Emergency services test call verification completed",
                 "priority": "MEDIUM",
@@ -757,7 +770,7 @@ class BellSystemTerminal:
                     "time": "10:00",
                     "type": "MEETING",
                     "title": "Network planning meeting NP-8301 at 10:00",
-                    "priority": "MEDIUM", 
+                    "priority": "MEDIUM",
                     "status": "SCHEDULED",
                     "description": "Northeast Corridor Expansion Project review",
                     "details": "Quarterly review of NP-8301 project milestones. Discussion of capacity requirements and timeline adjustments.",
@@ -779,7 +792,7 @@ class BellSystemTerminal:
                 },
                 {
                     "id": "EV-8021",
-                    "time": "16:00", 
+                    "time": "16:00",
                     "type": "TRAINING",
                     "title": "TSPS operator training session 16:00-17:30",
                     "priority": "MEDIUM",
@@ -797,7 +810,7 @@ class BellSystemTerminal:
                     "type": "MAINTENANCE",
                     "title": "Preventive maintenance window 02:00-05:00",
                     "priority": "MEDIUM",
-                    "status": "ACTIVE", 
+                    "status": "ACTIVE",
                     "description": "Scheduled overnight maintenance procedures",
                     "details": "Crossbar system maintenance at three central offices. Estimated completion 04:30.",
                     "actions": ["Monitor maintenance progress", "Coordinate with field teams", "Verify service restoration"]
@@ -874,20 +887,20 @@ class BellSystemTerminal:
 
         # Combine all events and select appropriate ones for the shift
         all_events = base_events + time_events + equipment_events + seasonal_events
-        
+
         # Always include base events, then add others based on current conditions
         selected_events = base_events.copy()
-        
+
         # Add time-appropriate events
         selected_events.extend(time_events)
-        
+
         # Add 2-3 equipment/customer events randomly
         if equipment_events:
             selected_events.extend(random.sample(equipment_events, min(2, len(equipment_events))))
-            
+
         # Add seasonal events if applicable
         selected_events.extend(seasonal_events)
-        
+
         # Sort by time and limit to reasonable number
         selected_events.sort(key=lambda x: x["time"])
         self.shift_events = selected_events[:8]  # Limit to 8 events per shift
@@ -895,7 +908,7 @@ class BellSystemTerminal:
     def select_role(self) -> None:
         """
         Allow user to select their Bell System operational role.
-        
+
         Displays authentic Bell System roles and sets up role-specific
         environment and command access.
         """
@@ -910,12 +923,12 @@ class BellSystemTerminal:
             print(f"{role_id:2d}. {role_name}")
 
         print("-" * 45)
-        
+
         while True:
             try:
                 choice = input("\nEnter role number (1-12): ").strip()
                 role_num = int(choice)
-                
+
                 if 1 <= role_num <= 12:
                     role_key, role_name = BELL_SYSTEM_ROLES[role_num]
                     self.role = role_key
@@ -935,13 +948,13 @@ class BellSystemTerminal:
     def show_shift_briefing(self) -> None:
         """
         Display role-specific shift briefing.
-        
+
         Provides authentic Bell System shift briefing information
         tailored to the selected operational role.
         """
         current_time = datetime.now().strftime("%H:%M")
         current_date = datetime.now().strftime("%B %d, %Y")
-        
+
         print(f"\n{'='*60}")
         print(f"BELL SYSTEM SHIFT BRIEFING - {current_date}")
         print(f"Shift Start Time: {current_time}")
@@ -997,7 +1010,7 @@ UNIX SYSTEMS OPERATOR BRIEFING
 
 Primary Responsibilities:
 - System performance monitoring and maintenance
-- UUCP network queue management  
+- UUCP network queue management
 - PWB development environment support
 - User account administration and security
 
@@ -1233,36 +1246,36 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
     def run(self) -> None:
         """
         Main Bell System terminal session loop.
-        
+
         Handles user interaction, command processing, and maintains
         the authentic Bell System terminal experience.
         """
         try:
             self.select_role()
             self.show_shift_briefing()
-            
+
             while True:
                 try:
                     # Display authentic UNIX V7 prompt
                     prompt = f"{self.username}@{self.hostname}:{self.current_directory}$ "
                     command_line = input(prompt).strip()
-                    
+
                     if not command_line:
                         continue
-                    
+
                     # Add to command history
                     self.command_history.append(command_line)
-                    
+
                     # Process the command
                     if command_line.lower() in ['exit', 'quit', 'logout']:
                         print("Logging out of Bell System terminal...")
                         print("Session terminated.")
                         break
-                    
+
                     output = self.execute_command(command_line)
                     if output:
                         print(output)
-                        
+
                 except KeyboardInterrupt:
                     print("\n^C")
                     choice = input("Really quit Bell System terminal? (y/N): ")
@@ -1272,7 +1285,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                 except EOFError:
                     print("\nSession terminated.")
                     break
-                    
+
         except Exception as e:
             print(f"Terminal error: {e}")
             print("Session terminated.")
@@ -1280,30 +1293,30 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
     def execute_command(self, command_line: str) -> str:
         """
         Execute Bell System commands with enhanced UX features and logging.
-        
+
         Args:
             command_line: The complete command line entered by user
-            
+
         Returns:
             Command output string or enhanced error message
         """
         start_time = time.time()
-        
+
         # Add to command history
         if command_line.strip():
             self.command_history.append(command_line)
-        
+
         try:
             parts = command_line.split()
             if not parts:
                 return ""
-            
+
             command = parts[0].lower()
             args = parts[1:] if len(parts) > 1 else []
-            
+
             # Log command execution
             self.logger.debug(f"Executing command: {command} with args: {args}")
-            
+
             # Handle command aliases
             original_command = command
             if command in self.COMMAND_ALIASES:
@@ -1315,9 +1328,9 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                     args = alias_parts[1:] + args
                 else:
                     command = alias_expansion
-                
+
                 self.logger.debug(f"Command alias expanded: {original_command} -> {command} {' '.join(args)}")
-            
+
             # Map commands to their handler methods
             command_handlers = {
                 # Core Bell System commands
@@ -1348,7 +1361,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                 'tariff': self.cmd_tariff,
                 'events': self.cmd_events,
                 'training': self.cmd_training,
-                
+
                 # Enhanced Bell System commands
                 '3a': self.cmd_3a,
                 '5ess': self.cmd_5ess,
@@ -1377,12 +1390,12 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                 'multiplex': self.cmd_multiplex,
                 'regenerator': self.cmd_regenerator,
                 'antenna': self.cmd_antenna,
-                
+
                 # Enhanced UX commands
                 'errors': self.cmd_errors,
                 'verbosity': self.cmd_verbosity,
                 'history': self.cmd_history,
-                
+
                 # Standard UNIX commands
                 'ps': self.cmd_ps,
                 'who': self.cmd_who,
@@ -1397,25 +1410,25 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                 'quit': self.cmd_quit,
                 'clear': self.cmd_clear
             }
-            
+
             # Execute command if it exists
             # Execute command
             if command in command_handlers:
                 result = command_handlers[command](args)
-                
+
                 # Log performance metrics
                 execution_time = time.time() - start_time
                 self.logger.debug(f"Command '{command}' completed in {execution_time:.3f}s")
-                
+
                 # Update command statistics
                 self.command_counts[command] += 1
-                
+
                 return result
             else:
                 # Enhanced error handling with suggestions
                 error_msg = f"{command}: command not found"
                 return self._handle_command_error(command, error_msg)
-                
+
         except Exception as e:
             error_msg = f"Command execution error: {e}"
             self.logger.error(f"Exception in command '{command}': {e}")
@@ -1424,11 +1437,11 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
     def _initialize_man_pages(self) -> Dict[str, str]:
         """
         Initialize comprehensive manual pages for all Bell System commands.
-        
+
         Creates detailed documentation for every command and sub-command with
         authentic Bell System terminology, usage examples, and cross-references.
         Includes project numbering system for complex operations.
-        
+
         Returns:
             dict: Complete man page documentation system
         """
@@ -1443,7 +1456,7 @@ SYNOPSIS
 DESCRIPTION
      Monitor and manage Bell System inter-office trunk groups including
      traffic analysis, capacity utilization, and billing coordination.
-     
+
      Trunk groups connect switching centers and carry inter-office traffic.
      Each trunk group (TG-xxx) has specific capacity and routing characteristics.
 
@@ -1627,7 +1640,7 @@ OPTIONS
      dispatch        Create emergency dispatch ticket
      escalate        Escalate existing emergency to management
      status          Show current emergency status
-     
+
 PRIORITY LEVELS
      P1-CRITICAL     Complete service outage affecting >10,000 customers
      P2-MAJOR        Significant service degradation, equipment failure
@@ -1850,7 +1863,7 @@ OPTIONS
 
 SYSTEM TYPES
      L1 System:             600 voice channels, 3 MHz bandwidth
-     L3 System:             1860 voice channels, 8 MHz bandwidth  
+     L3 System:             1860 voice channels, 8 MHz bandwidth
      L4 System:             3600 voice channels, 17 MHz bandwidth
      L5 System:             10,800 voice channels, 57 MHz bandwidth
 
@@ -2087,7 +2100,7 @@ OPTIONS
      switching       Test switching equipment and call processing
      transmission    Test transmission facilities and circuits
      customer        Test customer services and line conditions
-     
+
 TEST CATEGORIES
      ROUTINE         Scheduled preventive testing
      DIAGNOSTIC      Fault isolation and troubleshooting
@@ -2162,7 +2175,7 @@ OPTIONS
 
 SERVICE TYPES
      DATA LINES      Digital data transmission circuits
-     PRIVATE LINES   Dedicated voice and data circuits  
+     PRIVATE LINES   Dedicated voice and data circuits
      FOREIGN EXCHANGE Circuits extending local service areas
      TIE LINES       Inter-office private connections
 
@@ -2301,7 +2314,7 @@ DESCRIPTION
 OPTIONS
      hierarchy       Display digital signal hierarchy
      combine         Multiplex lower-level signals
-     separate        Demultiplex higher-level signals  
+     separate        Demultiplex higher-level signals
      monitor         Monitor multiplexer performance
 
 DIGITAL HIERARCHY
@@ -2992,7 +3005,7 @@ EXAMPLES
 BELL SYSTEM PROCEDURES
      Session termination includes:
      - Command history preservation
-     - Operational log finalization  
+     - Operational log finalization
      - Session activity recording
      - Proper logout authentication
 
@@ -3473,7 +3486,7 @@ DESCRIPTION
      formal correspondence requiring professional presentation.
 
 OPTIONS
-     -ms             Use manuscript macro package  
+     -ms             Use manuscript macro package
      -mm             Use memorandum macro package
      -Tdevice        Specify output device type
 
@@ -3713,17 +3726,17 @@ UNIX V7 PROGRAMMER'S MANUAL
     def cmd_ps(self, args: List[str] = None) -> str:
         """
         Display Bell System processes in authentic UNIX V7 format.
-        
+
         Shows currently running processes on the Bell System workstation
         including system daemons, switching processes, and user sessions.
-        
+
         Returns:
             Process listing formatted in traditional ps output style
         """
         current_time = datetime.now().strftime("%a %b %d %H:%M:%S EST %Y")
         processes = [
             "    1  ?        0:01 init",
-            "   23  ?        0:00 cron", 
+            "   23  ?        0:00 cron",
             "   45  ?        0:02 switching_monitor",
             "   67  ?        0:01 ama_collector",
             "   89  ?        0:00 billing_daemon",
@@ -3733,55 +3746,55 @@ UNIX V7 PROGRAMMER'S MANUAL
             "  178  tty02    0:00 -sh (sysop)",
             "  201  tty03    0:00 -sh (netplan)"
         ]
-        
+
         header = f"Bell System UNIX V7 - Process Status - {current_time}\n"
         header += "   PID TTY      TIME CMD\n"
-        
+
         return header + "\n".join(processes)
 
     def _initialize_nanpa_data(self) -> None:
         """Initialize authentic NANPA geographic data for Bell System infrastructure."""
         import csv
         import random
-        
+
         # Load and process NANPA data for authentic Bell System operations
         self.nanpa_data = {}
         self.bell_system_exchanges = {}
-        
+
         try:
             # Read NANPA CSV data
             with open('attached_assets/full_dataset_csv.csv', 'r') as csvfile:
                 reader = csv.DictReader(csvfile)
-                
+
                 # Sample and process key Bell System service areas from 1978-1983 era
                 bell_system_areas = ['212', '213', '214', '215', '216', '301', '302', '303', '305', '312', '313', '314', '401', '404', '412', '413', '414', '415', '416', '501', '502', '503', '504', '505', '507', '509', '512', '513', '515', '516', '517', '518', '601', '602', '603', '605', '606', '607', '608', '609', '612', '614', '615', '616', '617', '618', '701', '702', '703', '704', '712', '713', '714', '715', '716', '717', '718', '801', '802', '803', '804', '805', '806', '807', '808', '812', '813', '814', '815', '816', '817', '901', '902', '904', '906', '907', '912', '913', '914', '915', '916', '918', '919']
-                
+
                 row_count = 0
                 for row in reader:
                     row_count += 1
                     if row_count > 50000:  # Limit processing for performance
                         break
-                        
+
                     npa = row['npa']
                     nxx = row['nxx']
                     city = row['city']
                     state = row['state']
-                    
+
                     # Focus on US Bell System territories
                     if npa in bell_system_areas and row['country'] == 'United States':
                         if npa not in self.nanpa_data:
                             self.nanpa_data[npa] = {}
-                        
+
                         if nxx not in self.nanpa_data[npa]:
                             self.nanpa_data[npa][nxx] = []
-                        
+
                         self.nanpa_data[npa][nxx].append({
                             'city': city,
                             'state': state,
                             'latitude': row.get('latitude', '0'),
                             'longitude': row.get('longitude', '0')
                         })
-                        
+
         except FileNotFoundError:
             # Fallback to core Bell System data if file not accessible
             self.nanpa_data = {
@@ -3794,20 +3807,19 @@ UNIX V7 PROGRAMMER'S MANUAL
 
     def _initialize_bell_system_infrastructure(self) -> None:
         """Initialize authentic Bell System infrastructure based on NANPA data."""
-        import random
-        
+
         # Create realistic Bell System central offices and switching centers
         self.central_offices = {}
         self.switching_centers = {}
         self.microwave_sites = {}
-        
+
         # Generate central offices based on NANPA data
         for npa, exchanges in self.nanpa_data.items():
             for nxx, locations in exchanges.items():
                 if locations:
                     location = locations[0]  # Use first location for office
                     office_code = f"{npa}{nxx}"
-                    
+
                     # Create central office with authentic Bell System characteristics
                     self.central_offices[office_code] = {
                         'npa': npa,
@@ -3822,7 +3834,7 @@ UNIX V7 PROGRAMMER'S MANUAL
                         'maintenance_status': random.choice(['NORMAL', 'SCHEDULED', 'EMERGENCY']),
                         'coordinates': (location['latitude'], location['longitude'])
                     }
-        
+
         # Generate major switching centers for key metropolitan areas
         major_metros = [
             ('212', 'New York', 'NY', '4ESS'), ('213', 'Los Angeles', 'CA', '4ESS'),
@@ -3831,7 +3843,7 @@ UNIX V7 PROGRAMMER'S MANUAL
             ('313', 'Detroit', 'MI', '4ESS'), ('404', 'Atlanta', 'GA', '4ESS'),
             ('713', 'Houston', 'TX', '4ESS'), ('415', 'San Francisco', 'CA', '4ESS')
         ]
-        
+
         for npa, city, state, switch_type in major_metros:
             center_id = f"TSC-{npa}-001"
             self.switching_centers[center_id] = {
@@ -3849,7 +3861,7 @@ UNIX V7 PROGRAMMER'S MANUAL
     def _initialize_enhanced_ticket_system(self) -> None:
         """Initialize comprehensive ticket management system with realistic scenarios."""
         import random
-        
+
         # Enhanced ticket categories with Bell System authenticity
         self.ticket_categories = {
             'NETWORK_OUTAGE': {
@@ -3878,55 +3890,54 @@ UNIX V7 PROGRAMMER'S MANUAL
                 'customer_impact': {'CRITICAL': (1000, 100000), 'MAJOR': (100, 10000), 'MINOR': (10, 1000)}
             }
         }
-        
+
         # Initialize dynamic ticket generation
         self.active_tickets = []
         self.ticket_counter = 4500  # Start from realistic Bell System ticket numbers
         self.completed_tickets = []
-        
+
         # Generate initial realistic ticket scenarios
         self._generate_initial_tickets()
 
     def _generate_initial_tickets(self) -> None:
         """Generate initial realistic trouble tickets for the simulation session."""
-        import random
-        
+
         # Generate 8-15 initial tickets for authentic operational load
         initial_ticket_count = random.randint(8, 15)
-        
+
         for _ in range(initial_ticket_count):
             self._create_realistic_ticket()
 
     def _create_realistic_ticket(self) -> dict:
         """Create a realistic trouble ticket with authentic Bell System characteristics."""
         import random
-        
+
         # Select ticket category and priority
         category = random.choice(list(self.ticket_categories.keys()))
         category_data = self.ticket_categories[category]
-        
+
         # Determine priority based on realistic weights
         priority_choices = list(category_data['priority_weights'].keys())
         priority_weights = list(category_data['priority_weights'].values())
         priority = random.choices(priority_choices, weights=priority_weights)[0]
-        
+
         # Generate ticket ID
         self.ticket_counter += random.randint(1, 5)
         ticket_id = f"TK-{self.ticket_counter}"
-        
+
         # Select affected infrastructure from NANPA data
         affected_office = self._select_affected_infrastructure()
-        
+
         # Generate realistic scenario based on category
         scenario = self._generate_ticket_scenario(category, priority, affected_office)
-        
+
         # Calculate realistic duration and impact
         duration_range = category_data['typical_duration'][priority]
         estimated_duration = random.randint(*duration_range)
-        
+
         impact_range = category_data['customer_impact'][priority]
         customer_impact = random.randint(*impact_range)
-        
+
         # Create comprehensive ticket
         ticket = {
             'id': ticket_id,
@@ -3948,14 +3959,13 @@ UNIX V7 PROGRAMMER'S MANUAL
             'business_impact': self._calculate_business_impact(priority, customer_impact),
             'resolution_steps': []
         }
-        
+
         self.active_tickets.append(ticket)
         return ticket
 
     def _select_affected_infrastructure(self) -> dict:
         """Select realistic affected infrastructure from Bell System network."""
-        import random
-        
+
         if self.central_offices:
             office_code = random.choice(list(self.central_offices.keys()))
             return self.central_offices[office_code]
@@ -3974,12 +3984,12 @@ UNIX V7 PROGRAMMER'S MANUAL
     def _generate_ticket_scenario(self, category: str, priority: str, office: dict) -> dict:
         """Generate realistic ticket scenario based on category and Bell System operations."""
         import random
-        
+
         city = office['city']
         state = office['state']
         switch_type = office['switch_type']
         npa = office['npa']
-        
+
         scenarios = {
             'NETWORK_OUTAGE': {
                 'CRITICAL': [
@@ -4096,7 +4106,7 @@ UNIX V7 PROGRAMMER'S MANUAL
                 ]
             }
         }
-        
+
         if category in scenarios and priority in scenarios[category]:
             return random.choice(scenarios[category][priority])
         else:
@@ -4113,11 +4123,10 @@ UNIX V7 PROGRAMMER'S MANUAL
 
     def _calculate_business_impact(self, priority: str, customer_count: int) -> dict:
         """Calculate business impact metrics for trouble tickets."""
-        import random
-        
+
         # Revenue impact calculations based on 1983 Bell System rates
         avg_revenue_per_customer_hour = random.uniform(0.85, 2.45)  # 1983 rates
-        
+
         impact = {
             'revenue_loss_hour': int(customer_count * avg_revenue_per_customer_hour),
             'customer_calls_affected': customer_count * random.randint(2, 8),
@@ -4130,19 +4139,19 @@ UNIX V7 PROGRAMMER'S MANUAL
                 'MINOR': 'Minimal impact'
             }[priority]
         }
-        
+
         return impact
 
     def cmd_help(self, args: List[str] = None) -> str:
         """
         Show available commands based on role with enhanced documentation.
-        
+
         Provides role-specific command listings and basic usage information.
         For detailed information, users should use the man command.
-        
+
         Args:
             args: Optional command name for specific help
-            
+
         Returns:
             Help information formatted for terminal display
         """
@@ -4153,7 +4162,7 @@ UNIX V7 PROGRAMMER'S MANUAL
                 return f"Brief help for {command}:\nUse 'man {command}' for complete documentation."
             else:
                 return f"No help available for '{command}'. Use 'help' to see available commands."
-        
+
         # Show role-based command listing
         role_commands = {
             "sysop": ["ps", "df", "who", "uucp", "mail", "pwb", "rje", "date", "ls"],
@@ -4169,20 +4178,20 @@ UNIX V7 PROGRAMMER'S MANUAL
             "sarts": ["sarts", "testing", "circuits", "provision"],
             "docprep": ["nroff", "troff", "tbl", "eqn", "pic", "refer", "pwb"]
         }
-        
+
         commands = role_commands.get(self.role, ["help", "man", "ps", "who", "date"])
-        
+
         help_text = f"""Bell System UNIX V7 Commands - Role: {self.role}
 
 Available Commands:
 """
-        
+
         # Group commands by category
         for i, cmd in enumerate(sorted(commands)):
             if i % 4 == 0:
                 help_text += "\n  "
             help_text += f"{cmd:<15}"
-        
+
         help_text += f"""
 
 Common Commands:
@@ -4202,19 +4211,19 @@ For Bell System Practices: bsp search <topic>
     def cmd_man(self, args: List[str]) -> str:
         """
         Display manual pages for Bell System commands.
-        
+
         Provides comprehensive documentation for all commands and sub-commands
         with authentic Bell System formatting and terminology.
-        
+
         Args:
             args: Command arguments [command_name] or [-k keyword]
-            
+
         Returns:
             Formatted manual page or search results
         """
         if not args:
             return "Usage: man <command> or man -k <keyword>"
-        
+
         if args[0] == "-k" and len(args) > 1:
             # Keyword search
             keyword = args[1].lower()
@@ -4222,12 +4231,12 @@ For Bell System Practices: bsp search <topic>
             for cmd, content in self.man_pages.items():
                 if keyword in content.lower():
                     matches.append(cmd)
-            
+
             if matches:
                 return f"Manual pages containing '{keyword}':\n" + "\n".join(f"  {cmd}(1)" for cmd in matches)
             else:
                 return f"No manual pages found for keyword '{keyword}'"
-        
+
         command = args[0].lower()
         if command in self.man_pages:
             return self.man_pages[command]
@@ -4238,10 +4247,10 @@ For Bell System Practices: bsp search <topic>
     def cmd_ps(self, args: List[str] = None) -> str:
         """
         Display Bell System processes in authentic UNIX V7 format.
-        
+
         Shows currently running processes on the Bell System workstation
         including system daemons, switching processes, and user sessions.
-        
+
         Returns:
             Process listing formatted in traditional ps output style
         """
@@ -4253,10 +4262,10 @@ For Bell System Practices: bsp search <topic>
     def cmd_who(self, args: List[str] = None) -> str:
         """
         Display currently logged-in Bell System users.
-        
+
         Shows active user sessions on the Bell System workstation with
         login times and terminal locations for operational awareness.
-        
+
         Returns:
             User listing with terminals and login information
         """
@@ -4268,13 +4277,13 @@ For Bell System Practices: bsp search <topic>
     def cmd_ls(self, args: List[str]) -> str:
         """
         List directory contents in the Bell System filesystem.
-        
+
         Provides basic directory listing functionality for navigating
         the authentic Bell System file structure and operational directories.
-        
+
         Args:
             args: Command arguments (currently unused, basic implementation)
-            
+
         Returns:
             Directory contents or error message
         """
@@ -4302,18 +4311,17 @@ For Bell System Practices: bsp search <topic>
     # Bell System specific commands (implementations would continue...)
     def cmd_trunk(self, args: List[str]) -> str:
         """Enhanced trunk status and management with realistic state-aware behavior."""
-        import random
-        
+
         # Update trunk states based on time and network conditions
         self._update_trunk_states()
-        
+
         if not args:
             # Dynamic trunk status with real-time variability
             current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
             active_count = len([tg for tg in self.trunk_groups.values() if tg["status"] == "ACTIVE"])
             total_count = len(self.trunk_groups)
             avg_utilization = sum(tg["utilization"] for tg in self.trunk_groups.values() if tg["status"] == "ACTIVE") // active_count
-            
+
             # Add realistic alerts and warnings
             alerts = []
             for tg_name, tg_data in self.trunk_groups.items():
@@ -4321,20 +4329,20 @@ For Bell System Practices: bsp search <topic>
                     alerts.append(f"HIGH UTIL: {tg_name} at {tg_data['utilization']}%")
                 elif tg_data["quality"] < 0.995:
                     alerts.append(f"QUALITY: {tg_name} below threshold")
-            
+
             status_output = f"""Bell System Trunk Group Status Summary
 {current_time}
 
 Trunk Group      Capacity   Utilization   Status      Route        Quality
 -----------      --------   -----------   ------      -----        -------"""
-            
+
             for tg_name, tg_data in self.trunk_groups.items():
                 util_status = "HIGH" if tg_data["utilization"] > 80 else "NORMAL" if tg_data["utilization"] > 30 else "LOW"
                 if tg_data["status"] == "MAINT":
                     util_status = "MAINT"
                 quality_pct = f"{tg_data['quality']:.3f}" if tg_data["quality"] > 0 else "N/A"
                 status_output += f"\n{tg_name:<16} {tg_data['capacity']:<10} {tg_data['utilization']:>3}%        {util_status:<8}    {tg_data['route']:<12} {quality_pct}"
-            
+
             status_output += f"""
 
 Network Summary:
@@ -4344,13 +4352,13 @@ Network Summary:
   Revenue This Hour:       ${self.network_metrics['revenue_hour']:,}
 
 System Alerts:"""
-            
+
             if alerts:
                 for alert in alerts[:3]:  # Show up to 3 alerts
                     status_output += f"\n  ⚠ {alert}"
             else:
                 status_output += "\n  ✓ All systems operating normally"
-            
+
             status_output += """
 
 Commands:
@@ -4358,22 +4366,22 @@ Commands:
   trunk test <TG-xxx>       Initiate testing sequence
   trunk traffic <TG-xxx>    Real-time traffic monitoring
   trunk maintenance         Scheduled maintenance status"""
-            
+
             return status_output
 
         elif args[0] == "detail" and len(args) > 1:
             tg_name = args[1].upper()
             if tg_name not in self.trunk_groups:
                 return f"trunk: ERROR - Trunk group {tg_name} not found\nAvailable groups: {', '.join(self.trunk_groups.keys())}"
-            
+
             tg = self.trunk_groups[tg_name]
             current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
-            
+
             # Calculate realistic metrics
             active_channels = int(tg["capacity"] * tg["utilization"] / 100) if tg["status"] == "ACTIVE" else 0
             setup_time = random.uniform(0.8, 2.4)
             error_rate = random.uniform(0.0001, 0.01) if tg["quality"] < 0.998 else random.uniform(0.00001, 0.0001)
-            
+
             detail_output = f"""Detailed Trunk Group Analysis: {tg_name}
 Analysis Time: {current_time}
 
@@ -4389,7 +4397,7 @@ Current Performance:
   Utilization:        {tg["utilization"]}% ({'Normal' if 40 <= tg["utilization"] <= 80 else 'High' if tg["utilization"] > 80 else 'Low'} range)
   Answer/Seizure:     {tg["quality"]:.1%} (Target: >95.0%)
   Post-Dial Delay:    {setup_time:.1f} seconds average
-  
+
 Traffic Analysis:
   Busy Hour CCS:      {int(active_channels * 36)} (within capacity)
   Peak Utilization:   {min(100, tg["utilization"] + random.randint(5, 15))}% at {random.randint(14, 16)}:{random.randint(0, 59):02d}
@@ -4401,48 +4409,48 @@ Quality Metrics:
   Noise Level:        {random.randint(-72, -60)} dBm (Good)
   Echo Return Loss:   {random.randint(32, 38)} dB (Acceptable)
   Jitter:             {random.uniform(0.1, 0.8):.1f} ms (Normal)
-  
+
 Maintenance Status:
   Last Test:          {(datetime.now() - timedelta(days=random.randint(1, 7))).strftime('%B %d, %Y %H:%M')}
   Next Scheduled:     {(datetime.now() + timedelta(days=random.randint(1, 14))).strftime('%B %d, %Y %H:%M')}
   Known Issues:       {'None' if tg["quality"] > 0.995 else 'Minor performance degradation'}
   Alarm Status:       {'Clear' if tg["status"] == 'ACTIVE' and tg["quality"] > 0.995 else 'Active alarms present'}
-  
+
 Recommendations:"""
-            
+
             if tg["utilization"] > 85:
                 detail_output += f"\n  • URGENT: Monitor closely - utilization at {tg['utilization']}%"
                 detail_output += "\n  • Consider immediate capacity upgrade or load balancing"
             elif tg["utilization"] > 75:
                 detail_output += f"\n  • Monitor during peak hours - current utilization {tg['utilization']}%"
-            
+
             if tg["quality"] < 0.995:
                 detail_output += f"\n  • Quality below standard - investigate circuit issues"
                 detail_output += "\n  • Schedule comprehensive testing"
-            
+
             if tg["status"] == "MAINT":
                 detail_output += "\n  • Trunk group in maintenance mode"
                 detail_output += "\n  • Verify completion before returning to service"
-            
+
             if not any([tg["utilization"] > 75, tg["quality"] < 0.995, tg["status"] == "MAINT"]):
                 detail_output += "\n  • Continue normal monitoring procedures"
                 detail_output += "\n  • Performance within acceptable parameters"
-            
+
             return detail_output
 
         elif args[0] == "test" and len(args) > 1:
             tg_name = args[1].upper()
             if tg_name not in self.trunk_groups:
                 return f"trunk: ERROR - Trunk group {tg_name} not found"
-            
+
             tg = self.trunk_groups[tg_name]
             if tg["status"] == "MAINT":
                 return f"trunk: Cannot test {tg_name} - trunk group in maintenance mode"
-            
+
             # Simulate realistic testing sequence with variable results
             test_results = []
             test_start = datetime.now().strftime("%H:%M:%S")
-            
+
             # Various test phases with realistic pass/fail rates
             tests = [
                 ("Signal continuity", 0.98),
@@ -4454,13 +4462,13 @@ Recommendations:"""
                 ("Synchronization", 0.96),
                 ("Power level check", 0.99)
             ]
-            
+
             test_output = f"""Initiating comprehensive test sequence for {tg_name}...
 Test started: {test_start}
 
 Running Bell System Standard Test Suite BSP-100-120-001:
 """
-            
+
             overall_pass = True
             for test_name, pass_rate in tests:
                 # Degrade pass rate based on trunk quality
@@ -4469,7 +4477,7 @@ Running Bell System Standard Test Suite BSP-100-120-001:
                 status = "PASS" if passed else "FAIL"
                 if not passed:
                     overall_pass = False
-                
+
                 # Add realistic test values
                 if "noise" in test_name.lower():
                     value = f" ({random.randint(-72, -60)} dBm)"
@@ -4479,12 +4487,12 @@ Running Bell System Standard Test Suite BSP-100-120-001:
                     value = f" ({random.randint(30, 40)} dB)"
                 else:
                     value = ""
-                
+
                 test_output += f"\nPhase {len(test_results)+1}: {test_name:<20} [{status}]{value}"
                 test_results.append(passed)
-            
+
             test_end = datetime.now().strftime("%H:%M:%S")
-            
+
             test_output += f"""
 
 Test completed: {test_end}
@@ -4495,7 +4503,7 @@ Results Summary:
   Overall Status: {'PASS' if overall_pass else 'FAIL'}
   Quality Rating: {tg["quality"]:.1%}
 """
-            
+
             if overall_pass:
                 test_output += f"  Recommendation: {tg_name} certified for continued operation"
                 # Slightly improve quality on successful test
@@ -4505,19 +4513,19 @@ Results Summary:
                 test_output += f"\n  Action Required: Investigate failed test phases"
                 # Degrade quality on failed test
                 tg["quality"] = max(0.980, tg["quality"] - 0.005)
-            
+
             test_output += f"""
 
 Test log saved: /att/network/tests/{tg_name.lower()}_{datetime.now().strftime('%m%d_%H%M')}.log
 Next test due: {(datetime.now() + timedelta(days=30)).strftime('%B %d, %Y')}"""
-            
+
             return test_output
 
         elif args[0] == "traffic" and len(args) > 1:
             tg_name = args[1].upper()
             if tg_name not in self.trunk_groups:
                 return f"trunk: ERROR - Trunk group {tg_name} not found"
-            
+
             tg = self.trunk_groups[tg_name]
             return self._show_trunk_traffic_monitor(tg_name, tg)
 
@@ -4527,18 +4535,18 @@ Next test due: {(datetime.now() + timedelta(days=30)).strftime('%B %d, %Y')}"""
         else:
             available_commands = ["detail", "test", "traffic", "maintenance"]
             return f"trunk: Unknown option '{args[0]}'\nAvailable commands: {', '.join(available_commands)}"
-    
+
     def _update_trunk_states(self) -> None:
         """Update trunk group states based on time and network conditions."""
         import random
-        
+
         # Simulate realistic state changes over time
         for tg_name, tg_data in self.trunk_groups.items():
             if tg_data["status"] == "ACTIVE":
                 # Small random variations in utilization
                 change = random.randint(-3, 5)
                 tg_data["utilization"] = max(0, min(100, tg_data["utilization"] + change))
-                
+
                 # Quality can degrade slowly over time
                 if random.random() < 0.05:  # 5% chance of quality change
                     quality_change = random.uniform(-0.002, 0.001)
@@ -4559,13 +4567,13 @@ Next test due: {(datetime.now() + timedelta(days=30)).strftime('%B %d, %Y')}"""
     def _show_trunk_traffic_monitor(self, tg_name: str, tg_data: dict) -> str:
         """Show real-time traffic monitoring for a trunk group."""
         import random
-        
+
         if tg_data["status"] == "MAINT":
             return f"Traffic monitoring unavailable - {tg_name} in maintenance mode"
-        
+
         current_time = datetime.now().strftime("%H:%M:%S")
         active_channels = int(tg_data["capacity"] * tg_data["utilization"] / 100)
-        
+
         # Generate realistic traffic pattern
         traffic_samples = []
         for i in range(12):  # Last 12 5-minute intervals
@@ -4573,7 +4581,7 @@ Next test due: {(datetime.now() + timedelta(days=30)).strftime('%B %d, %Y')}"""
             sample_time = (datetime.now() - timedelta(minutes=time_offset)).strftime("%H:%M")
             utilization = max(0, min(100, tg_data["utilization"] + random.randint(-10, 10)))
             traffic_samples.append((sample_time, utilization))
-        
+
         monitor_output = f"""Real-Time Traffic Monitor: {tg_name}
 Monitor Time: {current_time}
 Update Interval: 5 minutes
@@ -4587,46 +4595,45 @@ Current Status:
 Traffic History (Last Hour):
 Time    Util%   Channels   Revenue/5min
 ----    -----   --------   ------------"""
-        
+
         for sample_time, utilization in traffic_samples:
             channels = int(tg_data["capacity"] * utilization / 100)
             revenue = random.randint(20, 80)
             monitor_output += f"\n{sample_time}   {utilization:>3}%    {channels:>2}/{tg_data['capacity']:<2}       ${revenue}"
-        
+
         # Add real-time alerts
         alerts = []
         if tg_data["utilization"] > 90:
             alerts.append("⚠ CRITICAL: Utilization above 90% - overflow risk")
         elif tg_data["utilization"] > 80:
             alerts.append("⚠ WARNING: High utilization - monitor closely")
-        
+
         if tg_data["quality"] < 0.995:
             alerts.append("⚠ QUALITY: Performance below threshold")
-        
+
         if alerts:
             monitor_output += "\n\nActive Alerts:"
             for alert in alerts:
                 monitor_output += f"\n  {alert}"
         else:
             monitor_output += "\n\n✓ No active alerts - normal operation"
-        
+
         monitor_output += f"\n\nPress 'trunk detail {tg_name}' for comprehensive analysis"
-        
+
         return monitor_output
 
     def _show_trunk_maintenance_schedule(self) -> str:
         """Show trunk group maintenance schedule."""
-        import random
-        
+
         current_time = datetime.now().strftime("%B %d, %Y %H:%M")
-        
+
         schedule_output = f"""Bell System Trunk Group Maintenance Schedule
 Generated: {current_time}
 
 Scheduled Maintenance (Next 30 Days):
 Date           Time        Trunk Group    Type              Duration
 ----           ----        -----------    ----              --------"""
-        
+
         # Generate realistic maintenance schedule
         for i in range(5):
             maint_date = datetime.now() + timedelta(days=random.randint(1, 30))
@@ -4634,9 +4641,9 @@ Date           Time        Trunk Group    Type              Duration
             tg_name = random.choice(list(self.trunk_groups.keys()))
             maint_type = random.choice(["Preventive", "Calibration", "Upgrade", "Testing"])
             duration = f"{random.randint(2, 6)} hours"
-            
+
             schedule_output += f"\n{maint_date.strftime('%b %d')}        {maint_time}       {tg_name}      {maint_type:<12}      {duration}"
-        
+
         # Show current maintenance
         maint_trunks = [tg for tg, data in self.trunk_groups.items() if data["status"] == "MAINT"]
         if maint_trunks:
@@ -4644,7 +4651,7 @@ Date           Time        Trunk Group    Type              Duration
             for tg_name in maint_trunks:
                 schedule_output += f"\n  {tg_name}: Scheduled maintenance in progress"
                 schedule_output += f"\n           Expected completion: {(datetime.now() + timedelta(hours=random.randint(1, 4))).strftime('%H:%M')}"
-        
+
         schedule_output += f"""
 
 Maintenance Procedures:
@@ -4654,32 +4661,32 @@ Maintenance Procedures:
   • Emergency override procedures available
 
 Contact: Central Maintenance Office ext 4200"""
-        
+
         return schedule_output
 
     # Bell System Core Commands Implementation
-    
+
     def cmd_switch(self, args: List[str]) -> str:
         """Enhanced switching center management with realistic operational dynamics."""
         import random
-        
+
         # Update switching system states
         self._update_switching_states()
-        
+
         if not args:
             current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
-            
+
             # Calculate dynamic metrics
             total_calls = sum(system["calls_hour"] for system in self.switching_systems.values())
             active_systems = len([s for s in self.switching_systems.values() if s["status"] == "ACTIVE"])
             total_systems = len(self.switching_systems)
             avg_completion = random.uniform(0.975, 0.995)
-            
+
             status_output = f"""Bell System Switching Center Status
 {current_time}
 
 Electronic Switching Systems:"""
-            
+
             for switch_id, system in self.switching_systems.items():
                 load_indicator = f"{system['load']}%" if system["status"] == "ACTIVE" else "OFF"
                 uptime_days = system["uptime"] // 24
@@ -4688,16 +4695,16 @@ Electronic Switching Systems:"""
                     status_detail = "- Cutover operations in progress"
                 elif uptime_days < 7:
                     status_detail = f"- {uptime_days} days uptime"
-                
+
                 status_output += f"\n  {switch_id:<15} {system['status']:<8} {load_indicator:<5} {status_detail}"
-            
+
             # Add crossbar systems
             status_output += f"\n\nCrossbar Systems:"
             for xb_id, xb_system in self.crossbar_systems.items():
                 load_indicator = f"{xb_system['load']}%" if xb_system["status"] == "ACTIVE" else "OFF"
                 maint_note = " - PM due" if xb_system["maintenance_due"] else " - Normal operation"
                 status_output += f"\n  {xb_id:<15} {xb_system['status']:<8} {load_indicator:<5}{maint_note}"
-            
+
             # System-wide performance metrics
             status_output += f"""
 
@@ -4709,7 +4716,7 @@ System Performance:
   Network Processor Load:   {sum(s['load'] for s in self.switching_systems.values() if s['status'] == 'ACTIVE') // active_systems}% average
 
 Recent Events:"""
-            
+
             # Add recent switching events
             events = []
             if any(s["status"] == "TESTING" for s in self.switching_systems.values()):
@@ -4718,10 +4725,10 @@ Recent Events:"""
                 events.append("🔧 Crossbar maintenance scheduled")
             if not events:
                 events.append("✓ All systems operating normally")
-            
+
             for event in events[:3]:
                 status_output += f"\n  {event}"
-            
+
             status_output += """
 
 Commands:
@@ -4729,16 +4736,16 @@ Commands:
   switch performance <id>   Real-time performance monitoring
   switch maintenance <id>   Maintenance schedule and status
   switch cutover <id>       Cutover operations (5ESS only)"""
-            
+
             return status_output
 
         elif args[0] == "diagnostics" and len(args) > 1:
             switch_id = args[1].upper()
-            
+
             # Check if switch exists
             if switch_id not in self.switching_systems and switch_id not in self.crossbar_systems:
                 return f"switch: ERROR - Switch {switch_id} not found\nAvailable systems: {', '.join(list(self.switching_systems.keys()) + list(self.crossbar_systems.keys()))}"
-            
+
             # Determine system type and get data
             if switch_id in self.switching_systems:
                 system = self.switching_systems[switch_id]
@@ -4746,12 +4753,12 @@ Commands:
             else:
                 system = self.crossbar_systems[switch_id]
                 is_electronic = False
-            
+
             if system["status"] not in ["ACTIVE", "TESTING"]:
                 return f"switch: Cannot run diagnostics on {switch_id} - system status: {system['status']}"
-            
+
             current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
-            
+
             # Simulate realistic diagnostic sequence
             diag_output = f"""Switching System Diagnostics: {switch_id}
 Test Sequence Initiated: {current_time}
@@ -4759,7 +4766,7 @@ System Type: {'Electronic Stored Program Control' if is_electronic else 'Crossba
 
 Running Bell System Standard Diagnostic Suite:
 """
-            
+
             # Different tests for electronic vs crossbar
             if is_electronic:
                 tests = [
@@ -4791,11 +4798,11 @@ Running Bell System Standard Diagnostic Suite:
                     ("Ringing Circuits", 0.93),
                     ("Power Systems", 0.95)
                 ]
-            
+
             # Run tests with realistic pass/fail based on system condition
             test_results = []
             base_reliability = 0.95 if system["status"] == "ACTIVE" else 0.85
-            
+
             for test_name, base_pass_rate in tests:
                 # Adjust pass rate based on system load and uptime
                 if is_electronic:
@@ -4804,10 +4811,10 @@ Running Bell System Standard Diagnostic Suite:
                 else:
                     load_factor = max(0.7, 1.0 - (system["load"] - 60) * 0.003) if system["load"] > 60 else 1.0
                     uptime_factor = 0.85 if system["maintenance_due"] else 1.0
-                
+
                 adjusted_pass_rate = base_pass_rate * base_reliability * load_factor * uptime_factor
                 passed = random.random() < adjusted_pass_rate
-                
+
                 # Generate realistic test values
                 if passed:
                     if "memory" in test_name.lower():
@@ -4829,19 +4836,19 @@ Running Bell System Standard Diagnostic Suite:
                     else:
                         value = " (parameter out of range)"
                     status = f"FAIL{value}"
-                
+
                 progress_bar = "█" * 20
                 diag_output += f"\n{test_name:<25} [{progress_bar}] {status}"
                 test_results.append(passed)
-            
+
             # Summary
             passed_count = sum(test_results)
             total_count = len(test_results)
             overall_pass = passed_count >= total_count * 0.9  # 90% pass rate required
-            
+
             test_end = datetime.now().strftime("%H:%M:%S")
             duration = random.randint(120, 300)
-            
+
             diag_output += f"""
 
 Diagnostic Sequence Completed: {test_end}
@@ -4854,7 +4861,7 @@ Results Summary:
   Success Rate:   {passed_count/total_count:.1%}
   Overall Status: {'OPERATIONAL' if overall_pass else 'DEGRADED'}
 """
-            
+
             if overall_pass:
                 diag_output += f"  Recommendation: {switch_id} certified for continued operation"
                 if is_electronic and system["load"] < 85:
@@ -4865,42 +4872,42 @@ Results Summary:
                 if not is_electronic and not system["maintenance_due"]:
                     # Mark crossbar for maintenance
                     system["maintenance_due"] = True
-            
+
             diag_output += f"""
 
 Diagnostic Log: /att/switching/diag/{switch_id.lower()}_{datetime.now().strftime('%m%d_%H%M')}.log
 Next Diagnostic: {(datetime.now() + timedelta(days=7)).strftime('%B %d, %Y')}
 
 Bell System Practice: BSP-100-300-001 (Electronic Switching Diagnostics)"""
-            
+
             return diag_output
 
         elif args[0] == "performance" and len(args) > 1:
             switch_id = args[1].upper()
-            
+
             if switch_id not in self.switching_systems and switch_id not in self.crossbar_systems:
                 return f"switch: ERROR - Switch {switch_id} not found"
-            
+
             return self._show_switch_performance_monitor(switch_id)
 
         elif args[0] == "maintenance" and len(args) > 1:
             switch_id = args[1].upper()
-            
+
             if switch_id not in self.switching_systems and switch_id not in self.crossbar_systems:
                 return f"switch: ERROR - Switch {switch_id} not found"
-            
+
             return self._show_switch_maintenance_status(switch_id)
 
         elif args[0] == "cutover" and len(args) > 1:
             switch_id = args[1].upper()
-            
+
             if switch_id not in self.switching_systems:
                 return f"switch: ERROR - Cutover operations only available for electronic switching systems"
-            
+
             system = self.switching_systems[switch_id]
             if "5ESS" not in system["type"]:
                 return f"switch: ERROR - Cutover operations only supported on 5ESS systems"
-            
+
             return self._perform_switch_cutover(switch_id, system)
 
         else:
@@ -4909,43 +4916,42 @@ Bell System Practice: BSP-100-300-001 (Electronic Switching Diagnostics)"""
 
     def _update_switching_states(self) -> None:
         """Update switching system states based on operational patterns."""
-        import random
-        
+
         for switch_id, system in self.switching_systems.items():
             if system["status"] == "ACTIVE":
                 # Vary call processing load
                 load_change = random.randint(-2, 4)
                 system["load"] = max(30, min(95, system["load"] + load_change))
-                
+
                 # Update call volume based on load
                 base_calls = {"1ESS": 50000, "2ESS": 35000, "3ESS": 30000, "4ESS": 90000, "5ESS": 25000}
                 system["calls_hour"] = int(base_calls[system["type"]] * (system["load"] / 100) * random.uniform(0.9, 1.1))
-                
+
                 # Increment uptime
                 system["uptime"] += random.uniform(0.8, 1.2)
 
     def _show_switch_performance_monitor(self, switch_id: str) -> str:
         """Show real-time performance monitoring for a switching system."""
         import random
-        
+
         current_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         if switch_id in self.switching_systems:
             system = self.switching_systems[switch_id]
             is_electronic = True
         else:
             system = self.crossbar_systems[switch_id]
             is_electronic = False
-        
+
         if system["status"] not in ["ACTIVE", "TESTING"]:
             return f"Performance monitoring unavailable - {switch_id} status: {system['status']}"
-        
+
         monitor_output = f"""Real-Time Performance Monitor: {switch_id}
 Monitor Time: {current_time}
 Update Interval: 30 seconds
 
 System Status: {system['status']}"""
-        
+
         if is_electronic:
             monitor_output += f"""
 Current Load: {system['load']}%
@@ -4955,7 +4961,7 @@ Memory Utilization: {random.randint(65, 85)}%
 Real-Time Metrics (Last 10 minutes):
 Time     CPU%  Mem%  Calls/min  Setup(ms)  Completion%
 ------   ----  ----  ---------  ---------  -----------"""
-            
+
             # Generate 10 minutes of performance data
             for i in range(10):
                 time_ago = 9 - i
@@ -4965,9 +4971,9 @@ Time     CPU%  Mem%  Calls/min  Setup(ms)  Completion%
                 calls_min = system["calls_hour"] // 60 + random.randint(-50, 50)
                 setup_time = random.randint(800, 2400)
                 completion = random.uniform(0.975, 0.995)
-                
+
                 monitor_output += f"\n{sample_time}    {cpu_load:>3}%  {mem_util:>3}%  {calls_min:>9}  {setup_time:>9}  {completion:>10.1%}"
-        
+
         else:  # Crossbar system
             monitor_output += f"""
 Current Load: {system['load']}%
@@ -4979,7 +4985,7 @@ Crossbar Switches: {random.randint(890, 920)}/920 operational
 Markers: {random.randint(18, 20)}/20 in service
 Senders: {random.randint(45, 50)}/50 available
 Connectors: {random.randint(180, 200)}/200 active"""
-        
+
         # Add alerts based on performance
         alerts = []
         if is_electronic:
@@ -4992,40 +4998,39 @@ Connectors: {random.randint(180, 200)}/200 active"""
                 alerts.append("⚠ WARNING: High traffic load on electromechanical system")
             if system["maintenance_due"]:
                 alerts.append("🔧 NOTICE: Preventive maintenance overdue")
-        
+
         if alerts:
             monitor_output += "\n\nActive Alerts:"
             for alert in alerts:
                 monitor_output += f"\n  {alert}"
         else:
             monitor_output += "\n\n✓ All performance metrics within normal range"
-        
+
         return monitor_output
 
     def _show_switch_maintenance_status(self, switch_id: str) -> str:
         """Show maintenance status and schedule for a switching system."""
-        import random
-        
+
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         if switch_id in self.switching_systems:
             system = self.switching_systems[switch_id]
             is_electronic = True
         else:
             system = self.crossbar_systems[switch_id]
             is_electronic = False
-        
+
         maint_output = f"""Maintenance Status: {switch_id}
 Report Generated: {current_time}
 System Type: {'Electronic Stored Program Control' if is_electronic else 'Crossbar Electromechanical'}
 
 Current Status: {system['status']}"""
-        
+
         if is_electronic:
             last_maint = datetime.now() - timedelta(days=random.randint(30, 180))
             next_maint = datetime.now() + timedelta(days=random.randint(7, 90))
             uptime_hours = int(system["uptime"])
-            
+
             maint_output += f"""
 Uptime: {uptime_hours // 24} days, {uptime_hours % 24} hours
 Last Maintenance: {last_maint.strftime('%B %d, %Y')}
@@ -5038,14 +5043,14 @@ Maintenance History:
   Environmental Check: {(datetime.now() - timedelta(days=28)).strftime('%b %d')} - PASSED
 
 Recommended Actions:"""
-            
+
             if uptime_hours > 8760:  # More than 1 year
                 maint_output += "\n  • Schedule comprehensive maintenance cycle"
             elif system["load"] > 85:
                 maint_output += "\n  • Monitor closely due to high utilization"
             else:
                 maint_output += "\n  • Continue routine monitoring"
-        
+
         else:  # Crossbar
             maint_output += f"""
 Maintenance Due: {'YES - OVERDUE' if system['maintenance_due'] else 'Current'}
@@ -5058,7 +5063,7 @@ Mechanical Component Status:
   Wire Spring Relays: {'Testing required' if system['maintenance_due'] else 'Tested recently'}
 
 Scheduled Maintenance Tasks:"""
-            
+
             if system["maintenance_due"]:
                 maint_output += """
   • URGENT: Contact cleaning and adjustment
@@ -5071,23 +5076,23 @@ Scheduled Maintenance Tasks:"""
   • Routine contact inspection (monthly)
   • Lubrication schedule (quarterly)
   • Timing adjustment check (semi-annual)"""
-        
+
         maint_output += f"""
 
 Contact: Central Office Maintenance - ext 4300
 Work Order System: Use 'service' command for maintenance requests"""
-        
+
         return maint_output
 
     def _perform_switch_cutover(self, switch_id: str, system: dict) -> str:
         """Perform 5ESS cutover operations with realistic procedures."""
         import random
-        
+
         if system["status"] != "TESTING":
             return f"switch: ERROR - {switch_id} must be in TESTING status for cutover operations"
-        
+
         current_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         cutover_output = f"""5ESS Cutover Operations: {switch_id}
 Cutover Initiated: {current_time}
 
@@ -5102,7 +5107,7 @@ Pre-Cutover Checklist:
 ✓ Emergency rollback procedures verified
 
 Cutover Sequence:"""
-        
+
         # Simulate realistic cutover steps
         cutover_steps = [
             ("Traffic monitoring baseline established", 0.99),
@@ -5116,29 +5121,29 @@ Cutover Sequence:"""
             ("Final system integration test", 0.83),
             ("Customer service verification", 0.80)
         ]
-        
+
         all_successful = True
         for step_num, (step_name, success_rate) in enumerate(cutover_steps, 1):
             success = random.random() < success_rate
             status = "COMPLETE" if success else "FAILED"
-            
+
             if not success:
                 all_successful = False
-            
+
             cutover_output += f"\nStep {step_num:>2}: {step_name:<35} [{status}]"
-            
+
             if not success:
                 cutover_output += f"\n         ERROR: Step {step_num} requires manual intervention"
                 break
-        
+
         completion_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         if all_successful:
             # Successful cutover
             system["status"] = "ACTIVE"
             system["load"] = random.randint(45, 65)  # Start with moderate load
             system["calls_hour"] = random.randint(15000, 25000)
-            
+
             cutover_output += f"""
 
 Cutover Completed Successfully: {completion_time}
@@ -5158,7 +5163,7 @@ IMMEDIATE ACTIONS:
 
 Next Review: {(datetime.now() + timedelta(hours=24)).strftime('%B %d, %Y %H:%M')}
 Project Completion: SUCCESSFUL"""
-        
+
         else:
             # Failed cutover
             cutover_output += f"""
@@ -5174,7 +5179,7 @@ EMERGENCY PROCEDURES ACTIVATED:
 
 Estimated Resolution: {random.randint(2, 8)} hours
 Emergency Contact: Bell System NOC ext 911"""
-        
+
         return cutover_output
 
     def cmd_3a(self, args: List[str]) -> str:
@@ -5194,7 +5199,7 @@ Current 3A Systems:
   Systems Operational: 47 of 52 planned
   Call Processing:     Normal operation
   Memory Utilization:  73% of capacity
-  
+
 Project References: SD-1C900-01 (3A Central Control Circuit)"""
 
         if args[0] == "status":
@@ -5217,9 +5222,9 @@ Processing Status:
 Hardware Status:
   Central Control A:           ACTIVE - Normal operation
   Central Control B:           STANDBY - Ready
-  Central Control C:           ACTIVE - Normal operation  
+  Central Control C:           ACTIVE - Normal operation
   Central Control D:           MAINTENANCE - Scheduled PM
-  
+
 Translation Tables:
   Office Code Translations:    Current - Rev 47.3
   Routing Translations:        Current - Rev 12.8
@@ -5284,7 +5289,7 @@ Test Equipment Status:
   Line Test Units:     12 of 12 operational
   Transmission Test:   4 of 4 operational
   Special Services:    8 of 8 operational
-  
+
 Current Activity:
   Active Tests:        7 in progress
   Completed Today:     156 tests
@@ -5339,7 +5344,7 @@ Response Level: STANDARD
 
 Available Response Teams:
   Team Alpha:   Available - Network Operations
-  Team Beta:    Available - Switching Systems  
+  Team Beta:    Available - Switching Systems
   Team Gamma:   Available - Transmission
   Team Delta:   Available - Field Operations
 
@@ -5388,17 +5393,17 @@ Ticket Information:
   Customer Class:     BUSINESS-CRITICAL
   Reported Problem:   No dial tone - 555-0123
   Location:           123 Main St, New York, NY
-  
+
 Assignment:
   Assigned To:        Field Team 7
   Dispatch Time:      07:15
   ETA:                08:30
-  
+
 Progress Notes:
   07:15 - Ticket created, team dispatched
   07:30 - Team en route to location
   07:45 - Cable pair fault suspected
-  
+
 Escalation:
   Response Time SLA:  60 minutes
   Time Remaining:     45 minutes
@@ -5427,15 +5432,14 @@ Use 'ticket update {new_ticket}' to add information"""
 
     def cmd_tnds(self, args: List[str]) -> str:
         """Enhanced Total Network Data System with realistic operational dynamics."""
-        import random
-        
+
         # Update TNDS state based on current time and network conditions
         self._update_tnds_state()
-        
+
         if not args:
             current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
             cycle = self._get_current_collection_cycle()
-            
+
             return f"""Total Network Data System (TNDS) - Version 3.2A
 Bell System Network Traffic Data Collection and Analysis
 {current_time}
@@ -5458,7 +5462,7 @@ Available Commands:
   tnds analysis           - Traffic analysis reports and statistics
   tnds forecast           - Traffic growth forecasting models
   tnds hierarchy          - Network hierarchy analysis
-  tnds routing            - Dynamic routing analysis  
+  tnds routing            - Dynamic routing analysis
   tnds reports            - Generate standardized reports
   tnds export             - Data export for engineering studies
 
@@ -5514,12 +5518,12 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
     def _update_tnds_state(self) -> None:
         """Update TNDS operational state based on time and network conditions."""
         import random
-        
+
         if not hasattr(self, 'tnds_data'):
             # Initialize TNDS operational data
             hour = datetime.now().hour
             base_records = 2800000  # Base daily record count
-            
+
             self.tnds_data = {
                 'records_today': int(base_records * (hour / 24) * random.uniform(0.95, 1.05)),
                 'processing_status': random.choice(['Normal operation', 'High volume processing', 'Backlog processing']),
@@ -5544,7 +5548,7 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
     def _get_current_collection_cycle(self) -> dict:
         """Get current TNDS collection cycle information."""
         hour = datetime.now().hour
-        
+
         if 0 <= hour < 6:
             return {"name": "Cycle 1", "time_range": "00:00-06:00", "description": "Overnight processing"}
         elif 6 <= hour < 12:
@@ -5557,16 +5561,16 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
     def _get_tnds_priority_task(self) -> str:
         """Get current TNDS priority task based on time and conditions."""
         import random
-        
+
         hour = datetime.now().hour
-        
+
         priority_tasks = {
             "morning": ["Peak traffic forecast validation", "Overnight data processing completion", "System health verification"],
             "business": ["Real-time traffic monitoring", "Capacity utilization analysis", "Performance optimization"],
             "peak": ["Traffic load balancing analysis", "Overflow pattern monitoring", "Revenue optimization tracking"],
             "evening": ["Daily report generation", "Archive preparation", "Forecast model updates"]
         }
-        
+
         if 6 <= hour < 12:
             period = "morning"
         elif 12 <= hour < 18:
@@ -5575,29 +5579,28 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
             period = "evening"
         else:
             period = "business"
-        
+
         return random.choice(priority_tasks[period])
 
     def _get_next_tnds_operation(self) -> str:
         """Get next scheduled TNDS operation."""
-        import random
-        
+
         next_ops = [
             f"Archive cycle: {(datetime.now() + timedelta(hours=random.randint(2, 8))).strftime('%H:%M')}",
             f"Forecast update: {(datetime.now() + timedelta(hours=random.randint(1, 4))).strftime('%H:%M')}",
             f"Report generation: {(datetime.now() + timedelta(hours=random.randint(4, 12))).strftime('%H:%M')}",
             f"Data quality check: {(datetime.now() + timedelta(hours=random.randint(1, 6))).strftime('%H:%M')}"
         ]
-        
+
         return random.choice(next_ops)
 
     def _show_tnds_detailed_status(self) -> str:
         """Show detailed TNDS system status."""
         import random
-        
+
         current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
         cycle = self._get_current_collection_cycle()
-        
+
         status_output = f"""TNDS System Status - Detailed Operations Report
 Generated: {current_time}
 
@@ -5617,7 +5620,7 @@ Processing Infrastructure:
 
 Current Data Flow (Last Hour):
   Call Detail Records:         {random.randint(45000, 85000):,} records
-  Traffic Measurements:        {random.randint(8000, 15000):,} samples  
+  Traffic Measurements:        {random.randint(8000, 15000):,} samples
   Network Performance Data:    {random.randint(3000, 8000):,} measurements
   Billing Records:             {random.randint(18000, 35000):,} transactions
   Equipment Status Reports:    {random.randint(500, 1200):,} status updates
@@ -5648,7 +5651,7 @@ Scheduled Operations:
   Database Maintenance:        Sunday 02:00-04:00 EST
 
 Active Alerts:"""
-        
+
         # Generate realistic alerts
         alerts = []
         if self.tnds_data['storage_used'] > 85:
@@ -5657,28 +5660,27 @@ Active Alerts:"""
             alerts.append("⚠ NOTICE: Collection success rate below target")
         if random.random() < 0.2:
             alerts.append("ℹ INFO: High volume processing due to peak traffic")
-        
+
         if alerts:
             for alert in alerts:
                 status_output += f"\n  {alert}"
         else:
             status_output += "\n  ✓ All systems operating within normal parameters"
-        
+
         status_output += f"""
 
 Contact Information:
   TNDS Operations Center:      ext 4800
   Database Administration:     ext 4825
   Network Analysis Team:       ext 4850"""
-        
+
         return status_output
 
     def _show_tnds_collection_status(self) -> str:
         """Show TNDS data collection operations status."""
-        import random
-        
+
         current_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         collection_output = f"""TNDS Data Collection Operations
 Status Report: {current_time}
 
@@ -5725,15 +5727,15 @@ Commands:
   tnds collect stop            Halt collection (emergency only)
   tnds collect test            Test collection point connectivity
   tnds collect status <region> Regional collection status"""
-        
+
         return collection_output
 
     def _generate_tnds_analysis_report(self, report_type: str) -> str:
         """Generate TNDS traffic analysis report with realistic data patterns."""
         import random
-        
+
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         if report_type == "standard":
             period = "November 7-14, 1983"
             days = 7
@@ -5746,13 +5748,13 @@ Commands:
         else:
             period = "Custom Period"
             days = 7
-        
+
         # Generate realistic traffic metrics
         base_calls = 850000 * days
         completion_rate = random.uniform(0.975, 0.995)
         total_attempts = int(base_calls * random.uniform(0.95, 1.05))
         successful_calls = int(total_attempts * completion_rate)
-        
+
         analysis_output = f"""TNDS Traffic Analysis Report
 Generated: {current_time}
 Analysis Period: {period}
@@ -5767,7 +5769,7 @@ Revenue Generated:            ${random.randint(450000 * days, 650000 * days):,}
 
 TRAFFIC PATTERNS ANALYSIS
 {'=' * 50}"""
-        
+
         # Generate daily peak traffic data
         peak_hours = []
         for day in range(min(days, 7)):  # Show up to 7 days of peaks
@@ -5775,10 +5777,10 @@ TRAFFIC PATTERNS ANALYSIS
             peak_time = f"{random.randint(14, 16)}:{random.randint(0, 59):02d}"
             peak_ccs = random.randint(850, 950)
             peak_hours.append((day_name, peak_time, peak_ccs))
-        
+
         for day_name, peak_time, peak_ccs in peak_hours:
             analysis_output += f"\n{day_name:<12} Peak: {peak_time} EST ({peak_ccs} CCS)"
-        
+
         analysis_output += f"""
 
 Busy Season Factor:           {random.uniform(1.10, 1.20):.2f} (Holiday adjustment)
@@ -5788,19 +5790,19 @@ Weekend Traffic Factor:       {random.uniform(0.65, 0.75):.2f} of weekday volume
 TRUNK GROUP UTILIZATION
 {'=' * 50}
 Average Network Utilization:  {sum(tg['utilization'] for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE') // len([tg for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE'])}%"""
-        
+
         # Show top utilized trunk groups
-        sorted_trunks = sorted([(name, tg['utilization'], tg['route']) for name, tg in self.trunk_groups.items() if tg['status'] == 'ACTIVE'], 
+        sorted_trunks = sorted([(name, tg['utilization'], tg['route']) for name, tg in self.trunk_groups.items() if tg['status'] == 'ACTIVE'],
                               key=lambda x: x[1], reverse=True)
-        
+
         for i, (tg_name, utilization, route) in enumerate(sorted_trunks[:5]):
             utilization_status = "HIGH" if utilization > 80 else "NORMAL" if utilization > 40 else "LOW"
             analysis_output += f"\n{i+1}. {tg_name:<12} {utilization:>3}% ({utilization_status:<6}) {route}"
-        
+
         analysis_output += f"""
 
 Overflow Events:              {random.randint(8, 25)} occurrences (all recovered <30 sec)
-Peak Trunk Utilization:       {max(tg['utilization'] for tg in self.trunk_groups.values())}% 
+Peak Trunk Utilization:       {max(tg['utilization'] for tg in self.trunk_groups.values())}%
 Load Balancing Efficiency:    {random.uniform(0.91, 0.96):.1%}
 
 REVENUE AND ECONOMIC ANALYSIS
@@ -5820,36 +5822,36 @@ Growth Projection (6 months): {random.uniform(12, 18):+.1f}% call volume increas
 
 RECOMMENDATIONS
 {'=' * 50}"""
-        
+
         # Generate realistic recommendations
         recommendations = []
         high_util_trunks = [name for name, tg in self.trunk_groups.items() if tg['utilization'] > 80 and tg['status'] == 'ACTIVE']
-        
+
         if high_util_trunks:
             recommendations.append(f"1. Monitor {high_util_trunks[0]} for immediate capacity upgrade")
         else:
             recommendations.append("1. All trunk groups operating within capacity")
-        
+
         recommendations.extend([
             "2. Implement Dynamic Non-Hierarchical Routing (DNHR) on high-traffic routes",
             "3. Schedule capacity planning review for Q1 1984",
             "4. Continue TNDS data quality improvement initiatives",
             f"5. Evaluate load balancing effectiveness on {random.choice(['Route 1', 'Route 3', 'Eastern Corridor'])}"
         ])
-        
+
         for rec in recommendations:
             analysis_output += f"\n{rec}"
-        
+
         analysis_output += f"""
 
 Report Distribution:
   Network Planning Engineering: Copy 1
-  Traffic Engineering: Copy 2  
+  Traffic Engineering: Copy 2
   Revenue Analysis: Copy 3
   Bell Laboratories: Copy 4 (for research)
 
 Next Analysis Report: {(datetime.now() + timedelta(days=7)).strftime('%B %d, %Y')}"""
-        
+
         return analysis_output
 
     def cmd_bsp(self, args: List[str]) -> str:
@@ -5868,7 +5870,7 @@ Current BSP Library:
   Total Procedures:    14,892 sections
   Recent Updates:      47 sections (this month)
   Categories:          156 technical areas
-  
+
 Most Referenced:
   BSP 100-000         Bell System Fundamentals
   BSP 200-000         Switching Systems
@@ -5881,7 +5883,7 @@ Most Referenced:
 
 Matching Procedures:
   BSP 200-455-100     3A Central Control Maintenance
-  BSP 200-455-200     3A System Administration  
+  BSP 200-455-200     3A System Administration
   BSP 200-455-300     3A Trouble Analysis
   BSP 200-455-400     3A Performance Monitoring
 
@@ -5905,8 +5907,8 @@ CATEGORY: Electronic Switching Systems
 DIVISION: Network Operations
 
 SCOPE:
-This practice covers routine maintenance procedures for the 3A Central 
-Control switching system including diagnostic testing, performance 
+This practice covers routine maintenance procedures for the 3A Central
+Control switching system including diagnostic testing, performance
 monitoring, and preventive maintenance schedules.
 
 PROCEDURE STEPS:
@@ -5944,16 +5946,16 @@ BSP 200-000: Electronic Switching Fundamentals"""
     def cmd_traffic(self, args: List[str]) -> str:
         """Enhanced network traffic analysis with real-time monitoring capabilities."""
         import random
-        
+
         # Update traffic state for realistic behavior
         self._update_traffic_state()
-        
+
         if not args:
             current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
-            
+
             # Calculate dynamic metrics from network state
             total_load = sum(tg['utilization'] for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE') // len([tg for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE'])
-            
+
             traffic_output = f"""Bell System Network Traffic Analysis
 Real-Time Monitoring and Statistics
 {current_time}
@@ -5976,7 +5978,7 @@ Toll Traffic:             {self.traffic_data['toll_pct']:.1%} of total
 
 INTER-OFFICE ROUTE STATUS
 {'=' * 40}"""
-            
+
             # Show major trunk group utilization
             major_routes = [
                 ('NYC-WAS', next((tg['utilization'] for name, tg in self.trunk_groups.items() if 'NYC' in name and tg['route'] == 'NYC-WAS'), random.randint(75, 90))),
@@ -5984,22 +5986,22 @@ INTER-OFFICE ROUTE STATUS
                 ('WAS-ATL', next((tg['utilization'] for name, tg in self.trunk_groups.items() if 'WAS' in name and tg['route'] == 'WAS-ATL'), random.randint(40, 70))),
                 ('CHI-NYC', next((tg['utilization'] for name, tg in self.trunk_groups.items() if 'CHI' in name and tg['route'] == 'CHI-NYC'), random.randint(35, 65)))
             ]
-            
+
             for route, utilization in major_routes:
                 status = "HIGH" if utilization > 80 else "NORMAL" if utilization > 40 else "LOW"
                 calls_hour = int((utilization / 100) * random.randint(15000, 45000))
                 traffic_output += f"\n{route:<15} {utilization:>3}% utilization  {status:<8} ({calls_hour:,} calls/hour)"
-            
+
             # Regional traffic distribution
             traffic_output += f"""
 
 REGIONAL TRAFFIC DISTRIBUTION
 {'=' * 40}"""
-            
+
             for region, data in self.regional_traffic.items():
                 pct = (data['calls'] / self.traffic_data['current_calls']) * 100
                 traffic_output += f"\n{region.title():<12} {data['calls']:>8,} calls ({pct:>4.1f}%)  Revenue: ${data['revenue']:,}"
-            
+
             # Traffic quality metrics
             traffic_output += f"""
 
@@ -6016,7 +6018,7 @@ Commands:
   traffic routes            Route-specific performance
   traffic peak              Peak period analysis
   traffic quality           Quality metrics and trending"""
-            
+
             return traffic_output
 
         elif args[0] == "detail" and len(args) > 1:
@@ -6041,10 +6043,9 @@ Commands:
 
     def _update_traffic_state(self) -> None:
         """Update traffic state with realistic time-based variations."""
-        import random
-        
+
         hour = datetime.now().hour
-        
+
         # Adjust traffic patterns based on time of day
         if 8 <= hour <= 10:  # Morning business peak
             multiplier = random.uniform(1.1, 1.3)
@@ -6056,7 +6057,7 @@ Commands:
             multiplier = random.uniform(0.3, 0.5)
         else:  # Regular business hours
             multiplier = random.uniform(0.8, 1.0)
-        
+
         # Update regional traffic with realistic variations
         base_total = sum(data['calls'] for data in self.regional_traffic.values())
         for region, data in self.regional_traffic.items():
@@ -6067,15 +6068,15 @@ Commands:
     def _show_regional_traffic_detail(self, region: str) -> str:
         """Show detailed traffic analysis for a specific region."""
         import random
-        
+
         current_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         if region not in self.regional_traffic:
             available_regions = list(self.regional_traffic.keys())
             return f"traffic: Unknown region '{region}'\nAvailable regions: {', '.join(available_regions)}"
-        
+
         region_data = self.regional_traffic[region]
-        
+
         detail_output = f"""Regional Traffic Detail - {region.title()}
 Analysis Time: {current_time}
 
@@ -6088,11 +6089,11 @@ Market Share:             {(region_data['calls'] / sum(d['calls'] for d in self.
 
 TRAFFIC PATTERNS
 {'=' * 30}"""
-        
+
         # Generate realistic traffic breakdown by type
         business_pct = random.uniform(0.60, 0.75) if region == 'northeast' else random.uniform(0.45, 0.65)
         residential_pct = 1.0 - business_pct - random.uniform(0.08, 0.15)  # Subtract toll/international
-        
+
         detail_output += f"""
 Business Hours (08:00-17:00):  {business_pct:.1%} of daily volume
 Residential (17:00-22:00):     {residential_pct:.1%} of daily volume
@@ -6100,7 +6101,7 @@ Overnight (22:00-08:00):       {(1 - business_pct - residential_pct):.1%} of dai
 
 MAJOR DESTINATIONS FROM {region.upper()}
 {'=' * 30}"""
-        
+
         # Define realistic destination patterns by region
         if region == 'northeast':
             destinations = [
@@ -6130,11 +6131,11 @@ MAJOR DESTINATIONS FROM {region.upper()}
                 ('Seattle', random.randint(2000, 4000), random.uniform(0.8, 1.4)),
                 ('Denver', random.randint(2000, 3500), random.uniform(1.2, 1.8))
             ]
-        
+
         for i, (dest, calls, avg_rate) in enumerate(destinations, 1):
             revenue = int(calls * avg_rate)
             detail_output += f"\n{i}. {dest:<15} {calls:>6,} calls  ${revenue:>5,} revenue  (${avg_rate:.2f} avg)"
-        
+
         detail_output += f"""
 
 QUALITY INDICATORS
@@ -6152,27 +6153,26 @@ Overflow Events:          {random.randint(0, 3)} (last 24 hours)
 Backup Route Usage:       {random.randint(2, 8)}% of traffic
 
 Use 'trunk detail <TG-xxx>' for specific trunk group analysis"""
-        
+
         return detail_output
 
     def _generate_traffic_forecast(self) -> str:
         """Generate traffic forecasting analysis."""
-        import random
-        
+
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         forecast_output = f"""Traffic Forecasting Analysis
 Generated: {current_time}
 
 IMMEDIATE FORECAST (Next 4 Hours)
 {'=' * 45}"""
-        
+
         current_hour = datetime.now().hour
         base_calls = sum(data['calls'] for data in self.regional_traffic.values())
-        
+
         for i in range(4):
             forecast_hour = (current_hour + i + 1) % 24
-            
+
             # Apply realistic hourly patterns
             if 8 <= forecast_hour <= 10:
                 multiplier = random.uniform(1.15, 1.35)
@@ -6189,12 +6189,12 @@ IMMEDIATE FORECAST (Next 4 Hours)
             else:
                 multiplier = random.uniform(0.85, 1.05)
                 period_desc = "Regular Business"
-            
+
             forecast_calls = int(base_calls * multiplier)
             capacity_pct = min(100, int(multiplier * 70))
-            
+
             forecast_output += f"\n{forecast_hour:02d}:00-{(forecast_hour+1)%24:02d}:00  {forecast_calls:>7,} calls  {capacity_pct:>3}% capacity  {period_desc}"
-        
+
         forecast_output += f"""
 
 WEEKLY TRENDS ANALYSIS
@@ -6206,7 +6206,7 @@ Sunday:                   Moderate traffic with evening peak
 
 SPECIAL CONSIDERATIONS
 {'=' * 45}"""
-        
+
         # Generate realistic special events
         special_events = []
         if datetime.now().month == 12:
@@ -6217,13 +6217,13 @@ SPECIAL CONSIDERATIONS
             special_events.append("Weather system may affect rural areas")
         if random.random() < 0.2:
             special_events.append(f"Major sporting event: +25% regional traffic expected")
-        
+
         if special_events:
             for event in special_events:
                 forecast_output += f"\n• {event}"
         else:
             forecast_output += "\n• No special events expected"
-        
+
         forecast_output += f"""
 
 CAPACITY RECOMMENDATIONS
@@ -6241,21 +6241,21 @@ Annual Growth Rate:       {random.uniform(12, 18):+.1f}% projected
 
 Revenue Impact:           ${random.randint(25000, 45000):,} additional daily revenue
 Infrastructure Needs:     {random.randint(2, 4)} new trunk groups by Q2 1984"""
-        
+
         return forecast_output
 
     def _show_route_performance(self) -> str:
         """Show route-specific performance analysis."""
         import random
-        
+
         current_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         route_output = f"""Route Performance Analysis
 Updated: {current_time}
 
 MAJOR ROUTE PERFORMANCE
 {'=' * 35}"""
-        
+
         # Define major Bell System routes with realistic performance
         major_routes = [
             ('NYC-WAS', 'Northeast Corridor', random.randint(15000, 25000), random.uniform(0.975, 0.995)),
@@ -6265,12 +6265,12 @@ MAJOR ROUTE PERFORMANCE
             ('WAS-ATL', 'Southeast Route', random.randint(10000, 16000), random.uniform(0.975, 0.992)),
             ('CHI-LAX', 'Transcontinental', random.randint(14000, 22000), random.uniform(0.965, 0.985))
         ]
-        
+
         for route, description, calls_hour, completion in major_routes:
             setup_time = random.uniform(1.5, 2.8)
             revenue_rate = random.randint(25, 45)
             status = "EXCELLENT" if completion > 0.99 else "GOOD" if completion > 0.98 else "FAIR"
-            
+
             route_output += f"""
 {route} ({description})
   Calls/Hour:     {calls_hour:,}
@@ -6278,7 +6278,7 @@ MAJOR ROUTE PERFORMANCE
   Setup Time:     {setup_time:.1f} seconds
   Revenue/Hour:   ${calls_hour * revenue_rate // 1000:,}
   Status:         {status}"""
-        
+
         route_output += f"""
 
 ROUTE QUALITY METRICS
@@ -6290,18 +6290,18 @@ Transmission Delay:       {random.uniform(0.85, 0.95):.1%} within limits
 
 ALTERNATE ROUTING STATUS
 {'=' * 35}"""
-        
+
         # Show overflow and alternate routing
         alt_routes = [
             ('NYC-WAS via Philadelphia', random.randint(0, 15)),
             ('CHI-NYC via Cleveland', random.randint(0, 25)),
             ('LAX-SFO via Sacramento', random.randint(0, 8))
         ]
-        
+
         for alt_route, usage_pct in alt_routes:
             status = "ACTIVE" if usage_pct > 5 else "STANDBY"
             route_output += f"\n{alt_route:<25} {usage_pct:>3}% usage  {status}"
-        
+
         route_output += f"""
 
 TRAFFIC ENGINEERING NOTES
@@ -6312,21 +6312,20 @@ TRAFFIC ENGINEERING NOTES
 • New routing patterns being tested on select routes
 
 Use 'trunk detail <TG-xxx>' for specific trunk group analysis"""
-        
+
         return route_output
 
     def _show_peak_analysis(self) -> str:
         """Show peak period traffic analysis."""
-        import random
-        
+
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         peak_output = f"""Peak Period Traffic Analysis
 Generated: {current_time}
 
 TODAY'S PEAK ANALYSIS
 {'=' * 30}"""
-        
+
         # Generate realistic peak periods
         morning_peak = {
             'time': f"{random.randint(8, 10)}:{random.randint(15, 45):02d}",
@@ -6334,23 +6333,23 @@ TODAY'S PEAK ANALYSIS
             'duration': random.randint(45, 90),
             'completion': random.uniform(0.970, 0.990)
         }
-        
+
         afternoon_peak = {
             'time': f"{random.randint(14, 16)}:{random.randint(0, 45):02d}",
             'calls': random.randint(55000, 75000),
             'duration': random.randint(60, 120),
             'completion': random.uniform(0.965, 0.985)
         }
-        
+
         peak_output += f"""
 Morning Peak:
   Time:           {morning_peak['time']} EST
   Call Volume:    {morning_peak['calls']:,} calls/hour
   Duration:       {morning_peak['duration']} minutes
   Completion:     {morning_peak['completion']:.1%}
-  
+
 Afternoon Peak:
-  Time:           {afternoon_peak['time']} EST  
+  Time:           {afternoon_peak['time']} EST
   Call Volume:    {afternoon_peak['calls']:,} calls/hour
   Duration:       {afternoon_peak['duration']} minutes
   Completion:     {afternoon_peak['completion']:.1%}
@@ -6364,16 +6363,16 @@ Safety Margin:            {((80000 - max(morning_peak['calls'], afternoon_peak['
 
 HISTORICAL PEAK TRENDS
 {'=' * 30}"""
-        
+
         # Generate weekly peak trend data
         days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         for day in days:
             peak_calls = random.randint(40000, 70000)
             peak_time = f"{random.randint(14, 16)}:{random.randint(0, 59):02d}"
             trend = random.choice(['+', '+', '-']) + f"{random.uniform(0.5, 5.0):.1f}%"
-            
+
             peak_output += f"\n{day:<10} {peak_calls:>6,} calls at {peak_time}  ({trend} vs last week)"
-        
+
         peak_output += f"""
 
 PEAK PERIOD CHALLENGES
@@ -6396,15 +6395,15 @@ RECOMMENDATIONS
 • Consider capacity expansion for routes exceeding 90%
 • Optimize routing algorithms for better load distribution
 • Schedule maintenance during off-peak hours only"""
-        
+
         return peak_output
 
     def _show_traffic_quality_metrics(self) -> str:
         """Show traffic quality metrics and trending."""
         import random
-        
+
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         quality_output = f"""Traffic Quality Metrics and Trending
 Report Generated: {current_time}
 
@@ -6418,7 +6417,7 @@ Customer Satisfaction:    {random.uniform(4.1, 4.7):.1f}/5.0 rating
 
 QUALITY TREND ANALYSIS (30 Days)
 {'=' * 40}"""
-        
+
         # Generate 30-day quality trends
         metrics = [
             ('Completion Rate', 0.980, '%'),
@@ -6427,7 +6426,7 @@ QUALITY TREND ANALYSIS (30 Days)
             ('Signal Quality', 0.95, '%'),
             ('Satisfaction', 4.3, '/5.0')
         ]
-        
+
         for metric_name, baseline, unit in metrics:
             trend_direction = random.choice(['↑', '↑', '↓', '→'])  # Bias toward improvement
             if trend_direction == '↑':
@@ -6436,7 +6435,7 @@ QUALITY TREND ANALYSIS (30 Days)
                 change = f"-{random.uniform(0.1, 1.5):.1f}"
             else:
                 change = "0.0"
-            
+
             current_value = baseline * random.uniform(0.98, 1.02)
             if unit == '%':
                 quality_output += f"\n{metric_name:<18} {current_value:.1%} ({trend_direction} {change}{unit})"
@@ -6446,7 +6445,7 @@ QUALITY TREND ANALYSIS (30 Days)
                 quality_output += f"\n{metric_name:<18} {current_value:.1f}{unit} ({trend_direction} {change})"
             else:
                 quality_output += f"\n{metric_name:<18} {current_value:.3f} ({trend_direction} {change})"
-        
+
         quality_output += f"""
 
 QUALITY BY ROUTE TYPE
@@ -6489,7 +6488,7 @@ Quality Index Target:     95% excellent/good ratings
 Satisfaction Target:      4.5/5.0 or better
 
 Next Quality Review: {(datetime.now() + timedelta(days=7)).strftime('%B %d, %Y')}"""
-        
+
         return quality_output
 
     def cmd_billing(self, args: List[str]) -> str:
@@ -6501,7 +6500,7 @@ Current Operations:
   Daily Processing:     147,892 call records
   Billing Accuracy:     99.97%
   Collection Rate:      98.2%
-  
+
 Rate Structures:
   Interstate Day:       $0.45 first minute
   Interstate Evening:   $0.32 first minute
@@ -6518,24 +6517,23 @@ Current Status:
   Queue Status:         47 files pending transfer
   Active Connections:   3 of 8 possible
   Transfer Rate:        Normal operation
-  
+
 Network Links:
   bell-labs:           ACTIVE
-  research:            ACTIVE  
+  research:            ACTIVE
   btl:                 STANDBY
 
 Use 'uucp status' for detailed queue information"""
 
     def cmd_tsps(self, args: List[str]) -> str:
         """Enhanced Traffic Service Position System with realistic operator management."""
-        import random
-        
+
         # Update TSPS state for realistic operational behavior
         self._update_tsps_state()
-        
+
         if not args:
             current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
-            
+
             return f"""Traffic Service Position System (TSPS)
 Operator Services and Assisted Calling
 {current_time}
@@ -6551,7 +6549,7 @@ Answer Time:              {self.tsps_data['answer_time']:.1f} seconds average
 SERVICE TYPE DISTRIBUTION
 {'=' * 35}
 Person-to-Person:         {self.tsps_data['person_to_person']:.1f}% of calls
-Collect Calls:            {self.tsps_data['collect_calls']:.1f}% of calls  
+Collect Calls:            {self.tsps_data['collect_calls']:.1f}% of calls
 Directory Assistance:     {self.tsps_data['directory_assist']:.1f}% of calls
 Conference Setup:         {self.tsps_data['conference']:.1f}% of calls
 International:            {self.tsps_data['international']:.1f}% of calls
@@ -6598,11 +6596,11 @@ Commands:
     def _update_tsps_state(self) -> None:
         """Update TSPS operational state with realistic patterns."""
         import random
-        
+
         if not hasattr(self, 'tsps_data'):
             # Initialize TSPS operational data
             hour = datetime.now().hour
-            
+
             # Adjust staffing and load based on time of day
             if 8 <= hour <= 17:  # Business hours
                 base_positions = random.randint(45, 52)
@@ -6613,7 +6611,7 @@ Commands:
             else:  # Overnight
                 base_positions = random.randint(8, 15)
                 base_occupancy = random.uniform(40, 65)
-            
+
             self.tsps_data = {
                 'total_positions': 52,
                 'active_positions': base_positions,
@@ -6655,9 +6653,9 @@ Commands:
     def _show_tsps_position_detail(self, position_id: str) -> str:
         """Show detailed status for a specific TSPS position."""
         import random
-        
+
         current_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         # Generate realistic operator data
         operators = [
             {"name": "Susan Johnson", "id": "4472", "experience": "3.5 years", "level": "Advanced"},
@@ -6666,10 +6664,10 @@ Commands:
             {"name": "Patricia Miller", "id": "4503", "experience": "1.9 years", "level": "Basic"},
             {"name": "Linda Wilson", "id": "4517", "experience": "4.1 years", "level": "Advanced"}
         ]
-        
+
         operator = random.choice(operators)
         shift_hours = self._get_shift_hours()
-        
+
         position_output = f"""TSPS Position Status - {position_id}
 Query Time: {current_time}
 
@@ -6685,9 +6683,9 @@ Union Local:              Communications Workers Local 1101
 CURRENT ACTIVITY
 {'=' * 30}
 Status:                   {'ACTIVE' if random.random() > 0.1 else 'ON BREAK'}"""
-        
+
         if random.random() > 0.1:  # Active status
-            call_types = ['Person-to-Person NYC to BOS', 'Collect call to Chicago', 'Directory assistance request', 
+            call_types = ['Person-to-Person NYC to BOS', 'Collect call to Chicago', 'Directory assistance request',
                          'Conference call setup', 'International call to London', 'Billing inquiry']
             current_call = random.choice(call_types)
             position_output += f"""
@@ -6709,14 +6707,14 @@ EQUIPMENT STATUS
 {'=' * 30}
 Headset:                  OPERATIONAL
 Position Terminal:        ONLINE
-Conference Bridge:        AVAILABLE  
+Conference Bridge:        AVAILABLE
 Recording System:         ACTIVE
 Billing Interface:        CONNECTED
 Directory Database:       ACCESSIBLE
 
 SUPERVISOR NOTES
 {'=' * 30}"""
-            
+
             notes = [
                 "Excellent performance maintaining service standards",
                 "Assisting with new operator training today",
@@ -6725,21 +6723,20 @@ SUPERVISOR NOTES
                 "Strong customer service skills demonstrated"
             ]
             position_output += f"• {random.choice(notes)}"
-        
+
         else:  # On break
             position_output += f"""
 Break Type:               {random.choice(['Scheduled 15-minute', 'Lunch break', 'Relief break'])}
 Return Time:              {(datetime.now() + timedelta(minutes=random.randint(5, 30))).strftime('%H:%M')}
 Coverage:                 Position covered by relief operator"""
-        
+
         return position_output
 
     def _show_tsps_operator_status(self) -> str:
         """Show comprehensive operator staffing and performance status."""
-        import random
-        
+
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         operators_output = f"""TSPS Operator Staffing and Performance
 Report Generated: {current_time}
 
@@ -6754,23 +6751,23 @@ Supervisors:              {random.randint(3, 5)}
 
 SHIFT DISTRIBUTION
 {'=' * 25}"""
-        
+
         # Generate realistic shift data
         shifts = [
             ("Day Shift (08:00-16:00)", random.randint(18, 25)),
             ("Evening Shift (16:00-24:00)", random.randint(12, 18)),
             ("Night Shift (24:00-08:00)", random.randint(6, 12))
         ]
-        
+
         for shift_name, operators in shifts:
             operators_output += f"\n{shift_name:<25} {operators} operators"
-        
+
         operators_output += f"""
 
 CERTIFICATION LEVELS
 {'=' * 25}
 Basic Level:              {random.randint(8, 15)} operators
-Intermediate Level:       {random.randint(15, 22)} operators  
+Intermediate Level:       {random.randint(15, 22)} operators
 Advanced Level:           {random.randint(12, 18)} operators
 Senior Level:             {random.randint(6, 10)} operators
 Supervisor Track:         {random.randint(3, 6)} operators
@@ -6785,16 +6782,16 @@ Turnover Rate:            {random.uniform(0.08, 0.15):.1%} annually
 
 TOP PERFORMERS (This Month)
 {'=' * 25}"""
-        
+
         top_performers = [
             ("Barbara Davis", "4495", random.uniform(4.8, 5.0), random.randint(125, 145)),
             ("Susan Johnson", "4472", random.uniform(4.7, 4.9), random.randint(120, 140)),
             ("Linda Wilson", "4517", random.uniform(4.6, 4.8), random.randint(115, 135))
         ]
-        
+
         for name, op_id, rating, calls in top_performers:
             operators_output += f"\n{name:<18} ({op_id})  {rating:.1f}/5.0  {calls} avg calls/day"
-        
+
         operators_output += f"""
 
 TRAINING AND DEVELOPMENT
@@ -6810,21 +6807,21 @@ Peak Coverage:            14:00-16:00 EST (all positions staffed)
 Minimum Staffing:         02:00-06:00 EST ({random.randint(6, 10)} positions)
 Holiday Schedule:         Modified staffing for upcoming holidays
 Overtime Authorized:      Up to {random.randint(8, 15)} hours per week"""
-        
+
         return operators_output
 
     def _show_tsps_training_programs(self) -> str:
         """Show TSPS training programs and certification status."""
         import random
-        
+
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         training_output = f"""TSPS Training Program Status
 Report Generated: {current_time}
 
 ACTIVE TRAINING SESSIONS
 {'=' * 35}"""
-        
+
         training_sessions = [
             ("New Operator Orientation", random.randint(3, 6), "Week 1-2", "Basic"),
             ("Advanced Call Handling", random.randint(4, 8), "Ongoing", "Advanced"),
@@ -6833,10 +6830,10 @@ ACTIVE TRAINING SESSIONS
             ("Customer Service Excellence", random.randint(5, 10), "3 weeks", "Intermediate"),
             ("Technology Update Session", random.randint(10, 18), "1 day", "All Levels")
         ]
-        
+
         for session, participants, duration, level in training_sessions:
             training_output += f"\n{session:<25} {participants:>2} trainees  {duration:<8} {level}"
-        
+
         training_output += f"""
 
 CERTIFICATION PROGRAM
@@ -6871,17 +6868,17 @@ Directory Assistance:     All operators certified
 
 UPCOMING TRAINING
 {'=' * 35}"""
-        
+
         upcoming_training = [
             ("New Technology Integration", f"{(datetime.now() + timedelta(days=random.randint(7, 14))).strftime('%B %d')}"),
             ("Customer Relations Workshop", f"{(datetime.now() + timedelta(days=random.randint(14, 28))).strftime('%B %d')}"),
             ("Quality Assurance Methods", f"{(datetime.now() + timedelta(days=random.randint(21, 35))).strftime('%B %d')}"),
             ("Regulatory Compliance Update", f"{(datetime.now() + timedelta(days=random.randint(28, 42))).strftime('%B %d')}")
         ]
-        
+
         for training, date in upcoming_training:
             training_output += f"\n{training:<30} {date}"
-        
+
         training_output += f"""
 
 TRAINING RESOURCES
@@ -6892,15 +6889,14 @@ Instructor Staff:         {random.randint(4, 7)} certified trainers
 Training Facilities:      2 dedicated training centers
 
 Contact: Training Coordinator ext 4225"""
-        
+
         return training_output
 
     def _show_tsps_queue_management(self) -> str:
         """Show TSPS call queue management and statistics."""
-        import random
-        
+
         current_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         queue_output = f"""TSPS Call Queue Management
 Real-Time Status: {current_time}
 
@@ -6913,7 +6909,7 @@ Queue Growth Rate:        {random.choice(['+', '-'])}{random.randint(1, 8)} call
 
 QUEUE BY SERVICE TYPE
 {'=' * 30}"""
-        
+
         queue_breakdown = [
             ("Person-to-Person", int(self.tsps_data['queue_length'] * 0.25), "HIGH"),
             ("Collect Calls", int(self.tsps_data['queue_length'] * 0.35), "NORMAL"),
@@ -6921,10 +6917,10 @@ QUEUE BY SERVICE TYPE
             ("Conference Setup", int(self.tsps_data['queue_length'] * 0.05), "LOW"),
             ("International", int(self.tsps_data['queue_length'] * 0.05), "LOW")
         ]
-        
+
         for service, calls, priority in queue_breakdown:
             queue_output += f"\n{service:<20} {calls:>2} calls  {priority} priority"
-        
+
         queue_output += f"""
 
 QUEUE PERFORMANCE (Last Hour)
@@ -6937,7 +6933,7 @@ Peak Queue Length:        {random.randint(15, 35)} calls
 
 TRAFFIC PATTERNS
 {'=' * 30}"""
-        
+
         # Generate hourly queue patterns
         for hour_offset in range(-3, 1):
             pattern_hour = (datetime.now().hour + hour_offset) % 24
@@ -6950,10 +6946,10 @@ TRAFFIC PATTERNS
             else:
                 queue_size = random.randint(2, 8)
                 pattern = "Overnight"
-            
+
             time_str = f"{pattern_hour:02d}:00"
             queue_output += f"\n{time_str}  {queue_size:>2} calls avg  {pattern}"
-        
+
         queue_output += f"""
 
 OPERATOR AVAILABILITY
@@ -6965,7 +6961,7 @@ In Training:              {random.randint(0, 1)}
 
 QUEUE MANAGEMENT ALERTS
 {'=' * 30}"""
-        
+
         alerts = []
         if self.tsps_data['queue_length'] > 20:
             alerts.append("⚠ WARNING: Queue length exceeds normal range")
@@ -6973,13 +6969,13 @@ QUEUE MANAGEMENT ALERTS
             alerts.append("⚠ NOTICE: Answer time above target")
         if random.random() < 0.3:
             alerts.append("ℹ INFO: Peak traffic period - additional operators requested")
-        
+
         if alerts:
             for alert in alerts:
                 queue_output += f"\n{alert}"
         else:
             queue_output += "\n✓ All queue metrics within normal range"
-        
+
         queue_output += f"""
 
 RECOMMENDED ACTIONS
@@ -6988,7 +6984,7 @@ RECOMMENDED ACTIONS
 • Request overflow assistance if queue exceeds 25 calls
 • Implement call-back service for extended wait times
 • Track abandonment rate and adjust staffing accordingly"""
-        
+
         return queue_output
 
     def _get_shift_hours(self) -> str:
@@ -7006,7 +7002,7 @@ RECOMMENDED ACTIONS
         return """Available TSPS Reports:
 
   tsps reports daily        Daily performance summary
-  tsps reports weekly       Weekly productivity analysis  
+  tsps reports weekly       Weekly productivity analysis
   tsps reports monthly      Monthly operational report
   tsps reports operators    Individual operator performance
   tsps reports quality      Service quality metrics
@@ -7017,9 +7013,9 @@ Use 'tsps reports <type>' to generate specific report"""
     def _generate_tsps_report(self, report_type: str) -> str:
         """Generate specific TSPS performance report."""
         import random
-        
+
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         if report_type == "daily":
             return f"""TSPS Daily Performance Report
 Generated: {current_time}
@@ -7033,9 +7029,9 @@ Customer Satisfaction:    {random.uniform(4.2, 4.8):.1f}/5.0
 Operator Utilization:     {random.uniform(0.75, 0.90):.1%}
 
 Peak traffic occurred at {random.randint(14, 16)}:{random.randint(0, 59):02d} with {random.randint(45, 65)} calls in queue."""
-        
+
         elif report_type == "weekly":
-            return f"""TSPS Weekly Productivity Analysis  
+            return f"""TSPS Weekly Productivity Analysis
 Generated: {current_time}
 
 WEEKLY PERFORMANCE TRENDS
@@ -7045,7 +7041,7 @@ Average Daily Volume:     {random.randint(2800, 4200):,}
 Productivity Increase:    {random.uniform(2, 8):+.1f}% vs last week
 Quality Improvement:      {random.uniform(0.1, 0.5):+.1f} points
 Training Impact:          {random.uniform(5, 15):.0f}% improvement"""
-        
+
         else:
             return f"tsps: Report type '{report_type}' not implemented\nUse 'tsps reports' for available options"
 
@@ -7078,7 +7074,7 @@ Training Impact:          {random.uniform(5, 15):.0f}% improvement"""
 
 Current Service Queue Status:
   Pending Repairs:           12 tickets
-  New Installations:         23 orders  
+  New Installations:         23 orders
   Service Changes:           8 orders
   Emergency Priority:        3 tickets
 
@@ -7094,7 +7090,7 @@ Priority Queue (Government/Emergency):
 
 Commands:
   service repair <ticket>    Process repair ticket
-  service install <order>    Installation coordination  
+  service install <order>    Installation coordination
   service status <id>        Check order status
   service queue              View full queue"""
 
@@ -7114,31 +7110,31 @@ OUTAGE DETAILS:
   Affected Services: Primary Pentagon communications
   Outage Start: 13:15 EST
   Impact: CRITICAL - Government operations affected
-  
+
 DISPATCH STATUS:
   Field Technician: Team Alpha-7 (Security Cleared)
-  ETA Pentagon: 14:30 EST  
+  ETA Pentagon: 14:30 EST
   Equipment Status: Emergency repair kit loaded
   Access Clearance: DOD Security approved
-  
+
 TECHNICAL ANALYSIS:
   Fault Location: Pentagon Building entrance facility
   Circuit Path: Pentagon -> Arlington CO -> DC-4 Toll
   Test Results: Loss of carrier signal at building demarc
   Probable Cause: Facility cable damage or equipment failure
-  
+
 REPAIR PROGRESS:
   ✓ Emergency dispatch authorized
   ✓ DOD security clearance confirmed
   ✓ Field team en route with emergency equipment
   → Arrival and fault isolation: 14:30 EST
   → Repair completion target: 16:00 EST
-  
+
 ESCALATION CONTACTS:
   Pentagon Comm Center: (703) 545-6700 Priority Line
   Bell System NOC: Emergency Desk ext 911
   DOD Liaison Office: Contact when service restored
-  
+
 Next Update: 15:00 EST or upon status change"""
             else:
                 return f"""REPAIR TICKET: {ticket}
@@ -7148,7 +7144,7 @@ Created: {datetime.now().strftime("%Y-%m-%d %H:%M:%S EST")}
 
 Standard Repair Process:
 1. Trouble ticket analysis
-2. Field technician dispatch  
+2. Field technician dispatch
 3. Fault isolation and testing
 4. Repair completion
 5. Service verification
@@ -7175,7 +7171,7 @@ Current Status:
   → Engineering review completed
   → Installation scheduled
   → Equipment allocation confirmed
-  
+
 Progress Tracking:
   Order Processing: COMPLETE
   Equipment Status: AVAILABLE
@@ -7218,7 +7214,7 @@ SERVICE CHANGES:
 Available Commands:
 
   service repair <ticket>    Handle repair tickets
-  service status <order>     Check order status  
+  service status <order>     Check order status
   service queue              View complete queue
   service install <order>    Installation coordination
 
@@ -7229,11 +7225,10 @@ For immediate Pentagon repair: service repair EV-8042"""
 
     def cmd_operator(self, args: List[str]) -> str:
         """Enhanced operator services with realistic assisted calling operations."""
-        import random
-        
+
         if not args:
             current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
-            
+
             return f"""Bell System Operator Services
 Assisted Calling and Special Services
 {current_time}
@@ -7287,7 +7282,7 @@ Commands:
     def _handle_operator_assistance(self) -> str:
         """Handle operator assistance request."""
         import random
-        
+
         assistance_types = [
             "Person-to-person call to Chicago",
             "Collect call setup",
@@ -7296,10 +7291,10 @@ Commands:
             "Credit card verification",
             "Directory assistance request"
         ]
-        
+
         current_request = random.choice(assistance_types)
         wait_time = random.uniform(2.5, 12.0)
-        
+
         return f"""Operator Assistance Request
 {'=' * 30}
 
@@ -7316,8 +7311,7 @@ For immediate assistance with emergencies, dial 0-911."""
 
     def _setup_conference_call(self) -> str:
         """Set up conference call with realistic procedures."""
-        import random
-        
+
         return f"""Bell System Conference Call Setup
 {'=' * 40}
 
@@ -7347,7 +7341,7 @@ To proceed, please provide participant phone numbers when operator connects."""
     def _show_international_rates(self) -> str:
         """Show international calling rates and procedures."""
         import random
-        
+
         return f"""Bell System International Calling
 Rates and Service Information
 {'=' * 40}
@@ -7387,10 +7381,9 @@ For current rates to specific countries, dial 0 for operator assistance."""
 
     def _show_operator_detailed_status(self) -> str:
         """Show detailed operator service status."""
-        import random
-        
+
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         return f"""Detailed Operator Services Status
 Report Generated: {current_time}
 
@@ -7430,7 +7423,7 @@ Next Shift Change: {(datetime.now() + timedelta(hours=random.randint(2, 6))).str
     def cmd_directory(self, args: List[str]) -> str:
         """Enhanced directory assistance with realistic number lookup operations."""
         import random
-        
+
         if not args:
             return f"""Bell System Directory Assistance
 Information Services and Number Lookup
@@ -7483,8 +7476,7 @@ To request directory assistance: Dial 411 (local) or 1-Area Code-555-1212 (long 
 
     def _perform_directory_lookup(self, search_term: str) -> str:
         """Perform a realistic directory lookup simulation."""
-        import random
-        
+
         # Generate realistic directory entries
         sample_listings = [
             ("JOHNSON, ROBERT", "212-555-4729", "147 W 42ND ST"),
@@ -7494,10 +7486,10 @@ To request directory assistance: Dial 411 (local) or 1-Area Code-555-1212 (long 
             ("CITY HALL", "212-555-1000", "MUNICIPAL BLDG"),
             ("WILLIAMS, SUSAN", "718-555-5623", "BROOKLYN, NY")
         ]
-        
+
         found_listing = random.choice(sample_listings)
         search_time = random.uniform(3.5, 8.5)
-        
+
         return f"""Directory Assistance Lookup Result
 {'=' * 40}
 
@@ -7521,7 +7513,7 @@ Additional charge: $0.25 for direct connection."""
     def _show_business_directory(self) -> str:
         """Show business directory services."""
         import random
-        
+
         return f"""Business Directory Services
 {'=' * 35}
 
@@ -7590,7 +7582,7 @@ All government directory assistance is provided free of charge."""
     def cmd_crossbar(self, args: List[str]) -> str:
         """Enhanced crossbar switching system with realistic electromechanical operations."""
         import random
-        
+
         if not args:
             return f"""Bell System Crossbar Switching Systems
 Electromechanical Central Office Equipment
@@ -7598,7 +7590,7 @@ Electromechanical Central Office Equipment
 
 CROSSBAR SYSTEMS STATUS
 {'=' * 30}"""
-            
+
             # Show crossbar systems from our initialized state
             crossbar_output = ""
             for xb_id, xb_data in self.crossbar_systems.items():
@@ -7607,13 +7599,13 @@ CROSSBAR SYSTEMS STATUS
                     status_detail = "Preventive maintenance due"
                 elif xb_data["status"] == "MAINT":
                     status_detail = "Under maintenance"
-                    
+
                 crossbar_output += f"""
 {xb_id}:
   Status:           {xb_data['status']}
   Load:             {xb_data['load']}%
   Condition:        {status_detail}"""
-            
+
             crossbar_output += f"""
 
 SYSTEM CHARACTERISTICS
@@ -7657,14 +7649,13 @@ Commands:
 
     def _show_crossbar_system_status(self, system_id: str) -> str:
         """Show detailed crossbar system status."""
-        import random
-        
+
         if system_id not in self.crossbar_systems:
             return f"crossbar: System {system_id} not found\nAvailable systems: {', '.join(self.crossbar_systems.keys())}"
-        
+
         system = self.crossbar_systems[system_id]
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         return f"""Crossbar System Status: {system_id}
 Status Report: {current_time}
 
@@ -7700,12 +7691,12 @@ Maintenance Interval:        {'OVERDUE' if system['maintenance_due'] else 'CURRE
     def _run_crossbar_mechanical_test(self, system_id: str) -> str:
         """Run mechanical tests on crossbar system."""
         import random
-        
+
         if system_id not in self.crossbar_systems:
             return f"crossbar: System {system_id} not found"
-        
+
         system = self.crossbar_systems[system_id]
-        
+
         return f"""Crossbar Mechanical Test Sequence: {system_id}
 Test Initiated: {datetime.now().strftime('%H:%M:%S EST')}
 
@@ -7731,21 +7722,20 @@ Use 'crossbar maintenance' for service scheduling."""
 
     def _show_crossbar_maintenance(self) -> str:
         """Show crossbar maintenance requirements and schedule."""
-        import random
-        
+
         return f"""Crossbar System Maintenance Schedule
 {'=' * 45}
 
 MAINTENANCE REQUIREMENTS
 {'=' * 35}
 Contact Cleaning:            Every 6 months
-Lubrication:                 Every 3 months  
+Lubrication:                 Every 3 months
 Timing Adjustment:           Annually
 Complete Inspection:         Every 18 months
 
 CURRENT MAINTENANCE STATUS
 {'=' * 35}"""
-        
+
         maintenance_output = ""
         for xb_id, xb_data in self.crossbar_systems.items():
             next_maint = "OVERDUE" if xb_data["maintenance_due"] else f"{random.randint(15, 90)} days"
@@ -7754,7 +7744,7 @@ CURRENT MAINTENANCE STATUS
   Last Service:        {(datetime.now() - timedelta(days=random.randint(60, 200))).strftime('%B %d, %Y')}
   Next Due:            {next_maint}
   Priority:            {'HIGH' if xb_data['maintenance_due'] else 'NORMAL'}"""
-        
+
         maintenance_output += f"""
 
 MAINTENANCE PROCEDURES
@@ -7770,19 +7760,19 @@ Estimated Service Time: 4-6 hours per system
 Maintenance Window: 02:00-06:00 EST (low traffic period)
 
 Contact: Electromechanical Maintenance Team ext 4380"""
-        
+
         return maintenance_output
 
     def _show_crossbar_performance(self) -> str:
         """Show crossbar performance analysis."""
         import random
-        
+
         return f"""Crossbar System Performance Analysis
 Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
 
 PERFORMANCE COMPARISON
 {'=' * 35}"""
-        
+
         performance_output = ""
         for xb_id, xb_data in self.crossbar_systems.items():
             efficiency = random.uniform(0.88, 0.95)
@@ -7793,7 +7783,7 @@ PERFORMANCE COMPARISON
   Avg Setup Time:      {setup_time:.1f} seconds
   Reliability:         {random.uniform(0.985, 0.996):.2%}
   Maintenance Score:   {'EXCELLENT' if not xb_data['maintenance_due'] else 'FAIR'}"""
-        
+
         performance_output += f"""
 
 HISTORICAL TRENDS
@@ -7814,13 +7804,12 @@ MODERNIZATION PLANNING
 Replacement Schedule:        5ESS deployment in progress
 Migration Timeline:          24-36 months for complete conversion
 Training Requirements:       Technician retraining program active"""
-        
+
         return performance_output
 
     def cmd_netplan(self, args: List[str]) -> str:
         """Enhanced network planning with realistic route optimization and capacity analysis."""
-        import random
-        
+
         if not args:
             return f"""Bell System Network Planning and Engineering
 Route Optimization and Capacity Management
@@ -7843,7 +7832,7 @@ Service Area Growth:         {random.randint(3, 8)} new exchanges
 CURRENT STUDIES
 {'=' * 35}
 NYC-WAS Corridor:           Capacity upgrade analysis
-Chicago Hub:                Route diversity study  
+Chicago Hub:                Route diversity study
 West Coast Links:           Fiber optic feasibility
 Rural Coverage:             Economic analysis
 
@@ -7872,7 +7861,7 @@ Commands:
     def _show_network_capacity_analysis(self) -> str:
         """Show comprehensive network capacity analysis."""
         import random
-        
+
         return f"""Network Capacity Analysis
 Report Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
 
@@ -7908,8 +7897,7 @@ ROI Projection:             {random.uniform(18, 35):.0f}% over 5 years"""
 
     def _show_route_planning(self) -> str:
         """Show route planning and optimization analysis."""
-        import random
-        
+
         return f"""Route Planning and Optimization
 Analysis Date: {datetime.now().strftime('%B %d, %Y')}
 
@@ -7930,7 +7918,7 @@ Northeast Corridor:
 
 Transcontinental Routes:
   Northern Route:           CHI-DEN-SFO via I-80
-  Southern Route:           CHI-DAL-LAX via I-40  
+  Southern Route:           CHI-DAL-LAX via I-40
   Utilization Balance:      {random.randint(65, 85)}% / {random.randint(55, 75)}%
 
 ROUTE ECONOMICS
@@ -7943,7 +7931,7 @@ Environmental Review:        {random.randint(6, 24)} months
 TECHNOLOGY PLANNING
 {'=' * 40}
 Fiber Optic Deployment:     35% of new routes
-Digital Microwave:          45% of new routes  
+Digital Microwave:          45% of new routes
 Satellite Backup:           20% for remote areas
 Copper Retirement:          Systematic replacement program
 
@@ -7952,7 +7940,7 @@ Next Planning Review: {(datetime.now() + timedelta(days=90)).strftime('%B %d, %Y
     def _show_traffic_growth_projections(self) -> str:
         """Show traffic growth projections and forecasting."""
         import random
-        
+
         return f"""Traffic Growth Projections and Forecasting
 Forecast Period: 1984-1988
 {'=' * 50}
@@ -7997,8 +7985,7 @@ Market Share Target:        {random.uniform(78, 88):.0f}% of US telecommunicatio
 
     def _show_investment_planning(self) -> str:
         """Show capital investment planning analysis."""
-        import random
-        
+
         return f"""Capital Investment Planning Analysis
 Planning Horizon: 1984-1988
 {'=' * 50}
@@ -8049,51 +8036,51 @@ Service Quality:           {random.uniform(15, 28):.0f}% improvement target
 Regulatory Approval:       Required for major projects
 Environmental Impact:      Assessments in progress
 Public Service Benefits:   Universal service expansion"""
-        
+
         return investment_output
 
     def cmd_trouble(self, args: List[str]) -> str:
         """Enhanced trouble ticket management with authentic Bell System operations."""
         import random
-        
+
         if not args:
             return self._show_trouble_ticket_dashboard()
-        
+
         elif args[0] == "list":
             priority_filter = args[1] if len(args) > 1 else None
             return self._list_trouble_tickets(priority_filter)
-        
+
         elif args[0] == "detail" and len(args) > 1:
             ticket_id = args[1].upper()
             return self._show_trouble_ticket_detail(ticket_id)
-        
+
         elif args[0] == "assign" and len(args) > 2:
             ticket_id = args[1].upper()
             team = " ".join(args[2:])
             return self._assign_trouble_ticket(ticket_id, team)
-        
+
         elif args[0] == "update" and len(args) > 2:
             ticket_id = args[1].upper()
             status = args[2].upper()
             return self._update_trouble_ticket(ticket_id, status)
-        
+
         elif args[0] == "escalate" and len(args) > 1:
             ticket_id = args[1].upper()
             return self._escalate_trouble_ticket(ticket_id)
-        
+
         elif args[0] == "resolve" and len(args) > 1:
             ticket_id = args[1].upper()
             return self._resolve_trouble_ticket(ticket_id)
-        
+
         elif args[0] == "create":
             return self._create_manual_ticket(args[1:] if len(args) > 1 else [])
-        
+
         elif args[0] == "geographic":
             return self._show_geographic_trouble_overview()
-        
+
         elif args[0] == "priority":
             return self._show_priority_analysis()
-        
+
         else:
             available_commands = ["list", "detail", "assign", "update", "escalate", "resolve", "create", "geographic", "priority"]
             return f"trouble: Unknown option '{args[0]}'\nAvailable commands: {', '.join(available_commands)}"
@@ -8101,16 +8088,16 @@ Public Service Benefits:   Universal service expansion"""
     def _show_trouble_ticket_dashboard(self) -> str:
         """Show comprehensive trouble ticket dashboard with real-time status."""
         current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
-        
+
         # Calculate ticket statistics
         critical_tickets = [t for t in self.active_tickets if t['priority'] == 'CRITICAL']
         major_tickets = [t for t in self.active_tickets if t['priority'] == 'MAJOR']
         minor_tickets = [t for t in self.active_tickets if t['priority'] == 'MINOR']
-        
+
         # Calculate customer impact
         total_customers_affected = sum(t['customer_impact'] for t in self.active_tickets)
         revenue_impact = sum(t['business_impact']['revenue_loss_hour'] for t in self.active_tickets)
-        
+
         dashboard = f"""Bell System Trouble Ticket Management System
 Real-Time Operations Dashboard
 {current_time}
@@ -8118,7 +8105,7 @@ Real-Time Operations Dashboard
 ACTIVE TROUBLE TICKETS
 {'=' * 40}
 Critical Priority:        {len(critical_tickets)} tickets
-Major Priority:           {len(major_tickets)} tickets  
+Major Priority:           {len(major_tickets)} tickets
 Minor Priority:           {len(minor_tickets)} tickets
 Total Active:             {len(self.active_tickets)} tickets
 
@@ -8130,10 +8117,10 @@ Service Quality Impact:   {'SEVERE' if len(critical_tickets) > 2 else 'MODERATE'
 
 RECENT CRITICAL ISSUES
 {'=' * 40}"""
-        
+
         # Show most recent critical tickets
         recent_critical = sorted(critical_tickets, key=lambda x: x['created_time'], reverse=True)[:3]
-        
+
         if recent_critical:
             for ticket in recent_critical:
                 age = datetime.now() - ticket['created_time']
@@ -8141,7 +8128,7 @@ RECENT CRITICAL ISSUES
                 dashboard += f"\n{ticket['id']:<8} {age_str:<6} {ticket['affected_office']['city']:<12} {ticket['title'][:45]}"
         else:
             dashboard += "\n✓ No critical issues currently active"
-        
+
         # Geographic distribution
         geographic_impact = {}
         for ticket in self.active_tickets:
@@ -8149,15 +8136,15 @@ RECENT CRITICAL ISSUES
             if state not in geographic_impact:
                 geographic_impact[state] = 0
             geographic_impact[state] += 1
-        
+
         dashboard += f"""
 
 GEOGRAPHIC DISTRIBUTION
 {'=' * 40}"""
-        
+
         for state, count in sorted(geographic_impact.items(), key=lambda x: x[1], reverse=True)[:8]:
             dashboard += f"\n{state:<4} {count:>2} active tickets"
-        
+
         dashboard += f"""
 
 OPERATIONAL METRICS
@@ -8173,13 +8160,13 @@ Commands:
   trouble escalate <id>       Escalate ticket priority
   trouble geographic          Geographic trouble overview
   trouble priority            Priority analysis and trends"""
-        
+
         return dashboard
 
     def _list_trouble_tickets(self, priority_filter: str = None) -> str:
         """List trouble tickets with optional priority filtering."""
         current_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         # Filter tickets if priority specified
         if priority_filter:
             priority_filter = priority_filter.upper()
@@ -8188,31 +8175,31 @@ Commands:
         else:
             filtered_tickets = self.active_tickets
             title = "All Active Trouble Tickets"
-        
+
         listing = f"""{title}
 Query Time: {current_time}
 
 {'ID':<10} {'PRIORITY':<8} {'AGE':<6} {'LOCATION':<15} {'CUSTOMERS':<9} {'STATUS':<12} {'DESCRIPTION':<30}
 {'=' * 100}"""
-        
+
         # Sort by priority (Critical first) then by age
         priority_order = {'CRITICAL': 0, 'MAJOR': 1, 'MINOR': 2}
-        sorted_tickets = sorted(filtered_tickets, 
+        sorted_tickets = sorted(filtered_tickets,
                               key=lambda x: (priority_order[x['priority']], x['created_time']))
-        
+
         for ticket in sorted_tickets:
             age = datetime.now() - ticket['created_time']
             age_str = f"{int(age.total_seconds() // 3600)}h{int((age.total_seconds() % 3600) // 60)}m"
-            
+
             location = f"{ticket['affected_office']['city']}, {ticket['affected_office']['state']}"
             customers = f"{ticket['customer_impact']:,}"
             description = ticket['title'][:28] + ".." if len(ticket['title']) > 30 else ticket['title']
-            
+
             listing += f"\n{ticket['id']:<10} {ticket['priority']:<8} {age_str:<6} {location:<15} {customers:<9} {ticket['status']:<12} {description}"
-        
+
         if not filtered_tickets:
             listing += f"\n{'No tickets found matching criteria' if priority_filter else 'No active tickets'}"
-        
+
         listing += f"\n\nTotal: {len(filtered_tickets)} tickets"
         return listing
 
@@ -8221,10 +8208,10 @@ Query Time: {current_time}
         ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
         if not ticket:
             return f"trouble: Ticket {ticket_id} not found\nUse 'trouble list' to see active tickets"
-        
+
         age = datetime.now() - ticket['created_time']
         age_str = f"{int(age.total_seconds() // 3600)}h {int((age.total_seconds() % 3600) // 60)}m"
-        
+
         detail = f"""Trouble Ticket Detail: {ticket['id']}
 {'=' * 50}
 
@@ -8276,10 +8263,10 @@ Response Time Target:     {15 if ticket['priority'] == 'CRITICAL' else 30 if tic
 
 REQUIRED ACTIONS
 {'=' * 30}"""
-        
+
         for i, action in enumerate(ticket['required_actions'], 1):
             detail += f"\n{i}. {action}"
-        
+
         if ticket['resolution_steps']:
             detail += f"""
 
@@ -8287,7 +8274,7 @@ RESOLUTION PROGRESS
 {'=' * 30}"""
             for i, step in enumerate(ticket['resolution_steps'], 1):
                 detail += f"\n{i}. {step}"
-        
+
         detail += f"""
 
 ESCALATION CONTACTS
@@ -8302,7 +8289,7 @@ Commands:
   trouble update {ticket_id} <status>   Update status
   trouble escalate {ticket_id}          Escalate priority
   trouble resolve {ticket_id}           Mark as resolved"""
-        
+
         return detail
 
     def _assign_trouble_ticket(self, ticket_id: str, team: str) -> str:
@@ -8310,14 +8297,14 @@ Commands:
         ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
         if not ticket:
             return f"trouble: Ticket {ticket_id} not found"
-        
+
         old_team = ticket['assigned_team']
         ticket['assigned_team'] = team
         current_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         # Add resolution step
         ticket['resolution_steps'].append(f"[{current_time}] Reassigned from '{old_team}' to '{team}' by {self.username}")
-        
+
         return f"""Ticket Assignment Updated
 {'=' * 30}
 Ticket ID:        {ticket_id}
@@ -8334,18 +8321,18 @@ Ticket status updated in Bell System Trouble Management Database."""
         ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
         if not ticket:
             return f"trouble: Ticket {ticket_id} not found"
-        
+
         valid_statuses = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'PENDING', 'TESTING', 'RESOLVED', 'CLOSED']
         if status not in valid_statuses:
             return f"trouble: Invalid status '{status}'\nValid statuses: {', '.join(valid_statuses)}"
-        
+
         old_status = ticket['status']
         ticket['status'] = status
         current_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         # Add resolution step
         ticket['resolution_steps'].append(f"[{current_time}] Status changed from '{old_status}' to '{status}' by {self.username}")
-        
+
         return f"""Ticket Status Updated
 {'=' * 25}
 Ticket ID:        {ticket_id}
@@ -8361,38 +8348,38 @@ Status change recorded in Bell System Operations Log."""
         ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
         if not ticket:
             return f"trouble: Ticket {ticket_id} not found"
-        
+
         # Increase escalation level
         old_level = ticket['escalation_level']
         ticket['escalation_level'] = min(old_level + 1, 4)  # Max escalation level 4
-        
+
         # Escalate priority if appropriate
         priority_escalation = {
             'MINOR': 'MAJOR',
             'MAJOR': 'CRITICAL',
             'CRITICAL': 'CRITICAL'  # Already at highest
         }
-        
+
         old_priority = ticket['priority']
         if old_level == 1 and ticket['priority'] != 'CRITICAL':
             ticket['priority'] = priority_escalation[ticket['priority']]
-        
+
         current_time = datetime.now().strftime("%H:%M:%S EST")
-        
+
         # Add resolution step
         escalation_note = f"[{current_time}] Escalated to level {ticket['escalation_level']} by {self.username}"
         if ticket['priority'] != old_priority:
             escalation_note += f" - Priority raised from {old_priority} to {ticket['priority']}"
-        
+
         ticket['resolution_steps'].append(escalation_note)
-        
+
         # Determine escalation contacts
         escalation_contacts = {
             2: "Engineering Support ext 4370",
-            3: "Network Operations Manager ext 4950", 
+            3: "Network Operations Manager ext 4950",
             4: "Director of Operations ext 4980"
         }
-        
+
         return f"""Ticket Escalation Completed
 {'=' * 35}
 Ticket ID:            {ticket_id}
@@ -8412,28 +8399,28 @@ Escalation logged in Bell System Operations Database."""
         ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
         if not ticket:
             return f"trouble: Ticket {ticket_id} not found"
-        
+
         # Calculate resolution time
         resolution_time = datetime.now()
         total_time = resolution_time - ticket['created_time']
         resolution_minutes = int(total_time.total_seconds() / 60)
-        
+
         # Update ticket
         ticket['status'] = 'RESOLVED'
         ticket['resolution_time'] = resolution_time
         ticket['actual_duration'] = resolution_minutes
-        
+
         current_time = resolution_time.strftime("%H:%M:%S EST")
         ticket['resolution_steps'].append(f"[{current_time}] Ticket resolved by {self.username}")
-        
+
         # Move to completed tickets
         self.active_tickets.remove(ticket)
         self.completed_tickets.append(ticket)
-        
+
         # Calculate metrics
         target_time = 15 if ticket['priority'] == 'CRITICAL' else 30 if ticket['priority'] == 'MAJOR' else 60
         on_time = resolution_minutes <= target_time
-        
+
         return f"""Trouble Ticket Resolved
 {'=' * 30}
 Ticket ID:            {ticket_id}
@@ -8454,53 +8441,53 @@ Service restoration confirmed for affected customers."""
     def _show_geographic_trouble_overview(self) -> str:
         """Show geographic distribution and analysis of trouble tickets."""
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         # Analyze geographic distribution
         state_analysis = {}
         metro_analysis = {}
-        
+
         for ticket in self.active_tickets:
             state = ticket['affected_office']['state']
             city = ticket['affected_office']['city']
-            
+
             # State-level analysis
             if state not in state_analysis:
                 state_analysis[state] = {
                     'total': 0, 'critical': 0, 'major': 0, 'minor': 0,
                     'customers': 0, 'revenue_impact': 0
                 }
-            
+
             state_analysis[state]['total'] += 1
             state_analysis[state][ticket['priority'].lower()] += 1
             state_analysis[state]['customers'] += ticket['customer_impact']
             state_analysis[state]['revenue_impact'] += ticket['business_impact']['revenue_loss_hour']
-            
+
             # Metro area analysis
             if city not in metro_analysis:
                 metro_analysis[city] = {'count': 0, 'customers': 0}
             metro_analysis[city]['count'] += 1
             metro_analysis[city]['customers'] += ticket['customer_impact']
-        
+
         overview = f"""Geographic Trouble Analysis
 Report Generated: {current_time}
 
 STATE-LEVEL IMPACT ANALYSIS
 {'=' * 40}
 {'STATE':<6} {'TOTAL':<5} {'CRIT':<4} {'MAJ':<4} {'MIN':<4} {'CUSTOMERS':<10} {'REV/HR':<8}"""
-        
+
         for state, data in sorted(state_analysis.items(), key=lambda x: x[1]['total'], reverse=True):
             overview += f"\n{state:<6} {data['total']:<5} {data['critical']:<4} {data['major']:<4} {data['minor']:<4} {data['customers']:<10,} ${data['revenue_impact']:<7,.0f}"
-        
+
         overview += f"""
 
 METROPOLITAN AREA IMPACT
 {'=' * 40}
 {'CITY':<15} {'TICKETS':<7} {'CUSTOMERS':<10} {'SEVERITY':<8}"""
-        
+
         for city, data in sorted(metro_analysis.items(), key=lambda x: x[1]['customers'], reverse=True)[:12]:
             severity = 'HIGH' if data['customers'] > 5000 else 'MEDIUM' if data['customers'] > 1000 else 'LOW'
             overview += f"\n{city:<15} {data['count']:<7} {data['customers']:<10,} {severity:<8}"
-        
+
         # Network topology impact
         overview += f"""
 
@@ -8512,7 +8499,7 @@ Local Exchanges:          {len([t for t in self.active_tickets if t['geographic_
 
 INFRASTRUCTURE TYPE IMPACT
 {'=' * 40}"""
-        
+
         # Analyze by switch type
         switch_impact = {}
         for ticket in self.active_tickets:
@@ -8520,13 +8507,13 @@ INFRASTRUCTURE TYPE IMPACT
             if switch_type not in switch_impact:
                 switch_impact[switch_type] = 0
             switch_impact[switch_type] += 1
-        
+
         for switch_type, count in sorted(switch_impact.items(), key=lambda x: x[1], reverse=True):
             overview += f"\n{switch_type:<12} {count} tickets affecting this equipment type"
-        
+
         # Risk assessment
         high_risk_areas = [state for state, data in state_analysis.items() if data['critical'] > 0 or data['customers'] > 10000]
-        
+
         overview += f"""
 
 RISK ASSESSMENT
@@ -8537,23 +8524,23 @@ Network Vulnerability:    {'ELEVATED' if len(high_risk_areas) > 3 else 'NORMAL'}
 
 Recommended Actions:
 • Monitor high-impact areas closely
-• Prepare additional resources for critical regions  
+• Prepare additional resources for critical regions
 • Review network redundancy in affected areas
 • Coordinate with regional operations centers"""
-        
+
         return overview
 
     def _show_priority_analysis(self) -> str:
         """Show priority analysis and trends for trouble tickets."""
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
-        
+
         # Analyze current priorities
         priority_stats = {'CRITICAL': 0, 'MAJOR': 0, 'MINOR': 0}
         for ticket in self.active_tickets:
             priority_stats[ticket['priority']] += 1
-        
+
         total_tickets = len(self.active_tickets)
-        
+
         analysis = f"""Trouble Ticket Priority Analysis
 Report Generated: {current_time}
 
@@ -8566,16 +8553,16 @@ Minor Priority:           {priority_stats['MINOR']} tickets ({priority_stats['MI
 PRIORITY THRESHOLDS
 {'=' * 40}
 Critical Threshold:       Service affecting >1000 customers
-Major Threshold:          Service affecting >100 customers  
+Major Threshold:          Service affecting >100 customers
 Minor Threshold:          Service affecting <100 customers
 
 ESCALATION ANALYSIS
 {'=' * 40}"""
-        
+
         escalated_tickets = [t for t in self.active_tickets if t['escalation_level'] > 1]
         analysis += f"\nEscalated Tickets:        {len(escalated_tickets)} tickets"
         analysis += f"\nEscalation Rate:          {len(escalated_tickets)/max(total_tickets,1)*100:.1f}%"
-        
+
         # Show escalated tickets
         if escalated_tickets:
             analysis += f"\n\nEscalated Ticket Details:"
@@ -8583,12 +8570,12 @@ ESCALATION ANALYSIS
                 age = datetime.now() - ticket['created_time']
                 age_str = f"{int(age.total_seconds() // 3600)}h{int((age.total_seconds() % 3600) // 60)}m"
                 analysis += f"\n{ticket['id']:<10} Level {ticket['escalation_level']} {ticket['priority']:<8} {age_str:<6} {ticket['affected_office']['city']}"
-        
+
         # Performance metrics
         if self.completed_tickets:
             recent_completed = self.completed_tickets[-20:]  # Last 20 completed tickets
             avg_resolution = sum(t.get('actual_duration', 180) for t in recent_completed) / len(recent_completed)
-            
+
             analysis += f"""
 
 RESOLUTION PERFORMANCE
@@ -8598,7 +8585,7 @@ Target Performance:
   Critical (15 min):      {len([t for t in recent_completed if t['priority'] == 'CRITICAL' and t.get('actual_duration', 999) <= 15])}/{len([t for t in recent_completed if t['priority'] == 'CRITICAL'])if recent_completed else 1} on time
   Major (30 min):         {len([t for t in recent_completed if t['priority'] == 'MAJOR' and t.get('actual_duration', 999) <= 30])}/{len([t for t in recent_completed if t['priority'] == 'MAJOR']) if recent_completed else 1} on time
   Minor (60 min):         {len([t for t in recent_completed if t['priority'] == 'MINOR' and t.get('actual_duration', 999) <= 60])}/{len([t for t in recent_completed if t['priority'] == 'MINOR']) if recent_completed else 1} on time"""
-        
+
         # Trending analysis
         analysis += f"""
 
@@ -8610,7 +8597,7 @@ Network Health:           {'DEGRADED' if priority_stats['CRITICAL'] > 0 else 'GO
 
 RECOMMENDATIONS
 {'=' * 40}"""
-        
+
         if priority_stats['CRITICAL'] > 2:
             analysis += "\n• IMMEDIATE: Activate emergency response procedures"
             analysis += "\n• Deploy additional technical resources"
@@ -8623,7 +8610,7 @@ RECOMMENDATIONS
             analysis += "\n• Continue normal operations monitoring"
             analysis += "\n• Maintain current staffing levels"
             analysis += "\n• Focus on preventive maintenance"
-        
+
         return analysis
 
     def cmd_dbquery(self, args: List[str]) -> str:
@@ -8656,14 +8643,14 @@ RECOMMENDATIONS
             output = [f"Bell System Operational Events - Shift {self.current_shift}"]
             output.append("=" * 55)
             output.append("")
-            
+
             for i, event in enumerate(self.shift_events, 1):
                 priority_marker = "*** " if event["priority"] == "CRITICAL" else "** " if event["priority"] == "HIGH" else "* " if event["priority"] == "MEDIUM" else ""
                 output.append(f"{i:2d}. {event['time']} [{event['type']}] {priority_marker}{event['status']}")
                 output.append(f"    {event['title']}")
                 output.append(f"    Event ID: {event['id']}")
                 output.append("")
-            
+
             output.append("Commands:")
             output.append("  events detail <event_id>     - View detailed event information")
             output.append("  events work <event_id>       - Work on specific event")
@@ -8671,14 +8658,14 @@ RECOMMENDATIONS
             output.append("  events status <status>       - Filter by status")
             output.append("")
             return "\n".join(output)
-        
+
         elif args[0] == "detail" and len(args) > 1:
             event_id = args[1].upper()
             event = next((e for e in self.shift_events if e["id"] == event_id), None)
-            
+
             if not event:
                 return f"Event {event_id} not found. Use 'events' to see available events."
-            
+
             output = [f"BELL SYSTEM EVENT DETAILS: {event['id']}"]
             output.append("=" * 50)
             output.append("")
@@ -8701,17 +8688,17 @@ RECOMMENDATIONS
             output.append(f"Use 'events work {event_id}' to begin working this event")
             output.append("")
             return "\n".join(output)
-        
+
         elif args[0] == "work" and len(args) > 1:
             event_id = args[1].upper()
             event = next((e for e in self.shift_events if e["id"] == event_id), None)
-            
+
             if not event:
                 return f"Event {event_id} not found. Use 'events' to see available events."
-            
+
             # Update event status to indicate work started
             event["status"] = "IN_PROGRESS"
-            
+
             output = [f"WORKING EVENT: {event['id']} - {event['title']}"]
             output.append("=" * 60)
             output.append("")
@@ -8726,33 +8713,33 @@ RECOMMENDATIONS
             for i, action in enumerate(event['actions'], 1):
                 output.append(f"  {i}. {action}")
             output.append("")
-            
+
             # Role-specific guidance
             role_guidance = {
                 "radio": "Use 'radio' commands to investigate microwave path issues",
-                "switch": "Use 'switch' and '3a' commands for switching system problems", 
+                "switch": "Use 'switch' and '3a' commands for switching system problems",
                 "noc": "Coordinate with other teams and monitor network impact",
                 "field": "Dispatch field technicians and coordinate on-site activities",
                 "sysop": "Check system logs and coordinate with development teams"
             }
-            
+
             if self.role in role_guidance:
                 output.append(f"Role-Specific Guidance:")
                 output.append(f"  {role_guidance[self.role]}")
                 output.append("")
-            
+
             output.append("Use relevant Bell System commands to investigate and resolve this event.")
             output.append("Document progress with 'ticket create' if escalation needed.")
             output.append("")
             return "\n".join(output)
-        
+
         elif args[0] == "priority" and len(args) > 1:
             priority = args[1].upper()
             filtered_events = [e for e in self.shift_events if e["priority"] == priority]
-            
+
             if not filtered_events:
                 return f"No events found with priority '{priority}'"
-            
+
             output = [f"Events with Priority: {priority}"]
             output.append("=" * 40)
             output.append("")
@@ -8761,16 +8748,16 @@ RECOMMENDATIONS
                 output.append(f"  {event['title']}")
                 output.append(f"  Event ID: {event['id']}")
                 output.append("")
-            
+
             return "\n".join(output)
-        
+
         elif args[0] == "status" and len(args) > 1:
             status = args[1].upper()
             filtered_events = [e for e in self.shift_events if e["status"] == status]
-            
+
             if not filtered_events:
                 return f"No events found with status '{status}'"
-            
+
             output = [f"Events with Status: {status}"]
             output.append("=" * 40)
             output.append("")
@@ -8779,9 +8766,9 @@ RECOMMENDATIONS
                 output.append(f"  {event['title']}")
                 output.append(f"  Event ID: {event['id']}")
                 output.append("")
-            
+
             return "\n".join(output)
-        
+
         else:
             return f"events: unknown option '{args[0]}'\nUse 'events' for available commands"
 
@@ -8835,7 +8822,7 @@ Current Network Status:
   Total Route Miles:            47,293 miles
   System Availability:          99.97%
   Average Fade Margin:          32.4 dB
-  
+
 Current Radio Paths:
   NYC-WAS-001:         NORMAL    RSL: -42 dBm    Fade Margin: 31 dB
   NYC-BOS-002:         FADE      RSL: -67 dBm    Diversity Active
@@ -8894,7 +8881,7 @@ Path Configuration:
   Number of Hops:              4 hops
   Frequency Band:              6 GHz
   Channel Capacity:            1,800 voice circuits
-  
+
 Current Performance:
   Received Signal Level:       -42.3 dBm
   Fade Margin:                 31.7 dB (Excellent)
@@ -8911,7 +8898,7 @@ Weather Sensitivity:
   Rain Fade Threshold:         15 mm/hr
   Atmospheric Fade Risk:       Low
   Multipath Probability:       0.02%
-  
+
 Diversity Protection:
   Space Diversity:             ACTIVE (all hops)
   Frequency Diversity:         STANDBY
@@ -8933,7 +8920,7 @@ Current Fade Events:
     Fade Depth:               25.1 dB
     Duration:                 47 seconds
     Diversity Switch:         Automatic at 09:23:15
-    
+
   PATH WAS-ATL-003:           Normal operation (35.1 dB margin)
   PATH CHI-DET-004:           Maintenance mode
 
@@ -8968,18 +8955,18 @@ System Overview:
 
 Current Diversity Activity:
   Active Switches:             3 paths currently on diversity
-  
+
   NYC-BOS-002 (Space Diversity):
     Main Path RSL:             -67.4 dBm (fade condition)
     Diversity Path RSL:        -43.2 dBm (normal)
     Switch Status:             DIVERSITY ACTIVE
     Switch Time:               09:23:15
-    
+
   LAX-SFO-007 (Frequency Diversity):
     Primary Frequency:         6,175 MHz - Normal
     Backup Frequency:          6,475 MHz - Standby
     Protection Status:         PROTECTED
-    
+
   CHI-STL-012 (Route Diversity):
     Primary Route:             Direct path - Normal
     Alternate Route:           Via MIL relay - Available
@@ -8988,7 +8975,7 @@ Diversity Performance:
   Switch Success Rate:         99.97%
   Average Switch Time:         < 50 milliseconds
   Failed Switches (30-day):    2 events
-  
+
 Protection Thresholds:
   Space Diversity:             -58 dBm
   Frequency Diversity:         -62 dBm
@@ -9004,7 +8991,7 @@ Microwave Antenna Pointing and Optimization
 Scheduled Alignments Today:
   SITE-CHI-004:               14:30 - Quarterly maintenance
   SITE-DET-007:               16:00 - Performance optimization
-  
+
 Alignment Status:
   Last 30 Days:               47 sites aligned
   Performance Improvement:    Average 2.3 dB gain
@@ -9054,20 +9041,20 @@ Maintenance Categories:
     Monthly:                  Transmitter calibration, power supplies
     Weekly:                   Site inspections, alarm tests
     Daily:                    Performance monitoring, log review
-    
+
   CORRECTIVE (As Required):
     Equipment Failures:       Component replacement, repair
     Performance Degradation:  Optimization, troubleshooting
     Weather Damage:           Storm repair, realignment
-    
+
 Current Maintenance Tickets:
   WO-83051: TH-3 microwave system alignment
     Sites: 12 locations
     Priority: MEDIUM
     Completion: 85%
-    
+
   WO-83052: Waveguide pressurization system
-    Sites: 8 locations  
+    Sites: 8 locations
     Priority: HIGH
     Completion: 60%
 
@@ -9114,12 +9101,12 @@ Weather Impact on Paths:
   14:00-16:00:                Continued stable conditions
   16:00-18:00:                Possible light cloud development
   18:00-20:00:                Weather front approaching from west
-  
+
 Fade Risk Assessment:
   Rain Fade Risk:             LOW (0-10% probability)
   Atmospheric Fade Risk:      LOW (stable conditions)
   Multipath Risk:             MINIMAL (good K-factor)
-  
+
 Historical Weather Impact:
   Rain Fade Events (30-day):  12 events
   Average Duration:           8.3 minutes
@@ -9171,7 +9158,7 @@ Recent Power Events:
   SITE-BOS-003:              Power reduction to 75% (cooling issue)
     Status:                   Repair scheduled 22:00
     Impact:                   Minimal (diversity available)
-    
+
   SITE-LAX-009:              Transmitter replacement
     Status:                   New unit installed 11/12/83
     Performance:              Exceeds specifications
@@ -9180,7 +9167,7 @@ Power Quality Monitoring:
   Voltage Regulation:         ±2% (within spec)
   Frequency Stability:        ±0.1 Hz (excellent)
   Harmonic Distortion:        < 1% (all transmitters)
-  
+
 Alarm Thresholds:
   Low Power Warning:          < 90% of nominal
   Critical Power Alarm:       < 80% of nominal
@@ -9190,7 +9177,7 @@ Power Optimization:
   Automatic Level Control:    ACTIVE (all transmitters)
   Temperature Compensation:   ENABLED
   Aging Compensation:         ACTIVE
-  
+
 Use 'radio maintenance' for power system maintenance
 Use 'radio alignment' for antenna optimization"""
 
@@ -9268,14 +9255,14 @@ Available Commands:
 
 Current Digital Hierarchy Status:
   DS-1 Circuits (1.544 Mbps):     2,347 active
-  DS-2 Circuits (6.312 Mbps):     156 active  
+  DS-2 Circuits (6.312 Mbps):     156 active
   DS-3 Circuits (44.736 Mbps):    23 active
-  
+
 Performance Summary:
   Bit Error Rate:              < 10^-9 (all circuits)
   Slip Rate:                   < 1 per day
   Availability:                99.95% (monthly average)
-  
+
 Reference: Western Electric T1 Carrier System Technical Manual"""
 
         elif args[0] == "status":
@@ -9324,25 +9311,25 @@ Circuit Configuration:
   Line Code:                  B8ZS (Bipolar 8-Zero Substitution)
   Framing Format:             Extended Superframe (ESF)
   Interface:                  DSX-1 cross-connect
-  
+
 Test Procedures:
   1. Loop-back Test:          [████████████████████] COMPLETE
      Near-end loop:           PASS - No errors detected
      Far-end loop:            PASS - Pattern integrity verified
-     
+
   2. Bit Error Rate Test:     [████████████████████] COMPLETE
      Test Pattern:            2^15-1 PRBS (Pseudo Random)
      Duration:                15 minutes
      BER Result:              < 10^-9 (Excellent)
-     
+
   3. Jitter Measurement:      [████████████████████] COMPLETE
      Peak-to-peak jitter:     0.05 UI (within spec < 0.28 UI)
      RMS jitter:              0.02 UI (excellent)
-     
+
   4. Signal Level Test:       [████████████████████] COMPLETE
      Transmit level:          +12.0 dBm (nominal +13 dBm)
      Receive level:           -8.5 dBm (nominal -7.5 dBm)
-     
+
   5. Alarm Generation Test:   [██████████████░░░░░] IN PROGRESS
      AIS insertion:           Testing alarm propagation
      Yellow alarm:            Verifying upstream notification
@@ -9351,7 +9338,7 @@ Test Results Summary:
   Overall Performance:        EXCELLENT
   Circuit Quality:            Meets all specifications
   Recommended Action:         Return to service
-  
+
 Next Test Scheduled:         November 21, 1983 02:00"""
 
         elif args[0] == "multiplex":
@@ -9369,7 +9356,7 @@ M12 Multiplexer Operations:
   Function:                   Combine 4 DS-1 signals into 1 DS-2
   Bit Stuffing:               Asynchronous multiplexing
   Stuff Ratio:                Average 1.2% overhead
-  
+
   Active M12 Units:
     M12-NYC-001:              Input: 4 DS-1, Output: DS-2 #47
     M12-BOS-002:              Input: 4 DS-1, Output: DS-2 #48
@@ -9379,7 +9366,7 @@ M23 Multiplexer Operations:
   Function:                   Combine 7 DS-2 signals into 1 DS-3
   Bit Stuffing:               Positive/negative stuffing
   Stuff Ratio:                Average 2.1% overhead
-  
+
   Active M23 Units:
     M23-NYC-001:              Input: 7 DS-2, Output: DS-3 #12
     M23-CHI-001:              Input: 7 DS-2, Output: DS-3 #13
@@ -9388,7 +9375,7 @@ Multiplexing Performance:
   Stuff Jitter:               < 0.1 UI (all multiplexers)
   Pattern Jitter:             < 0.05 UI (excellent)
   Frequency Accuracy:         ±32 ppm (within ±50 ppm spec)
-  
+
 Synchronization:
   Master Clock:               LORAN-C referenced
   Clock Accuracy:             ±1 x 10^-11 (cesium standard)
@@ -9402,7 +9389,7 @@ Line and Terminal Equipment Status
 
 Regenerator Functions:
   Signal Detection:           Extract timing and data
-  Retiming:                   Eliminate accumulated jitter  
+  Retiming:                   Eliminate accumulated jitter
   Reshaping:                  Restore pulse amplitude
   Regeneration:               Output clean digital signal
 
@@ -9411,7 +9398,7 @@ Line Regenerator Status:
   REG-NYC-WAS-001-R48:       OPERATIONAL - Signal: -19.1 dBm
   REG-NYC-BOS-002-R23:       OPERATIONAL - Signal: -17.8 dBm
   REG-WAS-ATL-003-R56:       MAINTENANCE - Scheduled PM
-  
+
 Performance Parameters:
   Input Sensitivity:          -36 dBm (minimum detectable)
   Output Level:               +13 dBm (nominal DS-1 level)
@@ -9432,7 +9419,7 @@ Maintenance Status:
   Last PM Cycle:              47 regenerators completed
   Performance Degradation:    0 units flagged
   Spare Units Available:      23 units (central stock)
-  
+
 Power Systems:
   -130V DC Distribution:      NORMAL (all regenerators)
   Current Consumption:        Average 47 mA per unit
@@ -9457,18 +9444,18 @@ Current Synchronization Status:
   Primary Reference:          LORAN-C Navigation System
   Secondary Reference:        Cesium beam standard (backup)
   Distribution Method:        Through digital hierarchy
-  
+
 Timing Distribution:
   Master Clock (Stratum 1):   AT&T Network Operations Center
     Location:                 Hillsboro, New Jersey
     Accuracy:                 ±1 x 10^-11
     Distribution:             Via DS-1 timing signals
-    
+
   Regional Clocks (Stratum 2):
     NYC Regional Center:      Synchronized, tracking normal
     CHI Regional Center:      Synchronized, tracking normal
     LAX Regional Center:      Synchronized, tracking normal
-    
+
   Local Office Clocks (Stratum 3):
     NYC Central Office:       Synchronized, ±2.1 x 10^-6 drift
     BOS Central Office:       Synchronized, ±1.8 x 10^-6 drift
@@ -9483,7 +9470,7 @@ Performance Monitoring:
   Slip Events (24-hour):      0 controlled slips
   Timing Errors:              No events detected
   Clock Drift:                All within specifications
-  
+
 Slip Control:
   Controlled Slip Rate:       < 1 slip per 72 days (target)
   Slip Buffer Depth:          ±2 frame positions
@@ -9493,7 +9480,7 @@ LORAN-C Reception:
   Signal Strength:            40 dB above noise floor
   Time Difference:            Tracking within 0.1 microsecond
   Chain Selection:            Northeast U.S. Chain (9960)
-  
+
 Backup Timing:
   Cesium Standard:            Available (automatic switchover)
   GPS Timing:                 Under evaluation [Future]
@@ -9521,12 +9508,12 @@ Current L-Carrier Routes:
   L3 Systems (1860 circuits):     23 routes operational
   L4 Systems (3600 circuits):     47 routes operational
   L5 Systems (10800 circuits):    12 routes operational
-  
+
 Performance Summary:
   Noise Level:                43 dBrnC (excellent)
   Frequency Response:         ±0.5 dB (within spec)
   Cross-talk:                 < -65 dB (all systems)
-  
+
 Reference: Western Electric L-Carrier Technical Manual"""
 
         elif args[0] == "status":
@@ -9538,7 +9525,7 @@ L3 Coaxial Systems (1860 voice circuits):
     Pilot Level:              -20.0 dBm0 (nominal -20 dBm0)
     Noise Level:              42.8 dBrnC (excellent)
     Temperature:              68°F (normal range)
-    
+
   L3-BOS-NYC-002:             OPERATIONAL - 1854 circuits active
     Pilot Level:              -19.8 dBm0 (nominal -20 dBm0)
     Noise Level:              43.2 dBrnC (good)
@@ -9549,7 +9536,7 @@ L4 Coaxial Systems (3600 voice circuits):
     Pilot Level:              -20.1 dBm0 (nominal -20 dBm0)
     Noise Level:              41.5 dBrnC (excellent)
     Repeater Status:          47 repeaters operational
-    
+
   L4-CHI-STL-002:             OPERATIONAL - 3594 circuits active
     Pilot Level:              -19.9 dBm0 (nominal -20 dBm0)
     Noise Level:              42.1 dBrnC (excellent)
@@ -9561,7 +9548,7 @@ L5 Coaxial Systems (10800 voice circuits):
     Noise Level:              40.2 dBrnC (superior)
     Repeater Status:          156 repeaters operational
     Cable Length:             789.3 miles total
-    
+
 System Performance:
   Overall Availability:       99.98% (monthly average)
   Mean Time to Repair:        3.7 hours (system outages)
@@ -9571,10 +9558,10 @@ Cable Plant Status:
   Cable Pressure:             All sections pressurized (8.5 psi)
   Moisture Detection:         No moisture alarms
   Sheath Current:             Normal (< 10 mA all cables)
-  
+
 Frequency Allocation:
   L3: 312 kHz - 1364 kHz      (Group frequencies)
-  L4: 564 kHz - 3084 kHz      (Supergroup frequencies)  
+  L4: 564 kHz - 3084 kHz      (Supergroup frequencies)
   L5: 312 kHz - 8284 kHz      (Mastergroup frequencies)"""
 
         elif args[0] == "repeater":
@@ -9593,8 +9580,8 @@ L4 Repeater Status (NYC-WAS Route):
     Output Level:             +7.8 dBm (pilot tone)
     Gain:                     51.0 dB (nominal 51 dB)
     Temperature:              73°F (normal)
-    
-  REP-L4-002 (Mile 46.8):    OPERATIONAL  
+
+  REP-L4-002 (Mile 46.8):    OPERATIONAL
     Input Level:              -42.8 dBm (pilot tone)
     Output Level:             +8.1 dBm (pilot tone)
     Gain:                     50.9 dB (nominal 51 dB)
@@ -9614,11 +9601,11 @@ Repeater Spacing:
   L5 Systems:                 1 mile (approximate)
 
 Automatic Gain Control:
-  Pilot Tone Frequency:       
+  Pilot Tone Frequency:
     L3: 552 kHz               Reference level -20 dBm0
     L4: 1116 kHz              Reference level -20 dBm0
     L5: 564 kHz               Reference level -20 dBm0
-    
+
   AGC Response Time:          < 100 milliseconds
   Gain Tracking:              ±0.1 dB (temperature compensated)
 
@@ -9626,12 +9613,12 @@ Maintenance Procedures:
   Monthly Gain Checks:        Scheduled via pilot tone
   Quarterly Alignments:       Frequency response verification
   Annual Overhaul:            Component replacement cycle
-  
+
 Power Systems:
   Remote Powering:            -130V DC via cable center
   Current Consumption:        Average 2.3 A per repeater
   Power Feeding:              From terminal equipment
-  
+
 Environmental Monitoring:
   Temperature Range:          -40°F to +140°F operating
   Humidity:                   0-95% non-condensing
@@ -9647,28 +9634,28 @@ System Configuration:
   Circuit Capacity:           3600 voice channels
   Frequency Range:            564 kHz - 3084 kHz
   Cable Type:                 0.375" coax, foam dielectric
-  
+
 Test Procedures:
   1. Pilot Tone Check:        [████████████████████] COMPLETE
      564 kHz Pilot:           -19.8 dBm0 (nominal -20.0 dBm0)
      1116 kHz Pilot:          -20.2 dBm0 (nominal -20.0 dBm0)
      Result:                  PASS - Levels within ±0.5 dB
-     
+
   2. Noise Measurement:       [████████████████████] COMPLETE
      C-Message Weighted:      42.1 dBrnC (excellent)
      3 kHz Flat:              47.3 dBrn (good)
      Impulse Noise:           2 counts/15 min (acceptable)
-     
+
   3. Frequency Response:      [████████████████████] COMPLETE
      300 Hz - 3400 Hz:        ±0.3 dB variation
      Group Delay:             < 1.5 ms (excellent)
      Envelope Delay:          Within specifications
-     
+
   4. Cross-talk Test:         [████████████████████] COMPLETE
      Near-end cross-talk:     -67.2 dB (excellent)
      Far-end cross-talk:      -71.5 dB (superior)
      Echo return loss:        -28.4 dB (good)
-     
+
   5. Repeater Gain Test:      [██████████████░░░░░] IN PROGRESS
      Testing 39 repeaters:    Gain stability ±0.1 dB
      Temperature compensation: Active
@@ -9677,7 +9664,7 @@ Test Results Summary:
   Overall Performance:        EXCELLENT
   All Parameters:             Within specifications
   Recommended Action:         Continue normal service
-  
+
 Next Scheduled Test:         November 28, 1983 02:00"""
 
         elif args[0] == "pilot":
@@ -9691,16 +9678,16 @@ Pilot Tone Functions:
   Temperature Compensation:   Thermal stability
 
 L3 System Pilot Tones:
-  552 kHz Pilot:              
+  552 kHz Pilot:
     Current Level:            -19.9 dBm0 (nominal -20.0 dBm0)
     Regulation Range:         ±3.0 dB
     Response Time:            < 2 seconds
-    
+
 L4 System Pilot Tones:
   564 kHz Pilot (Group 1):    -20.1 dBm0 (nominal -20.0 dBm0)
   1116 kHz Pilot (Group 2):   -19.8 dBm0 (nominal -20.0 dBm0)
   1620 kHz Pilot (Group 3):   -20.2 dBm0 (nominal -20.0 dBm0)
-  
+
 L5 System Pilot Tones:
   564 kHz Master Pilot:       -20.0 dBm0 (nominal -20.0 dBm0)
   8284 kHz Regulation Pilot:  -20.1 dBm0 (nominal -20.0 dBm0)
@@ -9709,12 +9696,12 @@ Automatic Level Regulation:
   Regulation Accuracy:        ±0.1 dB (short term)
   Temperature Stability:      ±0.3 dB (-40°F to +140°F)
   Frequency Stability:        ±1 Hz (crystal controlled)
-  
+
 Alarm Thresholds:
   Minor Alarm:                ±1.0 dB deviation
   Major Alarm:                ±2.0 dB deviation
   Critical Alarm:             ±3.0 dB deviation (system failure)
-  
+
 Current Alarm Status:
   All Systems:                NO ALARMS
   Regulation Status:          NORMAL
@@ -9738,18 +9725,18 @@ Fault Location Methods:
 
 Recent Fault History:
   No active faults detected   (Last 30 days)
-  
+
 Fault Location Equipment:
   TDR Test Set:               Model WE-810A
     Range:                    0-50 miles
     Resolution:               ±25 feet
     Impedance:                75 ohms (coaxial standard)
-    
+
   Bridge Measurements:
     Cable Resistance:         0.31 ohms/mile (center conductor)
     Cable Capacitance:        21.5 nF/mile (normal)
     Insulation Resistance:    >1000 megohms/mile
-    
+
 Preventive Monitoring:
   Cable Pressure:             8.5 psi (all sections)
   Moisture Indicators:        Dry gas flow normal
@@ -9799,10 +9786,10 @@ Digital Signal Hierarchy:
   DS-1:    1.544 Mbps      24 DS-0 + framing (193 bits/frame)
   DS-2:    6.312 Mbps      4 DS-1 + bit stuffing
   DS-3:    44.736 Mbps     7 DS-2 + overhead
-  
+
 Current Multiplexer Status:
   M12 Units:               23 operational
-  M23 Units:               8 operational  
+  M23 Units:               8 operational
   Performance:             All within specifications"""
 
         elif args[0] == "m12":
@@ -9818,12 +9805,12 @@ M12 Multiplexer Function:
 Active M12 Units:
   M12-NYC-001:
     Input DS-1 #1:            ACTIVE - 1.5440 Mbps, sync normal
-    Input DS-1 #2:            ACTIVE - 1.5441 Mbps, sync normal  
+    Input DS-1 #2:            ACTIVE - 1.5441 Mbps, sync normal
     Input DS-1 #3:            ACTIVE - 1.5439 Mbps, sync normal
     Input DS-1 #4:            ACTIVE - 1.5440 Mbps, sync normal
     Output DS-2:              ACTIVE - 6.3120 Mbps
     Stuff Rate:               1.12% (normal)
-    
+
   M12-BOS-002:
     Input DS-1 #1:            ACTIVE - 1.5441 Mbps, sync normal
     Input DS-1 #2:            ACTIVE - 1.5440 Mbps, sync normal
@@ -9857,7 +9844,7 @@ Alarm Conditions:
   Equipment Failure:          Internal multiplexer fault"""
 
         elif args[0] == "m23":
-            return """M23 Multiplexer Operations  
+            return """M23 Multiplexer Operations
 DS-2 to DS-3 Digital Multiplexing
 
 M23 Multiplexer Function:
@@ -9937,7 +9924,7 @@ Line Regenerator Status:
     Bit Error Rate:           < 10^-12
     Jitter:                   0.02 UI (excellent)
     Temperature:              68°F (normal)
-    
+
   REG-NYC-WAS-001-R48:
     Location:                 Mile 46.8 (repeater hut RH-4680)
     Input Signal:             -19.1 dBm (nominal -22.5 dBm)
@@ -9952,7 +9939,7 @@ Terminal Equipment Status:
     Input Level:              +13.2 dBm
     Output Level:             +13.0 dBm
     Loop-back:                Available (remote/local)
-    
+
   DSU-NYC-002 (Data Service Unit):
     Circuit:                  DS1-NYC-BOS-002
     Data Rate:                56 kbps (subrate)
@@ -9978,24 +9965,24 @@ Regenerator Spacing:
         """Display recent command errors and troubleshooting information."""
         if not self.recent_errors:
             return "No recent errors recorded.\n"
-        
+
         result = "RECENT COMMAND ERRORS\n"
         result += "=" * 50 + "\n\n"
-        
+
         recent_errors_list = list(self.recent_errors)[-10:]  # Convert to list and get last 10
         for i, error in enumerate(recent_errors_list, 1):
             timestamp = error['timestamp'].strftime("%H:%M:%S")
             result += f"{i}. [{timestamp}] Command: {error['command']}\n"
             result += f"   Error: {error['error']}\n"
             result += f"   Count: {error['count']} time(s)\n\n"
-        
+
         # Add troubleshooting tips
         result += "TROUBLESHOOTING TIPS:\n"
         result += "- Type 'help' for available commands\n"
         result += "- Use 'man <command>' for detailed help\n"
         result += "- Check command spelling and syntax\n"
         result += "- Use command aliases (h=help, st=status, etc.)\n"
-        
+
         return result
 
     def cmd_verbosity(self, args: List[str]) -> str:
@@ -10006,15 +9993,15 @@ Regenerator Spacing:
             current_name = level_names.get(current_level, 'UNKNOWN')
             return f"Current logging level: {current_name} ({current_level})\n" + \
                    "Usage: verbosity [debug|info|warning|error]\n"
-        
+
         level = args[0].upper()
         level_map = {
             'DEBUG': logging.DEBUG,
-            'INFO': logging.INFO, 
+            'INFO': logging.INFO,
             'WARNING': logging.WARNING,
             'ERROR': logging.ERROR
         }
-        
+
         if level in level_map:
             self.logger.setLevel(level_map[level])
             self.logger.info(f"Logging level changed to {level}")
@@ -10026,27 +10013,27 @@ Regenerator Spacing:
         """Display command history with optional filtering."""
         if not self.command_history:
             return "No command history available.\n"
-        
+
         result = "COMMAND HISTORY\n"
         result += "=" * 40 + "\n\n"
-        
+
         # Show last 20 commands by default
         history_slice = self.command_history[-20:]
-        
+
         for i, cmd in enumerate(history_slice, 1):
             result += f"{i:2d}. {cmd}\n"
-        
+
         if len(self.command_history) > 20:
             result += f"\n... showing last 20 of {len(self.command_history)} commands\n"
-        
+
         # Add usage statistics
         if hasattr(self, 'command_counts'):
             result += f"\nMOST USED COMMANDS:\n"
-            sorted_commands = sorted(self.command_counts.items(), 
+            sorted_commands = sorted(self.command_counts.items(),
                                    key=lambda x: x[1], reverse=True)
             for cmd, count in sorted_commands[:5]:
                 result += f"  {cmd}: {count} times\n"
-        
+
         return result
 
     def cmd_status(self, args: List[str] = None) -> str:
@@ -10088,9 +10075,9 @@ Available Test Categories:
 Usage: test <category> [options]
 Example: test trunk TG-001
 """
-        
+
         test_type = args[0].lower()
-        
+
         if test_type == "trunk":
             return """TRUNK GROUP TEST RESULTS
 ======================
@@ -10098,7 +10085,7 @@ Test Target: """ + (args[1] if len(args) > 1 else "All Groups") + """
 Test Time: """ + time.strftime("%H:%M:%S") + """
 
 Continuity:    PASS
-Signaling:     PASS  
+Signaling:     PASS
 Traffic Load:  67% (Normal)
 Error Rate:    <0.001% (Excellent)
 
@@ -10141,7 +10128,7 @@ Usage: antenna [status|test|align|maintenance]
 """
 
         option = args[0].lower()
-        
+
         if option == "status":
             return """ANTENNA DETAILED STATUS
 =====================
@@ -10154,7 +10141,7 @@ Main Microwave Path (A1):
   Alignment:        0.1° deviation (Normal)
 
 Backup Path (A2):
-  Frequency:         4.835 GHz  
+  Frequency:         4.835 GHz
   Power Output:      +8 dBm
   VSWR:             1.4:1 (Good)
   Alignment:        On target
@@ -10190,7 +10177,7 @@ Phase 1: Coarse Alignment
   Azimuth sweep:      COMPLETED
   Peak signal found:  -38 dBm at 127.5°
 
-Phase 2: Fine Alignment  
+Phase 2: Fine Alignment
   Elevation adjust:   COMPLETED
   Final position:     127.4° Az, 2.1° El
   Signal strength:    -36 dBm (Optimal)
@@ -10209,7 +10196,7 @@ Antenna alignment completed successfully.
                 readline.write_history_file(self.history_file)
             except:
                 pass
-        
+
         self.logger.info(f"Session {self.session_id} terminated by user")
         print("\nBell System session terminated.")
         print("Thank you for using Bell System UNIX V7 Operations Terminal.")

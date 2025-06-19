@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 """
+import time
+
+from datetime import datetime
+from random import choice, random
+
 Bell System UNIX/TS Alternative Terminal Implementation
 ======================================================
 
@@ -8,9 +13,6 @@ This is an alternative implementation to the main bell.py simulation.
 """
 
 import os
-import time
-from datetime import datetime
-from random import choice, random
 
 class UnixTerminal:
     def __init__(self):

@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 """
+import os
+import random
+import sys
+import time
+
+from typing import List, Dict
+
 Bell System UNIX V7 Terminal Simulation - Interactive Tutorial
 ============================================================
 
@@ -10,15 +17,10 @@ simulation and provides step-by-step guided learning.
 Run this tutorial BEFORE using the main Bell System simulation.
 """
 
-import os
-import sys
-import time
-import random
-from typing import List, Dict
 
 class BellSystemTutorial:
     """Interactive tutorial for Bell System terminal simulation"""
-    
+
     def __init__(self):
         self.user_progress = {
             'steps_completed': 0,
@@ -27,7 +29,7 @@ class BellSystemTutorial:
         }
         self.tutorial_steps = [
             'introduction',
-            'role_selection', 
+            'role_selection',
             'basic_commands',
             'help_system',
             'event_system',
@@ -35,46 +37,46 @@ class BellSystemTutorial:
             'specialized_commands',
             'graduation'
         ]
-        
+
     def clear_screen(self):
         """Clear terminal screen"""
         os.system('cls' if os.name == 'nt' else 'clear')
-        
+
     def type_effect(self, text: str, delay: float = 0.03):
         """Display text with typewriter effect"""
         for char in text:
             print(char, end='', flush=True)
             time.sleep(delay)
         print()
-        
+
     def wait_for_user(self, prompt: str = "Press Enter to continue...") -> str:
         """Wait for user input with custom prompt"""
         return input(f"\n{prompt} ").strip()
-        
-    def validate_input(self, user_input: str, expected: List[str], 
+
+    def validate_input(self, user_input: str, expected: List[str],
                       case_sensitive: bool = False) -> bool:
         """Validate user input against expected responses"""
         if not case_sensitive:
             user_input = user_input.lower()
             expected = [exp.lower() for exp in expected]
-        
+
         return user_input in expected
-        
+
     def show_progress(self):
         """Display tutorial progress"""
         completed = self.user_progress['steps_completed']
         total = len(self.tutorial_steps)
         progress_bar = "█" * completed + "░" * (total - completed)
-        
+
         print(f"\nTutorial Progress: [{progress_bar}] {completed}/{total} steps")
-        
+
     def run(self):
         """Run the complete interactive tutorial"""
         self.clear_screen()
         print("=" * 70)
         print("     BELL SYSTEM UNIX V7 TERMINAL SIMULATION TUTORIAL")
         print("=" * 70)
-        
+
         for step in self.tutorial_steps:
             method_name = f"step_{step}"
             if hasattr(self, method_name):
@@ -83,13 +85,13 @@ class BellSystemTutorial:
                 self.show_progress()
             else:
                 print(f"Tutorial step '{step}' not implemented.")
-                
+
         self.show_completion_certificate()
-        
+
     def step_introduction(self):
         """Introduction to Bell System simulation"""
         self.clear_screen()
-        
+
         self.type_effect("""
 WELCOME TO THE BELL SYSTEM UNIX V7 TERMINAL SIMULATION TUTORIAL
 ================================================================
@@ -99,27 +101,27 @@ workstation from the period 1978-1983, before the AT&T divestiture.
 
 You'll learn to:
 • Navigate the authentic UNIX V7 command structure
-• Manage Bell System operational roles and responsibilities  
+• Manage Bell System operational roles and responsibilities
 • Handle network events, trouble tickets, and maintenance procedures
 • Use period-accurate equipment and terminology
 
 This tutorial takes approximately 15-20 minutes to complete.
 """)
-        
+
         response = self.wait_for_user("Are you ready to begin? (yes/no)")
-        
+
         while not self.validate_input(response, ['yes', 'y']):
             if self.validate_input(response, ['no', 'n']):
                 print("Tutorial cancelled. Run again when ready.")
                 sys.exit(0)
             response = self.wait_for_user("Please enter 'yes' or 'no'")
-            
+
         print("\n✅ Excellent! Let's begin your Bell System training...")
-        
+
     def step_role_selection(self):
         """Learn about Bell System roles"""
         self.clear_screen()
-        
+
         self.type_effect("""
 STEP 1: UNDERSTANDING BELL SYSTEM OPERATIONAL ROLES
 ==================================================
@@ -127,10 +129,10 @@ STEP 1: UNDERSTANDING BELL SYSTEM OPERATIONAL ROLES
 The Bell System operated with specialized roles, each with specific
 responsibilities and command access. Let's explore the 12 available roles:
 """)
-        
+
         roles = [
             "1. UNIX Systems Operator - Manages computer systems",
-            "2. Switching Station Technician - Operates telephone switches", 
+            "2. Switching Station Technician - Operates telephone switches",
             "3. Field Support Liaison - Customer service interface",
             "4. National NOC Analyst - Network monitoring center",
             "5. TSPS Operator - Traffic Service Position System",
@@ -142,16 +144,16 @@ responsibilities and command access. Let's explore the 12 available roles:
             "11. SARTS Technician - Special service testing",
             "12. Document Preparation Specialist - Technical documentation"
         ]
-        
+
         for role in roles:
             print(f"   {role}")
             time.sleep(0.5)
-            
+
         print("\nFor this tutorial, we'll use the Radio/Microwave Technician role")
         print("because it has comprehensive transmission system commands.")
-        
+
         response = self.wait_for_user("Which role interests you most? (1-12)")
-        
+
         try:
             role_num = int(response)
             if 1 <= role_num <= 12:
@@ -161,11 +163,11 @@ responsibilities and command access. Let's explore the 12 available roles:
                 print("Invalid role number, but that's okay - this is just for learning!")
         except ValueError:
             print("That's not a number, but no worries - this is practice!")
-            
+
     def step_basic_commands(self):
         """Practice basic UNIX commands"""
         self.clear_screen()
-        
+
         self.type_effect("""
 STEP 2: BASIC UNIX V7 COMMANDS
 =============================
@@ -173,33 +175,33 @@ STEP 2: BASIC UNIX V7 COMMANDS
 Let's practice the fundamental commands you'll use daily:
 
 • help     - Show available commands
-• man      - Display manual pages  
+• man      - Display manual pages
 • ps       - Show running processes
 • who      - Display logged-in users
 • date     - Show current date/time
 • events   - View shift events
 """)
-        
+
         basic_commands = ['help', 'man', 'ps', 'who', 'date', 'events']
-        
+
         for cmd in basic_commands:
             print(f"\nPractice typing: {cmd}")
             user_input = self.wait_for_user("Type the command")
-            
+
             if user_input.lower() == cmd:
                 print("✅ Perfect! Command typed correctly.")
                 self.user_progress['commands_practiced'].append(cmd)
             else:
                 print(f"❌ You typed '{user_input}', but the command was '{cmd}'")
                 print("No worries - practice makes perfect!")
-                
+
         commands_learned = len(self.user_progress['commands_practiced'])
         print(f"\n🎯 You successfully practiced {commands_learned}/{len(basic_commands)} commands!")
-        
+
     def step_help_system(self):
         """Learn the help system"""
         self.clear_screen()
-        
+
         self.type_effect("""
 STEP 3: MASTERING THE HELP SYSTEM
 =================================
@@ -212,19 +214,19 @@ The Bell System simulation has a comprehensive help system:
 
 Let's practice using help commands:
 """)
-        
+
         help_examples = [
             ("help", "Shows all available commands"),
             ("help radio", "Shows help for radio command"),
             ("man t1carrier", "Full manual for T1 carrier systems")
         ]
-        
+
         for cmd, description in help_examples:
             print(f"\nCommand: {cmd}")
             print(f"Purpose: {description}")
-            
+
             user_input = self.wait_for_user(f"Type: {cmd}")
-            
+
             if user_input.lower() == cmd.lower():
                 print("✅ Excellent! This would show:")
                 if cmd == "help":
@@ -235,13 +237,13 @@ Let's practice using help commands:
                     print("   → Complete manual page with examples")
             else:
                 print(f"❌ You typed '{user_input}', try again!")
-                
+
         print("\n💡 TIP: Always use 'help' when you're unsure about commands!")
-        
+
     def step_event_system(self):
         """Learn about shift events"""
         self.clear_screen()
-        
+
         self.type_effect("""
 STEP 4: BELL SYSTEM SHIFT EVENTS
 ================================
@@ -254,27 +256,27 @@ During your shift, operational events occur that require attention:
 
 Key commands:
 • events              - List all current events
-• events detail EV-8001 - View specific event details  
+• events detail EV-8001 - View specific event details
 • events work EV-8001   - Start working on an event
 • events priority HIGH  - Filter by priority level
 """)
-        
+
         # Simulate event interaction
         print("\nSIMULATED EVENT SCENARIO:")
         print("Event EV-8040: TH-3 microwave fade detected on NYC-WAS path")
         print("Priority: HIGH")
         print("Status: MONITORING")
-        
+
         scenarios = [
             ("events", "List all events"),
-            ("events detail EV-8040", "View event details"),  
+            ("events detail EV-8040", "View event details"),
             ("events work EV-8040", "Start working the event")
         ]
-        
+
         for cmd, purpose in scenarios:
             print(f"\nTo {purpose.lower()}, you would type: {cmd}")
             user_response = self.wait_for_user(f"Practice typing: {cmd}")
-            
+
             if user_response.lower() == cmd.lower():
                 print("✅ Perfect! This would:")
                 if "detail" in cmd:
@@ -285,13 +287,13 @@ Key commands:
                     print("   → Display all active events")
             else:
                 print(f"❌ Close! The correct command was: {cmd}")
-                
+
         print("\n⚡ Events drive your daily workflow - check them frequently!")
-        
+
     def step_ticket_system(self):
         """Learn trouble ticket management"""
         self.clear_screen()
-        
+
         self.type_effect("""
 STEP 5: TROUBLE TICKET SYSTEM
 =============================
@@ -308,31 +310,31 @@ Essential ticket commands:
 • ticket T-83047       - View specific ticket details
 • ticket assign T-83047 - Assign ticket to technician
 """)
-        
+
         print("\nTICKET SCENARIO:")
         print("Customer reports no dial tone on 212-555-1234")
-        
+
         ticket_workflow = [
             "ticket create",
-            "ticket status", 
+            "ticket status",
             "ticket T-83047"
         ]
-        
+
         for cmd in ticket_workflow:
             user_input = self.wait_for_user(f"What command would you use? (Hint: {cmd.split()[0]}...)")
-            
+
             if cmd.lower() in user_input.lower():
                 print(f"✅ Correct! '{cmd}' would handle this step.")
             else:
                 print(f"❌ The command was: {cmd}")
                 print("   Try to remember the ticket command structure!")
-                
+
         print("\n📋 Tickets ensure nothing gets lost and problems are tracked!")
-        
+
     def step_specialized_commands(self):
         """Learn role-specific commands"""
         self.clear_screen()
-        
+
         self.type_effect("""
 STEP 6: SPECIALIZED TECHNICAL COMMANDS
 =====================================
@@ -355,44 +357,44 @@ NETWORK ANALYSIS:
 • tnds status       - Total Network Data System
 • traffic analysis  - Network traffic patterns
 """)
-        
+
         speciality_commands = [
             ("radio status", "Check radio system health"),
             ("t1carrier status", "Monitor digital circuits"),
             ("tnds status", "Network data analysis")
         ]
-        
+
         print("\nLet's practice some specialized commands:")
-        
+
         for cmd, purpose in speciality_commands:
             print(f"\nCommand: {cmd}")
             print(f"Purpose: {purpose}")
-            
+
             user_input = self.wait_for_user("Type this command")
-            
+
             if user_input.lower() == cmd.lower():
                 print("✅ Excellent! You're mastering technical commands!")
             else:
                 print(f"❌ You typed: {user_input}")
                 print(f"   Correct: {cmd}")
-                
+
         print("\n🔧 These specialized commands are the core of your daily work!")
-        
+
     def step_graduation(self):
         """Complete the tutorial"""
         self.clear_screen()
-        
+
         self.type_effect("""
 CONGRATULATIONS! TUTORIAL COMPLETE
 =================================
 
-You have successfully completed the Bell System UNIX V7 Terminal 
+You have successfully completed the Bell System UNIX V7 Terminal
 Simulation tutorial! You're now ready to begin authentic Bell System
 operations.
 
 WHAT YOU'VE LEARNED:
 ✅ Bell System operational roles and responsibilities
-✅ Basic UNIX V7 command structure  
+✅ Basic UNIX V7 command structure
 ✅ Help system navigation (help, man commands)
 ✅ Shift event monitoring and response
 ✅ Trouble ticket creation and management
@@ -407,25 +409,25 @@ NEXT STEPS:
 
 REMEMBER:
 • Type 'help' anytime you need command assistance
-• Use 'events' to stay aware of operational activities  
+• Use 'events' to stay aware of operational activities
 • 'man <command>' provides detailed documentation
 • Take your time - accuracy is more important than speed
 """, delay=0.02)
-        
+
         final_score = len(self.user_progress['commands_practiced'])
         role_selected = self.user_progress.get('role_selected', 'Not selected')
-        
+
         print(f"\nYOUR TUTORIAL RESULTS:")
         print(f"Commands Practiced: {final_score}")
         print(f"Preferred Role: {role_selected}")
         print(f"Steps Completed: {self.user_progress['steps_completed']}")
-        
+
         self.wait_for_user("Press Enter to receive your certificate")
-        
+
     def show_completion_certificate(self):
         """Display completion certificate"""
         self.clear_screen()
-        
+
         certificate = f"""
 ╔════════════════════════════════════════════════════════════════╗
 ║                    BELL SYSTEM LABORATORIES                    ║
@@ -449,7 +451,7 @@ REMEMBER:
 ║    Bell System Operations Training                             ║
 ╚════════════════════════════════════════════════════════════════╝
 """
-        
+
         print(certificate)
         print("\n🎉 Welcome to the Bell System operations team!")
         print("\nYou are now ready to run the main simulation.")
@@ -459,7 +461,7 @@ def main():
     """Main tutorial entry point"""
     print("Bell System UNIX V7 Terminal Simulation Tutorial")
     print("=" * 50)
-    
+
     try:
         tutorial = BellSystemTutorial()
         tutorial.run()
