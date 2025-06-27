@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 """
-import os
-import random
-import sys
-import time
-
-from typing import List, Dict
-
 Bell System UNIX V7 Terminal Simulation - Interactive Tutorial
 ============================================================
 
@@ -16,6 +9,12 @@ simulation and provides step-by-step guided learning.
 
 Run this tutorial BEFORE using the main Bell System simulation.
 """
+
+import os
+import random
+import sys
+import time
+from typing import List, Dict
 
 
 class BellSystemTutorial:
