@@ -9,7 +9,7 @@ console.log('Starting Bell System UNIX V7 Terminal Simulation...');
 console.log('===============================================');
 
 // Start the Python Bell System terminal simulation directly
-const pythonProcess = spawn('python3', ['bell.py'], {
+const pythonProcess = spawn('python3', ['bell-system.py'], {
   cwd: path.join(__dirname, '..'),
   stdio: 'inherit'  // This allows the Python process to use the terminal directly
 });
