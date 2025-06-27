@@ -24,8 +24,8 @@ For new features:
 ### Branching Strategy
 ```bash
 # Clone and setup
-git clone https://github.com/your-username/bell-system-unix-v7.git
-cd bell-system-unix-v7
+git clone https://github.com/your-username/bell-system-sim.git
+cd bell-system-sim
 
 # Create feature branch
 git checkout -b feature/add-switching-commands

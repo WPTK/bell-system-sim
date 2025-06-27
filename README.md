@@ -8,8 +8,8 @@ This command-line application provides an authentic terminal-based experience of
 
 ```bash
 # Install
-git clone https://github.com/your-username/bell-system-unix-v7.git
-cd bell-system-unix-v7
+git clone https://github.com/your-username/bell-system-sim.git
+cd bell-system-sim
 pip install -e .
 
 # Run
@@ -35,8 +35,8 @@ bell-system --role 1          # Start as specific role
 
 ### Install from Source
 ```bash
-git clone https://github.com/your-username/bell-system-unix-v7.git
-cd bell-system-unix-v7
+git clone https://github.com/your-username/bell-system-sim.git
+cd bell-system-sim
 pip install -e .
 ```
 

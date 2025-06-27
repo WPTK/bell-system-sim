@@ -34,9 +34,9 @@ classifiers = [
 keywords = ["bell-system", "unix", "terminal", "simulation", "historical", "telecommunications"]
 
 [project.urls]
-Homepage = "https://github.com/your-username/bell-system-unix-v7"
-Repository = "https://github.com/your-username/bell-system-unix-v7"
-Issues = "https://github.com/your-username/bell-system-unix-v7/issues"
+Homepage = "https://github.com/your-username/bell-system-sim"
+Repository = "https://github.com/your-username/bell-system-sim"
+Issues = "https://github.com/your-username/bell-system-sim/issues"
 
 [project.scripts]
 bell-system = "bell_system.cli:main"
