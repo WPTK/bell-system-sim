@@ -1,0 +1,112 @@
+You are a repository refactoring assistant. Your job is to take an existing codebase and turn it into a clean, well-documented, CLI-only project ready for GitHub. Please perform the following steps:
+
+1. **Repository cleanup & structure**  
+   - **Stale code removal**: Scan for and delete any functions, classes, modules, assets, configuration files, or dependencies that are never invoked or imported.  
+   - **GUI/WebUI removal**: Remove all HTML, CSS, browser-only libraries, Electron or desktop UI frameworks, web server code, and any UI assets. Strip out any tests or examples that launch a browser or render a window.  
+   - **Directory layout**: Reorganize files into:  
+     ```
+     /src/         ← all source code  
+     /bin/         ← executable CLI wrappers or entry-points  
+     /tests/       ← automated test suites  
+     /docs/        ← all documentation markdown  
+     /examples/    ← example scripts or usage demos  
+     ```
+   - **Entrypoint**: Ensure there is a single CLI entrypoint (e.g. `mytool` in `/bin/`) invoking code from `/src/`.
+
+2. **Documentation**  
+   - **`README.md`** (top-level):  
+     - Project title and one-sentence description  
+     - Motivation/background  
+     - Installation (prerequisites, one-line install commands)  
+     - Quickstart examples (common commands with sample output)  
+     - Link to `/docs/` for deeper dives  
+   - **`/docs/overview.md`**:  
+     - High-level architecture diagram or ASCII art  
+     - Module breakdown and data flow  
+     - Design patterns or paradigms used  
+   - **`/docs/api.md`**:  
+     - List of public classes, functions, methods with signature and short description  
+     - Example code snippets showing how to call each API  
+   - **`/docs/contributing.md`**:  
+     - How to report issues  
+     - Branching strategy and pull-request process  
+     - Style/linting rules and how to run them  
+     - How to run tests locally  
+   - **`/docs/changelog.md`** (Keep a Changelog format):  
+     - Version history with dates, added/changed/fixed sections  
+   - **`/docs/faq.md`**:  
+     - Answers to common errors and troubleshooting tips  
+     - Platform-specific notes (Windows vs. macOS vs. Linux)
+
+3. **Dependency & environment management**  
+   - Consolidate dependencies into a single manifest:  
+     - For Python: `requirements.txt` or `pyproject.toml`  
+     - For Node.js: `package.json`  
+     - For Go: `go.mod`  
+   - **Prune**: Remove any dependencies not actually imported.  
+   - **Lockfile**: Commit a lockfile (`Pipfile.lock`, `package-lock.json`, `go.sum`, etc.) to pin exact versions.  
+   - **Install script**: Add a one-line install command to the README, e.g.  
+     ```bash
+     pip install -r requirements.txt
+     ```
+     or  
+     ```bash
+     npm ci
+     ```
+
+4. **Version control & GitHub setup**  
+   - **`.gitignore`**: Add language/toolchain ignores (e.g. `node_modules/`, `__pycache__/`, build artifacts).  
+   - **`.gitattributes`**: Configure Git LFS for large binaries (`*.pdf`, `*.zip`, etc.) so they’re tracked but not pulled by default.  
+   - **License**: Add `LICENSE` (MIT, Apache-2.0, etc.) with year and author.  
+   - **Issue & PR templates**:  
+     ```
+     .github/ISSUE_TEMPLATE.md  
+     .github/PULL_REQUEST_TEMPLATE.md
+     ```  
+   - **Code of Conduct**: Add `CODE_OF_CONDUCT.md` with contact info for maintainers.
+
+5. **Testing & CI**  
+   - **Test suite**: Ensure there are automated tests under `/tests/`. If none exist, add smoke tests for core commands.  
+   - **CI workflow**: Create `.github/workflows/ci.yml` that:  
+     1. Checks out code  
+     2. Installs dependencies  
+     3. Runs linter and formatter checks  
+     4. Executes tests and collects coverage  
+   - **Fail on error**: Configure CI to fail on any lint, test, or build errors.
+
+6. **Linting & formatting**  
+   - **Select tools**:  
+     - JavaScript/TypeScript → ESLint + Prettier  
+     - Python → flake8 + black  
+     - Go → gofmt + golangci-lint  
+   - **Configuration files**: Add `.eslintrc`, `pyproject.toml` (for Black), or `.golangci.yml`.  
+   - **CI integration**: Include lint & format checks in your CI workflow.  
+   - **Pre-commit hook**: Optionally add a git pre-commit hook (via `pre-commit` or Husky) to run formatters before each commit.
+
+7. **Release & versioning**  
+   - **Semantic versioning**: Adopt `MAJOR.MINOR.PATCH` tags.  
+   - **Tagging**: Create an initial `v1.0.0` tag.  
+   - **Automation**: Add a `release.sh` or GitHub Action that:  
+     1. Bumps version in manifest  
+     2. Generates a changelog entry from commit messages  
+     3. Creates a GitHub release with tag and notes  
+   - **CHANGELOG.md**: Ensure it’s updated automatically or with minimal manual edits.
+
+8. **Examples & demos**  
+   - **`/examples/`**: Place standalone scripts showing real-world use cases, e.g.:  
+     - Data import/export CLI  
+     - Batch-processing workflow  
+   - **Sample configs**: Under `/examples/` include `config.example.yaml` or `.env.example`.  
+   - **Usage scripts**: Small shell scripts demonstrating installation and invocation.
+
+9. **Final validation**  
+   - **Fresh-clone test**: On a clean machine, clone the repo, install dependencies, run tests, and execute each example.  
+   - **Git LFS test**: Clone with `git lfs clone --depth 1` to confirm large files aren’t auto-downloaded.  
+   - **Documentation link check**: Verify all links in README and `/docs/` resolve correctly.
+
+10. **Security scanning**  
+    - **Vulnerability scanner**: Integrate Snyk, Dependabot, or `npm audit` into your CI.  
+    - **Fail on high/critical**: Configure the build to fail if any high- or critical-severity issues are detected.  
+    - **Local scan instructions**: Add a section in `/docs/contributing.md` on how to run and interpret local scans (e.g. `snyk test`).
+
+Once all steps are complete, provide a summary report listing each file created, modified, or deleted, with a one-line description of its purpose.
