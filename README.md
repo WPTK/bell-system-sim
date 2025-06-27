@@ -1,47 +1,49 @@
 # Bell System UNIX V7 Terminal Simulation
 
-A historically accurate recreation of AT&T Bell System internal operations workstations from the transformative period of 1978-1983. This simulation provides an authentic terminal-based experience of Bell System operations, featuring 12 operational roles, 50+ period-accurate commands, and comprehensive Bell System workflows.
+A historically accurate recreation of AT&T Bell System internal operations workstations from the transformative period of 1978-1983.
+
+This command-line application provides an authentic terminal-based experience of Bell System operations, featuring 12 operational roles, 50+ period-accurate commands, and comprehensive Bell System workflows based on authentic AT&T documentation.
+
+## Quick Start
+
+```bash
+# Install
+git clone https://github.com/your-username/bell-system-unix-v7.git
+cd bell-system-unix-v7
+pip install -e .
+
+# Run
+bell-system                    # Start interactive simulation
+bell-system --tutorial         # Learn Bell System operations
+bell-system --role 1          # Start as specific role
+```
 
 ## Features
 
-- **12 Authentic Operational Roles**: Experience genuine Bell System positions from UNIX Systems Operator to Document Preparation Specialist
-- **50+ Period-Accurate Commands**: Comprehensive command system with aliases, validation, and historical accuracy
-- **Role-Based Access Control**: Commands and workflows specific to each operational role
-- **Event and Ticket Management**: Authentic Bell System trouble ticket and shift event systems
-- **Command History**: Modern readline integration for improved user experience
-- **Structured Logging**: Professional-grade logging with rotation and error tracking
-- **Historical Accuracy**: Based on authentic Bell System documentation and practices
+- **12 Authentic Operational Roles** from UNIX Systems Operator to Document Preparation Specialist
+- **50+ Period-Accurate Commands** with comprehensive functionality and historical accuracy
+- **Role-Based Access Control** with commands and workflows specific to each position
+- **Event and Ticket Management** using authentic Bell System trouble ticket systems
+- **Historical Documentation** based on Bell System Technical Journal and operations manuals
+- **Pure Python Implementation** using only standard library modules
 
 ## Installation
 
 ### Prerequisites
-
 - Python 3.6 or higher
-- Node.js 20+ (for development environment)
+- No external dependencies required
 
-### Quick Start
-
-1. Clone the repository:
+### Install from Source
 ```bash
 git clone https://github.com/your-username/bell-system-unix-v7.git
 cd bell-system-unix-v7
+pip install -e .
 ```
 
-2. Install dependencies:
+### Verify Installation
 ```bash
-npm install
-```
-
-3. Start the terminal simulation:
-```bash
-npm run dev
-```
-
-### Direct Python Execution
-
-You can also run the simulation directly with Python:
-```bash
-python3 bell.py
+bell-system --version
+bell-system --test
 ```
 
 ## Usage
