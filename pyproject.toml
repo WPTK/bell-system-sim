@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bell-system-unix-v7"
+version = "2.0.0"
+authors = [
+    {name = "Bell System Operations Simulation Project"},
+]
+description = "Historically accurate Bell System UNIX V7 terminal simulation (1978-1983)"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.6"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Education",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Education",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Terminals",
+]
+keywords = ["bell-system", "unix", "terminal", "simulation", "historical", "telecommunications"]
+
+[project.urls]
+Homepage = "https://github.com/your-username/bell-system-unix-v7"
+Repository = "https://github.com/your-username/bell-system-unix-v7"
+Issues = "https://github.com/your-username/bell-system-unix-v7/issues"
+
+[project.scripts]
+bell-system = "bell_system.cli:main"
+
+[tool.black]
+line-length = 88
+target-version = ['py36']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    "docs/source/conf.py",
+    "old",
+    "build",
+    "dist"
+]
