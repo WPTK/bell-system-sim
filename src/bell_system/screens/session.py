@@ -144,6 +144,9 @@ class SessionState:
     _at_jobs: List[Dict[str, Any]]
     _at_number: int
     _uux_jobs: int
+    # Service orders raised this tour, and the number given out so far.
+    _service_orders: List[Dict[str, Any]]
+    _order_number: int
     # Batch jobs submitted to the revenue accounting office over the RJE
     # link, and the number given out so far.
     _rje_queue: List[Dict[str, Any]]
@@ -164,10 +167,6 @@ class SessionState:
 
     def emit(self, text: str = '', end: str = '\n') -> None:
         """Write simulation output under the active character-set setting."""
-        raise NotImplementedError
-
-    def _subsystem_unavailable(self, command: str, summary: str) -> str:
-        """Report a command whose screens are not built in this release."""
         raise NotImplementedError
 
     def _office_clli(self, city: str, state: str, switch_type: str,

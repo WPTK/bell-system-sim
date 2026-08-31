@@ -251,6 +251,22 @@ class TestSubsystemHonesty:
             result = terminal.execute_command(command)
             assert 'implementation follows pattern' not in result, command
 
+    def test_the_unimplemented_list_is_empty(self):
+        """
+        Every command on this machine does something.
+
+        The list started at eighteen. Fourteen were implemented, and four
+        were removed because there was nothing behind the name: pwb and rje
+        because PWB was a system rather than a program and its remote job
+        entry was send(1) and rjestat(1), and analysis and netdata because
+        they were command names with no referent that duplicated tnds(1)
+        subcommands which already worked.
+
+        The list stays. It is where the next honest stub goes, and the test
+        below reads it.
+        """
+        assert UNIMPLEMENTED_COMMANDS == frozenset()
+
     @pytest.mark.parametrize('command', sorted(UNIMPLEMENTED_COMMANDS))
     def test_unimplemented_commands_report_themselves(self, terminal, command):
         result = terminal.execute_command(command)

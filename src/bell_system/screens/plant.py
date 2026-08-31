@@ -1,0 +1,464 @@
+"""
+The plant: what a call rides over, and what the equipment is.
+
+Five commands that had been declaring themselves unavailable since the
+beginning. Four of them turned out to have real data already in the
+simulation sitting behind them - the toll network the routing engine
+searches, the offices it holds, the radio routes - and were unavailable
+only because nobody had joined the two up.
+
+The Western Electric reference is externally sourced and marked as such
+where the entries say so. Anything the sources consulted do not settle is
+absent rather than guessed at, which is why the table is short.
+"""
+
+import random
+from typing import Dict, List, NamedTuple, Optional
+
+from .session import SessionState
+
+
+class Equipment(NamedTuple):
+    """One piece of Western Electric plant, and what it was for."""
+
+    name: str
+    introduced: str
+    kind: str
+    note: str
+
+
+# Western Electric was the Bell System's manufacturing arm and made nearly
+# everything in the plant. The dates are externally sourced and are the year
+# the type entered service, not the year it was designed. Anything whose date
+# the sources consulted disagreed on or did not settle is not in the table.
+EQUIPMENT: Dict[str, Equipment] = {
+    '302': Equipment(
+        'Model 302 telephone set', '1937', 'station',
+        'Metal and then thermoplastic housing, ringer and induction coil '
+        'inside the set rather than in a separate subscriber set.'),
+    '500': Equipment(
+        'Model 500 telephone set', '1949', 'station',
+        'The rotary set most of the country had. Still being installed when '
+        'this shift starts, and still the set a repair report is usually '
+        'about.'),
+    '1500': Equipment(
+        'Model 1500 telephone set', '1963', 'station',
+        'The first Touch-Tone set, ten buttons. The twelve-button 2500 '
+        'followed and took over.'),
+    '2500': Equipment(
+        'Model 2500 telephone set', '1968', 'station',
+        'Twelve-button Touch-Tone. The star and octothorpe keys are on it '
+        'for services that mostly did not exist yet.'),
+    '1a2': Equipment(
+        '1A2 key telephone system', '1964', 'station',
+        'Multi-line key equipment: buttons, hold, and a lamp per line, with '
+        'the working parts in a KSU on the wall rather than in the set.'),
+    'no1xbar': Equipment(
+        'No. 1 Crossbar switching system', '1938', 'switching',
+        'Common control with crossbar switches and markers. The marker sets '
+        'up a path and lets go, so one marker serves many calls.'),
+    'no5xbar': Equipment(
+        'No. 5 Crossbar switching system', '1948', 'switching',
+        'The crossbar office built for local service, and the one most '
+        'likely to be behind a report on this board.'),
+    '1ess': Equipment(
+        'No. 1 ESS', '1965', 'switching',
+        'The first stored program switching system in service, cut over at '
+        'Succasunna, New Jersey. Reed relay network, program in read-only '
+        'memory.'),
+    '1aess': Equipment(
+        'No. 1A ESS', '1976', 'switching',
+        'The 1ESS with the faster 1A processor. Most of the electronic '
+        'local offices in service now are these.'),
+    '4ess': Equipment(
+        'No. 4 ESS', '1976', 'switching',
+        'The first digital toll switch, cut over in Chicago. Time division '
+        'through the network rather than metal contacts.'),
+    '5ess': Equipment(
+        'No. 5 ESS', '1982', 'switching',
+        'Digital local switching, first service at Seneca, Illinois. The '
+        'newest thing in the plant by a year and a half.'),
+    't1': Equipment(
+        'T1 carrier', '1962', 'transmission',
+        'Twenty-four voice channels on two pairs, 1.544 megabits, '
+        'regenerators every six thousand feet. Built to get more out of '
+        'exchange cable already in the ground.'),
+    'd4': Equipment(
+        'D4 channel bank', '1977', 'transmission',
+        'Digital channel bank, forty-eight channels, the terminal equipment '
+        'at each end of a T-carrier span.'),
+    'l4': Equipment(
+        'L4 coaxial carrier', '1967', 'transmission',
+        'Long-haul coaxial system, 3600 voice channels to a tube.'),
+    'td2': Equipment(
+        'TD-2 microwave radio', '1950', 'transmission',
+        'The first transcontinental microwave system, four gigahertz, and '
+        'what put long-haul traffic in the air instead of on cable.'),
+    'th3': Equipment(
+        'TH-3 microwave radio', '1968', 'transmission',
+        'Six gigahertz long-haul radio. The routes this position watches '
+        'are TH-3.'),
+}
+
+
+class PlantCommands(SessionState):
+    """
+    Tracing a call, and the equipment it goes through.
+
+    Mixed into :class:`~bell_system.terminal.BellSystemTerminal`.
+    """
+
+    # -- trace(1) ---------------------------------------------------------
+
+    def cmd_trace(self, args: Optional[List[str]] = None) -> str:
+        """
+        Follow a call through the toll network.
+
+        With two office codes, offer a call between them and print every
+        trunk group it takes, in order, with what each was carrying. With
+        one, print that office's homing chain: the route a call from it
+        takes upward until it finds a common point with wherever it is
+        going. With none, list the offices.
+
+        This is the routing engine the toll screens already search, printed
+        one leg at a time.
+        """
+        args = args or []
+        network = self.toll_network
+        if not args:
+            return self._trace_offices()
+
+        origin = args[0].upper()
+        if origin not in network.offices:
+            return (f"trace: {origin}: not in the routing table\n"
+                    f"trace with no arguments lists the offices.")
+        if len(args) == 1:
+            chain = network.homing_chain(origin)
+            rows = [f"HOMING CHAIN FOR {origin}", '']
+            for depth, code in enumerate(chain):
+                office = network.offices[code]
+                rows.append(f"{'  ' * depth}{code:<12}{office.name} "
+                            f"(class {office.switch_class}, "
+                            f"{office.class_name()})")
+            rows.extend(['', "A call climbs this until it reaches an office "
+                             "the far end also homes on."])
+            return '\n'.join(rows)
+
+        destination = args[1].upper()
+        if destination not in network.offices:
+            return f"trace: {destination}: not in the routing table"
+        if origin == destination:
+            return "trace: origin and destination are the same office"
+
+        result = network.route(origin, destination,
+                               random.Random(f"{origin}{destination}"))
+        rows = [f"CALL TRACE  {origin} to {destination}",
+                self.clock.timestamp(), '=' * 62, '']
+        common = network.common_point(origin, destination)
+        if common:
+            rows.append(f"Common point:  {common} "
+                        f"({network.offices[common].class_name()})")
+            rows.append('')
+
+        if result.attempts:
+            rows.append("ROUTES OFFERED")
+            for attempt in result.attempts:
+                rows.append(f"  {attempt}")
+            rows.append('')
+
+        if not result.completed:
+            rows.append(f"CALL BLOCKED: {result.reason}")
+            rows.append("The caller receives reorder.")
+            return '\n'.join(rows)
+
+        rows.append("PATH TAKEN")
+        rows.append(f"  {'FROM':<12}{'TO':<12}{'GROUP':<20}OCCUPANCY")
+        for leg in result.legs:
+            rows.append(f"  {leg.from_office:<12}{leg.to_office:<12}"
+                        f"{leg.group_type:<20}{leg.utilization}%")
+        rows.extend(['', f"{result.trunk_count()} trunks in tandem."])
+        return '\n'.join(rows)
+
+    def _trace_offices(self) -> str:
+        """List what is in the routing table, by class."""
+        network = self.toll_network
+        rows = ["OFFICES IN THE ROUTING TABLE", '']
+        by_class: Dict[int, List[str]] = {}
+        for code, office in sorted(network.offices.items()):
+            by_class.setdefault(office.switch_class, []).append(
+                f"  {code:<12}{office.name}")
+        for switch_class in sorted(by_class):
+            name = network.offices[
+                by_class[switch_class][0].split()[0]].class_name()
+            rows.append(f"Class {switch_class} - {name}")
+            rows.extend(by_class[switch_class])
+            rows.append('')
+        rows.append("trace <office>            homing chain")
+        rows.append("trace <office> <office>   route a call between them")
+        return '\n'.join(rows)
+
+    # -- western(1) -------------------------------------------------------
+
+    def cmd_western(self, args: Optional[List[str]] = None) -> str:
+        """
+        Look up Western Electric equipment.
+
+        Western Electric was the Bell System's manufacturing arm and made
+        nearly everything in the plant. Named without an argument, the
+        listing is by kind; with one, the entry.
+        """
+        args = args or []
+        if not args:
+            rows = ["WESTERN ELECTRIC EQUIPMENT", '']
+            for kind in ('station', 'switching', 'transmission'):
+                rows.append(kind.upper())
+                for key, item in EQUIPMENT.items():
+                    if item.kind == kind:
+                        rows.append(f"  {key:<10}{item.introduced}  {item.name}")
+                rows.append('')
+            rows.append("western <name> for one of them.")
+            return '\n'.join(rows)
+
+        wanted = args[0].lower().replace('-', '').replace('.', '')
+        if wanted not in EQUIPMENT:
+            near = [key for key in EQUIPMENT if wanted in key]
+            if len(near) != 1:
+                return (f"western: no entry for {args[0]}\n"
+                        f"western with no argument lists what is here.")
+            wanted = near[0]
+        item = EQUIPMENT[wanted]
+        return (f"{item.name}\n{'=' * len(item.name)}\n\n"
+                f"In service:   {item.introduced}\n"
+                f"Kind:         {item.kind}\n\n{item.note}")
+
+    # -- 5ess(1) ----------------------------------------------------------
+
+    def cmd_5ess(self, args: Optional[List[str]] = None) -> str:
+        """
+        The No. 5 ESS, and what it means for this building.
+
+        The newest switching system in the plant, in service since 1982.
+        There is not one in this office; the point of the command is that
+        you can find out what is coming and what it replaces.
+        """
+        item = EQUIPMENT['5ess']
+        return f"""No. 5 ESS - DIGITAL LOCAL SWITCHING
+{self.clock.timestamp()}
+{'=' * 62}
+
+In service since {item.introduced}. {item.note}
+
+NOT IN THIS OFFICE
+{'=' * 62}
+This position works {self._office_label(None) or 'a crossbar office'}.
+There is no 5ESS on this frame and there will not be one this year.
+
+WHAT IT CHANGES
+{'=' * 62}
+A crossbar office switches a call by closing metal contacts and holding
+them closed for its duration. A digital office carries the call as
+numbers and switches it by moving them into a different time slot. No
+path is held. Nothing wears.
+
+WHAT THAT MEANS FOR THE JOB
+{'=' * 62}
+Half of what is on this board is contacts: dirty, misaligned, or worn.
+That half of the work does not exist in a digital office. The other half
+is the loop - the pair from here to the customer's station - and that is
+copper in the ground either way, and it will still be wet in April.
+
+The frame is not going away. The marker is.
+
+SEE ALSO
+{'=' * 62}
+western 5ess, western 4ess, western no5xbar, crossbar
+"""
+
+    # -- capacity(1) ------------------------------------------------------
+
+    def cmd_capacity(self, args: Optional[List[str]] = None) -> str:
+        """
+        Report what the trunk groups are carrying against what they hold.
+
+        A final group is engineered to P.01 - one call in a hundred finds
+        every trunk busy - and a high usage group to P.10, because
+        overflowing is what it is for. A high usage group running quiet is
+        not good news; it means traffic is not being offered to it.
+        """
+        groups = sorted(self.trunk_groups.items())
+        if not groups:
+            return "capacity: no trunk groups on this position"
+
+        rows = ["TRUNK GROUP CAPACITY", self.clock.timestamp(), '=' * 62, '',
+                f"  {'GROUP':<16}{'TRUNKS':>7}{'BUSY':>7}{'OCC':>6}"
+                f"   {'OBJECTIVE':<16}STATE"]
+        strained = []
+        for name, group in groups:
+            total = group['capacity']
+            occupancy = group['utilization']
+            busy = round(total * occupancy / 100)
+            # A group carrying more than half its capacity at a routine hour
+            # is a final group in all but name: the high-usage groups are the
+            # ones engineered to overflow, and these are the office's own
+            # trunks, so P.01 is the objective that applies.
+            objective = 'P.01 final'
+            state = 'OVER' if occupancy > 85 else 'normal'
+            if state == 'OVER':
+                strained.append(name)
+            rows.append(f"  {name:<16}{total:>7}{busy:>7}{occupancy:>5}%"
+                        f"   {objective:<16}{state}")
+
+        rows.append('')
+        if strained:
+            rows.append(f"Over objective: {', '.join(strained)}")
+            rows.append("Traffic engineering wants a count before it will "
+                        "add trunks.")
+        else:
+            rows.append("Every group within its objective.")
+        rows.append('')
+        rows.append("traffic(1) has the hourly counts; trunk(1) has one "
+                    "group in detail.")
+        return '\n'.join(rows)
+
+    # -- coer(1) ----------------------------------------------------------
+
+    def cmd_coer(self, args: Optional[List[str]] = None) -> str:
+        """
+        Central office equipment report.
+
+        What is in each office, how it homes, and what is in trouble. The
+        report a wire chief signed at the end of a tour and sent up.
+        """
+        args = args or []
+        network = self.toll_network
+        if args and args[0].upper() in network.offices:
+            return self._coer_office(args[0].upper())
+
+        counts: Dict[str, int] = {}
+        for office in network.offices.values():
+            counts[office.class_name()] = counts.get(office.class_name(), 0) + 1
+
+        alarms = [alarm for alarm in self.active_alarms
+                  if getattr(alarm, 'severity', '') in ('MAJOR', 'CRITICAL')]
+        rows = ["CENTRAL OFFICE EQUIPMENT REPORT",
+                self.clock.timestamp(), '=' * 62, '',
+                "OFFICES BY CLASS"]
+        for name, count in sorted(counts.items()):
+            rows.append(f"  {name:<28}{count:>4}")
+        rows.extend(['', "EQUIPMENT IN TROUBLE"])
+        if alarms:
+            for alarm in alarms:
+                rows.append(f"  {getattr(alarm, 'severity', '?'):<10}"
+                            f"{getattr(alarm, 'location', '?'):<20}"
+                            f"{getattr(alarm, 'description', '')}")
+        else:
+            rows.append("  Nothing above minor.")
+        rows.extend(['', "REPAIR SERVICE",
+                     f"  Reports pending           "
+                     f"{len(self.desk.pending()):>4}",
+                     f"  Closed this tour          "
+                     f"{len(self.desk.closed()):>4}",
+                     '', "coer <office> for one office."])
+        return '\n'.join(rows)
+
+    def _coer_office(self, code: str) -> str:
+        """Report on one office in the routing table."""
+        network = self.toll_network
+        office = network.offices[code]
+        chain = network.homing_chain(code)
+        homing = 'nothing: it is a regional centre'
+        rows = [f"CENTRAL OFFICE EQUIPMENT REPORT - {code}",
+                self.clock.timestamp(), '=' * 62, '',
+                f"  Name          {office.name}",
+                f"  Class         {office.switch_class} "
+                f"({office.class_name()})",
+                f"  Homes on      {office.homes_on or homing}",
+                f"  Chain         {' -> '.join(chain)}",
+                '']
+        if office.switch_class == 5:
+            rows.append("An end office. Subscriber loops terminate here and "
+                        "nowhere above it.")
+        elif office.switch_class == 1:
+            rows.append("A regional centre. Every chain ends at one of "
+                        "these, which is what makes the hierarchy finite.")
+        else:
+            rows.append("A toll office. It carries traffic between offices")
+            rows.append("and has no subscribers of its own.")
+        return '\n'.join(rows)
+
+    # -- microwave(1) and satellite(1) ------------------------------------
+
+    def cmd_microwave(self, args: Optional[List[str]] = None) -> str:
+        """
+        Long-haul microwave radio, which is what most toll traffic rides.
+
+        The routes this position watches are TH-3 at six gigahertz. radio(1)
+        has the path-by-path detail; this is the summary a shift starts with.
+        """
+        item = EQUIPMENT['th3']
+        routes = self.radio_routes if hasattr(self, 'radio_routes') else {}
+        rows = ["LONG-HAUL MICROWAVE RADIO", self.clock.timestamp(),
+                '=' * 62, '',
+                f"System        {item.name}, in service since "
+                f"{item.introduced}",
+                "Band          6 GHz",
+                "Spacing       Repeaters roughly every 25 to 30 miles, "
+                "line of sight",
+                '']
+        if routes:
+            rows.append("ROUTES ON THIS POSITION")
+            for name, route in sorted(routes.items()):
+                state = getattr(route, 'status', None) or (
+                    route.get('status') if isinstance(route, dict) else '?')
+                rows.append(f"  {name:<20}{state}")
+        else:
+            rows.append("radio status has the routes and their fade margins.")
+        rows.extend(['',
+                     "WHY IT MATTERS TODAY",
+                     "Rain absorbs at six gigahertz and heavy rain on a long "
+                     "hop takes the",
+                     "margin with it. A path that fades is not a fault and "
+                     "there is nothing",
+                     "on the ground to go and fix; diversity switches to the "
+                     "protection",
+                     "channel and you watch it until the weather goes over.",
+                     '',
+                     "radio(1), antenna(1), western th3"])
+        return '\n'.join(rows)
+
+    def cmd_satellite(self, args: Optional[List[str]] = None) -> str:
+        """
+        Satellite circuits, and why the toll network mostly does not use them.
+
+        A geostationary hop is about 22,300 miles up and the same back down,
+        so the round trip costs roughly half a second before anything else.
+        On a telephone call people talk over each other.
+        """
+        return f"""SATELLITE CIRCUITS
+{self.clock.timestamp()}
+{'=' * 62}
+
+NONE ON THIS POSITION
+{'=' * 62}
+Nothing this office switches goes by satellite. The routes here are
+microwave radio and coaxial cable, and that is a decision rather than an
+omission.
+
+THE REASON
+{'=' * 62}
+A geostationary satellite sits about 22,300 miles above the equator. Up
+and down again is roughly a quarter of a second, and a round trip is
+half a second before the switching at either end has done anything.
+
+On a data circuit that is a number you engineer around. On a telephone
+call it is two people talking over each other and then both stopping,
+which is what an echo suppressor is for and why one is on every circuit
+that has been near a satellite.
+
+That is the whole reason a call from here to Chicago goes overland when
+there is a perfectly good transponder available.
+
+SEE ALSO
+{'=' * 62}
+microwave(1), radio(1), trace(1)
+"""

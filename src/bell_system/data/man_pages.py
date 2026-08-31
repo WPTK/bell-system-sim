@@ -42,43 +42,6 @@ BELL SYSTEM PRACTICES
      BSP 400-200-100 - Traffic Analysis Procedures
 """,
 
-    "5ess": """
-NAME
-     5ess - 5ESS Electronic Switching System operations
-
-SYNOPSIS
-     5ess [status|diagnostics|traffic|translations|maintenance] [switch-id]
-
-DESCRIPTION
-     Monitor and manage 5ESS Electronic Switching Systems. The 5ESS provides
-     digital switching capabilities with stored program control, featuring
-     dual processor architecture and distributed switching modules.
-
-OPTIONS
-     status          Display 5ESS system configuration and status
-     diagnostics     Execute comprehensive diagnostic routines
-     traffic         Analyze call processing load and capacity
-     translations    Translation table management and updates
-     maintenance     Scheduled maintenance procedures
-
-TECHNICAL SPECIFICATIONS
-     Administrative Module (AM):     Dual processor control
-     Switching Modules (SM):         Up to 192 remote/local modules
-     Communications Module (CM):     Message switching interface
-     Call Processing Capacity:       750,000 BHCA per system
-
-EXAMPLES
-     5ess status                     Display all 5ESS systems
-     5ess diagnostics NYC-5ESS-01    Run diagnostics on specific switch
-     5ess traffic CHI-5ESS-02        Monitor traffic load
-
-SEE ALSO
-     3a(1), switch(1), western(1), crossbar(1)
-
-BELL SYSTEM PRACTICES
-     BSP 200-100-001 - 5ESS System Description
-     BSP 200-100-100 - 5ESS Operations and Maintenance
-""",
 
     "alarm": """
 NAME
@@ -717,77 +680,7 @@ BELL SYSTEM PRACTICES
      BSP 365-200-001 - Antenna Systems Maintenance
 """,
 
-    "microwave": """
-NAME
-     microwave - Microwave transmission system analysis
 
-SYNOPSIS
-     microwave [path|fade|interference|performance] [route-id]
-
-DESCRIPTION
-     Analyze microwave transmission paths including path loss calculations,
-     fade margin analysis, interference assessment, and performance
-     monitoring for Bell System microwave radio systems.
-
-OPTIONS
-     path            Radio path analysis and calculations
-     fade            Fade margin and reliability analysis
-     interference    Interference analysis and mitigation
-     performance     System performance monitoring
-
-PATH ANALYSIS
-     Free Space Loss:        Basic transmission loss calculation
-     Obstruction Analysis:   Fresnel zone clearance verification
-     Refractivity:          Atmospheric propagation effects
-     Multipath:             Signal reflection and fading
-
-EXAMPLES
-     microwave path NYC-BOS          Analyze radio path
-     microwave fade TH3-ROUTE-14     Check fade margins
-     microwave performance all       Monitor all routes
-
-SEE ALSO
-     radio(1), antenna(1), satellite(1)
-
-BELL SYSTEM PRACTICES
-     BSP 365-300-001 - Microwave Path Engineering
-""",
-
-    "satellite": """
-NAME
-     satellite - Satellite communication link monitoring
-
-SYNOPSIS
-     satellite [status|earth-station|orbit|performance] [station-id]
-
-DESCRIPTION
-     Monitor Bell System satellite communication facilities including
-     earth stations, satellite tracking, and communication link
-     performance for long-distance and international services.
-
-OPTIONS
-     status          Satellite system operational status
-     earth-station   Earth station equipment monitoring
-     orbit           Satellite tracking and positioning
-     performance     Link performance and quality monitoring
-
-SATELLITE SYSTEMS
-     COMSTAR:        Domestic satellite communication system
-     INTELSAT:       International satellite services
-     Earth Stations: Large aperture antenna facilities
-     Transponders:   Satellite repeater channels
-
-EXAMPLES
-     satellite status                Show all satellite links
-     satellite earth-station ES-NY   Monitor earth station
-     satellite orbit COMSTAR-D1      Track satellite position
-
-SEE ALSO
-     radio(1), microwave(1), antenna(1)
-
-BELL SYSTEM PRACTICES
-     BSP 365-400-001 - Satellite Communications
-""",
 
     "multiplex": """
 NAME
@@ -933,77 +826,8 @@ BELL SYSTEM PRACTICES
      BSP 100-260-001 - Directory Assistance Procedures
 """,
 
-    "collect": """
-NAME
-     collect - Collect call services and billing verification
-
-SYNOPSIS
-     collect [process|verify|statistics] [call-record]
-
-DESCRIPTION
-     Process collect call requests including call setup, billing party
-     verification, and charge collection for operator-assisted collect
-     calls through the Traffic Service Position System.
-
-OPTIONS
-     process         Process incoming collect call requests
-     verify          Verify billing party acceptance
-     statistics      Collect call volume and revenue statistics
-
-CALL PROCESSING
-     Setup:              Establish connection to called party
-     Verification:       Confirm billing party acceptance
-     Billing:           Apply collect call charges
-     Completion:        Complete call or return deposit
-
-EXAMPLES
-     collect process CCR-19830315-001    Process collect call
-     collect verify 212-555-1234         Verify billing party
-     collect statistics monthly          Monthly statistics
-
-SEE ALSO
-     operator(1), tsps(1), billing(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-270-001 - Collect Call Procedures
-""",
 
 
-        "capacity": """
-NAME
-     capacity - Network capacity planning and utilization
-
-SYNOPSIS
-     capacity [utilization|forecast|planning|analysis] [network-element]
-
-DESCRIPTION
-     Monitor network capacity utilization and perform capacity planning
-     for Bell System facilities including trunks, switches, and transmission
-     systems to ensure adequate service levels and growth accommodation.
-
-OPTIONS
-     utilization     Current capacity utilization monitoring
-     forecast        Capacity demand forecasting and projections
-     planning        Long-term capacity planning analysis
-     analysis        Detailed capacity analysis and recommendations
-
-CAPACITY METRICS
-     BUSY HOUR:              Peak traffic measurement period
-     ERLANG B:              Blocking probability calculations
-     GRADE OF SERVICE:       Acceptable blocking probability
-     GROWTH FACTORS:        Traffic growth projections
-
-EXAMPLES
-     capacity utilization            Current network utilization
-     capacity forecast annual        Annual growth projections
-     capacity planning NYC-REGION    Regional capacity planning
-
-SEE ALSO
-     traffic(1), routing(1), tnds(1), netplan(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-800-001 - Capacity Planning Procedures
-""",
 
     "netplan": """
 NAME
@@ -1041,77 +865,7 @@ BELL SYSTEM PRACTICES
      BSP 100-900-001 - Network Planning Procedures
 """,
 
-    "dbquery": """
-NAME
-     dbquery - Database query and management operations
 
-SYNOPSIS
-     dbquery [select|update|report|maintenance] [table|query]
-
-DESCRIPTION
-     Access and manage Bell System databases including customer records,
-     equipment inventories, billing data, and operational information
-     through structured query interfaces and reporting systems.
-
-OPTIONS
-     select          Execute database queries and data retrieval
-     update          Update database records and information
-     report          Generate standard and custom reports
-     maintenance     Database maintenance and optimization
-
-DATABASE SYSTEMS
-     CUSTOMER RECORDS:       Customer information and service data
-     EQUIPMENT INVENTORY:    Hardware and facility databases
-     BILLING DATA:          Call records and billing information
-     OPERATIONAL DATA:      Traffic, performance, and status data
-
-EXAMPLES
-     dbquery select customer 2125551234  Query customer record
-     dbquery report monthly-traffic      Generate traffic report
-     dbquery maintenance optimize        Database optimization
-
-SEE ALSO
-     custdb(1), billing(1), service(1)
-
-BELL SYSTEM PRACTICES
-     BSP 230-100-001 - Database Management Procedures
-""",
-
-    "custdb": """
-NAME
-     custdb - Customer database operations and analytics
-
-SYNOPSIS
-     custdb [lookup|update|service|billing] [customer-number]
-
-DESCRIPTION
-     Manage customer database operations including account information,
-     service records, billing history, and customer service interactions
-     for Bell System residential and business customers.
-
-OPTIONS
-     lookup          Search and retrieve customer information
-     update          Update customer records and service data
-     service         Customer service history and interactions
-     billing         Customer billing and payment information
-
-CUSTOMER DATA
-     ACCOUNT INFORMATION:    Name, address, service location
-     SERVICE RECORDS:        Telephone numbers, service types
-     BILLING HISTORY:        Payment records, service charges
-     SERVICE HISTORY:        Installation, repairs, modifications
-
-EXAMPLES
-     custdb lookup 2125551234            Search customer record
-     custdb update service-address       Update service location
-     custdb billing payment-history      Review billing history
-
-SEE ALSO
-     dbquery(1), billing(1), service(1), directory(1)
-
-BELL SYSTEM PRACTICES
-     BSP 230-200-001 - Customer Records Management
-""",
 
     "service": """
 NAME
@@ -1149,113 +903,8 @@ BELL SYSTEM PRACTICES
      BSP 100-600-001 - Service Order Procedures
 """,
 
-    "provision": """
-NAME
-     provision - Service provisioning and installation management
 
-SYNOPSIS
-     provision [circuit|equipment|testing|activation] [order-id]
 
-DESCRIPTION
-     Coordinate service provisioning activities including circuit assignment,
-     equipment installation, testing procedures, and service activation
-     for Bell System customer services and special circuits.
-
-OPTIONS
-     circuit         Circuit assignment and path provisioning
-     equipment       Equipment installation and configuration
-     testing         Pre-service testing and verification
-     activation      Service activation and customer notification
-
-PROVISIONING PHASES
-     DESIGN:                 Circuit design and facility assignment
-     INSTALLATION:           Physical installation and connection
-     TESTING:               Pre-service testing and verification
-     ACTIVATION:            Service turn-up and customer notification
-
-EXAMPLES
-     provision circuit DS-NYC-001        Provision data circuit
-     provision equipment PBX-INSTALL     Equipment installation
-     provision testing verify-service    Pre-service testing
-
-SEE ALSO
-     service(1), sarts(1), testboard(1), custdb(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-650-001 - Service Provisioning Procedures
-""",
-
-    "analysis": """
-NAME
-     analysis - Advanced network analysis and modeling
-
-SYNOPSIS
-     analysis [performance|traffic|economic|reliability] [scope]
-
-DESCRIPTION
-     Perform advanced analysis of Bell System network performance including
-     traffic modeling, economic analysis, reliability studies, and
-     optimization recommendations for network operations and planning.
-
-OPTIONS
-     performance     Network performance analysis and optimization
-     traffic         Traffic pattern analysis and modeling
-     economic        Economic analysis and cost optimization
-     reliability     Reliability analysis and improvement studies
-
-ANALYSIS TYPES
-     QUEUING THEORY:         Traffic flow and blocking analysis
-     ECONOMIC MODELING:      Cost-benefit and investment analysis
-     RELIABILITY STUDIES:    System availability and redundancy
-     OPTIMIZATION:          Performance and efficiency improvement
-
-EXAMPLES
-     analysis performance NYC-REGION     Regional performance study
-     analysis traffic busy-hour          Peak hour analysis
-     analysis economic cost-benefit      Investment analysis
-
-SEE ALSO
-     tnds(1), capacity(1), netplan(1), traffic(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-950-001 - Network Analysis Procedures
-""",
-
-    "netdata": """
-NAME
-     netdata - Network data collection and processing
-
-SYNOPSIS
-     netdata [collect|process|archive|export] [data-type]
-
-DESCRIPTION
-     Collect and process network operational data including traffic
-     measurements, performance statistics, equipment status, and
-     billing records for analysis, reporting, and archive purposes.
-
-OPTIONS
-     collect         Initiate data collection from network elements
-     process         Process and validate collected data
-     archive         Archive data for long-term storage
-     export          Export data for external analysis
-
-DATA TYPES
-     TRAFFIC DATA:           Call volume and usage measurements
-     PERFORMANCE DATA:       System performance and quality metrics
-     BILLING DATA:          Call records and revenue information
-     STATUS DATA:           Equipment and facility status information
-
-EXAMPLES
-     netdata collect traffic-daily       Collect daily traffic data
-     netdata process billing-records     Process billing information
-     netdata export performance-monthly  Export performance data
-
-SEE ALSO
-     tnds(1), analysis(1), dbquery(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-905-200 - Data Collection and Processing
-""",
 
 
     "date": """
@@ -1401,113 +1050,9 @@ BELL SYSTEM OPERATIONS
      Always use proper logout procedures for security and audit compliance
 """,
 
-    "western": """
-NAME
-     western - Western Electric equipment specifications
-
-SYNOPSIS
-     western [equipment|specs|manual] [model-number]
-
-DESCRIPTION
-     Access Western Electric equipment specifications, installation manuals,
-     and technical documentation for Bell System equipment manufactured
-     by Western Electric Company, the manufacturing arm of Bell System.
-
-OPTIONS
-     equipment       List available Western Electric equipment
-     specs           Display technical specifications
-     manual          Access installation and maintenance manuals
-
-EQUIPMENT CATEGORIES
-     SWITCHING:              Electronic and electromechanical switches
-     TRANSMISSION:           Carrier systems and transmission equipment
-     STATION APPARATUS:      Telephone sets and customer equipment
-     PROTECTION:            Power and environmental protection systems
-
-EXAMPLES
-     western equipment switching     List switching equipment
-     western specs 5ESS              5ESS switch specifications
-     western manual T1-CARRIER       T1 carrier manual
-
-SEE ALSO
-     5ess(1), 3a(1), t1carrier(1), equipment(1)
-
-BELL SYSTEM PRACTICES
-     BSP 000-100-001 - Western Electric Equipment Catalog
-""",
-
-    "coer": """
-NAME
-     coer - Central Office Equipment Reports
-
-SYNOPSIS
-     coer [inventory|status|maintenance|reports] [equipment-type]
-
-DESCRIPTION
-     Generate and manage Central Office Equipment Reports (COER) for
-     tracking Bell System equipment inventory, status, maintenance
-     schedules, and operational reports for central office facilities.
-
-OPTIONS
-     inventory       Equipment inventory reports
-     status          Current equipment status reports
-     maintenance     Maintenance scheduling and tracking
-     reports         Generate standard COER reports
-
-REPORT TYPES
-     EQUIPMENT INVENTORY:    Complete equipment lists and specifications
-     STATUS REPORTS:         Operational status and performance
-     MAINTENANCE LOGS:       Scheduled and emergency maintenance records
-     UTILIZATION REPORTS:    Equipment usage and capacity analysis
-
-EXAMPLES
-     coer inventory switching        Switching equipment inventory
-     coer status NYC-CO-14           Central office status report
-     coer maintenance weekly         Weekly maintenance schedule
-
-SEE ALSO
-     western(1), lmos(1), alarm(1)
-
-BELL SYSTEM PRACTICES
-     BSP 069-200-001 - Central Office Equipment Reporting
-""",
 
 
-        "trace": """
-NAME
-     trace - Call tracing and routing analysis
 
-SYNOPSIS
-     trace [call|route|path|billing] [call-identifier]
-
-DESCRIPTION
-     Trace call routing paths through the Bell System network for
-     billing verification, network analysis, and trouble resolution.
-     Provides detailed call path information and routing decisions.
-
-OPTIONS
-     call            Trace specific call routing and path
-     route           Analyze routing decisions and alternatives
-     path            Display complete network path information
-     billing         Verify billing accuracy for traced calls
-
-TRACE INFORMATION
-     ORIGINATING OFFICE:     Call origination point and equipment
-     ROUTING DECISIONS:      Switching and routing choices made
-     TRANSMISSION PATH:      Facilities used for call completion
-     TERMINATING OFFICE:     Call destination and completion details
-
-EXAMPLES
-     trace call CALL-19830315-001    Trace specific call
-     trace route NYC-LAX             Analyze routing path
-     trace billing disputed-call     Verify billing accuracy
-
-SEE ALSO
-     routing(1), billing(1), toll(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-500-001 - Call Tracing Procedures
-""",
 
     "events": """
 NAME
@@ -1617,41 +1162,6 @@ BELL SYSTEM PRACTICES
      BSP 230-300-001 - Tariff Administration
 """,
 
-    "training": """
-NAME
-     training - Bell System training programs and procedures
-
-SYNOPSIS
-     training [programs|schedule|progress|certification] [employee-id]
-
-DESCRIPTION
-     Manage Bell System training programs including technical training,
-     operational procedures, safety programs, and certification
-     requirements for Bell System operations personnel.
-
-OPTIONS
-     programs        List available training programs
-     schedule        Training schedules and availability
-     progress        Individual training progress tracking
-     certification   Certification requirements and status
-
-TRAINING CATEGORIES
-     TECHNICAL TRAINING:     Equipment and system operation
-     OPERATIONAL PROCEDURES: Bell System Practices and procedures
-     SAFETY TRAINING:        Workplace safety and emergency procedures
-     MANAGEMENT TRAINING:    Supervisory and management development
-
-EXAMPLES
-     training programs switching     Switching system training
-     training schedule quarterly     Quarterly training schedule
-     training progress EMP-1234      Employee training status
-
-SEE ALSO
-     bsp(1), operator(1), procedures(1)
-
-BELL SYSTEM PRACTICES
-     BSP 000-200-001 - Training Program Administration
-""",
 
     "errors": """
 NAME
@@ -4143,5 +3653,283 @@ DESCRIPTION
 
 SEE ALSO
      send(1), uucp(1)
+""",
+    "trace": """
+NAME
+     trace - follow a call through the toll network
+
+SYNOPSIS
+     trace
+     trace office
+     trace origin destination
+
+DESCRIPTION
+     With no arguments, list the offices in the routing table by class.
+
+     With one office, print its homing chain: the route a call from it
+     climbs until it reaches an office the far end also homes on.
+
+     With two, offer a call between them and print every trunk group it
+     takes in order, with what each was carrying and how many trunks ended
+     up in tandem. A blocked call says which route was refused and why.
+
+EXAMPLES
+     trace EO-NYC-01                homing chain
+     trace EO-NYC-01 EO-CHI-01      route a call New York to Chicago
+
+SEE ALSO
+     routing(1), toll(1), trunk(1), capacity(1)
+""",
+    "western": """
+NAME
+     western - Western Electric equipment reference
+
+SYNOPSIS
+     western [name]
+
+DESCRIPTION
+     Western Electric was the Bell System's manufacturing arm and made
+     nearly everything in the plant. With no argument, list what is in the
+     reference by kind: station apparatus, switching systems, transmission
+     equipment. With a name, print the entry.
+
+     Dates are the year the type entered service. Anything the sources
+     consulted did not settle is absent rather than guessed at, which is
+     why the table is short.
+
+EXAMPLES
+     western 500        the set most reports are about
+     western no5xbar    the crossbar office behind most of them
+     western 5ess       what replaces it
+
+SEE ALSO
+     crossbar(1), switch(1), 5ess(1)
+""",
+    "capacity": """
+NAME
+     capacity - what the trunk groups carry against what they hold
+
+SYNOPSIS
+     capacity
+
+DESCRIPTION
+     Print every trunk group with its size, how much of it is busy, and
+     whether that is inside its objective.
+
+     A final group is engineered to P.01: one call in a hundred finds every
+     trunk busy. A high usage group is engineered to P.10, because
+     overflowing is what it is for, and a high usage group running quiet is
+     not good news - it means traffic is not being offered to it.
+
+     Traffic engineering wants a count before it will add trunks.
+
+SEE ALSO
+     trunk(1), traffic(1), trace(1), tnds(1)
+""",
+    "coer": """
+NAME
+     coer - central office equipment report
+
+SYNOPSIS
+     coer [office]
+
+DESCRIPTION
+     What is in each office, how it homes, and what is in trouble. The
+     report a wire chief signed at the end of a tour and sent up.
+
+     With an office code, report on that one: its class, what it homes on,
+     its whole chain to a regional centre, and what that class of office
+     does.
+
+EXAMPLES
+     coer               the whole report
+     coer TC-NYC        one office
+
+SEE ALSO
+     switch(1), alarm(1), trace(1), report(1)
+""",
+    "5ess": """
+NAME
+     5ess - the No. 5 ESS, and what it means for this building
+
+SYNOPSIS
+     5ess
+
+DESCRIPTION
+     The newest switching system in the plant, in service since 1982.
+     There is not one in this office and there will not be one this year.
+
+     The command is here so that you can find out what is coming and what
+     it replaces: half of what is on a repair board is metal contacts, and
+     that half of the work does not exist in a digital office. The other
+     half is the loop, and that is copper in the ground either way.
+
+SEE ALSO
+     western(1), crossbar(1), switch(1)
+""",
+    "microwave": """
+NAME
+     microwave - long-haul microwave radio
+
+SYNOPSIS
+     microwave
+
+DESCRIPTION
+     The summary a shift starts with: what the system is, what band it
+     works in, and what the routes on this position are doing.
+
+     The routes here are TH-3 at six gigahertz. Rain absorbs at six
+     gigahertz and heavy rain on a long hop takes the fade margin with it.
+     A path that fades is not a fault and there is nothing on the ground to
+     go and fix.
+
+     radio(1) has the path-by-path detail.
+
+SEE ALSO
+     radio(1), antenna(1), satellite(1)
+""",
+    "satellite": """
+NAME
+     satellite - satellite circuits, and why the network mostly avoids them
+
+SYNOPSIS
+     satellite
+
+DESCRIPTION
+     Nothing this office switches goes by satellite, and that is a decision
+     rather than an omission.
+
+     A geostationary satellite sits about 22,300 miles up. Up and down
+     again is roughly a quarter of a second, so a round trip costs half a
+     second before the switching at either end has done anything. On a
+     telephone call that is two people talking over each other.
+
+     It is also why an echo suppressor is on every circuit that has been
+     near one.
+
+SEE ALSO
+     microwave(1), radio(1), trace(1)
+""",
+    "custdb": """
+NAME
+     custdb - look a customer line record up
+
+SYNOPSIS
+     custdb [number]
+
+DESCRIPTION
+     Given a telephone number or a report number, print what the records
+     say about that line: who it serves, where it is, what cable and pair
+     it comes in on, where it lands on the frame, and how often it has been
+     in trouble.
+
+     A line marked CHRONIC has reported often enough that the fix is
+     probably not where the last one was.
+
+     With no argument, list the lines that have a record on this position.
+
+     This is the same line card LMOS holds. It is here under its own name
+     because it is the lookup you do twenty times a tour.
+
+SEE ALSO
+     lmos(1), cosmos(1), dbquery(1), report(1)
+""",
+    "dbquery": """
+NAME
+     dbquery - find which records system holds what you are after
+
+SYNOPSIS
+     dbquery
+     dbquery system thing
+
+DESCRIPTION
+     With no arguments, list the mechanised records systems, what each one
+     holds, and how to ask it.
+
+     With a system and a thing, put the question to that system. This is
+     the same as typing that system's own command, and is here so that you
+     do not have to know which one it is.
+
+     A telephone number is in lmos and cosmos. A circuit identifier is in
+     tirks. A bare number with no system named is taken as a line lookup,
+     because that is what people mean.
+
+EXAMPLES
+     dbquery lmos 201-200-1577
+     dbquery cosmos 201-200-1577
+
+SEE ALSO
+     custdb(1), lmos(1), cosmos(1), sarts(1), tnds(1)
+""",
+    "provision": """
+NAME
+     provision - raise a service order against a line
+
+SYNOPSIS
+     provision [type number]
+
+DESCRIPTION
+     A service order is what makes the outside plant change: it tells the
+     frame what to cross-connect, the assignment records what to update,
+     and an installer where to go. Nothing moves without one.
+
+     With no arguments, list the order types. With a type and a number,
+     raise the order.
+
+     The due date is the next working day. The frame works to a list, and
+     today's list was made up last night.
+
+SEE ALSO
+     cosmos(1), custdb(1), service(1), frame(1)
+""",
+    "collect": """
+NAME
+     collect - operator-handled calls, and why they need an operator
+
+SYNOPSIS
+     collect [queue]
+
+DESCRIPTION
+     Collect, third number, person to person, credit card and coin calls
+     all need a person, because every one of them is a promise to pay made
+     by somebody who is not the caller, and nothing in the switching
+     equipment can take a promise.
+
+     The operator asks, hears the answer, and keys the acceptance. Only
+     then does the equipment cut the call through and start timing.
+
+     That is the whole reason there is a traffic service position system.
+
+     This is a repair position and does not take calls. collect queue shows
+     the operator position's own status.
+
+SEE ALSO
+     tsps(1), operator(1), billing(1)
+""",
+    "training": """
+NAME
+     training - what you are signed off for, and how to get the rest
+
+SYNOPSIS
+     training [qualification]
+
+DESCRIPTION
+     Qualification in the Bell System followed the work: you were signed
+     off for what you had done, on the say-so of somebody who had watched
+     you do it.
+
+     With no argument, print where you are in that and what the next step
+     wants. With a qualification named, print what it covers and which
+     commands it opens.
+
+     Nothing here is a course you sit. The reports on your board are the
+     course, and closing them correctly is how it is passed.
+
+EXAMPLES
+     training            where you are
+     training trunk      what interoffice trunks covers
+
+SEE ALSO
+     qual(1), report(1), trouble(1), man(1)
 """,
 }

@@ -209,9 +209,23 @@ class TestGames:
         assert 'o' in tape and '.' in tape
 
     def test_moo_plays(self, terminal):
+        """
+        A guess is answered with bulls and cows - unless it happens to be
+        right, in which case it is answered with the win. One guess in
+        several thousand is, and this test used to fail when it was.
+        """
         assert 'New game' in terminal.execute_command('moo')
+        secret = terminal._moo_secret
         result = terminal.execute_command('moo 1234')
-        assert 'bulls' in result and 'cows' in result
+        if secret == '1234':
+            assert '4 bulls' in result and 'Got it' in result
+        else:
+            assert 'bulls' in result and 'cows' in result
+
+    def test_moo_answers_a_winning_guess(self, terminal):
+        terminal.execute_command('moo')
+        result = terminal.execute_command(f'moo {terminal._moo_secret}')
+        assert '4 bulls' in result and 'Got it' in result
 
     def test_moo_refuses_a_bad_guess(self, terminal):
         terminal.execute_command('moo')

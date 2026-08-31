@@ -11,12 +11,19 @@ from typing import Dict, FrozenSet, Tuple  # noqa: F401
 # Commands that are dispatched and documented but whose operational screens
 # are not built yet. Kept here so the terminal can tell the operator honestly
 # what is and is not available, and so a test can hold the list accountable.
-UNIMPLEMENTED_COMMANDS = frozenset({
-    '5ess', 'analysis', 'capacity', 'coer', 'collect', 'custdb', 'dbquery',
-    'microwave', 'netdata', 'provision',
-    'satellite', 'trace',
-    'training', 'western',
-})
+# Commands that are dispatched and documented but whose screens are not
+# built. This set is empty, and every command on this machine does
+# something. Keeping it is not sentiment: the test suite asserts that
+# nothing outside this set emits an unavailable notice, so it is the one
+# place a future stub can be declared honestly rather than shipped quietly.
+#
+# Two names left this set by being removed instead of implemented. There
+# was no pwb(1) - PWB was a system, not a program - and no rje(1): its
+# remote job entry was reached through send(1) and rjestat(1), which is
+# what this machine has. Two more, analysis and netdata, were command
+# names with no referent anywhere and duplicated tnds(1) subcommands that
+# already worked.
+UNIMPLEMENTED_COMMANDS: frozenset = frozenset()
 # Bell System Constants
 # A tour of duty. Eight hours is the shift the simulation's events are laid
 # out across, and the point at which the wire chief expects to be relieved.

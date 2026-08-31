@@ -39,7 +39,6 @@ from typing import Dict, List, Optional, Any
 from .constants import (
     BELL_SYSTEM_ROLES,
     SHIFT_LENGTH_MINUTES,
-    UNIMPLEMENTED_COMMANDS,
 )
 from .clock import SimClock
 from .console import render
@@ -68,6 +67,8 @@ from .screens.documents import DocumentCommands
 from .screens.editor import EditorCommands
 from .screens.filters import FilterCommands
 from .screens.jobs import JobCommands
+from .screens.plant import PlantCommands
+from .screens.records import RecordsCommands
 from .screens.shift import ShiftCommands
 from .screens.shell import ShellCommands
 from .screens.switching import SwitchingCommands
@@ -136,6 +137,8 @@ class BellSystemTerminal(
     ToolCommands,
     FilterCommands,
     JobCommands,
+    PlantCommands,
+    RecordsCommands,
     GameCommands,
     DocPrepCommands,
     EditorCommands,
@@ -223,6 +226,8 @@ class BellSystemTerminal(
         self._uux_jobs = 0
         self._rje_queue: List[Dict[str, Any]] = []
         self._rje_jobs = 0
+        self._service_orders: List[Dict[str, Any]] = []
+        self._order_number = 0
         self._initialize_processes()
         self._initialize_users()
         self._initialize_shift_handoff()
@@ -922,45 +927,6 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
 
 
 
-    def _subsystem_unavailable(self, command: str, summary: str) -> str:
-        """
-        Report a command whose interactive subsystem is not in this release.
-
-        These commands are dispatched and documented, but their operational
-        screens are not built yet. Saying so plainly is better than emitting a
-        placeholder string that reads like real output.
-
-        Args:
-            command: The command name, used to point at its manual page
-            summary: Short description of what the subsystem does
-
-        Returns:
-            A consistent operator-facing notice
-        """
-        available = sorted(set(self._command_handlers) - UNIMPLEMENTED_COMMANDS)
-        wrapped = []
-        line = '  '
-        for name in available:
-            if len(line) + len(name) + 2 > 72:
-                wrapped.append(line.rstrip())
-                line = '  '
-            line += name + ', '
-        wrapped.append(line.rstrip().rstrip(','))
-
-        return f"""{summary}
-{'=' * 50}
-
-{command}: subsystem not available in this release.
-
-This command is recognised and documented, but its operational screens
-have not been implemented. The manual page describes the intended
-interface:
-
-  man {command}
-
-Subsystems available in this release:
-""" + '\n'.join(wrapped)
-
     def emit(self, text: str = '', end: str = '\n') -> None:
         """
         Write simulation output under the active character-set setting.
@@ -1445,7 +1411,7 @@ Subsystems available in this release:
         "custserv": ["service", "provision", "billing", "custdb",
                      "directory"],
         "radio": ["radio", "microwave", "satellite", "alarm"],
-        "tnds": ["tnds", "netdata", "analysis", "traffic"],
+        "tnds": ["tnds", "traffic", "capacity", "trace"],
         "sarts": ["sarts", "testline", "testcall", "provision", "trunk"],
         "docprep": ["nroff", "troff", "tbl", "eqn", "pic", "refer", "spell"],
     }
@@ -1642,15 +1608,6 @@ Subsystems available in this release:
 
     # Implement remaining critical commands with similar patterns
 
-    def cmd_trace(self, args: List[str]) -> str:
-        """Call tracing and routing analysis"""
-        return self._subsystem_unavailable("trace", "Call trace operations")
-
-
-
-    def cmd_capacity(self, args: List[str]) -> str:
-        """Network capacity planning and utilization"""
-        return self._subsystem_unavailable("capacity", "Capacity planning")
 
 
 
@@ -1691,19 +1648,13 @@ Subsystems available in this release:
 
 
 
-    def cmd_training(self, args: List[str]) -> str:
-        """Bell System training programs and procedures"""
-        return self._subsystem_unavailable("training", "Training programs")
+
+
+
 
     # Enhanced commands
 
-    def cmd_western(self, args: List[str]) -> str:
-        """Western Electric equipment specifications"""
-        return self._subsystem_unavailable("western", "Western Electric equipment")
 
-    def cmd_coer(self, args: List[str]) -> str:
-        """Central Office Equipment Reports"""
-        return self._subsystem_unavailable("coer", "COER reporting")
 
     def cmd_lmos(self, args: Optional[List[str]] = None) -> str:
         """Loop Maintenance Operations System: line records and reports."""
@@ -1726,13 +1677,7 @@ Subsystems available in this release:
 
 
 
-    def cmd_netdata(self, args: List[str]) -> str:
-        """Network data collection tools"""
-        return self._subsystem_unavailable("netdata", "Network data tools")
 
-    def cmd_analysis(self, args: List[str]) -> str:
-        """Advanced network analysis and modeling"""
-        return self._subsystem_unavailable("analysis", "Network analysis")
 
 
 

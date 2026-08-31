@@ -405,12 +405,6 @@ Use 'radio alignment' for antenna optimization"""
 
         else:
             return f"Unknown radio command: {args[0]}\nUse 'radio' for available options"
-    def cmd_microwave(self, args: List[str]) -> str:
-        """Microwave system analysis"""
-        return self._subsystem_unavailable("microwave", "Microwave analysis")
-    def cmd_satellite(self, args: List[str]) -> str:
-        """Satellite communication links"""
-        return self._subsystem_unavailable("satellite", "Satellite operations")
     def cmd_antenna(self, args: Optional[List[str]] = None) -> str:
         """Bell System antenna and microwave equipment management."""
         if not args:

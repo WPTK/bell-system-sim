@@ -176,8 +176,6 @@ class CommandDispatch:
         'refer': self.cmd_refer,
         'send': self.cmd_send,
         'rjestat': self.cmd_rjestat,
-        'netdata': self.cmd_netdata,
-        'analysis': self.cmd_analysis,
         't1carrier': self.cmd_t1carrier,
         'lcarrier': self.cmd_lcarrier,
         'multiplex': self.cmd_multiplex,

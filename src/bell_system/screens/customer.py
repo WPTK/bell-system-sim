@@ -232,18 +232,6 @@ Current Active Issues:
   EV-8042: Pentagon priority circuit - NEEDS IMMEDIATE ATTENTION
 
 For immediate Pentagon repair: service repair EV-8042"""
-    def cmd_dbquery(self, args: List[str]) -> str:
-        """Database query and management tools"""
-        return self._subsystem_unavailable("dbquery", "Database operations")
-    def cmd_custdb(self, args: List[str]) -> str:
-        """Customer database operations"""
-        return self._subsystem_unavailable("custdb", "Customer database")
-    def cmd_provision(self, args: List[str]) -> str:
-        """Service provisioning and installation"""
-        return self._subsystem_unavailable("provision", "Service provisioning")
-    def cmd_collect(self, args: List[str]) -> str:
-        """Toll collection and billing verification"""
-        return self._subsystem_unavailable("collect", "Collect call operations")
     def cmd_tariff(self, args: List[str]) -> str:
         """Bell System tariff and rate structure information."""
         rates = self.rate_structures

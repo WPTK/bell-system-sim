@@ -889,9 +889,6 @@ Migration Timeline:          24-36 months for complete conversion
 Training Requirements:       Technician retraining program active"""
 
         return performance_output
-    def cmd_5ess(self, args: List[str]) -> str:
-        """5ESS Electronic Switching System operations"""
-        return self._subsystem_unavailable("5ess", "5ESS operations")
     def cmd_alarm(self, args: List[str]) -> str:
         """Central office alarm monitoring and acknowledgement."""
         health = self.system_health
