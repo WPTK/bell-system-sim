@@ -7,9 +7,16 @@ regression fails the run rather than being counted as a success.
 
 import pytest
 
-from bell_system.terminal import BELL_SYSTEM_ROLES, BellSystemTerminal
+from bell_system.terminal import (
+    BELL_SYSTEM_ROLES,
+    UNIMPLEMENTED_COMMANDS,
+    BellSystemTerminal,
+)
 
 NOT_FOUND = 'command not found'
+
+# Commands that end the session or clear the screen rather than returning text.
+SESSION_CONTROL = {'quit', 'clear', 'test'}
 
 
 def test_all_twelve_roles_start(isolated_state):
@@ -178,6 +185,77 @@ class TestCrossbarReports:
         assert 'HISTORICAL TRENDS' in result
         for system_id in terminal.crossbar_systems:
             assert system_id in result
+
+
+class TestSubsystemHonesty:
+    """
+    Unimplemented commands say so plainly.
+
+    They previously returned the internal placeholder string
+    'implementation follows pattern', which reads like real output.
+    """
+
+    def test_no_placeholder_text_leaks_to_users(self, terminal):
+        for command in terminal._command_handlers:
+            if command in SESSION_CONTROL:
+                continue
+            result = terminal.execute_command(command)
+            assert 'implementation follows pattern' not in result, command
+
+    @pytest.mark.parametrize('command', sorted(UNIMPLEMENTED_COMMANDS))
+    def test_unimplemented_commands_report_themselves(self, terminal, command):
+        result = terminal.execute_command(command)
+        assert 'not available in this release' in result
+        assert f'man {command}' in result
+
+    def test_unimplemented_list_matches_reality(self, terminal):
+        """
+        Every name in UNIMPLEMENTED_COMMANDS is a real command, and no command
+        outside the list emits the unavailable notice.
+        """
+        assert UNIMPLEMENTED_COMMANDS <= set(terminal._command_handlers)
+        for command in set(terminal._command_handlers) - UNIMPLEMENTED_COMMANDS:
+            if command in SESSION_CONTROL:
+                continue
+            result = terminal.execute_command(command)
+            assert 'not available in this release' not in result, (
+                f'{command} is listed as implemented but reports otherwise'
+            )
+
+
+class TestStateWiredToCommands:
+    """Data structures that were built at startup and never read."""
+
+    def test_alarm_command_reports_real_alarm_state(self, terminal):
+        result = terminal.execute_command('alarm')
+        assert terminal.system_health['overall_status'] in result
+        for alarm in terminal.active_alarms:
+            assert alarm['id'] in result
+
+    def test_alarm_acknowledgement_mutates_state(self, terminal):
+        pending = [a for a in terminal.active_alarms if not a['acknowledged']]
+        if not pending:
+            pytest.skip('no unacknowledged alarms in this session')
+        alarm = pending[0]
+        terminal.execute_command(f"alarm ack {alarm['id']}")
+        assert alarm['acknowledged'] is True
+
+    def test_alarm_acknowledgement_rejects_unknown_id(self, terminal):
+        assert 'No active alarm' in terminal.execute_command('alarm ack AL-0000')
+
+    def test_handoff_reports_the_previous_shift(self, terminal):
+        result = terminal.execute_command('handoff')
+        previous = terminal.shift_handoff['previous_shift']
+        assert previous['operator'] in result
+        assert previous['special_instructions'] in result
+
+    def test_tariff_reports_real_rates(self, terminal):
+        result = terminal.execute_command('tariff interstate')
+        rate = terminal.rate_structures['interstate']['day']['first_minute']
+        assert f'{rate:.2f}' in result
+
+    def test_tariff_rejects_unknown_category(self, terminal):
+        assert 'Unknown category' in terminal.execute_command('tariff nonsense')
 
 
 class TestManualPages:
