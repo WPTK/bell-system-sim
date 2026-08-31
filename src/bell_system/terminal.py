@@ -587,7 +587,10 @@ class BellSystemTerminal(
             self.emit()
             for line in (self._read('/etc/motd') or '').rstrip().split('\n'):
                 self.emit(line)
-            self._apply_role(role_key, role_name)
+            # login(1) got here by asking for the name, so there is nothing
+            # to announce: a real machine does not tell you who you just
+            # said you were.
+            self._apply_role(role_key, role_name, announce=False)
             return
 
     def _getty_banner(self) -> List[str]:

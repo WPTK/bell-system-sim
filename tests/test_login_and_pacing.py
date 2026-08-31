@@ -183,6 +183,21 @@ class TestLoggingIn:
         output = self.run_login(terminal, ['?', 'tsps'], monkeypatch)
         assert 'Positions on this machine' in output
 
+    def test_it_does_not_announce_what_you_just_typed(self, terminal,
+                                                      monkeypatch):
+        """
+        A real machine does not tell you who you just said you were. The
+        role picker's announcement belongs to --role, which nobody asked.
+        """
+        output = self.run_login(terminal, ['radio'], monkeypatch)
+        assert 'Role selected:' not in output
+        assert 'User ID:' not in output
+
+    def test_role_still_announces_itself(self, terminal, capsys):
+        """--role did not ask, so it says."""
+        terminal.select_role(preselected=9)
+        assert 'Role selected:' in capsys.readouterr().out
+
     def test_the_order_is_banner_then_motd_then_profile(self, terminal,
                                                         monkeypatch):
         """
