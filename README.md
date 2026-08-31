@@ -123,7 +123,7 @@ bell-system --help
 8. **Customer Service Interface Technician** - Customer support systems
 9. **Radio/Microwave Technician** - Wireless communications maintenance
 10. **Total Network Data System (TNDS) Analyst** - Network data analysis
-11. **SARTS (Special Service Testing) Technician** - Service testing and validation
+11. **SARTS (Switched Access Remote Test) Technician** - Service testing and validation
 12. **Document Preparation Specialist** - Technical documentation
 
 ## Project Structure

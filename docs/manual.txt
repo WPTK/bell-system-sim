@@ -92,7 +92,7 @@ ROLES
          Network traffic data collection and analysis
          Tools: tnds, netdata, analysis, forecast, modeling, traffic
 
-     11. SARTS (Special Service Testing) Technician
+     11. SARTS (Switched Access Remote Test) Technician
          Remote testing of special service circuits
          Tools: sarts, remote, special, testing, circuits, provision
 
@@ -373,15 +373,20 @@ WORK ORDER SYSTEM
 BELL SYSTEM PRACTICES (BSP) REFERENCE
      Standard BSP section numbering:
      
-     BSP 100-000 series    Bell System Fundamentals
-     BSP 200-000 series    Switching Systems
-     BSP 300-000 series    Transmission Systems  
-     BSP 400-000 series    Network Operations
-     BSP 500-000 series    Customer Services
-     BSP 600-000 series    UNIX and Computing Systems
-     BSP 700-000 series    Electronic Switching (5ESS)
-     BSP 800-000 series    TSPS Operations
-     BSP 900-000 series    TNDS and Data Systems
+     BSP 000-000 series    General Information and Master Indexes
+     BSP 100-000 series    Test Equipment
+     BSP 309-000 series    Switched Services Networks
+     BSP 460-000 series    Customer Equipment - General Information
+     BSP 620-000 series    Outside Plant - General
+     BSP 660-000 series    Test Center Operation
+     BSP 795-000 series    Common Language
+     BSP 800-000 series    Equipment Design Requirements
+     BSP 900-000 series    Outside Plant Engineering
+
+     A practice number is nine digits in three groups: the division, then
+     a layer and sublayer within it, then the key number of the individual
+     practice. Revisions are Issues. There was no division for computing
+     systems; UNIX documentation was not a Bell System Practice.
 
 HISTORICAL REFERENCES
      The simulation is based on authentic Bell System documentation:

@@ -101,7 +101,7 @@ BELL_SYSTEM_ROLES = {
     8: ("custserv", "Customer Service Interface Technician"),
     9: ("radio", "Radio/Microwave Technician"),
     10: ("tnds", "Total Network Data System (TNDS) Analyst"),
-    11: ("sarts", "SARTS (Special Service Testing) Technician"),
+    11: ("sarts", "SARTS (Switched Access Remote Test) Technician"),
     12: ("docprep", "Document Preparation Specialist")
 }
 ```
@@ -182,15 +182,14 @@ how the test suite keeps runs isolated from a developer's real state directory.
 ### Bell System Practices (BSP) Categories
 ```python
 BSP_CATEGORIES = {
-    "100": "Bell System Fundamentals",
-    "200": "Switching Systems", 
-    "300": "Transmission Systems",
-    "400": "Network Operations",
-    "500": "Customer Services",
-    "600": "UNIX and Computing Systems",
-    "700": "Electronic Switching (5ESS)",
-    "800": "TSPS Operations",
-    "900": "TNDS and Data Systems"
+    "000": "General Information and Master Indexes",
+    "100": "Test Equipment",
+    "309": "Switched Services Networks",
+    "620": "Outside Plant - General",
+    "660": "Test Center Operation",
+    "795": "Common Language",
+    "800": "Equipment Design Requirements",
+    "900": "Outside Plant Engineering",
 }
 ```
 

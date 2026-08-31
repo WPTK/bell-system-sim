@@ -45,7 +45,7 @@ source ~/.bashrc
 8. Customer Service Interface Technician
 9. Radio/Microwave Technician
 10. Total Network Data System (TNDS) Analyst
-11. SARTS (Special Service Testing) Technician
+11. SARTS (Switched Access Remote Test) Technician
 12. Document Preparation Specialist
 
 ### Q: How do I get help within the simulation?

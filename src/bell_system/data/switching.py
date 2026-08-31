@@ -60,8 +60,10 @@ SWITCHING_SYSTEMS: Dict[str, SwitchingSystem] = {
         technology='Electromechanical, common control, motor driven',
         market='Large metropolitan end offices',
         min_lines=5000, max_lines=40000, is_toll=False,
-        notes='Confined to the largest cities. Being retired through the '
-              'period; the last panel office closed in 1983.',
+        notes='Confined to the largest cities, peaking at nearly 4 million '
+              'lines in the 1950s. Essentially extinct by this period: '
+              'Engineering and Operations dates the last retirement to 11 '
+              'September 1982 at Newark, though secondary sources say 1983.',
     ),
     'XB1': SwitchingSystem(
         name='No. 1 Crossbar',
@@ -69,8 +71,10 @@ SWITCHING_SYSTEMS: Dict[str, SwitchingSystem] = {
         technology='Electromechanical, common control, crossbar switch',
         market='Metropolitan end offices',
         min_lines=5000, max_lines=35000, is_toll=False,
-        notes='First Bell crossbar. Introduced the marker and the '
-              'crossbar switch that defined the next three decades.',
+        notes='First Bell crossbar, at Brooklyn. Introduced the marker and '
+              'the crossbar switch that defined the next three decades. On 1 '
+              'January 1983, 180 systems were still in service on nearly 4 '
+              'million lines.',
     ),
     'XB4': SwitchingSystem(
         name='No. 4 Crossbar',
@@ -87,8 +91,10 @@ SWITCHING_SYSTEMS: Dict[str, SwitchingSystem] = {
         technology='Electromechanical, common control, crossbar switch',
         market='Suburban and general-purpose end offices',
         min_lines=1000, max_lines=30000, is_toll=False,
-        notes='The workhorse local switch of the Bell System. More lines '
-              'served on No. 5 Crossbar than on any other single machine.',
+        notes='The workhorse local switch of the Bell System, serving over '
+              '28 million lines and more than 40 percent of Bell telephones '
+              'in the 1970s. The last new one was cut into service in '
+              'November 1977.',
     ),
     'XB4A': SwitchingSystem(
         name='No. 4A Crossbar',
@@ -113,36 +119,42 @@ SWITCHING_SYSTEMS: Dict[str, SwitchingSystem] = {
         first_service=1970,
         technology='Stored program control, reed relay network',
         market='Suburban end offices',
-        min_lines=1000, max_lines=10000, is_toll=False,
-        notes='Scaled the 1ESS architecture down for communities too small '
-              'to justify a No. 1.',
+        min_lines=2000, max_lines=10000, is_toll=False,
+        notes='Scaled the 1ESS architecture down for suburban communities too '
+              'small to justify a No. 1. Folded network with 2:1 or 4:1 '
+              'concentration.',
     ),
     '4ESS': SwitchingSystem(
         name='No. 4 ESS',
         first_service=1976,
         technology='Stored program control, digital time-division network',
         market='Toll and tandem switching',
-        min_lines=10000, max_lines=53000, is_toll=True,
-        notes='First digital toll switch, cut over in Chicago in January '
-              '1976. Rated on trunk terminations, not lines.',
+        min_lines=40000, max_lines=107000, is_toll=True,
+        notes='First electronic toll switch with a digital time-division '
+              'network under stored program control, cut over at Chicago 7 in '
+              'January 1976. Rated on terminations, not lines: 107,000 of '
+              'them at 550,000 peak busy hour calls.',
     ),
     '1AESS': SwitchingSystem(
         name='No. 1A ESS',
         first_service=1976,
         technology='Stored program control, 1A processor, reed relay network',
         market='Large urban end offices',
-        min_lines=20000, max_lines=128000, is_toll=False,
-        notes='The 1A processor roughly quadrupled No. 1 ESS call capacity '
-              'and allowed far larger offices.',
+        min_lines=20000, max_lines=130000, is_toll=False,
+        notes='The 1A processor ran about five times the speed of the No. 1 '
+              'processor and doubled call capacity; network capacity reached '
+              '130,000 lines. Retrofittable into a working No. 1 ESS.',
     ),
     '3ESS': SwitchingSystem(
         name='No. 3 ESS',
         first_service=1976,
         technology='Stored program control, remreed network',
         market='Rural community dial offices',
-        min_lines=500, max_lines=4500, is_toll=False,
-        notes='The smallest ESS Western Electric built. Engineered for '
-              'rural exchanges; it never served a city.',
+        min_lines=2000, max_lines=4500, is_toll=False,
+        notes='The smallest space-division ESS Western Electric built, for a '
+              'typical community dial office engineered at one busy hour call '
+              'per line. Fixed 6:1 concentration, 5,760 terminals maximum. '
+              'Designed for unattended operation. It never served a city.',
     ),
     '2BESS': SwitchingSystem(
         name='No. 2B ESS',
@@ -150,7 +162,9 @@ SWITCHING_SYSTEMS: Dict[str, SwitchingSystem] = {
         technology='Stored program control, 3A processor, reed relay network',
         market='Suburban end offices',
         min_lines=1000, max_lines=12000, is_toll=False,
-        notes='No. 2 ESS re-engineered around the 3A processor.',
+        notes='No. 2 ESS re-engineered around the 3A central control, first '
+              'cut at Acworth, Georgia. Roughly double the call capacity of '
+              'the No. 2 in a fifth of the floor space.',
     ),
     '5ESS': SwitchingSystem(
         name='No. 5 ESS',
@@ -165,8 +179,12 @@ SWITCHING_SYSTEMS: Dict[str, SwitchingSystem] = {
 
 # The machines a metropolitan wire center could plausibly carry. A rural
 # community dial office switch in a big city is the error this prevents.
+#
+# Panel is deliberately absent. It is real history and stays in the table
+# above, but by this period it was down to a handful of Newark offices and
+# generating panel offices across the country would itself be inaccurate.
 METROPOLITAN_SWITCHES: List[str] = [
-    'PANEL', 'XB1', 'XB5', '1ESS', '1AESS', '5ESS',
+    'XB1', 'XB5', '1ESS', '1AESS', '5ESS',
 ]
 
 # What a small town or rural exchange would actually have had.

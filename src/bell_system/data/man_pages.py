@@ -2517,4 +2517,108 @@ EXAMPLES
 SEE ALSO
      trunk(1), tnds(1), switch(1), dialtone(1)
 """,
+
+    "clli": """
+NAME
+     clli - COMMON LANGUAGE location identification codes
+
+SYNOPSIS
+     clli
+     clli decode <code>
+     clli office <npanxx>
+     clli examples
+
+DESCRIPTION
+     Decode and look up COMMON LANGUAGE location identifiers. Every
+     location in the Bell System carries one, and every record that
+     refers to a place refers to it by that code.
+
+STRUCTURE
+     A code is eleven characters in four segments:
+
+       1-4    Geographical    place, town or locality    alphabetic
+       5-6    Geopolitical    state, province, country   alphabetic
+       7-8    Network site    building within the place  alphanumeric
+       9-11   Network entity  equipment or work centre   alphanumeric
+
+     The first eight characters identify a building; all eleven identify
+     a particular machine or entity within it. Records that need only the
+     building carry the eight character form.
+
+ENTITY CODES
+     MG0-MG9   Marker group, crossbar
+     SG0-SG9   Step group, step-by-step
+     CG0-CG9   Control group, stored program electronic switching
+     DS0       Digital switch, 1982 and later
+     nnT       Toll or tandem switching entity
+     nnB       Board - operator and switchboard positions
+
+     The letters I, O, U, W and Y are not used in entity codes.
+
+ADMINISTRATION
+     COMMON LANGUAGE is AT&T Co Standard, published in the Bell System
+     Practices Division 795. The governing practice is BSP 795-100-100,
+     Common Language Location Identification (CLLI) Code Description,
+     Issue 5, October 1982.
+
+EXAMPLES
+     clli decode CHCGILCL57T    Break down the first No. 4 ESS code
+     clli office 212555         Show an office's record by code
+     clli examples              Codes of offices known to have existed
+
+SEE ALSO
+     switch(1), trunk(1), routing(1), cosmos(1)
+
+BELL SYSTEM PRACTICES
+     BSP 795-100-100 - CLLI Code Description
+""",
+
+    "cosmos": """
+NAME
+     cosmos - wire centre administration and main frame operations
+
+SYNOPSIS
+     cosmos [status]
+     cosmos assign <number>
+     cosmos jumper <number>
+     cosmos balance
+     cosmos pending
+
+DESCRIPTION
+     Computer System for Main Frame Operations. The main frame is the
+     main distributing frame - the manually operated field of
+     terminations where outside plant cable meets central office
+     equipment - and not a mainframe computer.
+
+     COSMOS exists to minimise congestion and long cross-connects on the
+     frame while keeping load balanced across the switching equipment in
+     the wire centre. It holds the line and number inventory, assigns
+     office equipment and frame appearances, and prints the frame work
+     orders a frame technician works from.
+
+THE FRAME
+     The vertical side carries outside plant cable terminations through
+     protector units; the horizontal side carries office equipment
+     terminations. A jumper run between them cross-connects a customer's
+     pair to their line equipment. Preferential assignment places that
+     jumper as short as possible, because a frame full of long jumpers
+     becomes congested and hard to work.
+
+     Setting a protector unit to its inactive position disconnects a
+     customer temporarily without disturbing the cross-connection.
+
+OPTIONS
+     status            Frame occupancy, jumper administration, balance
+     assign <number>   Assign office equipment and a frame appearance
+     jumper <number>   Show the cross-connect record for a line
+     balance           Load balance across the line link groups
+     pending           Frame work orders awaiting the frame technician
+
+NOTES
+     COSMOS transaction syntax is not reproduced from any source
+     available to this simulation. The commands here are its own.
+
+SEE ALSO
+     clli(1), switch(1), trouble(1)
+""",
 }
