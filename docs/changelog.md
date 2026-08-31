@@ -37,6 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   brings wrongly closed lines back at a much higher rate, counts missed
   commitments, quadruples the qualification requirement and quadruples how
   often the rest of the building interrupts you.
+- **A service index with room to fall.** The measurement plan scored an office
+  across ten weighted components summing to 100, of which customer reports
+  carried ten. A craftsperson is scored on that component out of 100, because
+  scoring them across the whole plan would mean total failure on the one
+  component they control could still cost only twenty points. `qual index`
+  shows both numbers: the component score, and what it is worth to the
+  office's own index.
 - **Qualification-based progression.** Six qualifications gate the commands
   they open. A new craftsperson holds Loop and Station plus whatever their
   assigned position carries, and earns the rest a correctly closed report at a
@@ -62,6 +69,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Ticket assignment by name.** The switching control centre puts one of the
   existing trouble tickets on your position over the order wire, which is the
   difference between a list and an assignment.
+- **A working shift clock.** The simulated clock runs in real time, so a
+  shift's events would never come due inside a session anybody would sit
+  through. Events come due on the work instead: every command costs a minute
+  at the terminal, and everything you do to a report is charged to the shift
+  as well as to the report's commitment. Eight hours of work and the wire
+  chief tells you your tour is up. A shift is about twenty-five to thirty
+  reports.
+- **Two clocks, kept apart.** A report's commitment runs on elapsed time - the
+  customer is out of service whether or not you are doing anything, so the
+  repair force's hours in a manhole count against it. Your own working day
+  runs on your time; you are at a test desk, and while the field is out on one
+  report you are working the next.
 - **`set game.ambience off`** for players who want the terminal to themselves.
 
 ### Changed

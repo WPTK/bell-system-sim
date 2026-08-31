@@ -746,3 +746,105 @@ class TestTicketAssignment:
             terminal.execute_command('pwd')
         assert len(terminal._assigned_tickets) == len(
             set(terminal._assigned_tickets))
+
+
+class TestShiftClock:
+    """The working shift, and the events that come due on it."""
+
+    def test_a_shift_starts_at_zero(self, terminal):
+        assert terminal.shift_minutes == 0
+        assert terminal.shift_time() == '0:00'
+
+    def test_every_command_costs_a_minute_of_the_shift(self, terminal):
+        before = terminal.shift_minutes
+        for _ in range(10):
+            terminal.execute_command('pwd')
+        assert terminal.shift_minutes == before + 10
+
+    def test_desk_work_is_charged_to_the_shift(self, terminal):
+        report = terminal.desk.pending()[0]
+        before = terminal.shift_minutes
+        terminal.execute_command(f'mlt {report.number}')
+        assert terminal.shift_minutes > before + 1
+
+    def test_the_field_forces_repair_is_not_your_time(self, terminal):
+        """
+        A test desk works the next report while the field works this one.
+
+        Charging the repair interval to the working shift burned a whole
+        shift in three dispatches.
+        """
+        report = terminal.desk.receive(terminal.clock.now(), fault='WET')
+        wanted = FAULTS['WET'].dispatch
+        before = terminal.shift_minutes
+        terminal.execute_command(f'report dispatch {report.number} {wanted}')
+        assert report.minutes_spent > 100
+        assert terminal.shift_minutes - before < 40
+
+    def test_desk_time_never_exceeds_elapsed_time(self, terminal):
+        for report in terminal.desk.pending():
+            terminal.execute_command(f'mlt {report.number}')
+        for report in terminal.desk.reports.values():
+            assert report.desk_minutes <= report.minutes_spent
+
+    def test_events_come_due_as_the_shift_is_worked(self, terminal):
+        assert terminal._fired_events == set()
+        terminal.shift_minutes = 400
+        terminal._fire_due_events()
+        assert terminal._fired_events
+
+    def test_an_event_only_fires_once(self, terminal):
+        terminal.shift_minutes = 400
+        terminal._fire_due_events()
+        fired = set(terminal._fired_events)
+        terminal._fire_due_events()
+        assert terminal._fired_events == fired
+
+    def test_a_pending_event_becomes_active_when_it_fires(self, terminal):
+        pending = [event for event in terminal.shift_events
+                   if event.get('status') == 'PENDING']
+        terminal.shift_minutes = 24 * 60
+        terminal._fire_due_events()
+        for event in pending:
+            assert event['status'] == 'ACTIVE'
+
+    def test_the_wire_chief_calls_time_at_eight_hours(self, terminal):
+        from bell_system.terminal import SHIFT_LENGTH_MINUTES
+        terminal.shift_minutes = SHIFT_LENGTH_MINUTES
+        notices = terminal._fire_due_events()
+        assert any('eight hours' in notice for notice in notices)
+
+    def test_relieving_resets_the_shift_clock_and_schedule(self, terminal):
+        terminal.shift_minutes = 400
+        terminal._fire_due_events()
+        assert terminal._fired_events
+        terminal.execute_command('handoff relieve')
+        # The handoff command itself costs a minute of the new shift.
+        assert terminal.shift_minutes < 5
+        assert terminal._fired_events == set()
+
+    def test_events_advance_even_with_ambience_off(self, terminal):
+        terminal.settings.set('game.ambience', 'off')
+        before = terminal.shift_minutes
+        terminal.execute_command('pwd')
+        assert terminal.shift_minutes > before
+
+    def test_new_work_arrives_even_with_ambience_off(self, terminal):
+        """
+        Ambience governs whether anybody tells you, not whether it happens.
+
+        An early return here once meant a quiet terminal never got another
+        report as long as it ran.
+        """
+        terminal.settings.set('game.ambience', 'off')
+        before = len(terminal.desk.reports)
+        for _ in range(60):
+            terminal.execute_command('pwd')
+        assert len(terminal.desk.reports) > before
+
+    def test_the_board_never_runs_away(self, terminal):
+        from bell_system.reports import MAX_PENDING
+        terminal.settings.set('game.ambience', 'off')
+        for _ in range(300):
+            terminal.execute_command('pwd')
+        assert len(terminal.desk.pending()) <= MAX_PENDING

@@ -279,6 +279,59 @@ class Switchroom:
             about=ticket_id,
         ))
 
+    # Which channel an event of each type would have come over.
+    EVENT_CHANNELS: Dict[str, str] = {
+        'SYSTEM': CHANNEL_TELETYPE,
+        'TEST': CHANNEL_TELETYPE,
+        'MAINTENANCE': CHANNEL_ORDERWIRE,
+        'TRAFFIC': CHANNEL_ORDERWIRE,
+        'CUSTOMER': CHANNEL_WRITE,
+        'EQUIPMENT': CHANNEL_WRITE,
+    }
+
+    EVENT_SENDERS: Dict[str, str] = {
+        CHANNEL_TELETYPE: 'carot',
+        CHANNEL_ORDERWIRE: 'dpetrak',
+        CHANNEL_WRITE: 'rjohnson',
+    }
+
+    def shift_event(self, now: datetime, event_id: str, event_type: str,
+                    title: str, priority: str, at: str) -> Message:
+        """
+        Announce a shift event as it comes due.
+
+        Events reach a craftsperson over whichever channel would have carried
+        them: the machine's own traffic prints to the maintenance teletype,
+        maintenance coordination comes over the order wire, and anything a
+        person noticed comes from that person.
+        """
+        channel = self.EVENT_CHANNELS.get(event_type, CHANNEL_WRITE)
+        sender = self.EVENT_SENDERS[channel]
+
+        if channel == CHANNEL_TELETYPE:
+            lines = [
+                f'{at}  {event_type}  {event_id}',
+                title.upper(),
+                f'PRIORITY {priority}',
+            ]
+        elif channel == CHANNEL_ORDERWIRE:
+            lines = [
+                'SCC to office.',
+                f'{event_id} is due: {title}',
+                f'{priority.lower()} priority, scheduled {at}.',
+            ]
+        else:
+            lines = [
+                f'{event_id} just came up.',
+                title + '.',
+                f"'events detail {event_id}' if you want the rest.",
+            ]
+
+        return self._deliver(Message(
+            channel=channel, sender=sender, received=now, lines=lines,
+            kind='event', subject=f'{event_id} {title[:30]}', about=event_id,
+        ))
+
     def chase(self, now: datetime, report_number: str,
               telephone_number: str) -> Message:
         """Ask, once, about a report that has passed its commitment."""

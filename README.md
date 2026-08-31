@@ -146,6 +146,13 @@ Type `qual` for your craft record and `qual index` for the measurement weights
 the service index is scored against. `handoff relieve` signs off the shift and
 banks the index; work you did not finish carries to the next one.
 
+Two clocks run and they are not the same clock. A report's commitment runs on
+elapsed time - the customer is out of service whether or not you are doing
+anything, so the repair force's hours in a manhole count against it. Your own
+working day runs on your time: you are at a test desk, and while the field is
+out on one report you are working the next. Eight hours of your time and the
+wire chief tells you your tour is up. A shift is about twenty-five reports.
+
 ### The Other Craft
 
 You are not alone on the system. The repair service attendant puts reports on

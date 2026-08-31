@@ -10,9 +10,13 @@ import json
 
 import pytest
 
+from bell_system.data.trouble import NSPMP_WEIGHTS
 from bell_system.progression import (
     DEFAULT_DIFFICULTY,
     DIFFICULTIES,
+    MISSED_COMMITMENT_WEIGHT,
+    REPEAT_REPORT_WEIGHT,
+    WRONG_DISPOSITION_WEIGHT,
     QUALIFICATIONS,
     QUALIFICATIONS_BY_KEY,
     ROLE_QUALIFICATIONS,
@@ -151,14 +155,57 @@ class TestServiceIndex:
         craft.record_closure(correct=True, missed_commitment=True)
         assert craft.service_index() < 100.0
 
-    def test_bands_run_from_excellent_to_unsatisfactory(self):
+    def test_total_failure_actually_reaches_unsatisfactory(self):
+        """
+        The whole point of scoring the component out of 100.
+
+        Scored across the plan's full hundred, closing every report wrongly
+        could cost only the ten points customer reports carried, leaving a
+        catastrophic shift reading in the eighties.
+        """
         career = Career(difficulty='craft')
         assert career.index_band() == 'EXCELLENT'
         for _ in range(40):
             career.record_closure(correct=False)
             career.record_repeat()
-        assert career.index_band() in ('SATISFACTORY', 'MARGINAL',
-                                       'UNSATISFACTORY')
+        assert career.service_index() < 30
+        assert career.index_band() == 'UNSATISFACTORY'
+
+    def test_a_perfect_board_scores_full_marks_on_either_setting(self):
+        for key in ('fun', 'craft'):
+            career = Career(difficulty=key)
+            for _ in range(30):
+                career.record_closure(correct=True)
+            assert career.service_index() == 100.0
+
+    def test_the_office_contribution_is_the_published_weight(self):
+        career = Career()
+        assert career.office_contribution() == \
+            NSPMP_WEIGHTS['customer_reports']
+
+    def test_the_office_contribution_tracks_the_score(self):
+        career = Career(difficulty='craft')
+        for _ in range(10):
+            career.record_closure(correct=False)
+        expected = round(NSPMP_WEIGHTS['customer_reports']
+                         * career.service_index() / 100, 1)
+        assert career.office_contribution() == expected
+
+    def test_a_wrong_close_costs_more_than_a_repeat(self):
+        wrong = Career(difficulty='craft')
+        for _ in range(10):
+            wrong.record_closure(correct=False)
+
+        repeats = Career(difficulty='craft')
+        for _ in range(10):
+            repeats.record_closure(correct=True)
+            repeats.record_repeat()
+
+        assert wrong.service_index() < repeats.service_index()
+
+    def test_the_three_penalty_weights_are_ordered_as_documented(self):
+        assert WRONG_DISPOSITION_WEIGHT > REPEAT_REPORT_WEIGHT
+        assert REPEAT_REPORT_WEIGHT > MISSED_COMMITMENT_WEIGHT
 
 
 class TestPersistence:
@@ -238,3 +285,8 @@ class TestQualificationGating:
         result = raw_terminal.execute_command('qual index')
         assert 'Customer Reports' in result
         assert '100' in result
+
+    def test_the_index_screen_separates_the_two_numbers(self, raw_terminal):
+        result = raw_terminal.execute_command('qual index')
+        assert 'of 100' in result
+        assert 'Worth to the office' in result

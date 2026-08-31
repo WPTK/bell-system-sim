@@ -12,8 +12,13 @@ what actually governed what a craftsperson was allowed to touch. You start
 qualified on your own wire centre and earn the right to work the switching
 control centre, remote offices and the toll network.
 
-Scoring uses the weights published in the network switching performance
-measurement plan for 1 and 1A ESS offices, which sum to 100.
+Scoring is against the customer reports component of the network switching
+performance measurement plan. The plan's ten weights sum to 100 and customer
+reports carry ten of them; a craftsperson is scored on that component out of
+100, and ``Career.office_contribution`` converts the result back into the
+points it was worth to the office. Scoring the player across the whole plan
+would mean total failure on the one component they control could still cost
+only twenty points, which would tell them nothing.
 """
 
 import json
@@ -79,6 +84,15 @@ DIFFICULTIES: Dict[str, Difficulty] = {
 }
 
 DEFAULT_DIFFICULTY = 'fun'
+
+# How the customer reports score is lost, out of 100. A wrong disposition
+# weighs heaviest because it is the one that leaves a customer out of service
+# believing somebody has dealt with them. These three are the simulation's
+# own apportionment; what is published is the ten points the component is
+# worth to the office, which office_contribution reports.
+WRONG_DISPOSITION_WEIGHT = 55
+REPEAT_REPORT_WEIGHT = 35
+MISSED_COMMITMENT_WEIGHT = 20
 
 
 class Qualification(NamedTuple):
@@ -238,31 +252,51 @@ class Career:
 
     def service_index(self) -> float:
         """
-        Return the service index out of 100.
+        Return this craftsperson's customer report performance, out of 100.
 
-        Customer reports carry the weight the measurement plan gives them, and
-        a report closed as no trouble found on a line that was really faulty
-        tells against that component - which is exactly how the plan counted
-        code 5 and code 8 separately.
+        A word about what this number is and is not. The network switching
+        performance measurement plan scored an *office*, across ten weighted
+        components summing to 100, of which customer reports carried ten.
+        Scoring a player on that whole scale would mean total failure on the
+        one component they control could still only cost twenty points, which
+        tells them nothing.
+
+        So this is the customer reports component itself, scored out of 100.
+        ``office_contribution`` converts it back into the points it would
+        have been worth in the plan, which is where the published weight
+        belongs.
+
+        The three ways to lose it are the three ways the work goes wrong: a
+        wrong disposition, a report that came back, and a commitment missed.
+        A wrong close weighs heaviest because it is the one that leaves a
+        customer out of service believing they have been dealt with.
         """
         if not self.reports_closed:
             return 100.0
 
+        closed = self.reports_closed
+        wrong_rate = self.reports_wrong / closed
+        repeat_rate = min(1.0, self.repeat_reports / closed)
+        missed_rate = (min(1.0, self.missed_commitments / closed)
+                       if self.difficulty.count_missed_commitments else 0.0)
+
+        penalty = (
+            wrong_rate * WRONG_DISPOSITION_WEIGHT
+            + repeat_rate * REPEAT_REPORT_WEIGHT
+            + missed_rate * MISSED_COMMITMENT_WEIGHT
+        ) * self.difficulty.index_penalty
+
+        return max(0.0, round(100.0 - penalty, 1))
+
+    def office_contribution(self) -> float:
+        """
+        Return what this performance is worth to the office's own index.
+
+        Customer reports carry ten of the plan's hundred points. This is that
+        share, earned in proportion to the score above.
+        """
         weight = NSPMP_WEIGHTS['customer_reports']
-        accuracy = self.reports_correct / self.reports_closed
-        penalty = (1 - accuracy) * weight * self.difficulty.index_penalty
-
-        repeat_penalty = 0.0
-        if self.reports_closed:
-            repeat_rate = self.repeat_reports / self.reports_closed
-            repeat_penalty = repeat_rate * weight * self.difficulty.index_penalty
-
-        commitment_penalty = 0.0
-        if self.difficulty.count_missed_commitments and self.reports_closed:
-            missed_rate = self.missed_commitments / self.reports_closed
-            commitment_penalty = missed_rate * NSPMP_WEIGHTS['dial_tone_speed'] * 0.5
-
-        return max(0.0, 100.0 - penalty - repeat_penalty - commitment_penalty)
+        return round(weight * self.service_index() / 100.0, 1)
 
     def index_band(self) -> str:
         """Return the service band the current index falls in."""

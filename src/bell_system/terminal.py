@@ -69,9 +69,12 @@ from .loop_testing import (
     measure_loop,
     tone_header,
 )
-from .npc import CRAFT, Switchroom, render as render_message
+from .npc import CRAFT, Message, Switchroom, render as render_message
 from .progression import (
     DIFFICULTIES,
+    MISSED_COMMITMENT_WEIGHT,
+    REPEAT_REPORT_WEIGHT,
+    WRONG_DISPOSITION_WEIGHT,
     QUALIFICATIONS,
     QUALIFICATIONS_BY_KEY,
     ROLE_QUALIFICATIONS,
@@ -101,6 +104,7 @@ from .data.switching import (
     available_in,
 )
 from .settings import (
+    EPOCH_HOUR,
     OPTIONS,
     OPTIONS_BY_KEY,
     Settings,
@@ -138,6 +142,10 @@ UNIMPLEMENTED_COMMANDS = frozenset({
 
 
 # Bell System Constants
+# A tour of duty. Eight hours is the shift the simulation's events are laid
+# out across, and the point at which the wire chief expects to be relieved.
+SHIFT_LENGTH_MINUTES = 480
+
 BELL_SYSTEM_ROLES = {
     1: ("sysop", "UNIX Systems Operator"),
     2: ("switch", "Switching Station Technician"),
@@ -8015,6 +8023,8 @@ CURRENT SHIFT POSITION
 Operator On Duty:         {self.username}
 Role:                     {self.role_name or 'Unassigned'}
 Shift Number:             {self.career.shift}
+Time Worked:              {self.shift_time()} of \
+{SHIFT_LENGTH_MINUTES // 60}:00
 Commands This Session:    {len(self.command_history)}
 
 Open Trouble Tickets:     {len(open_now)}
@@ -8084,23 +8094,32 @@ this shift and the next one starts on a fresh board."""
         past commitment is still past commitment in the morning.
         """
         banked = self.career.service_index()
+        worked = self.shift_time()
         carried = self.desk.pending()
         self.career.end_shift()
         self.current_shift = self.career.shift
+
+        # A new shift starts with its own clock and its own schedule.
+        self.shift_minutes = 0
+        self._charged_total = sum(report.desk_minutes
+                                  for report in self.reports_all())
+        self._fired_events = set()
+        self.generate_shift_events()
 
         difficulty = self._difficulty()
         opened = self.desk.open_shift(
             self.clock.now(), difficulty.commitment_slack_minutes)
 
         lines = [
-            f"Relieved. Shift {self.career.shift - 1} closed at "
-            f"{self.clock.time()}.",
+            f"Relieved. Shift {self.career.shift - 1} closed after "
+            f"{worked} worked.",
             '=' * 66,
             f"  Service index banked      {banked:.1f}  "
             f"{self.career.index_band()}",
             f"  Reports closed to date    {self.career.reports_closed}",
             f"  Carried forward           {len(carried)}",
             f"  New on the board          {len(opened)}",
+            f"  Shift events              {len(self.shift_events)} scheduled",
             '',
             f"Shift {self.career.shift} begins. "
             f"{len(self.desk.pending())} pending.",
@@ -9832,6 +9851,15 @@ Antenna alignment completed successfully.
         self._queued_messages: deque = deque()
         self._assigned_tickets: set = set()
 
+        # Minutes of the working shift consumed. The simulated clock runs in
+        # real time, so a shift's events would never come due inside a
+        # session if they waited on it. They come due on the work instead:
+        # every command costs a minute at the terminal, and everything
+        # charged against a report is charged against the shift too.
+        self.shift_minutes = 0
+        self._charged_total = 0
+        self._fired_events: set = set()
+
         slack = self.career.difficulty.commitment_slack_minutes
         self.desk.open_shift(self.clock.now(), slack)
 
@@ -9865,40 +9893,19 @@ Antenna alignment completed successfully.
 
     def _interrupt(self) -> str:
         """
-        Return whatever the rest of the building has to say, if anything.
+        Advance the shift and return whatever the building has to say.
 
-        Called after every command. The rate is the difficulty's: a shift on
-        the forgiving setting is quiet, a shift on the other one is not.
+        Called after every command. The shift clock, new work arriving and
+        tickets being assigned are simulation state and happen regardless;
+        the ambience setting governs only whether anybody tells you about
+        them. Interruption rate is the difficulty's: a shift on the forgiving
+        setting is quiet, a shift on the other one is not.
         """
-        if not self.settings.is_on('game.ambience'):
-            return ''
-
-        pieces = self._drain_queue()
+        quiet = not self.settings.is_on('game.ambience')
         difficulty = self._difficulty()
-
-        if random.random() < difficulty.interruption_rate:
-            now = self.clock.now()
-            overdue = [
-                report for report in self.desk.pending()
-                if report.overdue() and report.status != 'CLOSED'
-            ]
-            untested = [
-                report for report in self.desk.pending() if not report.tested
-            ]
-            message = None
-            roll = random.random()
-            if overdue and roll < 0.45:
-                target = random.choice(overdue)
-                message = self.switchroom.chase(
-                    now, target.number, target.record.telephone_number)
-            elif untested and roll < 0.6 and not difficulty.require_test_before_close:
-                message = self.switchroom.hint(now)
-            elif untested and roll < 0.5:
-                message = self.switchroom.hint(now)
-            else:
-                message = self.switchroom.chatter(now)
-            if message is not None:
-                pieces.append(render_message(message, self._stamp()))
+        pieces = self._advance_shift()
+        if not quiet:
+            pieces = self._drain_queue() + pieces
 
         # The switching control centre puts a ticket on you now and then.
         # These are the tickets the trouble system already carries; being
@@ -9920,19 +9927,125 @@ Antenna alignment completed successfully.
                     self._office_label(ticket['affected_office']),
                 ), self._stamp()))
 
-        # New work arrives while the board has room for it.
-        if not self.desk.full() and random.random() < 0.10:
+        # New work arrives. The rate falls off as the board fills, which is
+        # what a finite repair force actually produces: a board that hovers
+        # around a working depth rather than emptying or running away.
+        depth = len(self.desk.pending())
+        arrival = max(0.0, 0.45 - 0.045 * depth)
+        if not self.desk.full() and random.random() < arrival:
             report = self.desk.receive(
-                self.clock.now(), self._difficulty().commitment_slack_minutes)
+                self.clock.now(), difficulty.commitment_slack_minutes)
             same_day = report.commitment.date() == report.received.date()
             committed = report.commitment.strftime(
                 '%H:%M' if same_day else '%H:%M %a')
-            message = self.switchroom.assignment(
+            pieces.append(render_message(self.switchroom.assignment(
                 self.clock.now(), report.number,
-                report.record.telephone_number, report.symptom, committed)
-            pieces.append(render_message(message, self._stamp()))
+                report.record.telephone_number, report.symptom, committed,
+            ), self._stamp()))
 
-        return '\n'.join(pieces)
+        # Somebody says something, at the difficulty's rate.
+        if random.random() < difficulty.interruption_rate:
+            message = self._craft_interruption(difficulty)
+            if message is not None:
+                pieces.append(render_message(message, self._stamp()))
+
+        return '' if quiet else '\n'.join(pieces)
+
+    def _craft_interruption(self, difficulty):
+        """
+        Return whatever one of the other craft would say right now.
+
+        A report past its commitment gets chased first, because that is what
+        would actually happen. Otherwise it is advice on the forgiving
+        setting and ordinary building noise on either.
+        """
+        now = self.clock.now()
+        pending = self.desk.pending()
+        overdue = [report for report in pending if report.overdue()]
+        untested = [report for report in pending if not report.tested]
+        roll = random.random()
+
+        if overdue and roll < 0.45:
+            target = random.choice(overdue)
+            return self.switchroom.chase(
+                now, target.number, target.record.telephone_number)
+        if untested and roll < 0.60 and not difficulty.require_test_before_close:
+            return self.switchroom.hint(now)
+        if untested and roll < 0.50:
+            return self.switchroom.hint(now)
+        return self.switchroom.chatter(now)
+
+    def _advance_shift(self) -> List[str]:
+        """
+        Charge the shift for the work just done and fire anything now due.
+
+        Returns:
+            Rendered notices for events that came due, whether or not the
+            caller will display them
+        """
+        charged = sum(report.desk_minutes
+                      for report in self.reports_all())
+        self.shift_minutes += 1 + max(0, charged - self._charged_total)
+        self._charged_total = charged
+        return self._fire_due_events()
+
+    def reports_all(self):
+        """Return every report the desk has seen this session."""
+        return list(self.desk.reports.values())
+
+    def shift_time(self) -> str:
+        """Return how far into the shift the work has got, as hours:minutes."""
+        return f"{self.shift_minutes // 60}:{self.shift_minutes % 60:02d}"
+
+    def _fire_due_events(self) -> List[str]:
+        """
+        Bring shift events due as the working shift reaches their time.
+
+        Events carry a wall-clock time because that is how a shift schedule
+        was written. They are measured here against the work done rather than
+        against the real-time clock, which would leave every afternoon event
+        unreachable in a session anybody would actually sit through.
+        """
+        reached = EPOCH_HOUR * 60 + self.shift_minutes
+        notices: List[str] = []
+        for event in self.shift_events:
+            if event['id'] in self._fired_events:
+                continue
+            try:
+                hour, minute = event['time'].split(':')
+                due = int(hour) * 60 + int(minute)
+            except (ValueError, KeyError):
+                continue
+            if due > reached:
+                continue
+
+            self._fired_events.add(event['id'])
+            if event.get('status') == 'PENDING':
+                event['status'] = 'ACTIVE'
+            notices.append(render_message(self.switchroom.shift_event(
+                self.clock.now(), event['id'], event['type'],
+                event['title'], event['priority'], event['time'],
+            ), self._stamp()))
+
+        if (self.shift_minutes >= SHIFT_LENGTH_MINUTES
+                and 'SHIFT-END' not in self._fired_events):
+            self._fired_events.add('SHIFT-END')
+            notices.append(self._shift_over_notice())
+        return notices
+
+    def _shift_over_notice(self) -> str:
+        """Return the wire chief telling you your eight hours are up."""
+        pending = len(self.desk.pending())
+        overdue = sum(1 for report in self.desk.pending() if report.overdue())
+        return render_message(Message(
+            channel='write', sender='ehalloran', received=self.clock.now(),
+            lines=[
+                'That is eight hours.',
+                f'{pending} still on your board, {overdue} past commitment.',
+                "'handoff relieve' when you are ready to sign off.",
+            ],
+            kind='shift', subject='End of shift', about=None,
+        ), self._stamp())
 
     def _qualification_block(self, command: str) -> Optional[str]:
         """
@@ -10516,8 +10629,10 @@ Antenna alignment completed successfully.
             f"  Repeat reports      {career.repeat_reports}",
             f"  Missed commitments  {career.missed_commitments}"
             + ('' if difficulty.count_missed_commitments else '  (not counted)'),
-            f"  Service index       {career.service_index():.1f}  "
+            f"  Customer reports    {career.service_index():.1f} of 100  "
             f"{career.index_band()}",
+            f"  Worth to the office {career.office_contribution():.1f} of "
+            f"{NSPMP_WEIGHTS['customer_reports']} index points",
             '',
             'QUALIFICATIONS',
             '-' * 74,
@@ -10554,32 +10669,60 @@ Antenna alignment completed successfully.
     def _show_service_index(self) -> str:
         """Explain the index against the published measurement weights."""
         career = self.career
+        difficulty = career.difficulty
         lines = [
             "Service index",
             '=' * 74,
-            "Scored against the weights published in the network switching",
-            "performance measurement plan for No. 1 and No. 1A ESS offices.",
-            "Those weights sum to 100; customer reports carry ten of them, and",
-            "that is the component this simulation scores you on.",
+            "The network switching performance measurement plan scored an",
+            "office across ten weighted components summing to 100. Customer",
+            "reports carried ten of them.",
             '',
             f"{'COMPONENT':<28} {'CATEGORY':<20} WEIGHT",
             '-' * 74,
         ]
         for key, weight in NSPMP_WEIGHTS.items():
             label = key.replace('_', ' ').title()
-            lines.append(f"{label:<28} {NSPMP_CATEGORIES[key]:<20} {weight:>3}")
+            marker = ' <' if key == 'customer_reports' else ''
+            lines.append(
+                f"{label:<28} {NSPMP_CATEGORIES[key]:<20} {weight:>3}{marker}")
         lines.extend([
             '-' * 74,
             f"{'Total':<49} {sum(NSPMP_WEIGHTS.values()):>3}",
             '',
+            "You are scored on the marked component, out of 100, because that",
+            "is the one you work. Total failure on it would cost the office",
+            "only ten of its hundred points, which would tell you nothing.",
+            '',
+            'HOW THE HUNDRED IS LOST',
+            '-' * 74,
+            f"  Wrong disposition   {WRONG_DISPOSITION_WEIGHT:>3}",
+            f"  Repeat report       {REPEAT_REPORT_WEIGHT:>3}",
+            f"  Missed commitment   {MISSED_COMMITMENT_WEIGHT:>3}"
+            + ('' if difficulty.count_missed_commitments
+               else '  (not counted on this setting)'),
+            f"  Difficulty factor   {difficulty.index_penalty:>3.1f} "
+            f"({difficulty.name})",
+            '',
+            "  Each is lost in proportion to the share of your closed reports",
+            "  it applies to, then scaled by the difficulty factor. Close every",
+            "  report wrongly and the whole 55 goes.",
+            '',
+            "  A wrong close weighs heaviest because it is the one that leaves",
+            "  a customer out of service believing somebody has dealt with",
+            "  them. The apportionment is the simulation's own; the ten points",
+            "  the component is worth to the office are the published figure.",
+            '',
             'YOUR STANDING',
+            '-' * 74,
             f"  Reports closed      {career.reports_closed}",
             f"  Closed correctly    {career.reports_correct}",
             f"  Closed wrongly      {career.reports_wrong}",
             f"  Came back as repeat {career.repeat_reports}",
             f"  Missed commitments  {career.missed_commitments}",
-            f"  Index               {career.service_index():.1f}  "
+            f"  Customer reports    {career.service_index():.1f} of 100  "
             f"({career.index_band()})",
+            f"  Worth to the office {career.office_contribution():.1f} of "
+            f"{NSPMP_WEIGHTS['customer_reports']} points",
         ])
         if career.index_history:
             lines.append('')

@@ -50,11 +50,25 @@ SERVICE_AFFECTING_COMMITMENT = 1440
 # Faults that leave the station unable to originate or receive at all.
 OUT_OF_SERVICE_FAULTS = frozenset({'OPEN', 'SHORT', 'CO_EQUIP', 'FCG'})
 
-# Minutes each action costs against a report's commitment.
+# Minutes each action costs. Two clocks run and they are not the same clock.
+#
+# A report's commitment runs on elapsed time: the customer is out of service
+# from the moment they report it until the moment somebody restores it, and
+# the hours the repair force spends in a manhole count against that whether
+# or not you are doing anything.
+#
+# Your own working day runs on your time. You are at a test desk. While the
+# field force is out on one report you are working the next one, so their
+# repair interval is charged to the commitment and not to you.
 COST_MLT = 4
 COST_CLOSE = 2
-COST_WRONG_DISPATCH = 45
 COST_CALLBACK = 8
+# Raising a force and writing the dispatch up.
+COST_DISPATCH = 12
+# The trip a wrong dispatch wastes, charged to the commitment.
+COST_WRONG_DISPATCH = 45
+# Working out why the wrong force found nothing, charged to you.
+COST_WRONG_DISPATCH_DESK = 8
 
 # A backlog slows every commitment: each report already pending adds this
 # many minutes to a new one.
@@ -160,7 +174,11 @@ class TroubleReport:
         self.commitment = commitment
         self.repeat_of = repeat_of
         self.status = STATUS_PENDING
+        # Elapsed time against the commitment, the repair force's hours
+        # included.
         self.minutes_spent = 0
+        # Your own time at the desk. Never more than the elapsed time.
+        self.desk_minutes = 0
         self.tested = False
         self.test_notes: List[str] = []
         self.dispatched_to: Optional[str] = None
@@ -191,9 +209,18 @@ class TroubleReport:
         """Return whether the commitment has been passed."""
         return self.due_in() < timedelta(0)
 
-    def spend(self, minutes: int) -> None:
-        """Charge working time against the report."""
+    def spend(self, minutes: int, desk: Optional[int] = None) -> None:
+        """
+        Charge time against the report.
+
+        Args:
+            minutes: Elapsed time against the commitment
+            desk: Your own time, when it differs from the elapsed time.
+                Defaults to the same, which is right for anything you do
+                yourself
+        """
         self.minutes_spent += minutes
+        self.desk_minutes += minutes if desk is None else desk
 
     def age_label(self) -> str:
         """Return the time remaining, or how far past commitment it is."""
@@ -318,8 +345,9 @@ class ReportDesk:
         for index in range(count):
             received = now - timedelta(minutes=self.rng.randint(20, 240))
             report = self.receive(received, slack_minutes)
-            # Reports held over have already had time charged against them.
-            report.spend(self.rng.randint(0, 30))
+            # Reports held over have already had time charged against them,
+            # by whoever worked the shift before you. It is not your time.
+            report.spend(self.rng.randint(0, 30), desk=0)
             opened.append(report)
             del index
         return opened
@@ -393,7 +421,8 @@ class ReportDesk:
         report.dispatched_to = force
 
         if force.lower() != wanted.lower():
-            report.spend(COST_WRONG_DISPATCH)
+            report.spend(COST_WRONG_DISPATCH + COST_DISPATCH,
+                         desk=COST_DISPATCH + COST_WRONG_DISPATCH_DESK)
             report.status = STATUS_DISPATCHED
             return (f"{force} reports nothing found at their end. "
                     f"{COST_WRONG_DISPATCH} minutes charged against the "
@@ -401,7 +430,8 @@ class ReportDesk:
 
         low, high = fault.typical_minutes
         repair = self.rng.randint(low, high)
-        report.spend(repair)
+        # The repair is the field force's time, not yours.
+        report.spend(repair + COST_DISPATCH, desk=COST_DISPATCH)
         report.status = STATUS_DISPATCHED
         report.field_finding = fault.code
         if fault.code == 'NONE':

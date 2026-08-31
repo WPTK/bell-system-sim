@@ -498,8 +498,23 @@ QUALIFICATION AND THE SERVICE INDEX
      ESS offices. Those weights sum to 100; customer reports carry ten of
      them, and that is the component scored here.
 
+     The plan scored an office across ten components. You are scored on the
+     customer reports component out of 100, because scoring you across the
+     whole plan would mean total failure on the one component you work
+     could still cost only ten of the office's hundred points. 'qual index'
+     shows both numbers.
+
      handoff relieve signs off the shift, banks the index and starts a new
      board. Work you did not finish carries forward.
+
+     Two clocks run and they are not the same clock. A report's commitment
+     runs on elapsed time: the customer is out of service whether or not
+     you are doing anything, so the repair force's hours count against it.
+     Your own working day runs on your time, because while the field is out
+     on one report you are working the next. Shift events come due on your
+     working time rather than on the wall clock, which in real time would
+     leave every afternoon event unreachable. Eight hours and the wire
+     chief calls time.
 
 THE OTHER CRAFT
      You are not alone on the system. Four channels reach you, each
