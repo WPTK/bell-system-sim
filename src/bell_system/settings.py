@@ -116,6 +116,25 @@ OPTIONS: List[Option] = [
         accurate='v7',
     ),
     Option(
+        'game.difficulty', 'fun', ['fun', 'craft'],
+        'How hard the work is',
+        "fun is Fun Simulation: reports can be closed without measuring, "
+        "qualification comes quickly and a wrong call costs little. craft is "
+        "I Hate Myself: measure before you close, repeat reports come back on "
+        "your index, commitments are counted, and qualification is slow. "
+        "craft is the closer depiction of the job; it carries no accuracy "
+        "marking here because difficulty governs how forgiving the "
+        "simulation is, not how it renders 1983.",
+    ),
+    Option(
+        'game.ambience', 'on', ['on', 'off'],
+        'Traffic from the other craft on the system',
+        'on lets the switching control centre, the repair service bureau and '
+        'the rest of the craft interrupt you on write(1), mail(1), the order '
+        'wire and the maintenance teletype, at the rate the difficulty sets. '
+        'off leaves the terminal to you.',
+    ),
+    Option(
         'display.log_console', 'off', ['off', 'on'],
         'Print diagnostic log records to the terminal',
         'on interleaves Python logging output with simulation output; '

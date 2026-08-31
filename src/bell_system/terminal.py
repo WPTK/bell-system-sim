@@ -52,6 +52,39 @@ from .data.clli import (
     parse as parse_clli,
 )
 from .data.man_pages import MAN_PAGES
+from .data.testlines import TEST_LINE_ORDER, TEST_LINES
+from .data.trouble import (
+    DISPATCH_FORCES,
+    DISPOSITIONS,
+    FAULTS,
+    NSPMP_CATEGORIES,
+    NSPMP_WEIGHTS,
+)
+from .loop_testing import (
+    COIN_STATION_CURRENT_MA,
+    SUPERVISION_STATES,
+    access_test_line,
+    design_note,
+    distance_to_open,
+    measure_loop,
+    tone_header,
+)
+from .npc import CRAFT, Switchroom, render as render_message
+from .progression import (
+    DIFFICULTIES,
+    QUALIFICATIONS,
+    QUALIFICATIONS_BY_KEY,
+    ROLE_QUALIFICATIONS,
+    Career,
+    career_path,
+)
+from .reports import (
+    CLASSES_OF_SERVICE,
+    COST_CALLBACK,
+    ReportDesk,
+    disposition_name,
+    valid_force,
+)
 from .routing import MAX_TRUNKS_IN_CONNECTION, build_default_network
 from .data.signaling import (
     MF_FREQUENCIES,
@@ -189,6 +222,16 @@ class BellSystemTerminal:
         'settings': 'set',
         'config': 'set',
 
+        # Repair service bureau
+        'rsb': 'report',
+        'board': 'report',
+        'reports': 'report',
+        'career': 'qual',
+        'index': 'qual',
+        'ow': 'orderwire',
+        'tl': 'testline',
+        'loop': 'mlt',
+
         # Technical system aliases
         'rad': 'radio',
         'mw': 'microwave',
@@ -251,6 +294,12 @@ class BellSystemTerminal:
         self.settings = Settings(settings_path(state_dir()))
         self.clock = SimClock(self.settings)
 
+        # What the craftsperson carries between shifts, and how hard the
+        # shift is. The setting is the authority: the career record stores a
+        # copy so a shift resumed from disk starts the way it ended.
+        self.career = Career(career_path(state_dir()))
+        self.career.set_difficulty(self.settings.get('game.difficulty'))
+
         # Setup enhanced logging first
         self._setup_logging()
         self.logger = logging.getLogger('BellSystem')
@@ -311,6 +360,9 @@ class BellSystemTerminal:
 
         # Generate initial shift events
         self.generate_shift_events()
+
+        # The repair service bureau's board, and the other craft on the wire.
+        self._initialize_repair_bureau()
 
     def _initialize_network_state(self) -> None:
         """Initialize dynamic network state for realistic simulation behavior."""
@@ -758,14 +810,21 @@ class BellSystemTerminal:
         ]
 
     def _initialize_users(self) -> None:
-        """Initialize Bell System users with authentic roles."""
+        """
+        Populate the logged-on user list from the craft roster.
+
+        who(1) and write(1) read the same people, so anyone the terminal says
+        is logged on can actually be written to.
+        """
+        logins = ('07:30', '07:45', '08:00', '08:15', '08:30', '09:00')
         self.users = [
-            {"user": "sysop", "tty": "01", "login": "08:30", "location": "MURRAY_HILL"},
-            {"user": "switch", "tty": "02", "login": "08:15", "location": "CENTRAL_OFF"},
-            {"user": "noc", "tty": "03", "login": "07:45", "location": "BEDMINSTER"},
-            {"user": "field", "tty": "04", "login": "09:00", "location": "FIELD_SUP"},
-            {"user": "radio", "tty": "05", "login": "08:00", "location": "TRANS_CTR"},
-            {"user": "tnds", "tty": "06", "login": "07:30", "location": "DATA_CTR"}
+            {
+                "user": person.login,
+                "tty": person.tty,
+                "login": logins[index % len(logins)],
+                "location": person.location,
+            }
+            for index, person in enumerate(CRAFT.values())
         ]
 
     def _initialize_shift_handoff(self) -> None:
@@ -1032,13 +1091,27 @@ class BellSystemTerminal:
                 raise SystemExit(0)
 
     def _apply_role(self, role_key: str, role_name: str) -> None:
-        """Activate a Bell System role and configure the session for it."""
+        """
+        Activate a Bell System role and configure the session for it.
+
+        Being put at a position carries its own sign-off: the wire chief
+        qualified you for the desk you were assigned to. Everything beyond
+        that desk is still earned a report at a time.
+        """
         self.role = role_key
         self.role_name = role_name
         self.username = role_key
         self.current_directory = f"/usr/users/{role_key}"
         self.emit(f"\nRole selected: {role_name}")
         self.emit(f"User ID: {role_key}")
+
+        assigned = ROLE_QUALIFICATIONS.get(role_key)
+        if assigned and not self.career.is_qualified(assigned):
+            self.career.qualifications.append(assigned)
+            self.career.save()
+            qualification = QUALIFICATIONS_BY_KEY[assigned]
+            self.emit(f"Position sign-off: {qualification.name}")
+
         self.emit("Initializing workstation...")
 
     def show_shift_briefing(self) -> None:
@@ -1417,6 +1490,15 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
         'clli': self.cmd_clli,
         'cosmos': self.cmd_cosmos,
 
+        # Repair service bureau, loop testing and the craft record
+        'report': self.cmd_report,
+        'mlt': self.cmd_mlt,
+        'testline': self.cmd_testline,
+        'qual': self.cmd_qual,
+        'write': self.cmd_write,
+        'mail': self.cmd_mail,
+        'orderwire': self.cmd_orderwire,
+
         # Standard UNIX commands
         'ps': self.cmd_ps,
         'who': self.cmd_who,
@@ -1468,6 +1550,13 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
         self._apply_setting(key)
         option = OPTIONS_BY_KEY[key]
         result = f"{key} = {stored}"
+        if key == 'game.difficulty':
+            difficulty = DIFFICULTIES[stored]
+            result += f"\n\n{difficulty.name}: {difficulty.summary}"
+            if difficulty.require_test_before_close:
+                result += ("\n\nFrom here on, a report cannot be closed until "
+                           "the loop has been measured,\nand mechanised loop "
+                           "testing will no longer name the fault for you.")
         if option.accurate is not None and stored != option.accurate:
             result += (f"\n\nNote: the period-accurate value is "
                        f"'{option.accurate}'. This setting now departs from "
@@ -1480,6 +1569,8 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
             self.clock.reset_session()
         elif key == 'display.log_console':
             self._setup_logging()
+        elif key == 'game.difficulty':
+            self.career.set_difficulty(self.settings.get('game.difficulty'))
 
     def _unknown_setting(self, key: str) -> str:
         """Report an unrecognised setting name."""
@@ -1960,8 +2051,15 @@ Subsystems available in this release:
             handlers = self._command_handlers
 
             # Execute command if it exists
-            # Execute command
             if command in handlers:
+                # Qualification gates what a craftsperson may work on, so a
+                # command they are not signed off for is refused by the wire
+                # chief rather than run.
+                refusal = self._qualification_block(command)
+                if refusal is not None:
+                    self.command_counts[command] += 1
+                    return refusal
+
                 result = handlers[command](args)
 
                 # Log performance metrics
@@ -1970,6 +2068,11 @@ Subsystems available in this release:
 
                 # Update command statistics
                 self.command_counts[command] += 1
+
+                # The rest of the building gets a word in.
+                interruption = self._interrupt()
+                if interruption:
+                    result = f"{result}\n{interruption}" if result else interruption
 
                 return result
             else:
@@ -2645,7 +2748,10 @@ For Bell System Practices: bsp search <topic>
         """
         output = ""
         for user in self.users:
-            output += f"{user['user']:<8} {user['tty']:<8} {user['login']:<8} ({user['location']})\n"
+            person = CRAFT.get(user['user'])
+            title = f"  {person.title}" if person else ""
+            output += (f"{user['user']:<10} tty{user['tty']:<4} "
+                       f"{user['login']:<8} ({user['location']}){title}\n")
         return output
 
     def cmd_ls(self, args: List[str]) -> str:
@@ -3651,49 +3757,128 @@ Recommended Actions:
         return f"3a: unknown option '{args[0]}'"
 
     def cmd_testboard(self, args: List[str]) -> str:
-        """Line testing equipment command"""
+        """
+        Work the local test board: measure loops, reach test lines, read
+        supervision.
+
+        The board is where the three testing systems in this simulation meet.
+        Loop measurement goes through mechanised loop testing, transmission
+        goes through the test line series, and supervision is what single
+        frequency signalling shows about a trunk.
+        """
         if not args:
-            return """Bell System Test Board Status
-Line Testing Equipment Operations
+            pending = self.desk.pending()
+            untested = [report for report in pending if not report.tested]
+            return f"""Test Board - {self.home_office['clli']}
+{self.clock.timestamp()}
+{'=' * 66}
 
-Available Commands:
-  testboard status     - Test equipment status
-  testboard test       - Initiate line tests
-  testboard results    - View test results
-  testboard calibrate  - Equipment calibration
+LOOP TESTING
+  mlt <report>              Measure a subscriber loop
+  testboard loop <report>   The same measurement, from the board
+  report faults             What each condition measures like
 
-Test Equipment Status:
-  Line Test Units:     12 of 12 operational
-  Transmission Test:   4 of 4 operational
-  Special Services:    8 of 8 operational
+TRANSMISSION TESTING
+  testline                  The test line and responder series
+  testline 105 <circuit>    Two-way loss, noise and gain slope
+  testboard supervision <circuit>
+                            Single frequency supervision state
 
-Current Activity:
-  Active Tests:        7 in progress
-  Completed Today:     156 tests
-  Queue Depth:         12 pending tests"""
+BOARD STATUS
+  Reports on the board      {len(pending)}
+  Not yet measured          {len(untested)}
+  Service index             {self.career.service_index():.1f} ({self.career.index_band()})
 
-        if args[0] == "test" and len(args) > 1:
-            line_number = args[1]
-            return f"""Line Test Initiated: {line_number}
-Test Start: November 14, 1983 07:46:00
+{tone_header()}. Loss objectives are stated at that frequency,
+so every loss reading here is taken there."""
 
-Test Sequence:
-  Line Seizure:               [████████████████████] COMPLETE
-  DC Resistance:              [████████████████████] COMPLETE
-  AC Impedance:               [████████████████████] COMPLETE
-  Insulation Resistance:      [████████████████████] COMPLETE
-  Voltage Check:              [██████████████░░░░░] IN PROGRESS
+        action = args[0].lower()
 
-Preliminary Results:
-  Line Resistance:            847 ohms (Normal)
-  Insulation:                 > 1 megohm (Good)
-  Foreign Voltage:            None detected
-  Line Current:               Normal
+        if action in ('loop', 'test') and len(args) > 1:
+            return self.cmd_mlt([args[1]])
 
-Estimated Completion: 2 minutes
-Use 'testboard results {line_number}' to view final results"""
+        if action == 'supervision':
+            if len(args) < 2:
+                return ("testboard: name a circuit.\n"
+                        "Usage: testboard supervision <trunk group>")
+            return self._show_supervision(args[1].upper())
 
-        return f"testboard: unknown option '{args[0]}'"
+        if action == 'results':
+            return self._show_board_results()
+
+        if action == 'status':
+            return self.cmd_testboard([])
+
+        return (f"testboard: unknown option '{args[0]}'\n"
+                "Options: loop, supervision, results, status")
+
+    def _show_supervision(self, circuit: str) -> str:
+        """
+        Show what single frequency signalling says about a trunk.
+
+        The 2600 Hz tone is on an idle trunk and off a seized one. That makes
+        the tone a supervisory signal a craftsperson reads: tone present while
+        a connection is up is an irregularity, and it is what routine testing
+        is looking for.
+        """
+        group = self.trunk_groups.get(circuit)
+        if group is None:
+            return (f"testboard: no trunk group {circuit}.\n"
+                    f"Groups: {', '.join(sorted(self.trunk_groups))}")
+
+        if group['status'] != 'ACTIVE':
+            state = 'IDLE'
+        elif group['quality'] < 0.994:
+            state = 'ANOMALOUS'
+        elif group['utilization'] > 70:
+            state = 'CONNECTED'
+        else:
+            state = 'SEIZED'
+        tone, note = SUPERVISION_STATES[state]
+
+        lines = [
+            f"Single Frequency Supervision - {circuit}",
+            f"{group['route']}   {self.clock.timestamp()}",
+            '=' * 66,
+            f"  SF frequency        {SF_FREQUENCY_HZ} Hz",
+            f"  Idle tone level     {SF_IDLE_LEVEL_DBM:+.1f} dBm",
+            f"  Trunk state         {state}",
+            f"  Tone                {tone}",
+            '',
+            f"  {note}",
+            '',
+            'ALL STATES',
+            '-' * 66,
+        ]
+        for name, (tone_state, description) in SUPERVISION_STATES.items():
+            marker = '>' if name == state else ' '
+            lines.append(f"{marker} {name:<14} {tone_state:<28} {description}")
+        lines.extend([
+            '-' * 66,
+            '',
+            "Routine transmission testing on these groups is run by CAROT, "
+            "which prints",
+            "its exceptions to the maintenance teletype whether anybody is "
+            "reading or not.",
+        ])
+        return '\n'.join(lines)
+
+    def _show_board_results(self) -> str:
+        """Show every measurement taken on the board this session."""
+        measured = [
+            report for report in self.desk.pending() + self.desk.closed()
+            if report.test_notes
+        ]
+        if not measured:
+            return ("No measurements taken this session.\n"
+                    "Measure a loop with 'mlt <report>'.")
+        lines = ["Measurements taken this session", '=' * 74]
+        for report in measured:
+            lines.append(f"{report.number}  {report.record.telephone_number}  "
+                         f"cable {report.record.cable_pair()}")
+            for note in report.test_notes:
+                lines.append(f"    {note}")
+        return '\n'.join(lines)
 
     def cmd_emergency(self, args: List[str]) -> str:
         """Enhanced emergency dispatch and escalation system"""
@@ -7775,6 +7960,9 @@ RECOMMENDATIONS
     def cmd_handoff(self, args: List[str]) -> str:
         """Bell System shift handoff briefing and turnover record."""
         previous = self.shift_handoff["previous_shift"]
+        pending_reports = self.desk.pending()
+        overdue_reports = [r for r in pending_reports if r.overdue()]
+        untested_reports = [r for r in pending_reports if not r.tested]
         open_now = [t for t in self.active_tickets if t['status'] != 'RESOLVED']
         critical = [t for t in open_now if t['priority'] == 'CRITICAL']
         unacknowledged = [a for a in self.active_alarms if not a['acknowledged']]
@@ -7805,14 +7993,38 @@ CURRENT SHIFT POSITION
 {'=' * 40}
 Operator On Duty:         {self.username}
 Role:                     {self.role_name or 'Unassigned'}
-Shift Number:             {self.current_shift}
+Shift Number:             {self.career.shift}
 Commands This Session:    {len(self.command_history)}
 
 Open Trouble Tickets:     {len(open_now)}
   Critical:               {len(critical)}
 Unacknowledged Alarms:    {len(unacknowledged)}
 Overall Health:           {self.system_health['overall_status']}
+
+REPAIR SERVICE BUREAU
+{'=' * 40}
+Reports Pending:          {len(pending_reports)}
+  Past Commitment:        {len(overdue_reports)}
+  Not Yet Measured:       {len(untested_reports)}
+Closed This Session:      {len(self.desk.closed())}
+Service Index:            {self.career.service_index():.1f} \
+({self.career.index_band()})
+Qualifications Held:      {len(self.career.qualifications)} of \
+{len(QUALIFICATIONS)}
 """
+
+        if pending_reports:
+            output += ("\nREPORTS CARRIED TO THE NEXT SHIFT\n" + "=" * 40)
+            for report in pending_reports[:6]:
+                output += (
+                    f"\n{report.number}: {report.record.telephone_number}"
+                    f"\n  Customer states:    {report.symptom}"
+                    f"\n  Commitment:         "
+                    f"{report.commitment.strftime('%H:%M %a %b %d')}"
+                    f" ({report.age_label()}"
+                    f" {'past' if report.overdue() else 'remaining'})"
+                    f"\n  Measured:           "
+                    f"{'yes' if report.tested else 'NO'}")
 
         if critical:
             output += "\nCRITICAL TICKETS REQUIRING HANDOFF\n" + "=" * 40
@@ -7832,9 +8044,56 @@ TURNOVER CHECKLIST
   [ ] Confirm maintenance windows in progress
   [ ] Record special instructions in the shift log
   [ ] Verify emergency contact roster is current
+  [ ] Hand the board over with every commitment stated
 
-Reference: BSP 010-100-000 (Shift Turnover Procedures)"""
+Reference: BSP 010-100-000 (Shift Turnover Procedures)
+
+Type 'handoff relieve' to sign off. The service index is banked against
+this shift and the next one starts on a fresh board."""
+
+        if args and args[0].lower() in ('relieve', 'signoff', 'end'):
+            return self._end_shift()
         return output
+
+    def _end_shift(self) -> str:
+        """
+        Sign off: bank the index, advance the shift, and start a new board.
+
+        Reports left pending are carried forward, because they were. Anything
+        past commitment is still past commitment in the morning.
+        """
+        banked = self.career.service_index()
+        carried = self.desk.pending()
+        self.career.end_shift()
+        self.current_shift = self.career.shift
+
+        difficulty = self._difficulty()
+        opened = self.desk.open_shift(
+            self.clock.now(), difficulty.commitment_slack_minutes)
+
+        lines = [
+            f"Relieved. Shift {self.career.shift - 1} closed at "
+            f"{self.clock.time()}.",
+            '=' * 66,
+            f"  Service index banked      {banked:.1f}  "
+            f"{self.career.index_band()}",
+            f"  Reports closed to date    {self.career.reports_closed}",
+            f"  Carried forward           {len(carried)}",
+            f"  New on the board          {len(opened)}",
+            '',
+            f"Shift {self.career.shift} begins. "
+            f"{len(self.desk.pending())} pending.",
+        ]
+        if self.career.index_history:
+            lines.append('  Index history             '
+                         + ', '.join(f"{entry:.1f}"
+                                     for entry in
+                                     self.career.index_history[-8:]))
+        granted = self._grant_qualifications()
+        if granted:
+            lines.append('')
+            lines.extend(granted)
+        return '\n'.join(lines)
 
     def cmd_tariff(self, args: List[str]) -> str:
         """Bell System tariff and rate structure information."""
@@ -9510,6 +9769,930 @@ Antenna alignment completed successfully.
 """
         else:
             return f"antenna: unknown option '{option}'\nUse 'antenna' for available commands"
+
+    # ------------------------------------------------------------------
+    # Repair service bureau: the trouble report loop
+    # ------------------------------------------------------------------
+
+    def _initialize_repair_bureau(self) -> None:
+        """
+        Stand up the report board, the other craft, and the home wire centre.
+
+        The wire centre is chosen from the geographic data already loaded so
+        the reports the desk generates carry a numbering plan area and a
+        COMMON LANGUAGE code that belong together.
+        """
+        home = None
+        for office in self.central_offices.values():
+            if office['npa'] in ('201', '212', '203'):
+                home = office
+                break
+        if home is None and self.central_offices:
+            home = next(iter(self.central_offices.values()))
+
+        if home is None:
+            npa, nxx, city, state, switch_type = '201', '555', 'Newark', 'NJ', '1ESS'
+        else:
+            npa = home['npa']
+            nxx = home['nxx']
+            city = home['city']
+            state = home['state']
+            switch_type = home['switch_type']
+
+        self.home_office = {
+            'npa': npa, 'nxx': nxx, 'city': city,
+            'state': STATE_CODES.get(state, state),
+            'switch_type': switch_type,
+            'clli': self._office_clli(city, state, switch_type) or 'NWRKNJ02',
+        }
+
+        self.desk = ReportDesk(npa, nxx, self.home_office['clli'])
+        self.switchroom = Switchroom()
+        self._queued_messages: deque = deque()
+
+        slack = self.career.difficulty.commitment_slack_minutes
+        self.desk.open_shift(self.clock.now(), slack)
+
+    # -- helpers ---------------------------------------------------------
+
+    def _difficulty(self):
+        """Return the active difficulty profile."""
+        return self.career.difficulty
+
+    def _stamp(self) -> str:
+        """Return a timestamp in the form the messaging channels carried."""
+        return self.clock.log_stamp()
+
+    def _queue_message(self, message, after: int) -> None:
+        """Hold a message back so it lands a few commands from now."""
+        self._queued_messages.append([after, message])
+
+    def _drain_queue(self) -> List[str]:
+        """Return any held messages that are now due."""
+        due: List[str] = []
+        remaining: deque = deque()
+        while self._queued_messages:
+            countdown, message = self._queued_messages.popleft()
+            countdown -= 1
+            if countdown <= 0:
+                due.append(render_message(message, self._stamp()))
+            else:
+                remaining.append([countdown, message])
+        self._queued_messages = remaining
+        return due
+
+    def _interrupt(self) -> str:
+        """
+        Return whatever the rest of the building has to say, if anything.
+
+        Called after every command. The rate is the difficulty's: a shift on
+        the forgiving setting is quiet, a shift on the other one is not.
+        """
+        if not self.settings.is_on('game.ambience'):
+            return ''
+
+        pieces = self._drain_queue()
+        difficulty = self._difficulty()
+
+        if random.random() < difficulty.interruption_rate:
+            now = self.clock.now()
+            overdue = [
+                report for report in self.desk.pending()
+                if report.overdue() and report.status != 'CLOSED'
+            ]
+            untested = [
+                report for report in self.desk.pending() if not report.tested
+            ]
+            message = None
+            roll = random.random()
+            if overdue and roll < 0.45:
+                target = random.choice(overdue)
+                message = self.switchroom.chase(
+                    now, target.number, target.record.telephone_number)
+            elif untested and roll < 0.6 and not difficulty.require_test_before_close:
+                message = self.switchroom.hint(now)
+            elif untested and roll < 0.5:
+                message = self.switchroom.hint(now)
+            else:
+                message = self.switchroom.chatter(now)
+            if message is not None:
+                pieces.append(render_message(message, self._stamp()))
+
+        # New work arrives while the board has room for it.
+        if not self.desk.full() and random.random() < 0.10:
+            report = self.desk.receive(
+                self.clock.now(), self._difficulty().commitment_slack_minutes)
+            same_day = report.commitment.date() == report.received.date()
+            committed = report.commitment.strftime(
+                '%H:%M' if same_day else '%H:%M %a')
+            message = self.switchroom.assignment(
+                self.clock.now(), report.number,
+                report.record.telephone_number, report.symptom, committed)
+            pieces.append(render_message(message, self._stamp()))
+
+        return '\n'.join(pieces)
+
+    def _qualification_block(self, command: str) -> Optional[str]:
+        """
+        Return the wire chief's refusal when a command is not signed off.
+
+        Qualification governed what a craftsperson was allowed to work on, so
+        an unqualified command is refused by a person rather than reported as
+        a missing binary.
+        """
+        needed = self.career.qualification_for_command(command)
+        if needed is None or self.career.is_qualified(needed):
+            return None
+        qualification = QUALIFICATIONS_BY_KEY[needed]
+        remaining = max(
+            0,
+            qualification.requires_reports
+            * self._difficulty().reports_per_qualification
+            - self.career.reports_correct,
+        )
+        return (
+            f"{command}: you are not signed off on {qualification.name}.\n\n"
+            f"{qualification.description}\n\n"
+            f"Correct closures still needed: {remaining}\n"
+            f"Type 'qual' for your craft record."
+        )
+
+    def _grant_qualifications(self) -> List[str]:
+        """Award anything newly earned and return the notices."""
+        notices: List[str] = []
+        for qualification in self.career.grant_available():
+            message = self.switchroom.qualification_notice(
+                self.clock.now(), qualification.name, qualification.unlocks)
+            notices.append(render_message(message, self._stamp()))
+        return notices
+
+    # -- report command --------------------------------------------------
+
+    def cmd_report(self, args: Optional[List[str]] = None) -> str:
+        """Work the repair service bureau's board of customer trouble reports."""
+        args = args or []
+        if not args:
+            return self._show_report_board()
+
+        action = args[0].lower()
+        rest = args[1:]
+
+        if action in ('board', 'list'):
+            return self._show_report_board()
+        if action == 'closed':
+            return self._show_closed_reports()
+        if action == 'faults':
+            return self._show_fault_reference()
+        if action == 'forces':
+            return ('Repair forces a report may be dispatched to:\n  '
+                    + '\n  '.join(DISPATCH_FORCES))
+        if action in ('show', 'detail'):
+            if not rest:
+                return "report: usage: report show <number>"
+            return self._show_report_detail(rest[0])
+        if action == 'dispatch':
+            if len(rest) < 2:
+                return ("report: usage: report dispatch <number> <force>\n"
+                        "Forces: " + ', '.join(DISPATCH_FORCES))
+            return self._dispatch_report(rest[0], ' '.join(rest[1:]))
+        if action == 'close':
+            if not rest:
+                return ("report: usage: report close <number> <5|8> [fault]\n"
+                        "  5  trouble found - name the fault\n"
+                        "  8  no trouble found")
+            return self._close_report(rest[0], rest[1:])
+        if action == 'callback':
+            if not rest:
+                return "report: usage: report callback <number>"
+            return self._report_callback(rest[0])
+
+        return (f"report: unknown option '{args[0]}'\n"
+                "Options: board, show, dispatch, close, callback, closed, "
+                "faults, forces")
+
+    def _show_report_board(self) -> str:
+        """Render the pending list, nearest commitment first."""
+        pending = self.desk.pending()
+        office = self.home_office
+        header = (
+            f"Repair Service Bureau - Pending Trouble Reports\n"
+            f"{office['city']}, {office['state']}  {office['clli']}"
+            f"{' ' * 6}{self.clock.timestamp()}\n"
+            + '=' * 74
+        )
+        if not pending:
+            return (header + "\n\nBoard is clear. Nothing pending.\n\n"
+                    "New reports arrive during the shift. Type 'qual' for "
+                    "your craft record.")
+
+        lines = [
+            header,
+            f"{'#':>2}  {'REPORT':<10} {'TELEPHONE':<14} {'CLS':<5} "
+            f"{'CUSTOMER STATES':<26} {'DUE':>6}  ST",
+            '-' * 74,
+        ]
+        for position, report in enumerate(pending, 1):
+            marker = '!' if report.overdue() else ' '
+            repeat = 'R' if report.repeat_of else ' '
+            lines.append(
+                f"{position:>2}{marker} {report.number:<10} "
+                f"{report.record.telephone_number:<14} "
+                f"{report.record.class_of_service:<5} "
+                f"{report.symptom[:26]:<26} "
+                f"{report.age_label():>6}  {report.status}{repeat}"
+            )
+        lines.append('-' * 74)
+
+        overdue = sum(1 for report in pending if report.overdue())
+        repeats = sum(1 for report in pending if report.repeat_of)
+        lines.append(
+            f"{len(pending)} pending, {overdue} past commitment, "
+            f"{repeats} repeat. Service index {self.career.service_index():.1f} "
+            f"({self.career.index_band()})."
+        )
+        lines.append('')
+        lines.append("report show <n> | mlt <n> | report dispatch <n> <force> "
+                     "| report close <n> <5|8> [fault]")
+        return '\n'.join(lines)
+
+    def _show_report_detail(self, token: str) -> str:
+        """Render one report in full: the line record and everything done to it."""
+        report = self.desk.find(token)
+        if report is None:
+            return f"report: no report matching '{token}'"
+
+        record = report.record
+        class_name = CLASSES_OF_SERVICE.get(record.class_of_service, 'Unknown')
+        lines = [
+            f"{report.number}"
+            f"{' ' * max(1, 40 - len(report.number))}"
+            f"Received {report.received.strftime('%H:%M %a %b %d')}",
+            '=' * 74,
+            'LINE RECORD',
+            f"  Telephone number    {record.telephone_number}",
+            f"  Name                {record.name}",
+            f"  Address             {record.address}",
+            f"  Class of service    {record.class_of_service}  ({class_name})",
+            f"  Cable and pair      {record.cable_pair()}",
+            f"  Frame appearance    H {record.horizontal} / V {record.vertical}",
+            f"  Line equipment      {record.line_equipment}",
+            f"  Office              {record.clli}",
+            '',
+            'REPORT',
+            f"  Customer states     {report.symptom}",
+            f"  Commitment          "
+            f"{report.commitment.strftime('%H:%M %a %b %d')}"
+            f"   ({report.age_label()} "
+            f"{'past' if report.overdue() else 'remaining'})",
+            f"  Status              {report.status}",
+            f"  Time charged        {report.minutes_spent // 60}:"
+            f"{report.minutes_spent % 60:02d}",
+        ]
+        if report.repeat_of:
+            lines.append(f"  Repeat of           {report.repeat_of}")
+        if report.dispatched_to:
+            lines.append(f"  Dispatched to       {report.dispatched_to}")
+
+        lines.extend(['', 'MEASUREMENTS'])
+        if report.test_notes:
+            for note in report.test_notes:
+                lines.append(f"  {note}")
+        else:
+            lines.append("  None. The line has not been tested.")
+            lines.append(f"  Measure it:  mlt {report.number}")
+
+        lines.extend([
+            '',
+            'CLOSE OUT',
+            f"  report close {report.number} 5 <fault>   trouble found",
+            f"  report close {report.number} 8           no trouble found",
+        ])
+        if self._difficulty().require_test_before_close:
+            lines.append("  This shift will not accept a close on a line that "
+                         "has not been measured.")
+        return '\n'.join(lines)
+
+    def _show_closed_reports(self) -> str:
+        """Render what has been closed this session and how it was judged."""
+        closed = self.desk.closed()
+        if not closed:
+            return "No reports closed this session."
+        lines = [
+            "Reports closed this session",
+            '=' * 74,
+            f"{'REPORT':<10} {'TELEPHONE':<14} {'DISP':<5} {'FOUND':<10} "
+            f"{'TRUTH':<10} RESULT",
+            '-' * 74,
+        ]
+        for report in closed:
+            verdict = 'correct' if report.correct else 'WRONG'
+            if report.missed_commitment:
+                verdict += ', missed commitment'
+            lines.append(
+                f"{report.number:<10} {report.record.telephone_number:<14} "
+                f"{'code ' + str(report.disposition):<5} "
+                f"{(report.found or '-'):<10} "
+                f"{report.record.fault:<10} {verdict}"
+            )
+        lines.append('-' * 74)
+        lines.append(
+            f"Closed {self.career.reports_closed}, correct "
+            f"{self.career.reports_correct}, repeats {self.career.repeat_reports}. "
+            f"Service index {self.career.service_index():.1f} "
+            f"({self.career.index_band()})."
+        )
+        return '\n'.join(lines)
+
+    def _show_fault_reference(self) -> str:
+        """Render the fault vocabulary a close out is written against."""
+        lines = [
+            "Trouble conditions and where they live",
+            '=' * 74,
+            f"{'CODE':<10} {'NAME':<26} {'WHERE':<9} DISPATCH",
+            '-' * 74,
+        ]
+        for fault in FAULTS.values():
+            lines.append(
+                f"{fault.code:<10} {fault.name:<26} {fault.where:<9} "
+                f"{fault.dispatch}"
+            )
+        lines.extend([
+            '-' * 74,
+            '',
+            'What each one measures like:',
+            '',
+        ])
+        for fault in FAULTS.values():
+            lines.append(f"  {fault.code:<10} {fault.mlt_signature}")
+        lines.extend([
+            '',
+            "Close a report with 'report close <n> 5 <code>' when you have "
+            "found and",
+            "cleared one of these, or with code 8 when nothing was there.",
+        ])
+        return '\n'.join(lines)
+
+    def _dispatch_report(self, token: str, force: str) -> str:
+        """Send a repair force out and report what they found."""
+        report = self.desk.find(token)
+        if report is None:
+            return f"report: no report matching '{token}'"
+        if report.status == 'CLOSED':
+            return f"{report.number} is already closed."
+
+        canonical = valid_force(force)
+        if canonical is None:
+            return (f"report: '{force}' is not a repair force.\n"
+                    f"Forces: {', '.join(DISPATCH_FORCES)}")
+
+        finding = self.desk.dispatch(report, canonical)
+        if report.field_finding:
+            fault = FAULTS[report.field_finding]
+            called_in = (
+                'nothing wrong at the station, line tests good'
+                if fault.code == 'NONE'
+                else f'{fault.name.lower()} cleared, back in service')
+        else:
+            called_in = (f'nothing at our end. Somebody else has this one, '
+                         f'not {canonical.lower()}')
+        message = self.switchroom.field_call(
+            self.clock.now(), report.number, called_in, force=canonical)
+        self._queue_message(message, after=random.randint(1, 3))
+
+        return (f"{report.number} dispatched to {canonical}.\n"
+                f"{finding}\n"
+                f"Time charged {report.minutes_spent // 60}:"
+                f"{report.minutes_spent % 60:02d} of the commitment "
+                f"({report.age_label()} "
+                f"{'past' if report.overdue() else 'remaining'}).")
+
+    def _close_report(self, token: str, rest: List[str]) -> str:
+        """Close a report against a disposition code and judge the call."""
+        report = self.desk.find(token)
+        if report is None:
+            return f"report: no report matching '{token}'"
+        if report.status == 'CLOSED':
+            return f"{report.number} is already closed."
+        if not rest:
+            return ("report: name a disposition code.\n"
+                    "  5  trouble found - name the fault\n"
+                    "  8  no trouble found")
+
+        try:
+            disposition = int(rest[0])
+        except ValueError:
+            return f"report: '{rest[0]}' is not a disposition code. Use 5 or 8."
+        if disposition not in DISPOSITIONS:
+            return (f"report: code {disposition} is not a disposition this "
+                    f"bureau uses. Use 5 or 8.")
+
+        difficulty = self._difficulty()
+        if difficulty.require_test_before_close and not report.tested:
+            return (f"{report.number} has not been measured.\n\n"
+                    "Verify, locate, repair, verify. This shift will not "
+                    "accept a close on a line\n"
+                    f"nobody tested. Run 'mlt {report.number}' first.")
+
+        found = None
+        if disposition == 5:
+            if not rest[1:]:
+                return ("report: code 5 is trouble found. Name what you "
+                        "found.\n"
+                        f"  report close {report.number} 5 <code>\n"
+                        f"Codes: {', '.join(FAULTS)}")
+            found = rest[1].upper()
+            if found not in FAULTS:
+                return (f"report: '{found}' is not a trouble condition.\n"
+                        f"Codes: {', '.join(FAULTS)}\n"
+                        "Type 'report faults' for what each one means.")
+
+        correct = self.desk.close(
+            report, disposition, found, self.clock.now(),
+            difficulty.count_missed_commitments)
+        self.career.record_closure(correct, report.missed_commitment)
+
+        lines = [
+            f"{report.number} closed, code {disposition} - "
+            f"{disposition_name(disposition)}.",
+        ]
+        if correct:
+            lines.append("The close out matches what was on the line.")
+        else:
+            truth = FAULTS[report.record.fault]
+            if report.record.fault == 'NONE':
+                lines.append("Nothing was actually wrong with that line.")
+            elif disposition == 8:
+                lines.append(f"There was a {truth.name.lower()} on that pair.")
+            else:
+                lines.append(f"That pair had a {truth.name.lower()}, not "
+                             f"{FAULTS[found].name.lower() if found else 'that'}.")
+
+        if report.missed_commitment:
+            lines.append("Commitment was missed. It counts.")
+
+        if self.desk.should_repeat(report, difficulty.repeat_report_chance):
+            repeat = self.desk.repeat(
+                report, self.clock.now(), difficulty.commitment_slack_minutes)
+            self.career.record_repeat()
+            notice = self.switchroom.repeat_notice(
+                self.clock.now(), repeat.number,
+                f"code {disposition}", report.record.telephone_number)
+            self._queue_message(notice, after=random.randint(2, 5))
+
+        lines.append('')
+        lines.append(
+            f"Closed {self.career.reports_closed}, correct "
+            f"{self.career.reports_correct}. Service index "
+            f"{self.career.service_index():.1f} ({self.career.index_band()})."
+        )
+
+        granted = self._grant_qualifications()
+        if granted:
+            lines.append('')
+            lines.extend(granted)
+        return '\n'.join(lines)
+
+    def _report_callback(self, token: str) -> str:
+        """Call the customer back and get more out of them than the card has."""
+        report = self.desk.find(token)
+        if report is None:
+            return f"report: no report matching '{token}'"
+        if report.status == 'CLOSED':
+            return f"{report.number} is already closed."
+
+        report.spend(COST_CALLBACK)
+        fault = FAULTS[report.record.fault]
+        detail = {
+            'OPEN': "It went dead all at once. There was work in the street "
+                    "last week.",
+            'SHORT': "Nothing at all when I pick it up, and my daughter says "
+                     "she gets a busy signal every time.",
+            'GROUND': "There is a hum, worse when it rains, and sometimes it "
+                      "rings once by itself.",
+            'CROSS': "I can hear two other people talking. They can hear me "
+                     "as well.",
+            'WET': "It has been getting worse all week, since the storm. The "
+                   "neighbours have it too.",
+            'FCG': "I get nothing when I dial. The dial tone is there and "
+                   "then it just sits.",
+            'FEMF': "There is a loud buzz, and I felt something off the set "
+                    "once. The power line runs right past.",
+            'ROH': "No, I have not had any trouble calling out. People say "
+                   "they cannot reach me.",
+            'CO_EQUIP': "It never rings. I have tried a different telephone "
+                        "and it does the same thing.",
+            'NONE': "It happened twice on Tuesday and it has been fine since. "
+                    "Perhaps it fixed itself.",
+        }.get(report.record.fault, fault.description)
+
+        return (f"Call back on {report.record.telephone_number} "
+                f"({report.record.name}).\n\n"
+                f"  \"{detail}\"\n\n"
+                f"{COST_CALLBACK} minutes charged. "
+                f"{report.age_label()} "
+                f"{'past' if report.overdue() else 'remaining'}.")
+
+    # -- mechanised loop testing -----------------------------------------
+
+    def cmd_mlt(self, args: Optional[List[str]] = None) -> str:
+        """Measure a subscriber loop and report the readings."""
+        args = args or []
+        if not args:
+            pending = self.desk.pending()
+            if not pending:
+                return ("mlt: name a report or a telephone number.\n"
+                        "Usage: mlt <report number | telephone number>")
+            return ("mlt: name a report or a telephone number.\n"
+                    "Usage: mlt <report number | telephone number>\n\n"
+                    "Pending: "
+                    + ', '.join(report.number for report in pending))
+
+        report = self.desk.find(args[0])
+        if report is None:
+            return (f"mlt: no line record for '{args[0]}'.\n"
+                    "Mechanised loop testing works from the loop assignment "
+                    "record; a\nnumber with no record on this board cannot be "
+                    "reached from here.")
+        if report.status == 'CLOSED':
+            return f"{report.number} is closed. Nothing to test."
+
+        record = report.record
+        name_fault = not self._difficulty().require_test_before_close
+        measurement = measure_loop(
+            record.telephone_number, record.fault, name_fault=name_fault)
+
+        length_kft = round(measurement.distance_miles * 5.28, 1)
+        loop_ohms = measurement.loop_resistance_ohms
+        loop_reading = (f"{loop_ohms:>12,} ohms" if loop_ohms is not None
+                        else f"{'open':>12}")
+        lines = [
+            f"MECHANISED LOOP TEST - {record.telephone_number}",
+            f"{record.clli}  cable {record.cable_pair()}  "
+            f"{self.clock.timestamp()}",
+            '=' * 74,
+            'INSULATION RESISTANCE (loop open, office battery removed)',
+            f"  Tip to ring         {measurement.tip_ring_ohms:>12,} ohms",
+            f"  Tip to ground       {measurement.tip_ground_ohms:>12,} ohms",
+            f"  Ring to ground      {measurement.ring_ground_ohms:>12,} ohms",
+            '',
+            'FOREIGN POTENTIAL (office battery removed)',
+            f"  DC                  {measurement.dc_volts:>12.1f} volts",
+            f"  AC                  {measurement.ac_volts:>12.1f} volts",
+            '',
+            'LOOP',
+            f"  Capacitance         {measurement.capacitance_uf:>12.3f} uF",
+            f"  Implied distance    "
+            f"{distance_to_open(measurement.capacitance_uf):>12.2f} miles "
+            f"({length_kft} kft)",
+            f"  Loop resistance     {loop_reading}",
+            f"  Loop current        {measurement.loop_current_ma:>12.1f} mA",
+            f"  Station termination "
+            f"{'present' if measurement.station_termination else 'ABSENT':>12}",
+            '',
+            f"  {design_note(loop_ohms, length_kft)}",
+        ]
+        if record.class_of_service == 'COIN':
+            lines.append(f"  Coin station: needs {COIN_STATION_CURRENT_MA} mA "
+                         f"to operate.")
+        lines.extend(['', 'TEST RESULT', f"  {measurement.verdict}"])
+        if measurement.suspected:
+            suspected = FAULTS[measurement.suspected]
+            lines.append(f"  System reads this as: {suspected.name} "
+                         f"({suspected.code})")
+            lines.append(f"  Dispatch to: {suspected.dispatch}")
+        else:
+            lines.append("  No condition named. Read the numbers.")
+            lines.append("  'report faults' lists what each condition "
+                         "measures like.")
+
+        loop_note = f"{loop_ohms:,} ohms" if loop_ohms is not None else 'open'
+        note = (f"{self.clock.time()} MLT: insulation T-R "
+                f"{measurement.tip_ring_ohms:,}, "
+                f"T-G {measurement.tip_ground_ohms:,}, "
+                f"R-G {measurement.ring_ground_ohms:,}; "
+                f"C {measurement.capacitance_uf} uF; loop {loop_note}")
+        self.desk.record_test(report, note)
+
+        lines.append('')
+        lines.append(f"Charged to {report.number}. "
+                     f"{report.age_label()} "
+                     f"{'past' if report.overdue() else 'remaining'}.")
+        return '\n'.join(lines)
+
+    # -- test lines ------------------------------------------------------
+
+    def cmd_testline(self, args: Optional[List[str]] = None) -> str:
+        """Reach a test line or responder on a circuit and read the result."""
+        args = args or []
+        if not args:
+            lines = [
+                "Test lines and responders",
+                '=' * 74,
+                tone_header() + '.',
+                '',
+                f"{'CODE':<6} {'ACCESS':<8} {'NAME':<34} MEASURES",
+                '-' * 74,
+            ]
+            for code in TEST_LINE_ORDER:
+                test_line = TEST_LINES[code]
+                lines.append(
+                    f"{test_line.code:<6} {test_line.access:<8} "
+                    f"{test_line.name:<34} {', '.join(test_line.measures)}"
+                )
+            lines.extend([
+                '-' * 74,
+                '',
+                "Usage: testline <code> <circuit>",
+                "       testline 105 TG-001-NYC",
+                '',
+                "Access codes are the simulation's own: real ones were local "
+                "to each office.",
+            ])
+            return '\n'.join(lines)
+
+        code = args[0].upper()
+        if code not in TEST_LINES:
+            return (f"testline: no {args[0]} test line.\n"
+                    f"Codes: {', '.join(TEST_LINE_ORDER)}")
+        if len(args) < 2:
+            test_line = TEST_LINES[code]
+            return (f"{test_line.name}\n"
+                    f"{'=' * 50}\n"
+                    f"Access:    {test_line.access}\n"
+                    f"Direction: {test_line.direction}\n"
+                    f"Measures:  {', '.join(test_line.measures)}\n\n"
+                    f"{test_line.description}\n\n"
+                    f"Usage: testline {code.lower()} <circuit>")
+
+        circuit = args[1].upper()
+        group = self.trunk_groups.get(circuit)
+        degraded = bool(group and (group['status'] != 'ACTIVE'
+                                   or group['quality'] < 0.994))
+        result = access_test_line(code, circuit, degraded=degraded)
+        if result is None:
+            return f"testline: no {code} test line."
+
+        lines = [
+            f"{result.test_line} - {circuit}",
+            f"{tone_header()}   {self.clock.timestamp()}",
+            '=' * 74,
+        ]
+        if result.loss_db is not None:
+            label = ('Return loss' if code == 'BAL' else 'Loss at 1004 Hz')
+            lines.append(f"  {label:<24}{result.loss_db:>8.1f} dB")
+        if result.noise_dbrnc is not None:
+            lines.append(f"  {'Noise':<24}{result.noise_dbrnc:>8.1f} dBrnC")
+        if result.noise_with_tone_dbrnc is not None:
+            lines.append(f"  {'Noise with tone':<24}"
+                         f"{result.noise_with_tone_dbrnc:>8.1f} dBrnC")
+        if result.slope_db is not None:
+            lines.append(f"  {'Gain slope':<24}{result.slope_db:>8.1f} dB")
+        lines.append('')
+        lines.append(f"  {'PASS' if result.passed else 'FAIL'}")
+        for note in result.notes:
+            lines.append(f"  {note}")
+        return '\n'.join(lines)
+
+    # -- craft record ----------------------------------------------------
+
+    def cmd_qual(self, args: Optional[List[str]] = None) -> str:
+        """Show the craft record: difficulty, qualifications and service index."""
+        args = args or []
+        if args and args[0].lower() == 'index':
+            return self._show_service_index()
+
+        career = self.career
+        difficulty = career.difficulty
+        lines = [
+            f"Craft Record - {self.username}",
+            '=' * 74,
+            f"  Difficulty          {difficulty.name}",
+            f"  {' ' * 18}  {difficulty.summary}",
+            f"  Shift               {career.shift}",
+            f"  Reports closed      {career.reports_closed} "
+            f"({career.reports_correct} correct, {career.reports_wrong} wrong)",
+            f"  Repeat reports      {career.repeat_reports}",
+            f"  Missed commitments  {career.missed_commitments}"
+            + ('' if difficulty.count_missed_commitments else '  (not counted)'),
+            f"  Service index       {career.service_index():.1f}  "
+            f"{career.index_band()}",
+            '',
+            'QUALIFICATIONS',
+            '-' * 74,
+        ]
+        for qualification in QUALIFICATIONS:
+            held = career.is_qualified(qualification.key)
+            mark = 'x' if held else ' '
+            lines.append(f"  [{mark}] {qualification.name}")
+            lines.append(f"      {qualification.description}")
+            lines.append(f"      Opens: {', '.join(qualification.unlocks)}")
+            if not held:
+                needed = (qualification.requires_reports
+                          * difficulty.reports_per_qualification
+                          - career.reports_correct)
+                lines.append(f"      Needs {max(0, needed)} more correct "
+                             f"closures.")
+            lines.append('')
+
+        nxt = career.next_qualification()
+        if nxt is None:
+            lines.append("Fully qualified. Every system on this terminal is "
+                         "open to you.")
+        else:
+            lines.append(f"Next: {nxt.name} in "
+                         f"{career.reports_until_next()} correct closures.")
+        lines.extend([
+            '',
+            "Change difficulty with 'set game.difficulty fun' or "
+            "'set game.difficulty craft'.",
+            "'qual index' explains how the index is scored.",
+        ])
+        return '\n'.join(lines)
+
+    def _show_service_index(self) -> str:
+        """Explain the index against the published measurement weights."""
+        career = self.career
+        lines = [
+            "Service index",
+            '=' * 74,
+            "Scored against the weights published in the network switching",
+            "performance measurement plan for No. 1 and No. 1A ESS offices.",
+            "Those weights sum to 100; customer reports carry ten of them, and",
+            "that is the component this simulation scores you on.",
+            '',
+            f"{'COMPONENT':<28} {'CATEGORY':<20} WEIGHT",
+            '-' * 74,
+        ]
+        for key, weight in NSPMP_WEIGHTS.items():
+            label = key.replace('_', ' ').title()
+            lines.append(f"{label:<28} {NSPMP_CATEGORIES[key]:<20} {weight:>3}")
+        lines.extend([
+            '-' * 74,
+            f"{'Total':<49} {sum(NSPMP_WEIGHTS.values()):>3}",
+            '',
+            'YOUR STANDING',
+            f"  Reports closed      {career.reports_closed}",
+            f"  Closed correctly    {career.reports_correct}",
+            f"  Closed wrongly      {career.reports_wrong}",
+            f"  Came back as repeat {career.repeat_reports}",
+            f"  Missed commitments  {career.missed_commitments}",
+            f"  Index               {career.service_index():.1f}  "
+            f"({career.index_band()})",
+        ])
+        if career.index_history:
+            lines.append('')
+            lines.append('  Previous shifts     '
+                         + ', '.join(f"{entry:.1f}"
+                                     for entry in career.index_history[-10:]))
+        lines.extend([
+            '',
+            "A report closed as no trouble found on a line that really was",
+            "faulty counts twice against you: once as a wrong disposition, and",
+            "again when the customer calls back.",
+        ])
+        return '\n'.join(lines)
+
+    # -- messaging channels ----------------------------------------------
+
+    def cmd_write(self, args: Optional[List[str]] = None) -> str:
+        """Send a line to another craftsperson's terminal, as write(1) did."""
+        args = args or []
+        if not args:
+            lines = [
+                "write: usage: write <user> [message]",
+                '',
+                f"{'LOGIN':<12} {'TTY':<5} {'NAME':<16} WHERE",
+                '-' * 66,
+            ]
+            for person in CRAFT.values():
+                lines.append(f"{person.login:<12} tty{person.tty:<2} "
+                             f"{person.name:<16} {person.location}")
+            lines.append('-' * 66)
+            lines.append("Type 'who' for who is on the system.")
+            return '\n'.join(lines)
+
+        login = args[0].lower()
+        person = CRAFT.get(login)
+        if person is None:
+            return f"write: {args[0]} is not logged on."
+        if login == 'carot':
+            return ("write: CAROT is a test system, not a terminal. It prints "
+                    "to you; you\ndo not write back to it.")
+
+        if len(args) == 1:
+            return (f"write: say something.\n"
+                    f"Usage: write {login} <message>\n\n"
+                    f"{person.name}, {person.title}, {person.location}.\n"
+                    f"{person.manner}")
+
+        reply = self._craft_reply(login)
+        return (f"Message sent to {login} tty{person.tty}.\n"
+                f"EOT\n\n"
+                f"Message from {login} tty{person.tty} [{self._stamp()}]...\n"
+                f"{reply}\nEOT")
+
+    def _craft_reply(self, login: str) -> str:
+        """Return what a craftsperson says back when written to."""
+        pending = self.desk.pending()
+        oldest = pending[0] if pending else None
+        replies = {
+            'rjohnson': [
+                "Busy on the frame. If it is a pair, take it to the board.",
+                "I have seen that one. Measure it before you believe it.",
+            ],
+            'mreyes': [
+                f"You have {len(pending)} on your board. I have more coming.",
+                "Tell me something I can put on the card and I will call them.",
+            ],
+            'dpetrak': [
+                "SCC has you. Nothing outstanding from here.",
+                "Keep the order wire clear, we are routining trunks tonight.",
+            ],
+            'lokafor': [
+                "I am up a pole. Make it quick.",
+                "Give me a cable and pair and I will go look at it.",
+            ],
+            'gvasquez': [
+                "Board is yours. Send me a number and I will read it out.",
+                "Capacitance is the distance. That is the whole trick.",
+            ],
+            'ehalloran': [
+                f"Your index is {self.career.service_index():.1f}. "
+                f"{self.career.index_band()}.",
+                "Work what you are signed off on and nothing else.",
+            ],
+            'tnakamura': [
+                "Everything is stated at 1004 Hz. Read it there.",
+                "If a trunk is long on loss, do not put it back in service.",
+            ],
+        }
+        pool = replies.get(login, ["Go ahead."])
+        if oldest is not None and login == 'mreyes':
+            pool.append(f"{oldest.number} is the one I would do first.")
+        return random.choice(pool)
+
+    def cmd_mail(self, args: Optional[List[str]] = None) -> str:
+        """Read the mail the other craft have left, as mail(1) did."""
+        args = args or []
+        if args and args[0].lower() in ('-s', 'send'):
+            return ("mail: this terminal takes mail; it does not originate "
+                    "it.\nUse 'write <user>' to reach somebody now.")
+
+        waiting = self.switchroom.take_mail()
+        if not waiting:
+            return "No mail."
+        rendered = [f"Mail for {self.username}: {len(waiting)} message(s)", '']
+        for message in waiting:
+            rendered.append(render_message(
+                message, message.received.strftime('%a %b %d %H:%M:%S %Y')))
+            rendered.append('-' * 66)
+        return '\n'.join(rendered)
+
+    def cmd_orderwire(self, args: Optional[List[str]] = None) -> str:
+        """Listen on, or speak into, the maintenance order wire."""
+        args = args or []
+        if not args:
+            traffic = [
+                message for message in self.switchroom.log
+                if message.channel == 'orderwire'
+            ][-6:]
+            lines = [
+                "Order wire - maintenance circuit",
+                f"{self.home_office['clli']} to SCC_BEDMINSTER   "
+                f"{self.clock.timestamp()}",
+                '=' * 66,
+            ]
+            if not traffic:
+                lines.append("Circuit quiet. Nothing on the wire.")
+            else:
+                for message in traffic:
+                    lines.append(render_message(
+                        message, message.received.strftime('%H:%M')))
+            lines.extend([
+                '',
+                "Usage: orderwire report <what you are calling in>",
+                "       orderwire scc            raise the control centre",
+            ])
+            return '\n'.join(lines)
+
+        action = args[0].lower()
+        if action == 'scc':
+            pending = len(self.desk.pending())
+            return (f"[ORDER WIRE SCC_BEDMINSTER {self._stamp()}]\n"
+                    f"Petrak, SCC. Go ahead.\n\n"
+                    f"You report {pending} pending and a service index of "
+                    f"{self.career.service_index():.1f}.\n"
+                    f"SCC acknowledges. Nothing outstanding from this end.")
+        if action == 'report':
+            if len(args) < 2:
+                return "orderwire: say what you are reporting."
+            said = ' '.join(args[1:])
+            return (f"[ORDER WIRE {self.home_office['clli']} {self._stamp()}]\n"
+                    f"{self.username}: {said}\n\n"
+                    f"[ORDER WIRE SCC_BEDMINSTER {self._stamp()}]\n"
+                    f"SCC copies. Logged against this office.")
+        return ("orderwire: unknown option. Use 'orderwire', "
+                "'orderwire scc' or\n'orderwire report <text>'.")
 
     def cmd_quit(self, args: Optional[List[str]] = None) -> str:
         """Exit the Bell System terminal session."""

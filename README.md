@@ -53,6 +53,13 @@ python -m bell_system          # Equivalent to `bell-system`
 ## Features
 
 - **12 Authentic Operational Roles** from UNIX Systems Operator to Document Preparation Specialist
+- **A Repair Service Bureau to Work** with customer trouble reports, mechanised
+  loop testing, repair dispatch and the two published disposition codes
+- **Two Difficulties** - Fun Simulation, and I Hate Myself
+- **Qualification-Based Progression** that governs what you are allowed to touch,
+  the way it actually did
+- **The Other Craft On The Wire** reaching you on `write(1)`, `mail(1)`, the
+  order wire and the maintenance teletype
 - **50+ Period-Accurate Commands** with comprehensive functionality and historical accuracy
 - **Role-Specific Command Sets** with shift briefings and workflows for each position
 - **Event and Ticket Management** using authentic Bell System trouble ticket systems
@@ -60,6 +67,86 @@ python -m bell_system          # Equivalent to `bell-system`
 - **Adjustable Fidelity** via the `set` command, period-accurate by default
 - **Historical Documentation** based on Bell System Technical Journal and operations manuals
 - **Pure Python Implementation** using only standard library modules
+
+## The Work
+
+You sit at a test desk. Customer trouble reports arrive on your board with
+nothing on them but the customer's own words, and what is actually on the pair
+is not known until you measure it.
+
+```
+report                       The pending list, nearest commitment first
+report show TR-04471         The line record, the symptom, what has been done
+mlt TR-04471                 Measure the loop
+report dispatch TR-04471 outside plant
+report close TR-04471 5 GROUND       Trouble found, and what it was
+report close TR-04471 8              No trouble found
+```
+
+Codes 5 and 8 are the published Bell System dispositions, counted separately in
+the network switching performance measurement plan. Closing a faulty line as
+code 8 does not fail loudly. It closes - and then the customer calls back, and
+the repeat is on your service index.
+
+Mechanised loop testing gives you insulation resistance on all three
+combinations, loop resistance, foreign potential and capacitance. Local cable
+runs 0.083 microfarads to the mile, so the capacitance reading on an open pair
+is a distance to the break. Transmission goes through the far-end test line
+series - 102-type for loss, 100-type for loss and noise, 105-type for the full
+two-way picture - all at 1004 Hz, because that is the frequency the loss
+objectives were stated at.
+
+### Two Difficulties
+
+```
+set game.difficulty fun      Fun Simulation
+set game.difficulty craft    I Hate Myself
+```
+
+**Fun Simulation** is forgiving. Loop testing names the fault it reads, you may
+close a report you never measured, a wrong call costs you little, commitments
+are not counted against you, and qualification comes quickly.
+
+**I Hate Myself** is close to the job. Loop testing prints the numbers and
+nothing else, because reading them is the work. A report cannot be closed until
+it has been measured. Wrongly closed lines come back as repeat reports at a
+rate you will not enjoy. Missed commitments count. Qualification is four times
+slower, and the rest of the building interrupts you four times as often.
+
+### Progression
+
+What a craftsperson was allowed to work on was governed by qualification. You
+start signed off on Loop and Station, plus whatever your assigned position
+carries, and earn the rest a correctly closed report at a time:
+
+```
+Loop and Station              report, mlt, trouble, testboard, testline
+Main Distributing Frame       cosmos, lmos
+Central Office Switching      switch, alarm, crossbar, 3a
+Switching Control Center      sarts, orderwire
+Interoffice Trunks            trunk, routing, dialtone
+Toll Network                  toll, tnds, traffic
+```
+
+Type `qual` for your craft record and `qual index` for the measurement weights
+the service index is scored against. `handoff relieve` signs off the shift and
+banks the index; work you did not finish carries to the next one.
+
+### The Other Craft
+
+You are not alone on the system. The repair service attendant puts reports on
+your board and asks what she should tell the customer. The wire chief reads your
+index every morning. The cable splicer calls in from a terminal box and does not
+have all day. CAROT routines the trunk groups all night and prints its
+exceptions to the maintenance teletype whether anybody is reading or not.
+
+```
+who                          Who is on the system
+write gvasquez <message>     Interrupt somebody's terminal, as write(1) did
+mail                         What is waiting for you
+orderwire                    The maintenance circuit to the control centre
+set game.ambience off        Silence, if you want it
+```
 
 ## Accuracy and Playability
 
@@ -79,6 +166,8 @@ set date.source real         Use your own system clock instead of 1983
 set date.epoch 1978-06-01    Run the shift on a different date
 set display.charset unicode  Allow block and box-drawing glyphs
 set display.prompt verbose   Add user, host and directory to the prompt
+set game.difficulty craft    Work the shift the hard way
+set game.ambience off        Stop the other craft interrupting you
 set reset                    Restore period-accurate defaults
 ```
 
@@ -137,6 +226,10 @@ bell-system --help
 │       ├── settings.py              # User-adjustable simulation settings
 │       ├── clock.py                 # Simulated 1983 shift clock
 │       ├── console.py               # Terminal output and character set
+│       ├── progression.py           # Difficulty, qualification, service index
+│       ├── reports.py               # Customer trouble reports and the bureau
+│       ├── loop_testing.py          # Loop measurement and test lines
+│       ├── npc.py                   # The other craft, and their channels
 │       ├── terminal.py              # Main 12-role Bell System terminal
 │       ├── simple_terminal.py       # Four-role simplified terminal
 │       ├── tutorial.py              # Interactive tutorial system

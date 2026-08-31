@@ -345,6 +345,154 @@ COMMANDS
      who
          Display currently logged-in users
 
+THE REPAIR SERVICE BUREAU
+     A customer trouble report arrives on your board with nothing on it but
+     the customer's own words. What is actually on the pair is not known
+     until it is measured. Engineering and Operations in the Bell System
+     gives the corrective maintenance sequence as detect, notify, verify,
+     locate, repair, verify, and says plainly that locating the trouble is
+     the most difficult and time consuming step. That is the shape of this
+     work.
+
+     report
+         The pending list, nearest commitment first
+
+     report show <n>
+         The line record, what the customer said, and what has been done
+
+     report callback <n>
+         Telephone the customer for more than the card carries
+
+     report dispatch <n> <force>
+         Send a repair force. The wrong force costs forty-five minutes and
+         the trouble is still there
+
+     report close <n> 5 <fault>
+         Trouble found. Name the condition you found and cleared
+
+     report close <n> 8
+         No trouble found. Closed without a repair
+
+     Codes 5 and 8 are published Bell System dispositions, counted
+     separately in the network switching performance measurement plan.
+     Closing a faulty line as code 8 does not fail loudly. It closes, and
+     then the customer calls back - and that repeat is what the plan was
+     counting.
+
+     A report answers to its number (TR-04471), to the telephone number on
+     it, or to its position on the board.
+
+MECHANISED LOOP TESTING
+     mlt <report or telephone number>
+
+     Two different measurements are reported and they must not be confused.
+     Insulation resistance is taken with the loop open and the office
+     battery removed; it is high on a healthy pair and low wherever a fault
+     is bridging something. Which of tip-ring, tip-ground and ring-ground
+     is low is what tells you what the fault is. Loop resistance is the
+     resistance of the pair itself with the loop closed, and it is the
+     number the 1300-ohm design limit applies to.
+
+     Capacitance is the third reading and the most useful one. Local
+     exchange cable runs 0.083 microfarads to the mile, so a capacitance
+     measurement on an open pair is a distance to the break.
+
+     Infinite tip to ring, no station termination      open
+     Near zero tip to ring                             short
+     One conductor low to ground, tip-ring normal      ground
+     Foreign potential with no battery applied         foreign EMF
+     Several pairs low in one cable                    wet cable
+     Within limits, loop closed, current flowing       receiver off hook
+     Clean to the frame, customer still cut off        office equipment
+
+TRANSMISSION TESTING
+     testline [code] [circuit]
+
+     The Bell System Technical Journal for April 1982 names the far-end
+     test line series: the 102-type for a one-way loss measurement, the
+     100-type for one-way loss and noise, and the 105-type responder for
+     two-way loss, noise, noise with tone and gain slope. The balance test
+     line connects the balance termination so office balance can be
+     measured, and the remote office test line seizes a trunk from the far
+     office under command and connects it to a 52A responder.
+
+     Every loss reading is taken at 1004 Hz, because that is the frequency
+     the Bell System stated its loss objectives at.
+
+     CAROT - Centralized Automatic Reporting On Trunks - drives the remote
+     office test line with multifrequency signalling and routines trunk
+     groups without anybody asking it to. Its exceptions print to the
+     maintenance teletype.
+
+     testboard supervision <trunk group> reads what single frequency
+     signalling says about a trunk. The 2600 Hz tone is on an idle trunk
+     and removed when the trunk is seized, which makes the tone a
+     supervisory signal a craftsperson reads directly. Tone present while a
+     connection is up is an irregularity; report it and hold the circuit
+     out of service.
+
+DIFFICULTY
+     set game.difficulty fun
+         Fun Simulation. Loop testing names the fault it reads, a report
+         may be closed without measuring, a wrong call costs little,
+         commitments are not counted, and qualification comes quickly.
+
+     set game.difficulty craft
+         I Hate Myself. Loop testing prints the numbers and nothing else. A
+         report cannot be closed until it has been measured. Wrongly closed
+         lines come back as repeats. Missed commitments count.
+         Qualification is four times slower and the building interrupts you
+         four times as often.
+
+     set game.ambience off
+         Silence the other craft.
+
+QUALIFICATION AND THE SERVICE INDEX
+     What a craftsperson was allowed to work on was governed by
+     qualification. You start signed off on Loop and Station, plus whatever
+     your assigned position carries, and earn the rest a correctly closed
+     report at a time.
+
+     Loop and Station              report, mlt, trouble, testboard,
+                                   testline
+     Main Distributing Frame       cosmos, lmos
+     Central Office Switching      switch, alarm, crossbar, 3a
+     Switching Control Center      sarts, orderwire
+     Interoffice Trunks            trunk, routing, dialtone
+     Toll Network                  toll, tnds, traffic
+
+     qual          The craft record
+     qual index    The measurement weights the index is scored against
+
+     The service index is scored against the weights published in the
+     network switching performance measurement plan for No. 1 and No. 1A
+     ESS offices. Those weights sum to 100; customer reports carry ten of
+     them, and that is the component scored here.
+
+     handoff relieve signs off the shift, banks the index and starts a new
+     board. Work you did not finish carries forward.
+
+THE OTHER CRAFT
+     You are not alone on the system. Four channels reach you, each
+     period-correct:
+
+     write(1)        Terminal to terminal on the same UNIX system.
+                     Interrupts you where you sit.
+     mail(1)         Reaches you whether you are at the terminal or not.
+     order wire      The maintenance circuit between offices, the field and
+                     the switching control centre.
+     teletype        The switching machine's maintenance TTY, printing on
+                     its own schedule. Nobody sends these; the office does.
+
+     who                        Who is on the system
+     write <user> <message>     Interrupt somebody's terminal
+     mail                       What is waiting for you
+     orderwire                  The maintenance circuit
+
+     The people are invented. The jobs, the places and the things they say
+     about the plant are drawn from the operations the bundled documents
+     describe.
+
 PROJECT NUMBERING SYSTEM
      The simulation uses authentic Bell System project numbering:
      

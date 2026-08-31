@@ -256,41 +256,6 @@ BELL SYSTEM PRACTICES
      BSP 100-255-100 - Operator Performance Standards
 """,
 
-    "testboard": """
-NAME
-     testboard - Line testing equipment operations
-
-SYNOPSIS
-     testboard [test|status|schedule] [line-number|test-type]
-
-DESCRIPTION
-     Operate central office test equipment for subscriber line testing,
-     trunk testing, and circuit analysis. Provides automated and manual
-     testing capabilities for fault isolation and service verification.
-
-OPTIONS
-     test            Execute specific line or trunk test
-     status          Display testboard equipment status
-     schedule        Schedule routine testing procedures
-
-TEST TYPES
-     SUBSCRIPTION    Basic service verification test
-     METALLIC        DC resistance and insulation testing
-     TRANSMISSION    Loss, noise, and distortion measurements
-     SIGNALING       Dial tone, ringing, and supervision tests
-
-EXAMPLES
-     testboard test 212-555-1234     Test customer line
-     testboard status TB-01          Check testboard status
-     testboard schedule weekly       Schedule routine tests
-
-SEE ALSO
-     sarts(1), alarm(1), maintenance(1)
-
-BELL SYSTEM PRACTICES
-     BSP 103-101-001 - Testboard Operations
-     BSP 103-101-100 - Line Testing Procedures
-""",
 
     "tnds": """
 NAME
@@ -2620,5 +2585,326 @@ NOTES
 
 SEE ALSO
      clli(1), switch(1), trouble(1)
+""",
+    "report": """
+NAME
+     report - work the repair service bureau's board of customer trouble
+     reports
+
+SYNOPSIS
+     report [board]
+     report show <number>
+     report callback <number>
+     report dispatch <number> <force>
+     report close <number> <5|8> [fault]
+     report closed | faults | forces
+
+DESCRIPTION
+     A customer trouble report arrives with nothing but the customer's own
+     words. What is actually on the pair is not known until it is measured,
+     and locating the trouble is described in Engineering and Operations in
+     the Bell System as the most difficult and time consuming step of
+     corrective maintenance. That is the work this command is for.
+
+     The sequence is detect, notify, verify, locate, repair, verify. The
+     bureau has done the first two by the time a report reaches your board.
+     The rest is yours.
+
+OPTIONS
+     board             The pending list, nearest commitment first
+     show <n>          The line record, the symptom and everything done so far
+     callback <n>      Telephone the customer for more than the card carries
+     dispatch <n> <f>  Send a repair force. The wrong force costs time
+     close <n> 5 <c>   Trouble found. Name the condition you found
+     close <n> 8       No trouble found
+     closed            What has been closed this session, and how it was judged
+     faults            The trouble conditions and what each measures like
+     forces            The repair forces a report may be dispatched to
+
+DISPOSITION CODES
+     Two codes are used, and both are published Bell System dispositions
+     counted separately in the network switching performance measurement
+     plan:
+
+     5    Trouble found. A fault was located and corrected.
+     8    No trouble found. The report is closed without a repair.
+
+     Closing a faulty line as code 8 does not fail loudly. It closes, and
+     then the customer calls back. That repeat is what the measurement plan
+     was counting.
+
+REFERRING TO A REPORT
+     A report answers to its number (TR-04471), to the telephone number on
+     it, or to its position on the board (1, 2, 3).
+
+TIME
+     Every action is charged against the report's commitment: a measurement
+     costs four minutes, a call back eight, a repair as long as that repair
+     takes, and a trip by the wrong force forty-five. The commitment
+     intervals and these costs are the simulation's own; no bundled source
+     states the Bell System's actual commitment policy.
+
+SEE ALSO
+     mlt(1), testboard(1), testline(1), qual(1), trouble(1)
+""",
+    "mlt": """
+NAME
+     mlt - mechanised loop testing
+
+SYNOPSIS
+     mlt <report number | telephone number>
+
+DESCRIPTION
+     Measure a subscriber loop from the test desk and report the readings.
+     Two different measurements are reported and they must not be confused.
+
+     Insulation resistance is taken with the loop open and the office
+     battery removed. It is high on a healthy pair - hundreds of thousands
+     of ohms or more - and low wherever a fault is bridging something. Tip
+     to ring, tip to ground and ring to ground are each read separately,
+     because which one is low is what tells you what the fault is.
+
+     Loop resistance is the resistance of the pair itself with the loop
+     closed. It is the number the 1300-ohm design limit applies to, and an
+     open pair has none to read.
+
+     Capacitance is the third reading and the most useful one. Local
+     exchange cable runs 0.083 microfarads to the mile, so a capacitance
+     measurement on an open pair is a distance to the break.
+
+READING THE RESULT
+     Infinite tip to ring, no station termination      open
+     Near zero tip to ring                             short
+     One conductor low to ground, tip to ring normal   ground
+     Foreign potential with no battery applied         foreign EMF
+     Several pairs low in one cable                    wet cable
+     Everything within limits, loop closed, current    receiver off hook
+     Loop clean to the frame, customer still cut off   office equipment
+
+DESIGN LIMITS
+     Loops of 18 kft or less were designed to 1300 ohms maximum and
+     nonloaded. Loops between 18 and 24 kft were designed to 1500 ohms with
+     H88 loading. Anything longer went on digital loop carrier. A coin
+     station needs 23 milliamperes to operate, which puts its own range
+     limit at the same 1300 ohms, about three miles.
+
+DIFFICULTY
+     On the forgiving setting the system names the condition it reads. On
+     the other one it prints the numbers and nothing else, because reading
+     them is the job.
+
+NOTES
+     The abbreviation table in Engineering and Operations expands MLT as
+     "mechanical loop testing". The system was more widely called Mechanized
+     Loop Testing. The conflict is recorded here rather than resolved.
+
+SEE ALSO
+     report(1), testboard(1), testline(1)
+""",
+    "testline": """
+NAME
+     testline - reach a test line or responder and read the result
+
+SYNOPSIS
+     testline
+     testline <code>
+     testline <code> <circuit>
+
+DESCRIPTION
+     Transmission testing is done against equipment at the far end of the
+     circuit that answers automatically. The Bell System Technical Journal
+     for April 1982 names the series:
+
+     102-type   Far-end test line for a one-way loss measurement
+     100-type   Far-end test line for one-way loss and noise
+     105-type   Responder giving two-way loss, noise, noise with tone and
+                gain slope
+     Balance    Connects the balance termination so office balance can be
+                measured
+     ROTL       Remote office test line. Seizes a trunk from the far office
+                under command and connects it to a 52A responder
+
+     Every loss reading is taken at 1004 Hz, because that is the frequency
+     the Bell System stated its loss objectives at. A reading at any other
+     frequency is not measuring what the objective is written against.
+
+CAROT
+     Centralized Automatic Reporting On Trunks drives the remote office test
+     line with multifrequency signalling and routines trunk groups without
+     anybody asking it to. Its exceptions print to the maintenance teletype.
+     The processor controlled interrogator works the same equipment from the
+     local office or a switching control centre when CAROT is not involved.
+
+NOTES
+     The access codes shown are the simulation's own. Real test line access
+     codes were local to each office and carried in office records, not in
+     any national list.
+
+SEE ALSO
+     testboard(1), trunk(1), mlt(1)
+""",
+    "qual": """
+NAME
+     qual - craft record, qualifications and service index
+
+SYNOPSIS
+     qual
+     qual index
+
+DESCRIPTION
+     What a craftsperson was allowed to work on was governed by
+     qualification, not by seniority or by asking nicely. This command shows
+     which sign-offs you hold, which you are working toward, and how the
+     work you have done is scoring.
+
+     The position you were assigned to carries its own sign-off. Everything
+     beyond that desk is earned a correctly closed report at a time.
+
+QUALIFICATIONS
+     Loop and Station              report, mlt, trouble, testboard, testline
+     Main Distributing Frame       cosmos, lmos
+     Central Office Switching      switch, alarm, crossbar, 3a
+     Switching Control Center      sarts, orderwire
+     Interoffice Trunks            trunk, routing, dialtone
+     Toll Network                  toll, tnds, traffic
+
+SERVICE INDEX
+     Scored against the weights published in the network switching
+     performance measurement plan for No. 1 and No. 1A ESS offices. Those
+     weights sum to 100 and customer reports carry ten of them, which is the
+     component scored here. 'qual index' prints the whole weighting.
+
+     A report closed as no trouble found on a line that really was faulty
+     counts twice against you: once as a wrong disposition and again when
+     the customer calls back.
+
+DIFFICULTY
+     set game.difficulty fun      Fun Simulation. Close without measuring,
+                                  advance quickly, a wrong call costs little
+     set game.difficulty craft    I Hate Myself. Measure before you close,
+                                  repeats come back on your index,
+                                  commitments count, qualification is slow
+
+SEE ALSO
+     report(1), set(1), handoff(1)
+""",
+    "write": """
+NAME
+     write - write to another user
+
+SYNOPSIS
+     write <user> [message]
+
+DESCRIPTION
+     Write copies lines from your terminal to that of another user. The
+     Seventh Edition form is followed: the recipient sees a banner naming
+     the sender and the terminal it came from, and EOT ends the message.
+
+     The other craft on this system are working too, and they answer.
+
+USERS
+     rjohnson    Switching Equipment Technician, central office
+     mreyes      Repair Service Attendant, repair service bureau
+     dpetrak     SCC Maintenance Administrator, switching control centre
+     lokafor     Cable Splicer, in the field
+     gvasquez    Testboard Technician, test centre
+     ehalloran   Wire Chief, central office
+     tnakamura   Transmission Engineer, transmission centre
+     carot       Not a person. Prints to you; does not read
+
+SEE ALSO
+     who(1), mail(1), orderwire(1)
+""",
+    "mail": """
+NAME
+     mail - read mail left by the other craft
+
+SYNOPSIS
+     mail
+
+DESCRIPTION
+     Mail reaches you whether you are at the terminal or not, which is what
+     it is for. Reading it empties the mailbox, as mail(1) does.
+
+     Qualification sign-offs from the wire chief arrive here, along with
+     whatever the transmission engineer and the switching control centre
+     want on the record rather than shouted across the room.
+
+     This terminal takes mail; it does not originate it. Use write(1) to
+     reach somebody now.
+
+SEE ALSO
+     write(1), who(1), qual(1)
+""",
+    "orderwire": """
+NAME
+     orderwire - the maintenance order wire
+
+SYNOPSIS
+     orderwire
+     orderwire scc
+     orderwire report <text>
+
+DESCRIPTION
+     The order wire is the maintenance circuit between an office, the field
+     and the switching control centre. In the plant it was voice; here it is
+     the words that went over it.
+
+     Field forces call in on it, the control centre raises the office on it,
+     and transmission announces its routines on it so a craftsperson does
+     not chase a trunk that is only being tested.
+
+OPTIONS
+     (none)            The last traffic on the wire
+     scc               Raise the switching control centre
+     report <text>     Call something in and have it logged against the
+                       office
+
+QUALIFICATION
+     Working the order wire requires the Switching Control Center sign-off.
+     Traffic on the wire reaches you before then; speaking on it does not.
+
+SEE ALSO
+     write(1), qual(1), sarts(1)
+""",
+    "testboard": """
+NAME
+     testboard - central office test board
+
+SYNOPSIS
+     testboard
+     testboard loop <report>
+     testboard supervision <circuit>
+     testboard results
+
+DESCRIPTION
+     The board is where the three testing systems meet. Loop measurement
+     goes through mechanised loop testing, transmission goes through the
+     test line series, and supervision is what single frequency signalling
+     shows about a trunk.
+
+OPTIONS
+     loop <report>          Measure a subscriber loop. Same as mlt(1)
+     supervision <circuit>  Single frequency supervision state of a trunk
+     results                Every measurement taken this session
+     status                 Board status and what is on it
+
+SUPERVISION
+     Single frequency signalling puts 2600 Hz on a trunk while it is idle
+     and removes it when the trunk is seized. That makes the tone a
+     supervisory signal a craftsperson reads directly:
+
+     Tone on, trunk idle                normal
+     Tone off, trunk seized             normal
+     Tone on far end only               far end released, near end has not
+     Tone present during a connection   irregularity. Report it and hold the
+                                        circuit out of service
+
+     Routine testing of these groups is run by CAROT, which reports its
+     exceptions to the maintenance teletype whether anybody is reading or
+     not.
+
+SEE ALSO
+     mlt(1), testline(1), report(1), trunk(1)
 """,
 }

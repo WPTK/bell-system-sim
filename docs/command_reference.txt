@@ -22,6 +22,65 @@ ticket <action> [args]  Trouble ticket management system
   Syntax: ticket create | ticket status | ticket <number>
   Example: ticket create | ticket T-83047
 
+REPAIR SERVICE BUREAU
+---------------------
+report                  Pending customer trouble reports, nearest commitment
+                        first
+  Syntax: report | report show <n> | report callback <n>
+          report dispatch <n> <force> | report close <n> <5|8> [fault]
+          report closed | report faults | report forces
+  Example: report | report show TR-04471 | report close TR-04471 5 GROUND
+
+  A report answers to its number, to the telephone number on it, or to its
+  position on the board. Disposition code 5 is trouble found and needs the
+  fault named; code 8 is no trouble found. Closing a faulty line as code 8
+  brings the customer back as a repeat report.
+
+mlt <report|number>     Mechanised loop testing
+  Syntax: mlt <report number | telephone number>
+  Example: mlt TR-04471 | mlt 201-555-9455
+
+  Reports insulation resistance (tip-ring, tip-ground, ring-ground), loop
+  resistance, capacitance and foreign potential. Local cable is 0.083 uF to
+  the mile, so capacitance on an open pair is a distance to the break.
+
+testline [code] [ckt]   Far-end test lines and responders
+  Syntax: testline | testline <code> | testline <code> <circuit>
+  Example: testline 105 TG-023-BOS | testline rotl TG-001-NYC
+
+  102-type loss; 100-type loss and noise; 105-type two-way loss, noise,
+  noise with tone and gain slope; balance test line; remote office test
+  line. Every loss reading is taken at 1004 Hz.
+
+qual [index]            Craft record, qualifications and service index
+  Syntax: qual | qual index
+  Example: qual
+
+  Qualification governs what you may work on. You start on Loop and Station
+  plus whatever your assigned position carries, and earn the rest a
+  correctly closed report at a time.
+
+DIFFICULTY
+----------
+set game.difficulty fun     Fun Simulation. Close reports without measuring,
+                            advance quickly, a wrong call costs little
+set game.difficulty craft   I Hate Myself. Measure before you close, repeat
+                            reports come back on your index, commitments are
+                            counted, and qualification is slow
+set game.ambience off       Silence the other craft
+
+THE OTHER CRAFT
+---------------
+who                     Who is logged on, and what they do
+write <user> [message]  Write to another terminal, as write(1) did
+mail                    Read mail left for you
+orderwire [scc|report]  The maintenance order wire to the control centre
+
+  Traffic reaches you on four channels: write(1) interrupts your terminal,
+  mail(1) waits, the order wire carries the field and the switching control
+  centre, and the maintenance teletype prints CAROT's exceptions whether
+  anybody is reading or not.
+
 SYSTEM INFORMATION
 ------------------
 ps                      Display running Bell System processes
@@ -45,9 +104,9 @@ trunk <action>          Trunk status and management
   Syntax: trunk status | trunk test <trunk>
   Example: trunk status | trunk test T1-NYC-001
 
-testboard <action>      Line testing equipment
-  Syntax: testboard status | testboard test <line>
-  Example: testboard status | testboard test 212-555-1234
+testboard <action>      Central office test board
+  Syntax: testboard | testboard loop <report> | testboard supervision <tg>
+  Example: testboard loop TR-04471 | testboard supervision TG-001-NYC
 
 TRANSMISSION SYSTEMS
 --------------------

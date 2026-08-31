@@ -47,6 +47,37 @@
 - **Command Suggestions**: Near-miss and typo suggestions on unknown commands
 - **Static Data**: Manual page text lives in `src/bell_system/data/`
 
+### Repair Service Bureau (`src/bell_system/reports.py`)
+
+Owns the pending board of customer trouble reports and the rules for working
+it: report generation with a hidden electrical fault, commitment intervals that
+lengthen with the backlog, dispatch to a repair force, and close out against
+disposition code 5 or 8. It knows nothing about the terminal - it returns
+state, and the terminal renders it.
+
+### Loop and Transmission Testing (`src/bell_system/loop_testing.py`)
+
+Turns a fault into readings. Insulation resistance and loop resistance are kept
+strictly apart, because they are different measurements taken different ways
+and only one of them is what the 1300-ohm design limit applies to. Readings are
+seeded from the line's own number, so a pair measures the same every time it is
+tested rather than re-rolling under a retest. Also holds the far-end test line
+series and single frequency supervision states.
+
+### Progression (`src/bell_system/progression.py`)
+
+Difficulty profiles, the qualification ladder, the service index and the
+persistent career record. Qualification is the progression mechanic because it
+is what actually governed what a craftsperson could touch. The index is scored
+against the network switching performance measurement plan weights.
+
+### The Other Craft (`src/bell_system/npc.py`)
+
+The people on the other end of the four messaging channels - `write(1)`,
+`mail(1)`, the order wire and the maintenance teletype - and the traffic they
+generate. Rate is set by the active difficulty; `set game.ambience off` silences
+it entirely.
+
 ### Alternative Interface (`src/bell_system/simple_terminal.py`)
 - **Simplified Version**: Four-role Bell System interface (`SimpleTerminal`)
 - **Core Commands**: Essential UNIX and Bell System operations

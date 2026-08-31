@@ -106,6 +106,40 @@ BELL_SYSTEM_ROLES = {
 }
 ```
 
+## Simulation State
+
+A constructed `BellSystemTerminal` carries the gameplay state as attributes:
+
+| Attribute | Type | What it holds |
+| --- | --- | --- |
+| `career` | `progression.Career` | Difficulty, qualifications, service index, persisted between shifts |
+| `desk` | `reports.ReportDesk` | The pending board of customer trouble reports |
+| `switchroom` | `npc.Switchroom` | The other craft and the traffic they generate |
+| `home_office` | `dict` | The wire centre the desk generates reports for |
+
+```python
+from bell_system.terminal import BellSystemTerminal
+
+terminal = BellSystemTerminal()
+
+# What is on the board, and what is actually wrong with each line.
+for report in terminal.desk.pending():
+    print(report.number, report.record.telephone_number, report.record.fault)
+
+# Difficulty is a setting; the career mirrors it.
+terminal.execute_command('set game.difficulty craft')
+assert terminal.career.difficulty.require_test_before_close
+
+# Qualification gates commands before they are dispatched.
+terminal.career.may_use('tnds')          # False for a new career
+terminal.career.qualification_for_command('tnds')   # 'toll'
+```
+
+Two settings exist for programmatic use as much as for players:
+`game.difficulty` (`fun` or `craft`) and `game.ambience` (`on` or `off`).
+Turning ambience off makes command output deterministic, which is what the test
+suite's `terminal` fixture does.
+
 ## Command Categories
 
 ### System Commands

@@ -41,10 +41,19 @@ def test_no_imports_stranded_in_docstring(path):
     """
     tree = ast.parse(path.read_text())
     docstring = ast.get_docstring(tree) or ''
-    offenders = [
-        line for line in docstring.splitlines()
-        if line.startswith(('import ', 'from ')) and ' ' in line
-    ]
+    offenders = []
+    for line in docstring.splitlines():
+        if not line.startswith(('import ', 'from ')):
+            continue
+        # Prose can begin with those words. Only a line that actually parses
+        # as an import statement is the defect this guards against.
+        try:
+            parsed = ast.parse(line.strip())
+        except SyntaxError:
+            continue
+        if parsed.body and isinstance(parsed.body[0],
+                                      (ast.Import, ast.ImportFrom)):
+            offenders.append(line)
     assert not offenders, f'{path.name} has imports inside its docstring: {offenders}'
 
 

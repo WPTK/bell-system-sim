@@ -5,6 +5,85 @@ All notable changes to the Bell System UNIX V7 Terminal Simulation project will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added - Gameplay: the work, the difficulty and the other craft
+
+- **The repair service bureau.** Customer trouble reports arrive on a pending
+  board carrying a hidden electrical fault. Commitment intervals lengthen with
+  the backlog; every action is charged against them. Reports close against
+  disposition code 5 (trouble found, name the fault) or code 8 (no trouble
+  found) - the two published Bell System dispositions, counted separately in
+  the network switching performance measurement plan. Closing a faulty line as
+  code 8 brings the customer back as a repeat report.
+- **Mechanised loop testing.** `mlt` reports insulation resistance on all three
+  combinations, loop resistance, foreign potential and capacitance. Insulation
+  and loop resistance are kept strictly apart, because they are different
+  measurements and only one of them is what the 1300-ohm design limit applies
+  to. Capacitance converts to distance at the documented 0.083 uF per mile for
+  local exchange cable. Readings are seeded from the line's own number, so a
+  pair measures the same on every retest.
+- **Far-end test lines.** The 100, 102 and 105-type series, the balance test
+  line and the remote office test line, all measured at 1004 Hz. Test line
+  types and their measurements are attested in the Bell System Technical
+  Journal for April 1982; the dialable access codes are the simulation's own
+  and are marked as such, because real ones were local to each office.
+- **Single frequency supervision.** `testboard supervision` reads the 2600 Hz
+  supervisory state of a trunk. Tone on when idle, off when seized, and tone
+  present during a connection is the irregularity routine testing looks for.
+- **Two difficulties.** `set game.difficulty fun` for Fun Simulation and
+  `set game.difficulty craft` for I Hate Myself. The harder setting withholds
+  the fault name from loop testing, refuses a close on an unmeasured line,
+  brings wrongly closed lines back at a much higher rate, counts missed
+  commitments, quadruples the qualification requirement and quadruples how
+  often the rest of the building interrupts you.
+- **Qualification-based progression.** Six qualifications gate the commands
+  they open. A new craftsperson holds Loop and Station plus whatever their
+  assigned position carries, and earns the rest a correctly closed report at a
+  time. `qual` shows the craft record; `qual index` shows the measurement
+  weights the service index is scored against.
+- **A persistent career.** Difficulty, qualifications, closure counts and the
+  index history survive between sessions in `career.json` beside the settings,
+  and tolerate a missing or damaged file the same way the settings do.
+- **Shift handoff that carries state.** `handoff relieve` banks the service
+  index against the shift, advances the shift count and opens a new board;
+  unfinished work carries forward.
+- **The other craft, on four period channels.** `write(1)` interrupts your
+  terminal in the Seventh Edition form, `mail(1)` waits for you, the order wire
+  carries the field forces and the switching control centre, and the
+  maintenance teletype prints CAROT's exceptions whether anybody is reading or
+  not. `who` and `write` now list the same eight people.
+- **`set game.ambience off`** for players who want the terminal to themselves.
+
+### Changed
+
+- `testboard` is a working board rather than a fixed screen: it measures loops,
+  reaches test lines and reads supervision.
+- `who` lists the craft roster with job titles, and everyone it lists can
+  actually be written to.
+
+### Fixed
+
+- The module integrity guard no longer flags ordinary prose that begins with
+  the word "from" as an import stranded in a docstring.
+
+### Notes on provenance
+
+Attested and used: the corrective maintenance sequence; disposition codes 5 and
+8; the measurement plan weights; the electrical fault vocabulary; the
+100/102/105-type test line series and their measurements; the remote office
+test line, the 52A responder, CAROT and the processor controlled interrogator;
+1004 Hz as the frequency loss objectives are stated at; 0.083 uF per mile local
+cable capacitance; the 1300-ohm and 1500-ohm loop design limits with their
+length bands; 23 mA for coin station operation.
+
+Marked in source as the simulation's own, not claimed as Bell practice: the
+customer-facing trouble category wording (the real attendant's list most likely
+lives in a Bell System Practice from division 660, which was not reachable);
+test line access codes; commitment intervals and per-action time costs; the
+transmission working limits; the loop resistance per mile, which is derived
+from the documented "1300 ohms, typically about three miles" rather than quoted.
+
 ## [3.0.0] - 2025-05-27
 
 ### MAJOR RELEASE: COMPREHENSIVE COMMAND VALIDATION & CRITICAL ERROR RESOLUTION
