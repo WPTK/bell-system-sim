@@ -10,9 +10,10 @@ simulation and provides step-by-step guided learning.
 Run this tutorial BEFORE using the main Bell System simulation.
 """
 
-import os
 import sys
 import time
+
+from .console import clear_screen
 from typing import List
 
 
@@ -38,7 +39,7 @@ class BellSystemTutorial:
 
     def clear_screen(self):
         """Clear terminal screen"""
-        os.system('cls' if os.name == 'nt' else 'clear')
+        clear_screen()
 
     def type_effect(self, text: str, delay: float = 0.03):
         """Display text with typewriter effect"""

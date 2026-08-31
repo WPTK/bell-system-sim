@@ -10,8 +10,9 @@ A compact four-role terminal offering genuine filesystem exploration
 Four roles: Systems Operator, Switching Technician, Field Liaison, NOC Analyst.
 """
 
-import os
 from datetime import datetime
+
+from .console import clear_screen
 
 
 class SimpleTerminal:
@@ -505,7 +506,7 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
         if cmd == 'exit' or cmd == 'logout':
             return "LOGOUT"
         elif cmd == 'clear':
-            os.system('clear' if os.name == 'posix' else 'cls')
+            clear_screen()
             return ""
         elif cmd == 'history':
             return '\n'.join(f"{i+1:4d}  {cmd}" for i, cmd in enumerate(self.command_history[-20:]))

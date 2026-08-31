@@ -35,6 +35,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 
+from .console import clear_screen
 from .data.man_pages import MAN_PAGES
 from .types import (
     Alarm,
@@ -8715,7 +8716,7 @@ Antenna alignment completed successfully.
 
     def cmd_clear(self, args: Optional[List[str]] = None) -> str:
         """Clear the terminal screen."""
-        os.system('clear' if os.name == 'posix' else 'cls')
+        clear_screen()
         return ""
 
 

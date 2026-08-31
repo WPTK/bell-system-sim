@@ -7,6 +7,13 @@
 | **Audit date** | 2026-08-30 |
 | **Method** | 7-dimension multi-agent static + dynamic analysis; every finding independently adversarially verified against the code; completeness-critic pass. 31 analysis agents, 108 findings confirmed, 0 refuted. Tools: ruff, flake8, mypy, bandit, vulture, AST analysis, clean-venv install tests, live smoke runs. |
 
+> **Remediation status.** Sections 1–4 have been addressed in the commits
+> following this report; the findings below are preserved as the original audit
+> record, not as a current defect list. Section 5 (historical authenticity),
+> section 6 (engagement) and the section 7 roadmap beyond Priority 2 remain
+> open. See `REMEDIATION.md` for what changed, what was deliberately deferred,
+> and the measurements before and after.
+
 ---
 
 ## Executive Summary
