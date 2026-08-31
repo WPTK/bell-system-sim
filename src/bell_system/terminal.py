@@ -37,7 +37,21 @@ from typing import Dict, List, Optional, Any
 
 from .clock import SimClock
 from .console import clear_screen, render
+from .data.carrier import (
+    L3_LINE_ASSEMBLY,
+    L_CARRIER_SYSTEMS,
+    MULTIPLEX_HIERARCHY,
+    MULTIPLEX_PILOTS_KHZ,
+)
 from .data.man_pages import MAN_PAGES
+from .data.signaling import (
+    MF_FREQUENCIES,
+    PROGRESS_TONES,
+    SF_FREQUENCY_HZ,
+    SF_IDLE_LEVEL_DBM,
+    mf_sequence,
+    mf_train_duration_ms,
+)
 from .data.switching import (
     METROPOLITAN_SWITCHES,
     RURAL_SWITCHES,
@@ -74,8 +88,7 @@ except ImportError:  # pragma: no cover - readline is absent on stock Windows
 # are not built yet. Kept here so the terminal can tell the operator honestly
 # what is and is not available, and so a test can hold the list accountable.
 UNIMPLEMENTED_COMMANDS = frozenset({
-    '5ess', 'analysis', 'capacity', 'coer', 'collect', 'custdb', 'dbquery',
-    'dialtone', 'eqn', 'lmos', 'microwave', 'netdata', 'nroff', 'pic', 'provision',
+    '5ess', 'analysis', 'capacity', 'coer', 'collect', 'custdb', 'dbquery', 'eqn', 'lmos', 'microwave', 'netdata', 'nroff', 'pic', 'provision',
     'pwb', 'refer', 'rje', 'routing', 'sarts', 'satellite', 'tbl', 'toll', 'trace',
     'training', 'troff', 'western',
 })
@@ -200,6 +213,10 @@ class BellSystemTerminal:
         'coer': 'coer',
         'lmos': 'lmos'
     }
+
+    # Parsed NANPA data, shared across instances in a process. The source
+    # file is large and never changes during a run.
+    _NANPA_CACHE: Optional[Dict[str, Any]] = None
 
     def __init__(self) -> None:
         """Initialize the Bell System terminal simulation environment."""
@@ -1709,8 +1726,20 @@ Subsystems available in this release:
         return dict(MAN_PAGES)
 
     def _initialize_nanpa_data(self) -> None:
-        """Initialize authentic NANPA geographic data for Bell System infrastructure."""
+        """
+        Load NANPA geographic data for Bell System infrastructure.
+
+        The source file is 48 MB, so the parsed result is cached for the life
+        of the process: it is static reference data, and re-reading it for
+        every terminal made construction take a second apiece.
+        """
         import csv
+
+        cached = BellSystemTerminal._NANPA_CACHE
+        if cached is not None:
+            self.nanpa_data = cached
+            self.bell_system_exchanges = {}
+            return
 
         # Load and process NANPA data for authentic Bell System operations
         self.nanpa_data = {}
@@ -1724,13 +1753,16 @@ Subsystems available in this release:
                 # Sample and process key Bell System service areas from 1978-1983 era
                 bell_system_areas = ['202', '212', '213', '214', '215', '216', '301', '302', '303', '305', '312', '313', '314', '401', '404', '412', '413', '414', '415', '416', '501', '502', '503', '504', '505', '507', '509', '512', '513', '515', '516', '517', '518', '601', '602', '603', '605', '606', '607', '608', '609', '612', '614', '615', '616', '617', '618', '701', '702', '703', '704', '712', '713', '714', '715', '716', '717', '801', '802', '803', '804', '805', '806', '807', '808', '812', '813', '814', '815', '816', '817', '901', '902', '904', '906', '907', '912', '913', '914', '915', '916', '918', '919']
 
-                row_count = 0
-                for row in reader:
-                    row_count += 1
-                    if row_count > 50000:  # Limit processing for performance
-                        break
+                wanted = set(bell_system_areas)
+                per_npa_cap = 40
 
+                for row in reader:
                     npa = row['npa']
+                    if npa not in wanted:
+                        continue
+                    if len(self.nanpa_data.get(npa, {})) >= per_npa_cap:
+                        continue
+
                     nxx = row['nxx']
                     city = row['city']
                     state = row['state']
@@ -1749,6 +1781,8 @@ Subsystems available in this release:
                             'latitude': row.get('latitude', '0'),
                             'longitude': row.get('longitude', '0')
                         })
+
+            BellSystemTerminal._NANPA_CACHE = self.nanpa_data
 
         except FileNotFoundError:
             # Fallback to core Bell System data if file not accessible
@@ -1942,6 +1976,35 @@ Subsystems available in this release:
         'Pittsburgh', 'Milwaukee', 'Atlanta', 'Newark', 'Minneapolis',
         'Seattle', 'Denver', 'Miami', 'Phoenix', 'San Diego',
     })
+
+    def _format_carrier_bands(self) -> str:
+        """
+        Render the L-carrier line bands and the multiplex hierarchy.
+
+        The two are distinct and were previously conflated: 564-3084 kHz is
+        the basic mastergroup, an assembly band, not the L4 line spectrum.
+        """
+        lines = ["  LINE SPECTRUM TRANSMITTED ON COAXIAL"]
+        for code, system in L_CARRIER_SYSTEMS.items():
+            lines.append(
+                f"    {code:<4} {system.line_band():<26}"
+                f"{system.channels:>6,} channels  "
+                f"{system.repeater_spacing_miles:g} mi repeaters"
+            )
+        lines.append("")
+        lines.append("  MULTIPLEX ASSEMBLY HIERARCHY")
+        for level in MULTIPLEX_HIERARCHY:
+            pilot = MULTIPLEX_PILOTS_KHZ.get(level.name)
+            pilot_text = f"pilot {pilot:,.2f} kHz" if pilot else ""
+            lines.append(
+                f"    {level.name:<26}{level.band():<22}"
+                f"{level.channels:>5,} ch  {pilot_text}"
+            )
+        lines.append("")
+        lines.append("  L3 LINE SIGNAL ASSEMBLY (3 mastergroups + 1 supergroup = 1,860)")
+        for name, low, high in L3_LINE_ASSEMBLY:
+            lines.append(f"    {name:<20}{low:>7,.0f} - {high:>7,.0f} kHz")
+        return "\n".join(lines)
 
     def _generate_switch_placement(self, city: str) -> Dict[str, Any]:
         """
@@ -4013,32 +4076,44 @@ Next Forecast Run: {(self.clock.now() + timedelta(days=days)).strftime('%B %d, %
     def _show_network_hierarchy_analysis(self) -> str:
         """Show Bell System switching hierarchy analysis (Class 1 through Class 5)."""
         hierarchy = [
-            ("Class 1", "Regional Center", 10, random.uniform(0.72, 0.84)),
-            ("Class 2", "Sectional Center", 52, random.uniform(0.68, 0.80)),
-            ("Class 3", "Primary Center", 168, random.uniform(0.64, 0.78)),
-            ("Class 4", "Toll Center", 933, random.uniform(0.58, 0.74)),
-            ("Class 5", "End Office", 19000, random.uniform(0.52, 0.70)),
+            ("Class 1", "Regional Center", 10, 0, random.uniform(0.72, 0.84)),
+            ("Class 2", "Sectional Center", 52, 0, random.uniform(0.68, 0.80)),
+            ("Class 3", "Primary Center", 148, 20, random.uniform(0.64, 0.78)),
+            ("Class 4", "Toll Center", 508, 425, random.uniform(0.58, 0.74)),
+            ("Class 5", "End Office", 9803, 9000, random.uniform(0.52, 0.70)),
         ]
 
         output = f"""TNDS Network Hierarchy Analysis
 Generated: {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
 {'=' * 55}
 
-SWITCHING HIERARCHY UTILIZATION
-{'=' * 45}
-Class    Office Type          Offices    Avg Util
-{'-' * 45}"""
-        for cls, name, count, util in hierarchy:
-            output += f"\n{cls:<8} {name:<20} {count:>7,}    {util:>6.1%}"
+SWITCHING HIERARCHY (1982 office counts)
+{'=' * 62}
+Class    Office Type            Bell   Independent    Avg Util
+{'-' * 62}"""
+        for cls, name, bell, independent, util in hierarchy:
+            ind = f"{independent:,}" if independent else "-"
+            output += (f"\n{cls:<8} {name:<20} {bell:>6,}  {ind:>11}"
+                       f"    {util:>6.1%}")
 
         output += f"""
 
 FINAL AND HIGH-USAGE GROUPS
-{'=' * 45}
+{'=' * 62}
 Final Trunk Groups:           {random.randint(2400, 2900):,} (hierarchical backbone)
 High-Usage Groups:            {random.randint(5200, 6400):,} (direct routes)
 Overflow Discipline:          Hierarchical alternate routing
 Grade of Service Objective:   P.01 final groups / P.10 high-usage
+
+A call is completed at the lowest level of the hierarchy that can carry it,
+using the fewest trunks in tandem. An office joined to a higher class office
+by a final group is said to home on it, though not every office homes on the
+next class up. When every trunk in a final group is busy the call is blocked
+and the caller receives reorder.
+
+Average trunks per toll connection:   slightly over 3, including toll
+                                      connecting trunks
+Maximum trunks in one connection:     9
 
 TANDEM ROUTING ANALYSIS
 {'=' * 45}"""
@@ -5011,22 +5086,31 @@ Queue Length:             {self.tsps_data['queue_length']} calls waiting
 Average Work Time:        {self.tsps_data['avg_work_time']:.1f} seconds per call
 Answer Time:              {self.tsps_data['answer_time']:.1f} seconds average
 
-SERVICE TYPE DISTRIBUTION
-{'=' * 35}
-Person-to-Person:         {self.tsps_data['person_to_person']:.1f}% of calls
-Collect Calls:            {self.tsps_data['collect_calls']:.1f}% of calls
-Directory Assistance:     {self.tsps_data['directory_assist']:.1f}% of calls
-Conference Setup:         {self.tsps_data['conference']:.1f}% of calls
-International:            {self.tsps_data['international']:.1f}% of calls
-Billing Inquiries:        {self.tsps_data['billing']:.1f}% of calls
+OPERATOR FUNCTIONS THIS TOUR
+{'=' * 45}
+Coin, initial period and overtime:  {self.tsps_data['coin']:>6,} calls
+Calling card:                       {self.tsps_data['calling_card']:>6,} calls
+Collect:                            {self.tsps_data['collect_calls']:>6,} calls
+Bill to third number:               {self.tsps_data['third_number']:>6,} calls
+Person to person:                   {self.tsps_data['person_to_person']:>6,} calls
+Operator assistance (0-):           {self.tsps_data['assistance']:>6,} calls
+Operator number identification:     {self.tsps_data['oni']:>6,} calls
+Hotel and motel guest:              {self.tsps_data['hotel_motel']:>6,} calls
+International assistance:           {self.tsps_data['international']:>6,} calls
+Busy line verification:             {self.tsps_data['verification']:>6,} calls
 
-PERFORMANCE METRICS
-{'=' * 35}
-Service Quality:          {self.tsps_data['service_quality']:.1%} satisfactory
-Operator Productivity:    {self.tsps_data['productivity_rating']}
-First Call Resolution:    {self.tsps_data['first_call_resolution']:.1%}
-Customer Satisfaction:    {self.tsps_data['customer_satisfaction']:.1f}/5.0 rating
-System Availability:      {self.tsps_data['system_availability']:.1%}
+Directory assistance is not a position function here. It is served by a
+separate operator force on 411 and NPA-555-1212, concentrated on an
+automatic call distributor.
+
+SERVICE MEASUREMENTS
+{'=' * 45}
+Speed of answer:          {self.tsps_data['answer_time']:.1f} seconds (objective 2 to 6)
+Average work time:        {self.tsps_data['avg_work_time']:.1f} seconds per request
+Positions manned:         {self.tsps_data['active_positions']} of {self.tsps_data['total_positions']}
+Force requirement:        {self.tsps_data['force_requirement']} positions (Erlang C, next quarter hour)
+Force adjustment:         {self.tsps_data['force_adjustment']}
+System availability:      {self.tsps_data['system_availability']:.1%}
 
 Commands:
   tsps position <id>      Individual position status
@@ -5084,16 +5168,25 @@ Commands:
                 'queue_length': random.randint(0, 25),
                 'avg_work_time': random.uniform(20, 45),
                 'answer_time': random.uniform(2.5, 8.0),
-                'person_to_person': random.uniform(20, 28),
-                'collect_calls': random.uniform(25, 35),
-                'directory_assist': random.uniform(40, 50),
-                'conference': random.uniform(3, 8),
-                'international': random.uniform(2, 6),
-                'billing': random.uniform(8, 15),
+                'coin': random.randint(900, 2200),
+                'calling_card': random.randint(400, 1100),
+                'collect_calls': random.randint(350, 900),
+                'third_number': random.randint(120, 400),
+                'person_to_person': random.randint(90, 320),
+                'assistance': random.randint(200, 700),
+                'oni': random.randint(150, 500),
+                'hotel_motel': random.randint(40, 180),
+                'international': random.randint(20, 110),
+                'verification': random.randint(10, 70),
+                'force_requirement': base_positions + random.randint(-2, 3),
+                'force_adjustment': random.choice([
+                    'Within objective',
+                    'Calling out additional operators',
+                    'Releasing operators to clerical work',
+                    'Rescheduling lunches and reliefs',
+                ]),
                 'service_quality': random.uniform(0.95, 0.99),
                 'productivity_rating': random.choice(['Excellent', 'Above Average', 'Average']),
-                'first_call_resolution': random.uniform(0.88, 0.96),
-                'customer_satisfaction': random.uniform(4.2, 4.8),
                 'system_availability': random.uniform(0.995, 0.999),
                 'last_update': self.clock.now()
             }
@@ -5519,9 +5612,109 @@ Training Impact:          {random.uniform(5, 15):.0f}% improvement"""
         """Call tracing and routing analysis"""
         return self._subsystem_unavailable("trace", "Call trace operations")
 
-    def cmd_dialtone(self, args: List[str]) -> str:
-        """Dial tone testing and verification"""
-        return self._subsystem_unavailable("dialtone", "Dial tone testing")
+    def cmd_dialtone(self, args: Optional[List[str]] = None) -> str:
+        """Call-progress tone reference and dial tone speed testing."""
+        args = args or []
+
+        if not args:
+            output = f"""Bell System Call Progress Tones
+Precise Tone Plan
+{'=' * 78}
+
+TONE                     FREQUENCIES          CADENCE                       LEVEL
+{'-' * 78}"""
+            for tone in PROGRESS_TONES.values():
+                pair = '+'.join(str(hz) for hz in tone.frequencies)
+                if tone.cadence is None:
+                    timing = 'continuous'
+                else:
+                    on, off = tone.cadence
+                    timing = f'{on:g}s on / {off:g}s off'
+                    if tone.interruptions_per_minute:
+                        timing += f' {tone.interruptions_per_minute} IPM'
+                output += (f"\n{tone.name[:24]:<25}{pair:<21}{timing:<30}"
+                           f"{tone.level_dbm:>4g} dBm")
+
+            output += f"""
+
+DIAL TONE SPEED
+{'=' * 45}
+Objective:                Dial tone within 3 seconds on 98% of attempts
+Measured this hour:       {random.uniform(0.15, 1.4):.2f} seconds average
+Attempts exceeding 3s:    {random.uniform(0.1, 1.8):.1f}%
+Dial tone delay alarms:   {random.randint(0, 2)}
+
+Commands:
+  dialtone test <office>    Dial tone speed test on an office
+  dialtone tone <name>      Detail for one call progress tone
+  dialtone mf <digits>      Show the MF train for a called number
+
+Reference: Precise Tone Plan; BSP 660-100-000"""
+            return output
+
+        action = args[0].lower()
+
+        if action == 'tone' and len(args) > 1:
+            key = args[1].lower()
+            tone = PROGRESS_TONES.get(key)
+            if tone is None:
+                return (f"dialtone: no tone named '{args[1]}'\n"
+                        f"Available: {', '.join(PROGRESS_TONES)}")
+            timing = ('continuous' if tone.cadence is None
+                      else f'{tone.cadence[0]:g}s on / {tone.cadence[1]:g}s off')
+            return f"""{tone.name}
+{'=' * 52}
+Frequencies:      {' + '.join(f'{hz} Hz' for hz in tone.frequencies)}
+Timing:           {timing}
+Interruptions:    {tone.interruptions_per_minute or 'not applicable'} per minute
+Level:            {tone.level_dbm:g} dBm
+
+{tone.meaning}"""
+
+        if action == 'mf' and len(args) > 1:
+            digits = ''.join(c for c in args[1] if c.isdigit())
+            if not digits:
+                return "dialtone mf: supply the digits to outpulse"
+            train = mf_sequence(digits)
+            output = f"""Multifrequency Outpulsing
+{'=' * 52}
+Called number:    {digits}
+Signal train:     {' '.join(sig.symbol for sig in train)}
+Train duration:   {mf_train_duration_ms(train)} ms
+
+SIGNAL           LOW       HIGH      FUNCTION
+{'-' * 52}"""
+            for sig in train:
+                output += (f"\n{sig.symbol:<16} {sig.low:>4} Hz  {sig.high:>4} Hz  "
+                           f"{sig.purpose}")
+            return output + f"""
+
+MF frequencies:        {', '.join(f'{hz} Hz' for hz in MF_FREQUENCIES)}
+Trunk supervision:     SF {SF_FREQUENCY_HZ} Hz at {SF_IDLE_LEVEL_DBM:g} dBm when idle;
+                       removal of tone marks seizure, return marks release."""
+
+        if action == 'test':
+            office = args[1].upper() if len(args) > 1 else 'LOCAL'
+            samples = [random.uniform(0.12, 2.6) for _ in range(10)]
+            over = [s for s in samples if s > 3.0]
+            dial = PROGRESS_TONES['dial']
+            return f"""Dial Tone Speed Test
+{'=' * 52}
+Office:           {office}
+Test run:         {self.clock.timestamp()}
+Samples:          {len(samples)} originating attempts
+
+Average delay:    {sum(samples) / len(samples):.2f} seconds
+Longest delay:    {max(samples):.2f} seconds
+Exceeding 3s:     {len(over)} of {len(samples)}
+
+Objective:        3 seconds on 98 percent of attempts
+Result:           {'MEETS OBJECTIVE' if not over else 'REVIEW REQUIRED'}
+
+Dial tone is {' + '.join(f'{hz} Hz' for hz in dial.frequencies)} at {dial.level_dbm:g} dBm."""
+
+        return (f"dialtone: Unknown option '{args[0]}'\n"
+                "Available commands: test, tone, mf")
 
     def cmd_routing(self, args: List[str]) -> str:
         """Call routing and path analysis"""
@@ -8286,9 +8479,7 @@ Cable Plant Status:
   Sheath Current:             Normal (< 10 mA all cables)
 
 Frequency Allocation:
-  L3: 312 kHz - 1364 kHz      (Group frequencies)
-  L4: 564 kHz - 3084 kHz      (Supergroup frequencies)
-  L5: 312 kHz - 8284 kHz      (Mastergroup frequencies)"""
+""" + self._format_carrier_bands()
 
         elif args[0] == "repeater":
             return """L-Carrier Repeater Status and Operations

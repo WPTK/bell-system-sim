@@ -447,3 +447,122 @@ class TestDiagnosticLogging:
         captured = capsys.readouterr()
         assert 'BellSystem' not in captured.err
         assert 'WARNING' not in captured.err
+
+
+class TestSignaling:
+    """
+    Call progress tones and interoffice signaling.
+
+    A simulation built around crossbar, ESS, TSPS and toll operations
+    previously contained no signaling vocabulary at all.
+    """
+
+    def test_tone_table_lists_every_tone(self, terminal):
+        from bell_system.data.signaling import PROGRESS_TONES
+        output = terminal.execute_command('dialtone')
+        for tone in PROGRESS_TONES.values():
+            assert tone.name[:13] in output
+
+    @pytest.mark.parametrize('tone,frequencies', [
+        ('dial', (350, 440)),
+        ('busy', (480, 620)),
+        ('ringback', (440, 480)),
+    ])
+    def test_documented_tone_frequencies(self, terminal, tone, frequencies):
+        result = terminal.execute_command(f'dialtone tone {tone}')
+        for hz in frequencies:
+            assert str(hz) in result
+
+    def test_busy_and_reorder_share_frequencies_but_not_cadence(self):
+        """Reorder is the busy pair at twice the interruption rate."""
+        from bell_system.data.signaling import PROGRESS_TONES
+        busy, reorder = PROGRESS_TONES['busy'], PROGRESS_TONES['reorder']
+        assert busy.frequencies == reorder.frequencies
+        assert reorder.interruptions_per_minute == 2 * busy.interruptions_per_minute
+
+    def test_mf_train_is_bracketed_by_kp_and_st(self, terminal):
+        """A real MF train opens the register with KP and releases it with ST."""
+        result = terminal.execute_command('dialtone mf 2125551212')
+        assert 'KP 2 1 2 5 5 5 1 2 1 2 ST' in result
+
+    def test_mf_uses_the_six_interoffice_frequencies(self):
+        from bell_system.data.signaling import MF_FREQUENCIES, MF_SIGNALS
+        assert MF_FREQUENCIES == (700, 900, 1100, 1300, 1500, 1700)
+        for signal in MF_SIGNALS.values():
+            assert signal.low in MF_FREQUENCIES
+            assert signal.high in MF_FREQUENCIES
+
+    def test_mf_is_distinct_from_touch_tone(self):
+        """
+        Interoffice MF and subscriber Touch-Tone are different systems on
+        different frequencies; conflating them is a common error.
+        """
+        from bell_system.data.signaling import (
+            DTMF_COLUMN_HZ,
+            DTMF_ROW_HZ,
+            MF_FREQUENCIES,
+        )
+        assert not set(MF_FREQUENCIES) & set(DTMF_ROW_HZ + DTMF_COLUMN_HZ)
+
+    def test_sf_supervision_is_2600_hz(self):
+        from bell_system.data.signaling import SF_FREQUENCY_HZ
+        assert SF_FREQUENCY_HZ == 2600
+
+    def test_dial_tone_speed_test_reports_the_objective(self, terminal):
+        result = terminal.execute_command('dialtone test 212-555')
+        assert '3 seconds' in result
+        assert 'OBJECTIVE' in result
+
+    def test_unknown_tone_is_reported(self, terminal):
+        assert 'no tone named' in terminal.execute_command('dialtone tone nonsense')
+
+
+class TestSwitchingSystemsAreRealMachines:
+    """Generated offices must be machines that could have existed."""
+
+    def test_no_switch_predates_its_first_service(self, terminal):
+        from bell_system.data.switching import SWITCHING_SYSTEMS
+        impossible = []
+        for code, office in terminal.central_offices.items():
+            system = SWITCHING_SYSTEMS[office['switch_type']]
+            if int(office['installation_date']) < system.first_service:
+                impossible.append(
+                    f"{code}: {office['switch_type']} in {office['installation_date']}"
+                )
+        assert not impossible, impossible[:5]
+
+    def test_capacity_matches_the_machine(self, terminal):
+        from bell_system.data.switching import SWITCHING_SYSTEMS
+        wrong = []
+        for code, office in terminal.central_offices.items():
+            system = SWITCHING_SYSTEMS[office['switch_type']]
+            if not system.min_lines <= office['capacity'] <= system.max_lines:
+                wrong.append(f"{code}: {office['capacity']} on {office['switch_type']}")
+        assert not wrong, wrong[:5]
+
+    def test_traffic_stays_within_engineered_capacity(self, terminal):
+        """
+        A No. 3 ESS was a rural community dial office machine of a few
+        thousand lines. It previously reported metropolitan traffic.
+        """
+        from bell_system.data.switching import SWITCHING_SYSTEMS
+        for switch_id, system in terminal.switching_systems.items():
+            ceiling = SWITCHING_SYSTEMS[system['type']].busy_hour_capacity()
+            assert system['calls_hour'] <= ceiling, switch_id
+
+    def test_no_rural_machine_sited_in_a_metropolis(self, terminal):
+        from bell_system.data.switching import RURAL_SWITCHES
+        for switch_id, system in terminal.switching_systems.items():
+            if system['type'] in RURAL_SWITCHES:
+                assert system['location'] not in ('New York, NY', 'Chicago, IL')
+
+    def test_network_is_national_not_alphabetical(self, terminal):
+        """
+        A row cap truncated the office data partway through a file ordered by
+        state, leaving a network of only Alaska, Arizona, Arkansas and
+        California while the trunk groups referenced New York and Chicago.
+        """
+        npas = {office['npa'] for office in terminal.central_offices.values()}
+        states = {office['state'] for office in terminal.central_offices.values()}
+        assert len(npas) > 50, f'only {len(npas)} area codes loaded'
+        assert len(states) > 25, f'only {len(states)} states loaded'

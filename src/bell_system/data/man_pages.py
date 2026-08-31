@@ -1683,42 +1683,7 @@ BELL SYSTEM PRACTICES
      BSP 103-300-001 - LMOS Operations Procedures
 """,
 
-    "dialtone": """
-NAME
-     dialtone - Dial tone testing and verification
-
-SYNOPSIS
-     dialtone [test|verify|troubleshoot] [line-number|office]
-
-DESCRIPTION
-     Test and verify dial tone presence, quality, and timing for
-     subscriber lines and Bell System equipment. Essential for
-     service verification and trouble isolation procedures.
-
-OPTIONS
-     test            Execute dial tone testing procedures
-     verify          Verify dial tone quality and timing
-     troubleshoot    Diagnose dial tone problems
-
-DIAL TONE SPECIFICATIONS
-     Frequency:              350 Hz + 440 Hz composite tone
-     Level:                  -13 dBm ±3 dB at subscriber telephone
-     Timing:                 Present within 3 seconds of off-hook
-     Interruption:           Removed upon first digit reception
-
-EXAMPLES
-     dialtone test 212-555-1234      Test line dial tone
-     dialtone verify NYC-CO-14       Verify central office dial tone
-     dialtone troubleshoot problems  Diagnose dial tone issues
-
-SEE ALSO
-     testboard(1), lmos(1), ticket(1)
-
-BELL SYSTEM PRACTICES
-     BSP 103-400-001 - Dial Tone Testing Procedures
-""",
-
-    "trace": """
+        "trace": """
 NAME
      trace - Call tracing and routing analysis
 
@@ -2483,5 +2448,56 @@ EXAMPLES
 
 SEE ALSO
      date(1), status(1), verbosity(1)
+""",
+
+    "dialtone": """
+NAME
+     dialtone - call progress tones and dial tone speed testing
+
+SYNOPSIS
+     dialtone
+     dialtone test [office]
+     dialtone tone <name>
+     dialtone mf <digits>
+
+DESCRIPTION
+     Display the Bell System call progress tones, run a dial tone speed
+     test, or show the multifrequency train an office outpulses for a
+     called number.
+
+     Tone frequencies follow the Precise Tone Plan, which standardised
+     call progress tones on exact frequency pairs. Before it, tones were
+     derived from ringing generator harmonics and varied between offices.
+
+TONES
+     dial        350 + 440 Hz, continuous
+     busy        480 + 620 Hz, 60 interruptions per minute
+     reorder     480 + 620 Hz, 120 IPM - all trunks busy, or fast busy
+     ringback    440 + 480 Hz, 2 seconds on, 4 seconds off
+     congestion  480 + 620 Hz, 120 IPM under network management control
+     howler      1400 + 2060 + 2450 + 2600 Hz, receiver left off hook
+     highandwet  200 + 400 Hz, vacant code intercept
+
+SIGNALING
+     Multifrequency pulsing carries called digits between offices on six
+     frequencies - 700, 900, 1100, 1300, 1500 and 1700 Hz - two sounded
+     at a time. A train opens with KP and closes with ST. This is not the
+     same as Touch-Tone, which a subscriber set produces on a different
+     set of frequencies entirely.
+
+     Single frequency supervision uses 2600 Hz on analogue toll trunks.
+     Tone present means the trunk is idle.
+
+EXAMPLES
+     dialtone                     Show all call progress tones
+     dialtone tone busy           Detail for the busy tone
+     dialtone test 212-555        Dial tone speed test on an office
+     dialtone mf 2125551212       MF train for a called number
+
+SEE ALSO
+     testboard(1), trunk(1), switch(1)
+
+BELL SYSTEM PRACTICES
+     BSP 660-100-000 - Transmission Maintenance
 """,
 }

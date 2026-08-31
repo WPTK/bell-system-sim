@@ -54,7 +54,15 @@ class TndsData(TypedDict):
 
 
 class TspsData(TypedDict, total=False):
-    """Traffic Service Position System operator-position state."""
+    """
+    Traffic Service Position System operator-position state.
+
+    The functions listed are those a TSPS position actually served, per
+    Engineering and Operations in the Bell System Table 10-1. Directory
+    assistance is deliberately absent: it was a separate operator force
+    reached on 411 and NPA-555-1212 and concentrated onto an automatic call
+    distributor, never a TSPS position function.
+    """
 
     total_positions: int
     active_positions: int
@@ -62,16 +70,20 @@ class TspsData(TypedDict, total=False):
     queue_length: int
     avg_work_time: float
     answer_time: float
-    person_to_person: float
-    collect_calls: float
-    directory_assist: float
-    conference: float
-    international: float
-    billing: float
+    coin: int
+    calling_card: int
+    collect_calls: int
+    third_number: int
+    person_to_person: int
+    assistance: int
+    oni: int
+    hotel_motel: int
+    international: int
+    verification: int
+    force_requirement: int
+    force_adjustment: str
     service_quality: float
     productivity_rating: str
-    first_call_resolution: float
-    customer_satisfaction: float
     system_availability: float
     last_update: datetime
 
