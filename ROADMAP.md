@@ -245,7 +245,10 @@ The unfinished half of the original P5:
 - [ ] `display.pacing` — optional baud-rate output pacing (110 for a Model
       33, 300 for a Model 43, off). The last unbuilt P3 item, and it belongs
       as a setting rather than a default
-- [ ] A login sequence, honouring the same setting pattern
+- [ ] A login sequence in front of the role picker — the `login:` and
+      `Password:` prompts and the connect banner, honouring the same
+      setting pattern. Distinct from the `.profile` below, which is what
+      the shell does *after* you are in
 - [x] Real filesystem exploration: `cat`, `cd`, `grep`, `more`, `head`, `wc`
       and the rest. The tree is now 114 nodes, writable, with a dictionary,
       a bibliography, a netnews spool and twelve home directories
