@@ -38,14 +38,16 @@ This command-line application provides an authentic terminal-based experience of
 
 ```bash
 # Install
-git clone https://github.com/your-username/bell-system-sim.git
+git clone https://github.com/WPTK/bell-system-sim.git
 cd bell-system-sim
 pip install -e .
 
 # Run
 bell-system                    # Start interactive simulation
 bell-system --tutorial         # Learn Bell System operations
-bell-system --role 1          # Start as specific role
+bell-system --role 1           # Start as specific role (1-12), skipping the menu
+bell-system --simple           # Simplified four-role interface
+python -m bell_system          # Equivalent to `bell-system`
 ```
 
 ## Features
@@ -60,12 +62,12 @@ bell-system --role 1          # Start as specific role
 ## Installation
 
 ### Prerequisites
-- Python 3.6 or higher
+- Python 3.9 or higher
 - No external dependencies required
 
 ### Install from Source
 ```bash
-git clone https://github.com/your-username/bell-system-sim.git
+git clone https://github.com/WPTK/bell-system-sim.git
 cd bell-system-sim
 pip install -e .
 ```
@@ -73,7 +75,7 @@ pip install -e .
 ### Verify Installation
 ```bash
 bell-system --version
-bell-system --test
+bell-system --help
 ```
 
 ## Usage
@@ -101,28 +103,30 @@ bell-system --test
 ## Project Structure
 
 ```
-├── bell.py                          # Main Bell System terminal simulation
-├── main.py                          # Alternative Unix terminal implementation
-├── unix_terminal.py                 # Four-role simplified Bell System terminal
-├── bell_system_tutorial.py          # Interactive tutorial system
-├── logging_enhancements.py          # Advanced logging system
-├── performance_profiling.py         # Performance analysis tools
-├── ux_command_enhancements.py       # User experience improvements
-├── comprehensive_test_suite.py      # Automated testing framework
-├── manual.txt                       # Complete user manual
-├── command_reference.txt            # Command reference guide
-├── changelog.txt                    # Version history
+├── src/
+│   └── bell_system/                 # The installable Python package
+│       ├── __init__.py              # Package exports and version
+│       ├── __main__.py              # `python -m bell_system` entry point
+│       ├── cli.py                   # Argument parsing and console script
+│       ├── terminal.py              # Main 12-role Bell System terminal
+│       ├── simple_terminal.py       # Four-role simplified terminal
+│       ├── tutorial.py              # Interactive tutorial system
+│       └── data/                    # Manual page text and other static data
+├── tests/                           # pytest suite
+├── docs/                            # Manual, command reference, and guides
 ├── attached_assets/                 # Historical Bell System documentation
-├── logs/                           # Application logs
-└── server/                         # Node.js wrapper for development
-    └── index.ts                    # Server entry point
+├── pyproject.toml                   # Packaging, linting, and test configuration
+├── LICENSE
+└── README.md
 ```
 
 ## Documentation
 
-- **User Manual**: `manual.txt` - Complete operational guide
-- **Command Reference**: `command_reference.txt` - Quick reference for all commands
-- **Change Log**: `changelog.txt` - Version history and improvements
+- **User Manual**: `docs/manual.txt` - Complete operational guide
+- **Command Reference**: `docs/command_reference.txt` - Quick reference for all commands
+- **Architecture Overview**: `docs/overview.md` - How the package fits together
+- **API Reference**: `docs/api.md` - Programmatic use of the simulation classes
+- **Change Log**: `docs/changelog.md` - Version history and improvements
 - **Historical Assets**: `attached_assets/` - Authentic Bell System documentation
 
 ## Development
@@ -130,20 +134,23 @@ bell-system --test
 ### Running Tests
 
 ```bash
-python3 comprehensive_test_suite.py
+pip install -e ".[dev]"
+python -m pytest tests
 ```
 
-### Performance Profiling
+### Linting
 
 ```bash
-python3 performance_profiling.py
+ruff check src tests
 ```
 
 ### Logging
 
-Application logs are stored in the `logs/` directory:
-- `bell_system.log` - General application logs
-- `bell_system_errors.log` - Error tracking
+Logs and command history are written to a per-user state directory rather than
+the current working directory. The location is `$BELL_SYSTEM_HOME` when set,
+otherwise `$XDG_STATE_HOME/bell-system`, otherwise `~/.local/state/bell-system`:
+
+- `bell_system.log` - Rotating application log (10 MB, 5 backups)
 - `bell_system_history.txt` - Command history
 
 ## Historical Context

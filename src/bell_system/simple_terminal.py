@@ -11,8 +11,6 @@ Four roles: Systems Operator, Switching Technician, Field Liaison, NOC Analyst.
 """
 
 import os
-import sys
-import time
 from datetime import datetime
 
 
@@ -90,8 +88,8 @@ class SimpleTerminal:
         username = input().strip()
         if username.lower() == 'root':
             print("Password: ", end="")
-            # In real V7, password wouldn't echo
-            password = input()
+            # V7 suppressed the echo here; the value itself is not checked.
+            input()
             print()
 
             # Show message of the day
@@ -256,7 +254,6 @@ class SimpleTerminal:
     def cmd_ps(self, args):
         """Implement ps command"""
         show_all = 'a' in ''.join(args) or '-a' in args
-        long_format = 'l' in ''.join(args) or '-l' in args
 
         output = []
         header = "  PID TTY      TIME CMD"
