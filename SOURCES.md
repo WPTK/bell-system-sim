@@ -95,6 +95,43 @@ grep -n "1300 ohms" attached_assets/Engineering_and_Operations_in_the_Bell_Syste
 
 65 files, 22 MB total.
 
+## Sourced from outside this repository
+
+Some of what the simulation depicts is not in any document here. Where that
+is so, the module says where it came from and what it will not claim. This
+is the index of those.
+
+| Claim | Where it is used | What it rests on |
+| --- | --- | --- |
+| Exchange cable is built in binder groups of 25 pairs, each binder taking the colours of the pair with its own number; 24 groups make 600 pairs and violet-slate is never used as a binder | `src/bell_system/cable.py` | The 25-pair colour code, published widely and consistently across telephony references |
+| Cable is pressurised with dry air to keep water out, and pressure falls before water enters | `src/bell_system/cable.py` | Outside plant air pressure practice |
+| RFC 850 (June 1983) header set, order, `.UUCP` site suffix, full day name in `Date`, and reply-format `Path` lines required until 1 January 1984 | `src/bell_system/filesystem.py` netnews spool | RFC 850 itself, including its worked example, from which the relay sites cbosgd, mhuxj, mhuxt and eagle are taken |
+| The August 1983 AT&T strike: 7-28 August, and a settlement of 5.5 per cent in the first year and 1.5 in each of the next two | `net.misc/88` in the netnews spool | Published accounts of the strike |
+| The 1956 consent decree kept AT&T out of the computer business; the 1982 decree let it in, which is why System V arrived commercially | `net.unix-wizards/121`, `/usr/doc/why.unix` | Published antitrust history, consistent with Engineering and Operations on divestiture |
+| Ritchie and Thompson, CACM 17(7), July 1974, 365-375; Thompson and Bourne in BSTJ 57(6) part 2, July-August 1978, at 1931-1946 and 1971-1990; Feldman on make in SP&E 9(4), April 1979, 255-265; Kernighan on pic in SP&E 12(1), January 1982, 1-21 | `/usr/dict/papers`, read by `refer(1)` | Each citation checked against the publication record |
+| Teletype Model 33 at 110 baud, ten characters a second; Model 43 (1977) switchable to 110 or 300, ten or thirty | `display.pacing` in `src/bell_system/settings.py` and `terminal.py` | Teletype Corporation specifications. The eleven-bit frame at 110 and ten above it is what makes those published character rates come out right |
+| ANAC reads back the calling number; a 102-type line is a milliwatt supply at 1004 Hz and 0 dBm; a 100-type line is a quiet termination; a loop around is a pair of numbers, one toned and one silent | `src/bell_system/data/testlines.py` | Plant test number practice. The dialable codes are **not** claimed: they were local to each office, and the module says so |
+| Western Electric equipment in-service years (302, 500, 1500, 2500, 1A2, No. 1 and No. 5 crossbar, 1ESS, 1AESS, 4ESS, 5ESS, T1, D4, L4, TD-2, TH-3) | `src/bell_system/screens/plant.py` | Published Bell System equipment history. Anything the sources consulted did not settle is absent from the table rather than guessed at |
+
+### What was looked for and not found
+
+Recorded so that nobody repeats the search, and so that nothing was
+invented to fill the gap:
+
+- **The daily weather over northern New Jersey on 14 November 1983.** Every
+  archive reachable from here was blocked. `src/bell_system/weather.py`
+  therefore generates the shift's conditions and states plainly that no
+  claim is made about what really happened that day.
+- **The customer-facing report categories a repair service attendant chose
+  from.** Most likely a division 660 practice, not reachable. The electrical
+  faults are documented; `REPORT_SYMPTOMS` is the simulation's own
+  plain-language wrapping and is marked as such.
+- **COSMOS transaction syntax.** Not reproduced from any source; the
+  `cosmos` subcommands are the simulation's own and the screen says so.
+- **A wire centre's actual field force size.** No source consulted fixes a
+  number, so `src/bell_system/field.py` uses five as a working figure and
+  says why.
+
 ## What does not ship
 
 Two categories were removed from the working tree. Both are recoverable;

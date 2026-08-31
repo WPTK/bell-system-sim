@@ -185,29 +185,51 @@ using UNIX at work in 1983 and the toolkit was half there.
       file. A shell decides punctuation before anything else
 - [x] `;` as a command separator
 
-### R5 — Deepen the loop with what the new model makes possible · weeks
+### R5 — Deepen the loop with what the new model makes possible · **done**
 
-The report engine, the fault vocabulary and the frame state can now support
-work the old codebase could not have:
-
-- [ ] **Cable-level faults.** `WET` is documented as affecting many pairs in
-      one sheath and the fault data says so, but the generator still assigns
-      faults one line at a time. Wet cable should arrive as six reports off
-      one cable, rewarding the craftsperson who notices before dispatching
-      six trips.
-- [ ] **COSMOS work orders that matter.** Frame assignment already exists;
-      wire it to the reports so a `CO_EQUIP` fault can be a bad
-      cross-connect you find on the frame.
-- [ ] **Named field forces.** Dispatch goes to a person with a location and
-      a travel time rather than to a category.
-- [ ] **Test lines as craft tools.** ANAC, loop-arounds and milliwatt
-      supplies, documented in the manual pages like everything else, usable
-      to verify a line before you close it.
-- [ ] **Weather on the shift clock.** Rain is the documented cause of wet
-      cable getting worse. The clock exists; the fault exists; connect them.
-- [ ] **Revisit the index penalties** once real play data exists. The current
-      apportionment (55/35/20) is the simulation's own and untested against
-      how the loop actually plays over many shifts.
+- [x] **Cable-level faults.** Exchange cable is built in binder groups of
+      twenty-five pairs, each in a coloured binder following the same
+      25-pair colour code as the pairs inside it, twenty-four groups to six
+      hundred pairs. Water is a binder group fault, so a wet pair now lands
+      in a group that is already wet and a dry fault deliberately does not.
+      One splicer trip repairs the sheath and every pair in it, and names
+      the binder and its colour so the splicer could find it. A second trip
+      to a sheath already opened is refused. `lmos cable` groups the board
+      by binder group; the same information has always been in
+      `/usr/lmos/board`, where `sort` and `uniq` find it too.
+- [x] **COSMOS work orders that matter.** `cosmos jumper` invented a
+      vertical, a horizontal and a jumper length on every call, so two
+      looks at one line disagreed. It reads the assignment record now, and
+      a central office fault has a real defect on the frame — a jumper on
+      the wrong horizontal, a protector left operated, a leg off the
+      terminal — visible in the record for two desk minutes against four
+      for a measurement and an hour for a trip. Service orders raised by
+      `provision` appear on the frame's list.
+- [x] **Named field forces.** Five people with real Bell craft titles, each
+      standing somewhere. The nearest free one goes, the drive is charged
+      against the commitment, and when they are all out the report waits.
+      `force` shows who is where. The wrong-dispatch penalty names the
+      person who drove out to the wrong place.
+- [x] **Test lines as craft tools.** ANAC, the 102-type milliwatt supply,
+      the 100-type quiet termination, loop around and ringback, reachable
+      through `testline` against a line rather than a trunk. Aural rather
+      than electrical, so they hear things a loss measurement passes — and
+      none of them finds everything, which a good answer says out loud.
+- [x] **Weather on the shift clock.** A shift gets a regime and walks the
+      conditions an hour at a time toward it; an unrepaired binder group
+      takes another pair faster the harder it is raining. What is not
+      claimed, and the module says so: the actual weather over northern New
+      Jersey on 14 November 1983, whose daily climate records were not
+      reachable from here.
+- [x] **Revisit the index penalties.** `tools/index_calibration.py` plays a
+      few hundred shifts per setting with five players who fail in one way
+      each. The 55/35/20 apportionment holds and stays. Two findings acted
+      on: the forgiving setting was uninformative rather than forgiving (an
+      ordinary player scored EXCELLENT in 89 shifts out of 100 at a 0.4
+      multiplier, now 0.7), and the index is a rate rather than a volume —
+      a tour that closes five reports perfectly outscores one that closes
+      thirty-two with two mistakes. That is correct for a repair index and
+      is now said out loud, with closed and carried printed beside it.
 
 ### R5a — What is different about each position · **started**
 
@@ -240,21 +262,22 @@ The unfinished half of the original P5:
       practice, not invented flavour
 - [ ] The SCC assigning you an office for the shift
 
-### R7 — Fidelity settings still on the table · days
+### R7 — Fidelity settings still on the table · **done**
 
-- [ ] `display.pacing` — optional baud-rate output pacing (110 for a Model
-      33, 300 for a Model 43, off). The last unbuilt P3 item, and it belongs
-      as a setting rather than a default
-- [ ] A login sequence in front of the role picker — the `login:` and
-      `Password:` prompts and the connect banner, honouring the same
-      setting pattern. Distinct from the `.profile` below, which is what
-      the shell does *after* you are in
+- [x] `display.pacing` — output paced at a terminal speed: 110 for a Model
+      33, 300 for the Model 43 this position is strapped for, 1200 for a
+      later CRT, or off. The frame is eleven bits at 110 (two stop bits,
+      because a mechanical printer needed them) and ten above it, which is
+      why 110 gives ten characters a second and 300 gives thirty. Default
+      is 300, because accuracy is the default; a pipe is never paced and
+      Ctrl-C stops a listing.
+- [x] A login sequence: getty banner, `login:`, a password only when
+      `/etc/passwd` carries one, `/etc/motd`, then the shell reads
+      `.profile`. root has a password and is refused; the twelve craft
+      positions do not, because the machine is in a locked building.
 - [x] Real filesystem exploration: `cat`, `cd`, `grep`, `more`, `head`, `wc`
-      and the rest. The tree is now 114 nodes, writable, with a dictionary,
-      a bibliography, a netnews spool and twelve home directories
-- [x] A login sequence of the right kind: selecting a position runs the
-      `.profile` in its home, the way `login(1)` did, so each desk opens on
-      its own work
+      and the rest. The tree is 114 nodes, writable, with a dictionary, a
+      bibliography, a netnews spool and twelve home directories.
 
 ### R8 — Stretch
 
