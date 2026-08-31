@@ -32,11 +32,19 @@ import random
 import sys
 import time
 from collections import defaultdict, deque
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, List, Optional, Any
 
-from .console import clear_screen
+from .clock import SimClock
+from .console import clear_screen, render
 from .data.man_pages import MAN_PAGES
+from .settings import (
+    OPTIONS,
+    OPTIONS_BY_KEY,
+    Settings,
+    settings_path,
+    state_dir,
+)
 from .types import (
     Alarm,
     CentralOffice,
@@ -65,27 +73,6 @@ UNIMPLEMENTED_COMMANDS = frozenset({
     'pwb', 'refer', 'rje', 'routing', 'sarts', 'satellite', 'tbl', 'toll', 'trace',
     'training', 'troff', 'western',
 })
-
-
-def state_dir() -> str:
-    """
-    Return the per-user directory for logs and command history.
-
-    Honours ``BELL_SYSTEM_HOME`` when set, otherwise follows the XDG state
-    convention. Writing here rather than the current working directory keeps
-    an installed ``bell-system`` from littering whatever directory it is run
-    from. The directory is created if it does not exist.
-    """
-    override = os.environ.get('BELL_SYSTEM_HOME')
-    if override:
-        path = override
-    else:
-        base = os.environ.get('XDG_STATE_HOME') or os.path.join(
-            os.path.expanduser('~'), '.local', 'state'
-        )
-        path = os.path.join(base, 'bell-system')
-    os.makedirs(path, exist_ok=True)
-    return path
 
 
 # Bell System Constants
@@ -154,6 +141,9 @@ class BellSystemTerminal:
         'chk': 'test',
         'alm': 'alarm',
         'alert': 'alarm',
+        'options': 'set',
+        'settings': 'set',
+        'config': 'set',
 
         # Technical system aliases
         'rad': 'radio',
@@ -209,6 +199,11 @@ class BellSystemTerminal:
 
     def __init__(self) -> None:
         """Initialize the Bell System terminal simulation environment."""
+        # Settings and the clock come first: logging honours a setting, and
+        # every piece of state initialised below stamps itself with the time.
+        self.settings = Settings(settings_path(state_dir()))
+        self.clock = SimClock(self.settings)
+
         # Setup enhanced logging first
         self._setup_logging()
         self.logger = logging.getLogger('BellSystem')
@@ -281,7 +276,7 @@ class BellSystemTerminal:
         }
 
         # Network performance metrics with time-based variation
-        hour = datetime.now().hour
+        hour = self.clock.now().hour
         base_load = 40 + (30 * max(0, min(1, (hour - 8) / 8))) if 8 <= hour <= 16 else 25
         self.network_metrics = {
             "total_load": base_load + random.randint(-5, 15),
@@ -315,8 +310,8 @@ class BellSystemTerminal:
     def _initialize_traffic_state(self) -> None:
         """Initialize traffic patterns with realistic time-based variations."""
 
-        hour = datetime.now().hour
-        day_of_week = datetime.now().weekday()  # 0=Monday, 6=Sunday
+        hour = self.clock.now().hour
+        day_of_week = self.clock.now().weekday()  # 0=Monday, 6=Sunday
 
         # Business hours traffic multiplier
         if 8 <= hour <= 17 and day_of_week < 5:  # Business hours, weekday
@@ -365,7 +360,7 @@ class BellSystemTerminal:
         self.active_alarms: List[Alarm] = []
         for alarm in possible_alarms:
             if random.random() < 0.3:  # 30% chance each alarm is active
-                alarm["timestamp"] = datetime.now() - timedelta(minutes=random.randint(5, 480))
+                alarm["timestamp"] = self.clock.now() - timedelta(minutes=random.randint(5, 480))
                 alarm["acknowledged"] = random.choice([True, False])
                 self.active_alarms.append(alarm)
 
@@ -376,7 +371,7 @@ class BellSystemTerminal:
             "major_alarms": len([a for a in self.active_alarms if a["severity"] == "MAJOR"]),
             "minor_alarms": len([a for a in self.active_alarms if a["severity"] == "MINOR"]),
             "uptime_days": random.randint(45, 365),
-            "last_outage": datetime.now() - timedelta(days=random.randint(7, 90))
+            "last_outage": self.clock.now() - timedelta(days=random.randint(7, 90))
         }
 
         # Log successful initialization
@@ -402,9 +397,14 @@ class BellSystemTerminal:
         )
         file_handler.setLevel(logging.DEBUG)
 
-        # Console handler for errors/warnings only
+        # Diagnostic records carry ISO timestamps and file:line references,
+        # which no 1983 terminal would emit. They go to the log file only
+        # unless a player turns the console channel on for debugging.
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.WARNING)
+        if self.settings.is_on('display.log_console'):
+            console_handler.setLevel(logging.WARNING)
+        else:
+            console_handler.setLevel(logging.CRITICAL + 1)
 
         # Detailed formatter
         formatter = logging.Formatter(
@@ -445,7 +445,7 @@ class BellSystemTerminal:
         self.recent_errors.append({
             'command': command,
             'error': error_msg,
-            'timestamp': datetime.now(),
+            'timestamp': self.clock.now(),
             'count': self.error_counts[command]
         })
 
@@ -733,8 +733,8 @@ class BellSystemTerminal:
         and historical Bell System operations patterns. Each event has an
         assigned ticket number for detailed investigation.
         """
-        current_hour = datetime.now().hour
-        current_month = datetime.now().month
+        current_hour = self.clock.now().hour
+        current_month = self.clock.now().month
 
         # Base events that occur during any shift with ticket numbers
         base_events = [
@@ -941,17 +941,17 @@ class BellSystemTerminal:
             self._apply_role(role_key, role_name)
             return
 
-        print("\n" + "="*60)
-        print("BELL SYSTEM UNIX V7 INTERNAL OPERATIONS TERMINAL")
-        print("AT&T Bell Laboratories - Murray Hill, New Jersey")
-        print("="*60)
-        print("\nSELECT YOUR BELL SYSTEM OPERATIONAL ROLE:")
-        print("-" * 45)
+        self.emit("\n" + "="*60)
+        self.emit("BELL SYSTEM UNIX V7 INTERNAL OPERATIONS TERMINAL")
+        self.emit("AT&T Bell Laboratories - Murray Hill, New Jersey")
+        self.emit("="*60)
+        self.emit("\nSELECT YOUR BELL SYSTEM OPERATIONAL ROLE:")
+        self.emit("-" * 45)
 
         for role_id, (role_key, role_name) in BELL_SYSTEM_ROLES.items():
-            print(f"{role_id:2d}. {role_name}")
+            self.emit(f"{role_id:2d}. {role_name}")
 
-        print("-" * 45)
+        self.emit("-" * 45)
 
         while True:
             try:
@@ -963,11 +963,11 @@ class BellSystemTerminal:
                     self._apply_role(role_key, role_name)
                     break
                 else:
-                    print("Invalid selection. Please enter a number between 1 and 12.")
+                    self.emit("Invalid selection. Please enter a number between 1 and 12.")
             except ValueError:
-                print("Invalid input. Please enter a number between 1 and 12.")
+                self.emit("Invalid input. Please enter a number between 1 and 12.")
             except (EOFError, KeyboardInterrupt):
-                print("\nExiting...")
+                self.emit("\nExiting...")
                 raise SystemExit(0)
 
     def _apply_role(self, role_key: str, role_name: str) -> None:
@@ -976,9 +976,9 @@ class BellSystemTerminal:
         self.role_name = role_name
         self.username = role_key
         self.current_directory = f"/usr/users/{role_key}"
-        print(f"\nRole selected: {role_name}")
-        print(f"User ID: {role_key}")
-        print("Initializing workstation...")
+        self.emit(f"\nRole selected: {role_name}")
+        self.emit(f"User ID: {role_key}")
+        self.emit("Initializing workstation...")
 
     def show_shift_briefing(self) -> None:
         """
@@ -987,20 +987,20 @@ class BellSystemTerminal:
         Provides authentic Bell System shift briefing information
         tailored to the selected operational role.
         """
-        current_time = datetime.now().strftime("%H:%M")
-        current_date = datetime.now().strftime("%B %d, %Y")
+        current_time = self.clock.now().strftime("%H:%M")
+        current_date = self.clock.now().strftime("%B %d, %Y")
 
-        print(f"\n{'='*60}")
-        print(f"BELL SYSTEM SHIFT BRIEFING - {current_date}")
-        print(f"Shift Start Time: {current_time}")
+        self.emit(f"\n{'='*60}")
+        self.emit(f"BELL SYSTEM SHIFT BRIEFING - {current_date}")
+        self.emit(f"Shift Start Time: {current_time}")
         # Find the role name for display
         role_name = "Unknown Role"
         for role_id, (role_key, name) in BELL_SYSTEM_ROLES.items():
             if role_key == self.role:
                 role_name = name
                 break
-        print(f"Role: {role_name}")
-        print(f"{'='*60}")
+        self.emit(f"Role: {role_name}")
+        self.emit(f"{'='*60}")
 
         # Role-specific briefings
         role_briefings = {
@@ -1019,24 +1019,24 @@ class BellSystemTerminal:
         }
 
         briefing = role_briefings.get(self.role, "Generic Bell System briefing")
-        print(briefing)
+        self.emit(briefing)
 
-        print("\nShift Events:")
+        self.emit("\nShift Events:")
         for i, event in enumerate(self.shift_events[:5], 1):
             priority_marker = "*** " if event["priority"] == "CRITICAL" else "** " if event["priority"] == "HIGH" else "* " if event["priority"] == "MEDIUM" else ""
-            print(f"  {i}. {event['time']} [{event['type']}] {priority_marker}{event['status']}")
-            print(f"     {event['title']}")
-            print(f"     ID: {event['id']}")
-            print()
+            self.emit(f"  {i}. {event['time']} [{event['type']}] {priority_marker}{event['status']}")
+            self.emit(f"     {event['title']}")
+            self.emit(f"     ID: {event['id']}")
+            self.emit()
 
-        print("\nCurrent System Status:")
-        print("  Network Operations: NORMAL")
-        print("  Switch Centers: 47/48 operational")
-        print("  TNDS Collection: ACTIVE")
-        print("  Emergency Services: OPERATIONAL")
+        self.emit("\nCurrent System Status:")
+        self.emit("  Network Operations: NORMAL")
+        self.emit("  Switch Centers: 47/48 operational")
+        self.emit("  TNDS Collection: ACTIVE")
+        self.emit("  Emergency Services: OPERATIONAL")
 
-        print("\nType 'help' for available commands or 'man <command>' for detailed help.")
-        print(f"{'='*60}")
+        self.emit("\nType 'help' for available commands or 'man <command>' for detailed help.")
+        self.emit(f"{'='*60}")
 
     def _get_sysop_briefing(self) -> str:
         """Get UNIX Systems Operator briefing."""
@@ -1352,6 +1352,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
         'errors': self.cmd_errors,
         'verbosity': self.cmd_verbosity,
         'history': self.cmd_history,
+        'set': self.cmd_set,
 
         # Standard UNIX commands
         'ps': self.cmd_ps,
@@ -1367,6 +1368,135 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
         'quit': self.cmd_quit,
         'clear': self.cmd_clear
         }
+    def cmd_set(self, args: Optional[List[str]] = None) -> str:
+        """Display and change simulation settings."""
+        args = args or []
+
+        if not args:
+            return self._show_settings_screen()
+
+        if args[0].lower() == 'reset':
+            if len(args) > 1:
+                key = args[1].lower()
+                try:
+                    self.settings.reset(key)
+                except KeyError:
+                    return self._unknown_setting(key)
+                self._apply_setting(key)
+                return f"{key} reset to {self.settings.get(key)}"
+            self.settings.reset()
+            for option in OPTIONS:
+                self._apply_setting(option.key)
+            return "All settings reset to period-accurate defaults."
+
+        key = args[0].lower()
+        if key not in OPTIONS_BY_KEY:
+            return self._unknown_setting(key)
+
+        if len(args) == 1:
+            return self._describe_setting(key)
+
+        value = ' '.join(args[1:])
+        try:
+            stored = self.settings.set(key, value)
+        except ValueError as exc:
+            return f"set: {exc}"
+
+        self._apply_setting(key)
+        option = OPTIONS_BY_KEY[key]
+        result = f"{key} = {stored}"
+        if option.accurate is not None and stored != option.accurate:
+            result += (f"\n\nNote: the period-accurate value is "
+                       f"'{option.accurate}'. This setting now departs from "
+                       f"1978-1983 behaviour.")
+        return result
+
+    def _apply_setting(self, key: str) -> None:
+        """Take account of a setting whose change needs more than storage."""
+        if key == 'date.epoch':
+            self.clock.reset_session()
+        elif key == 'display.log_console':
+            self._setup_logging()
+
+    def _unknown_setting(self, key: str) -> str:
+        """Report an unrecognised setting name."""
+        return (f"set: no such setting '{key}'\n"
+                f"Available settings: {', '.join(sorted(OPTIONS_BY_KEY))}\n"
+                f"Type 'set' with no arguments for the settings screen.")
+
+    def _describe_setting(self, key: str) -> str:
+        """Show one setting in detail."""
+        option = OPTIONS_BY_KEY[key]
+        current = self.settings.get(key)
+        choices = ', '.join(option.choices) if option.choices else '(free text)'
+        accurate = option.accurate or 'not applicable'
+        lines = [
+            f"{option.key}",
+            '=' * 50,
+            f"Current value:     {current}",
+            f"Default:           {option.default}",
+            f"Permitted:         {choices}",
+            f"Period-accurate:   {accurate}",
+            '',
+            option.summary + '.',
+        ]
+        if option.detail:
+            lines.append(option.detail)
+        lines.append('')
+        lines.append(f"Usage: set {option.key} <value>")
+        return '\n'.join(lines)
+
+    def _show_settings_screen(self) -> str:
+        """Render the full settings screen."""
+        deviations = self.settings.deviations()
+        width = max(len(option.key) for option in OPTIONS)
+
+        lines = [
+            "Bell System Terminal - Simulation Settings",
+            '=' * 60,
+            '',
+            "The simulation runs period-accurate by default. Each setting",
+            "below may be moved away from that where a modern terminal makes",
+            "the accurate behaviour less playable.",
+            '',
+            f"{'SETTING'.ljust(width)}  {'CURRENT'.ljust(12)}  OPTIONS",
+            '-' * 60,
+        ]
+
+        for option in OPTIONS:
+            current = self.settings.get(option.key)
+            choices = '/'.join(option.choices) if option.choices else 'YYYY-MM-DD'
+            marker = ' *' if option.key in deviations else '  '
+            lines.append(
+                f"{option.key.ljust(width)}  {current.ljust(12)}{marker}{choices}"
+            )
+
+        lines.extend([
+            '-' * 60,
+            '',
+        ])
+
+        if deviations:
+            lines.append(
+                f"* {len(deviations)} setting(s) depart from period-accurate "
+                f"behaviour: {', '.join(deviations)}"
+            )
+        else:
+            lines.append("All settings are period-accurate.")
+
+        lines.extend([
+            '',
+            "Current shift time: " + self.clock.timestamp(),
+            '',
+            "Commands:",
+            "  set <setting>            Explain one setting in detail",
+            "  set <setting> <value>    Change a setting",
+            "  set reset [<setting>]    Restore period-accurate defaults",
+            '',
+            "Settings persist between sessions.",
+        ])
+        return '\n'.join(lines)
+
     def _subsystem_unavailable(self, command: str, summary: str) -> str:
         """
         Report a command whose interactive subsystem is not in this release.
@@ -1406,6 +1536,27 @@ interface:
 Subsystems available in this release:
 """ + '\n'.join(wrapped)
 
+    def emit(self, text: str = '') -> None:
+        """
+        Write simulation output under the active character-set setting.
+
+        Args:
+            text: The text to display; empty prints a blank line
+        """
+        print(render(text, self.settings.get('display.charset')))
+
+    def shell_prompt(self) -> str:
+        """
+        Return the shell prompt in the configured style.
+
+        The Seventh Edition Bourne shell prompted with a bare ``$ ``, or ``# ``
+        for the super-user; it carried no user, host or directory. The verbose
+        style restores those for players who want the orientation.
+        """
+        if self.settings.get('display.prompt') == 'verbose':
+            return f"{self.username}@{self.hostname}:{self.current_directory}$ "
+        return '# ' if self.username == 'root' else '$ '
+
     def _complete_command(self, text: str, state: int):
         """
         Readline completer offering Bell System command names.
@@ -1434,36 +1585,34 @@ Subsystems available in this release:
 
             while True:
                 try:
-                    # Display authentic UNIX V7 prompt
-                    prompt = f"{self.username}@{self.hostname}:{self.current_directory}$ "
-                    command_line = input(prompt).strip()
+                    command_line = input(self.shell_prompt()).strip()
 
                     if not command_line:
                         continue
 
                     # History is recorded once, inside execute_command().
                     if command_line.lower() in ['exit', 'quit', 'logout']:
-                        print("Logging out of Bell System terminal...")
-                        print("Session terminated.")
+                        self.emit("Logging out of Bell System terminal...")
+                        self.emit("Session terminated.")
                         break
 
                     output = self.execute_command(command_line)
                     if output:
-                        print(output)
+                        self.emit(output)
 
                 except KeyboardInterrupt:
-                    print("\n^C")
+                    self.emit("\n^C")
                     choice = input("Really quit Bell System terminal? (y/N): ")
                     if choice.lower().startswith('y'):
-                        print("Session terminated.")
+                        self.emit("Session terminated.")
                         break
                 except EOFError:
-                    print("\nSession terminated.")
+                    self.emit("\nSession terminated.")
                     break
 
         except Exception as e:
-            print(f"Terminal error: {e}")
-            print("Session terminated.")
+            self.emit(f"Terminal error: {e}")
+            self.emit("Session terminated.")
 
     def execute_command(self, command_line: str) -> str:
         """
@@ -1740,7 +1889,7 @@ Subsystems available in this release:
             'estimated_duration': estimated_duration,
             'status': 'OPEN',
             'assigned_team': scenario['assigned_team'],
-            'created_time': datetime.now() - timedelta(minutes=random.randint(10, 480)),
+            'created_time': self.clock.now() - timedelta(minutes=random.randint(10, 480)),
             'escalation_level': 1,
             'technical_details': scenario['technical_details'],
             'required_actions': scenario['actions'],
@@ -2088,8 +2237,8 @@ For Bell System Practices: bsp search <topic>
         return self.current_directory
 
     def cmd_date(self, args: Optional[List[str]] = None) -> str:
-        """Display current system date and time."""
-        return datetime.now().strftime("%a %b %d %H:%M:%S EST %Y")
+        """Display current system date and time in the configured layout."""
+        return self.clock.date_command()
 
     def cmd_df(self, args: Optional[List[str]] = None) -> str:
         """Display filesystem disk space usage."""
@@ -2107,7 +2256,7 @@ For Bell System Practices: bsp search <topic>
 
         if not args or args[0] == "status":
             # Dynamic trunk status with real-time variability
-            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
             active_count = len([tg for tg in self.trunk_groups.values() if tg["status"] == "ACTIVE"])
             total_count = len(self.trunk_groups)
             avg_utilization = sum(tg["utilization"] for tg in self.trunk_groups.values() if tg["status"] == "ACTIVE") // active_count
@@ -2165,7 +2314,7 @@ Commands:
                 return f"trunk: ERROR - Trunk group {tg_name} not found\nAvailable groups: {', '.join(self.trunk_groups.keys())}"
 
             tg = self.trunk_groups[tg_name]
-            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
 
             # Calculate realistic metrics
             active_channels = int(tg["capacity"] * tg["utilization"] / 100) if tg["status"] == "ACTIVE" else 0
@@ -2201,8 +2350,8 @@ Quality Metrics:
   Jitter:             {random.uniform(0.1, 0.8):.1f} ms (Normal)
 
 Maintenance Status:
-  Last Test:          {(datetime.now() - timedelta(days=random.randint(1, 7))).strftime('%B %d, %Y %H:%M')}
-  Next Scheduled:     {(datetime.now() + timedelta(days=random.randint(1, 14))).strftime('%B %d, %Y %H:%M')}
+  Last Test:          {(self.clock.now() - timedelta(days=random.randint(1, 7))).strftime('%B %d, %Y %H:%M')}
+  Next Scheduled:     {(self.clock.now() + timedelta(days=random.randint(1, 14))).strftime('%B %d, %Y %H:%M')}
   Known Issues:       {'None' if tg["quality"] > 0.995 else 'Minor performance degradation'}
   Alarm Status:       {'Clear' if tg["status"] == 'ACTIVE' and tg["quality"] > 0.995 else 'Active alarms present'}
 
@@ -2239,7 +2388,7 @@ Recommendations:"""
 
             # Simulate realistic testing sequence with variable results
             test_results = []
-            test_start = datetime.now().strftime("%H:%M:%S")
+            test_start = self.clock.now().strftime("%H:%M:%S")
 
             # Various test phases with realistic pass/fail rates
             tests = [
@@ -2281,7 +2430,7 @@ Running Bell System Standard Test Suite BSP-100-120-001:
                 test_output += f"\nPhase {len(test_results)+1}: {test_name:<20} [{status}]{value}"
                 test_results.append(passed)
 
-            test_end = datetime.now().strftime("%H:%M:%S")
+            test_end = self.clock.now().strftime("%H:%M:%S")
 
             test_output += f"""
 
@@ -2306,8 +2455,8 @@ Results Summary:
 
             test_output += f"""
 
-Test log saved: /att/network/tests/{tg_name.lower()}_{datetime.now().strftime('%m%d_%H%M')}.log
-Next test due: {(datetime.now() + timedelta(days=30)).strftime('%B %d, %Y')}"""
+Test log saved: /att/network/tests/{tg_name.lower()}_{self.clock.now().strftime('%m%d_%H%M')}.log
+Next test due: {(self.clock.now() + timedelta(days=30)).strftime('%B %d, %Y')}"""
 
             return test_output
 
@@ -2344,7 +2493,7 @@ Next test due: {(datetime.now() + timedelta(days=30)).strftime('%B %d, %Y')}"""
 
     def _get_peak_period(self) -> str:
         """Get peak traffic period based on current time."""
-        hour = datetime.now().hour
+        hour = self.clock.now().hour
         if 8 <= hour <= 10:
             return "Morning Business (08:00-10:00)"
         elif 14 <= hour <= 16:
@@ -2361,14 +2510,14 @@ Next test due: {(datetime.now() + timedelta(days=30)).strftime('%B %d, %Y')}"""
         if tg_data["status"] == "MAINT":
             return f"Traffic monitoring unavailable - {tg_name} in maintenance mode"
 
-        current_time = datetime.now().strftime("%H:%M:%S")
+        current_time = self.clock.now().strftime("%H:%M:%S")
         active_channels = int(tg_data["capacity"] * tg_data["utilization"] / 100)
 
         # Generate realistic traffic pattern
         traffic_samples = []
         for i in range(12):  # Last 12 5-minute intervals
             time_offset = (11 - i) * 5
-            sample_time = (datetime.now() - timedelta(minutes=time_offset)).strftime("%H:%M")
+            sample_time = (self.clock.now() - timedelta(minutes=time_offset)).strftime("%H:%M")
             utilization = max(0, min(100, tg_data["utilization"] + random.randint(-10, 10)))
             traffic_samples.append((sample_time, utilization))
 
@@ -2415,7 +2564,7 @@ Time    Util%   Channels   Revenue/5min
     def _show_trunk_maintenance_schedule(self) -> str:
         """Show trunk group maintenance schedule."""
 
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M")
 
         schedule_output = f"""Bell System Trunk Group Maintenance Schedule
 Generated: {current_time}
@@ -2426,7 +2575,7 @@ Date           Time        Trunk Group    Type              Duration
 
         # Generate realistic maintenance schedule
         for i in range(5):
-            maint_date = datetime.now() + timedelta(days=random.randint(1, 30))
+            maint_date = self.clock.now() + timedelta(days=random.randint(1, 30))
             maint_time = f"{random.randint(1, 4):02d}:{random.choice(['00', '30'])}"
             tg_name = random.choice(list(self.trunk_groups.keys()))
             maint_type = random.choice(["Preventive", "Calibration", "Upgrade", "Testing"])
@@ -2440,7 +2589,7 @@ Date           Time        Trunk Group    Type              Duration
             schedule_output += "\n\nCurrently in Maintenance:"
             for tg_name in maint_trunks:
                 schedule_output += f"\n  {tg_name}: Scheduled maintenance in progress"
-                schedule_output += f"\n           Expected completion: {(datetime.now() + timedelta(hours=random.randint(1, 4))).strftime('%H:%M')}"
+                schedule_output += f"\n           Expected completion: {(self.clock.now() + timedelta(hours=random.randint(1, 4))).strftime('%H:%M')}"
 
         schedule_output += """
 
@@ -2464,7 +2613,7 @@ Contact: Central Maintenance Office ext 4200"""
         self._update_switching_states()
 
         if not args:
-            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
 
             # Calculate dynamic metrics
             total_calls = sum(system["calls_hour"] for system in self.switching_systems.values())
@@ -2547,7 +2696,7 @@ Commands:
             if system["status"] not in ["ACTIVE", "TESTING"]:
                 return f"switch: Cannot run diagnostics on {switch_id} - system status: {system['status']}"
 
-            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
 
             # Simulate realistic diagnostic sequence
             diag_output = f"""Switching System Diagnostics: {switch_id}
@@ -2636,7 +2785,7 @@ Running Bell System Standard Diagnostic Suite:
             total_count = len(test_results)
             overall_pass = passed_count >= total_count * 0.9  # 90% pass rate required
 
-            test_end = datetime.now().strftime("%H:%M:%S")
+            test_end = self.clock.now().strftime("%H:%M:%S")
             duration = random.randint(120, 300)
 
             diag_output += f"""
@@ -2665,8 +2814,8 @@ Results Summary:
 
             diag_output += f"""
 
-Diagnostic Log: /att/switching/diag/{switch_id.lower()}_{datetime.now().strftime('%m%d_%H%M')}.log
-Next Diagnostic: {(datetime.now() + timedelta(days=7)).strftime('%B %d, %Y')}
+Diagnostic Log: /att/switching/diag/{switch_id.lower()}_{self.clock.now().strftime('%m%d_%H%M')}.log
+Next Diagnostic: {(self.clock.now() + timedelta(days=7)).strftime('%B %d, %Y')}
 
 Bell System Practice: BSP-100-300-001 (Electronic Switching Diagnostics)"""
 
@@ -2724,7 +2873,7 @@ Bell System Practice: BSP-100-300-001 (Electronic Switching Diagnostics)"""
         """Show real-time performance monitoring for a switching system."""
         import random
 
-        current_time = datetime.now().strftime("%H:%M:%S EST")
+        current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         if switch_id in self.switching_systems:
             system = self.switching_systems[switch_id]
@@ -2755,7 +2904,7 @@ Time     CPU%  Mem%  Calls/min  Setup(ms)  Completion%
             # Generate 10 minutes of performance data
             for i in range(10):
                 time_ago = 9 - i
-                sample_time = (datetime.now() - timedelta(minutes=time_ago)).strftime("%H:%M")
+                sample_time = (self.clock.now() - timedelta(minutes=time_ago)).strftime("%H:%M")
                 cpu_load = max(40, min(95, system["load"] + random.randint(-5, 5)))
                 mem_util = random.randint(60, 90)
                 calls_min = system["calls_hour"] // 60 + random.randint(-50, 50)
@@ -2801,7 +2950,7 @@ Connectors: {random.randint(180, 200)}/200 active"""
     def _show_switch_maintenance_status(self, switch_id: str) -> str:
         """Show maintenance status and schedule for a switching system."""
 
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         if switch_id in self.switching_systems:
             system = self.switching_systems[switch_id]
@@ -2817,8 +2966,8 @@ System Type: {'Electronic Stored Program Control' if is_electronic else 'Crossba
 Current Status: {system['status']}"""
 
         if is_electronic:
-            last_maint = datetime.now() - timedelta(days=random.randint(30, 180))
-            next_maint = datetime.now() + timedelta(days=random.randint(7, 90))
+            last_maint = self.clock.now() - timedelta(days=random.randint(30, 180))
+            next_maint = self.clock.now() + timedelta(days=random.randint(7, 90))
             uptime_hours = int(system["uptime"])
 
             maint_output += f"""
@@ -2827,10 +2976,10 @@ Last Maintenance: {last_maint.strftime('%B %d, %Y')}
 Next Scheduled: {next_maint.strftime('%B %d, %Y %H:%M')}
 
 Maintenance History:
-  Program Memory Test: {(datetime.now() - timedelta(days=7)).strftime('%b %d')} - PASSED
-  I/O Controller Check: {(datetime.now() - timedelta(days=14)).strftime('%b %d')} - PASSED
-  Database Backup: {(datetime.now() - timedelta(days=21)).strftime('%b %d')} - COMPLETED
-  Environmental Check: {(datetime.now() - timedelta(days=28)).strftime('%b %d')} - PASSED
+  Program Memory Test: {(self.clock.now() - timedelta(days=7)).strftime('%b %d')} - PASSED
+  I/O Controller Check: {(self.clock.now() - timedelta(days=14)).strftime('%b %d')} - PASSED
+  Database Backup: {(self.clock.now() - timedelta(days=21)).strftime('%b %d')} - COMPLETED
+  Environmental Check: {(self.clock.now() - timedelta(days=28)).strftime('%b %d')} - PASSED
 
 Recommended Actions:"""
 
@@ -2844,7 +2993,7 @@ Recommended Actions:"""
         else:  # Crossbar
             maint_output += f"""
 Maintenance Due: {'YES - OVERDUE' if system['maintenance_due'] else 'Current'}
-Last Preventive Maintenance: {(datetime.now() - timedelta(days=random.randint(60, 200))).strftime('%B %d, %Y')}
+Last Preventive Maintenance: {(self.clock.now() - timedelta(days=random.randint(60, 200))).strftime('%B %d, %Y')}
 
 Mechanical Component Status:
   Crossbar Switches: {'Lubrication due' if system['maintenance_due'] else 'Good condition'}
@@ -2881,7 +3030,7 @@ Work Order System: Use 'service' command for maintenance requests"""
         if system["status"] != "TESTING":
             return f"switch: ERROR - {switch_id} must be in TESTING status for cutover operations"
 
-        current_time = datetime.now().strftime("%H:%M:%S EST")
+        current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         cutover_output = f"""5ESS Cutover Operations: {switch_id}
 Cutover Initiated: {current_time}
@@ -2926,7 +3075,7 @@ Cutover Sequence:"""
                 cutover_output += f"\n         ERROR: Step {step_num} requires manual intervention"
                 break
 
-        completion_time = datetime.now().strftime("%H:%M:%S EST")
+        completion_time = self.clock.now().strftime("%H:%M:%S EST")
 
         if all_successful:
             # Successful cutover
@@ -2951,7 +3100,7 @@ IMMEDIATE ACTIONS:
   ✓ 24-hour close monitoring period initiated
   ✓ All backup systems returned to standby
 
-Next Review: {(datetime.now() + timedelta(hours=24)).strftime('%B %d, %Y %H:%M')}
+Next Review: {(self.clock.now() + timedelta(hours=24)).strftime('%B %d, %Y %H:%M')}
 Project Completion: SUCCESSFUL"""
 
         else:
@@ -3227,7 +3376,7 @@ Use 'ticket update {new_ticket}' to add information"""
         self._update_tnds_state()
 
         if not args:
-            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
             cycle = self._get_current_collection_cycle()
 
             return f"""Total Network Data System (TNDS) - Version 3.2A
@@ -3311,7 +3460,7 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
 
         if not hasattr(self, 'tnds_data'):
             # Initialize TNDS operational data
-            hour = datetime.now().hour
+            hour = self.clock.now().hour
             base_records = 2800000  # Base daily record count
 
             self.tnds_data: TndsData = {
@@ -3325,19 +3474,19 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
                 'forecast_accuracy': random.uniform(0.94, 0.97),
                 'collection_points': random.randint(1240, 1260),
                 'active_streams': random.randint(45, 50),
-                'last_update': datetime.now()
+                'last_update': self.clock.now()
             }
         else:
             # Update existing data with small variations
-            time_since_update = (datetime.now() - self.tnds_data['last_update']).total_seconds() / 60
+            time_since_update = (self.clock.now() - self.tnds_data['last_update']).total_seconds() / 60
             if time_since_update > 5:  # Update every 5 minutes
                 self.tnds_data['records_today'] += random.randint(1000, 5000)
                 self.tnds_data['storage_used'] = min(95, self.tnds_data['storage_used'] + random.randint(-1, 2))
-                self.tnds_data['last_update'] = datetime.now()
+                self.tnds_data['last_update'] = self.clock.now()
 
     def _get_current_collection_cycle(self) -> dict:
         """Get current TNDS collection cycle information."""
-        hour = datetime.now().hour
+        hour = self.clock.now().hour
 
         if 0 <= hour < 6:
             return {"name": "Cycle 1", "time_range": "00:00-06:00", "description": "Overnight processing"}
@@ -3352,7 +3501,7 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
         """Get current TNDS priority task based on time and conditions."""
         import random
 
-        hour = datetime.now().hour
+        hour = self.clock.now().hour
 
         priority_tasks = {
             "morning": ["Peak traffic forecast validation", "Overnight data processing completion", "System health verification"],
@@ -3376,10 +3525,10 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
         """Get next scheduled TNDS operation."""
 
         next_ops = [
-            f"Archive cycle: {(datetime.now() + timedelta(hours=random.randint(2, 8))).strftime('%H:%M')}",
-            f"Forecast update: {(datetime.now() + timedelta(hours=random.randint(1, 4))).strftime('%H:%M')}",
-            f"Report generation: {(datetime.now() + timedelta(hours=random.randint(4, 12))).strftime('%H:%M')}",
-            f"Data quality check: {(datetime.now() + timedelta(hours=random.randint(1, 6))).strftime('%H:%M')}"
+            f"Archive cycle: {(self.clock.now() + timedelta(hours=random.randint(2, 8))).strftime('%H:%M')}",
+            f"Forecast update: {(self.clock.now() + timedelta(hours=random.randint(1, 4))).strftime('%H:%M')}",
+            f"Report generation: {(self.clock.now() + timedelta(hours=random.randint(4, 12))).strftime('%H:%M')}",
+            f"Data quality check: {(self.clock.now() + timedelta(hours=random.randint(1, 6))).strftime('%H:%M')}"
         ]
 
         return random.choice(next_ops)
@@ -3388,7 +3537,7 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
         """Show detailed TNDS system status."""
         import random
 
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
         cycle = self._get_current_collection_cycle()
 
         status_output = f"""TNDS System Status - Detailed Operations Report
@@ -3435,7 +3584,7 @@ Network Analysis Results:
   Revenue per Hour:            ${random.randint(45000, 85000):,}
 
 Scheduled Operations:
-  Next Archive Cycle:          {(datetime.now() + timedelta(hours=random.randint(4, 8))).strftime('%A %H:%M')}
+  Next Archive Cycle:          {(self.clock.now() + timedelta(hours=random.randint(4, 8))).strftime('%A %H:%M')}
   Forecast Model Update:       Daily at 18:00 EST
   Weekly Report Generation:    Monday 08:00 EST
   Database Maintenance:        Sunday 02:00-04:00 EST
@@ -3469,7 +3618,7 @@ Contact Information:
     def _show_tnds_collection_status(self) -> str:
         """Show TNDS data collection operations status."""
 
-        current_time = datetime.now().strftime("%H:%M:%S EST")
+        current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         collection_output = f"""TNDS Data Collection Operations
 Status Report: {current_time}
@@ -3524,7 +3673,7 @@ Commands:
         """Generate TNDS traffic analysis report with realistic data patterns."""
         import random
 
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         if report_type == "standard":
             period = "November 7-14, 1983"
@@ -3533,7 +3682,7 @@ Commands:
             period = "November 1983"
             days = 30
         elif report_type == "weekly":
-            period = f"Week of {(datetime.now() - timedelta(days=7)).strftime('%B %d, %Y')}"
+            period = f"Week of {(self.clock.now() - timedelta(days=7)).strftime('%B %d, %Y')}"
             days = 7
         else:
             period = "Custom Period"
@@ -3563,7 +3712,7 @@ TRAFFIC PATTERNS ANALYSIS
         # Generate daily peak traffic data
         peak_hours = []
         for day in range(min(days, 7)):  # Show up to 7 days of peaks
-            day_name = (datetime.now() - timedelta(days=day)).strftime('%A')
+            day_name = (self.clock.now() - timedelta(days=day)).strftime('%A')
             peak_time = f"{random.randint(14, 16)}:{random.randint(0, 59):02d}"
             peak_ccs = random.randint(850, 950)
             peak_hours.append((day_name, peak_time, peak_ccs))
@@ -3640,14 +3789,14 @@ Report Distribution:
   Revenue Analysis: Copy 3
   Bell Laboratories: Copy 4 (for research)
 
-Next Analysis Report: {(datetime.now() + timedelta(days=7)).strftime('%B %d, %Y')}"""
+Next Analysis Report: {(self.clock.now() + timedelta(days=7)).strftime('%B %d, %Y')}"""
 
         return analysis_output
 
     def _handle_tnds_collection_command(self, args: List[str]) -> str:
         """Handle TNDS data collection subcommands (start, stop, verify, poll)."""
         action = args[0].lower()
-        timestamp = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        timestamp = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         if action == "start":
             self.tnds_data['processing_status'] = 'Normal operation'
@@ -3738,10 +3887,10 @@ TRUNK GROUP REGISTERS
             for tg in self.trunk_groups.values()
         )
         projected_ccs = int(current_ccs * (1 + growth / 100))
-        target = (datetime.now() + timedelta(days=days)).strftime('%B %Y')
+        target = (self.clock.now() + timedelta(days=days)).strftime('%B %Y')
 
         output = f"""TNDS Traffic Forecast - {label} Model
-Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+Generated: {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
 Forecast Horizon: {target}
 {'=' * 55}
 
@@ -3795,7 +3944,7 @@ CAPACITY RECOMMENDATIONS
 
 Distribution: Network Planning, Traffic Engineering
 Project Reference: NP-8306 (TNDS Phase III)
-Next Forecast Run: {(datetime.now() + timedelta(days=days)).strftime('%B %d, %Y')}"""
+Next Forecast Run: {(self.clock.now() + timedelta(days=days)).strftime('%B %d, %Y')}"""
         return output
 
     def _show_network_hierarchy_analysis(self) -> str:
@@ -3809,7 +3958,7 @@ Next Forecast Run: {(datetime.now() + timedelta(days=days)).strftime('%B %d, %Y'
         ]
 
         output = f"""TNDS Network Hierarchy Analysis
-Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+Generated: {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
 {'=' * 55}
 
 SWITCHING HIERARCHY UTILIZATION
@@ -3861,7 +4010,7 @@ Distribution: Network Planning, Traffic Engineering"""
         )
 
         output = f"""TNDS Dynamic Routing Analysis
-Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+Generated: {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
 {'=' * 55}
 
 ROUTING PERFORMANCE SUMMARY
@@ -3928,14 +4077,14 @@ SCHEDULING
 Daily Reports:                Generated 02:00 EST
 Weekly Reports:               Generated Monday 03:00 EST
 Monthly Reports:              Generated first business day 04:00 EST
-Last Generation Run:          {(datetime.now() - timedelta(hours=random.randint(2, 20))).strftime('%B %d, %Y %H:%M EST')}
+Last Generation Run:          {(self.clock.now() - timedelta(hours=random.randint(2, 20))).strftime('%B %d, %Y %H:%M EST')}
 
 Usage: tnds reports <report-name>"""
 
     def _generate_tnds_report(self, report_name: str) -> str:
         """Generate a named standard TNDS report."""
         name = report_name.lower()
-        stamp = datetime.now().strftime('%B %d, %Y %H:%M EST')
+        stamp = self.clock.now().strftime('%B %d, %Y %H:%M EST')
         active = {n: t for n, t in self.trunk_groups.items() if t['status'] == 'ACTIVE'}
 
         if name == "traffic":
@@ -4008,7 +4157,7 @@ PROJECTED EXHAUST BY ROUTE
 {'=' * 45}"""
             for tg_name, tg in active.items():
                 months = max(1, int((90 - tg['utilization']) / random.uniform(0.8, 2.2)))
-                exhaust = (datetime.now() + timedelta(days=months * 30)).strftime('%B %Y')
+                exhaust = (self.clock.now() + timedelta(days=months * 30)).strftime('%B %Y')
                 output += f"""
 {tg_name} ({tg['route']}):
   Current Utilization:  {tg['utilization']}%
@@ -4020,7 +4169,7 @@ PROJECTED EXHAUST BY ROUTE
         if name == "monthly":
             return f"""Monthly Network Summary (MNS-1)
 Generated: {stamp}
-Reporting Period: {datetime.now().strftime('%B %Y')}
+Reporting Period: {self.clock.now().strftime('%B %Y')}
 {'=' * 55}
 
 VOLUME SUMMARY
@@ -4089,7 +4238,7 @@ Usage: tnds export <format> [destination]"""
         records = self.tnds_data['records_today']
         return f"""TNDS Data Export - Request Accepted
 {'=' * 55}
-Submitted: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+Submitted: {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
 
 EXPORT PARAMETERS
 {'=' * 45}
@@ -4102,7 +4251,7 @@ Estimated Volume:             {records * 80 / 1_000_000:.1f} MB
 PROCESSING
 {'=' * 45}
 Queue Position:               {random.randint(1, 5)}
-Estimated Completion:         {(datetime.now() + timedelta(minutes=random.randint(15, 90))).strftime('%H:%M EST')}
+Estimated Completion:         {(self.clock.now() + timedelta(minutes=random.randint(15, 90))).strftime('%H:%M EST')}
 Operator Notification:        Console message on completion
 
 Authorization: WO-83054
@@ -4205,7 +4354,7 @@ BSP 200-000: Electronic Switching Fundamentals"""
         self._update_traffic_state()
 
         if not args:
-            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
 
             # Calculate dynamic metrics from network state
             total_load = sum(tg['utilization'] for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE') // len([tg for tg in self.trunk_groups.values() if tg['status'] == 'ACTIVE'])
@@ -4298,7 +4447,7 @@ Commands:
     def _update_traffic_state(self) -> None:
         """Update traffic state with realistic time-based variations."""
 
-        hour = datetime.now().hour
+        hour = self.clock.now().hour
 
         # Adjust traffic patterns based on time of day
         if 8 <= hour <= 10:  # Morning business peak
@@ -4322,7 +4471,7 @@ Commands:
         """Show detailed traffic analysis for a specific region."""
         import random
 
-        current_time = datetime.now().strftime("%H:%M:%S EST")
+        current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         if region not in self.regional_traffic:
             available_regions = list(self.regional_traffic.keys())
@@ -4412,7 +4561,7 @@ Use 'trunk detail <TG-xxx>' for specific trunk group analysis"""
     def _generate_traffic_forecast(self) -> str:
         """Generate traffic forecasting analysis."""
 
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         forecast_output = f"""Traffic Forecasting Analysis
 Generated: {current_time}
@@ -4420,7 +4569,7 @@ Generated: {current_time}
 IMMEDIATE FORECAST (Next 4 Hours)
 {'=' * 45}"""
 
-        current_hour = datetime.now().hour
+        current_hour = self.clock.now().hour
         base_calls = sum(data['calls'] for data in self.regional_traffic.values())
 
         for i in range(4):
@@ -4462,9 +4611,9 @@ SPECIAL CONSIDERATIONS
 
         # Generate realistic special events
         special_events = []
-        if datetime.now().month == 12:
+        if self.clock.now().month == 12:
             special_events.append("Holiday season: +15-20% expected volume")
-        if datetime.now().weekday() == 4:  # Friday
+        if self.clock.now().weekday() == 4:  # Friday
             special_events.append("Weekend effect: +10% Friday evening traffic")
         if random.random() < 0.3:
             special_events.append("Weather system may affect rural areas")
@@ -4501,7 +4650,7 @@ Infrastructure Needs:     {random.randint(2, 4)} new trunk groups by Q2 1984"""
         """Show route-specific performance analysis."""
         import random
 
-        current_time = datetime.now().strftime("%H:%M:%S EST")
+        current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         route_output = f"""Route Performance Analysis
 Updated: {current_time}
@@ -4571,7 +4720,7 @@ Use 'trunk detail <TG-xxx>' for specific trunk group analysis"""
     def _show_peak_analysis(self) -> str:
         """Show peak period traffic analysis."""
 
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         peak_output = f"""Peak Period Traffic Analysis
 Generated: {current_time}
@@ -4655,7 +4804,7 @@ RECOMMENDATIONS
         """Show traffic quality metrics and trending."""
         import random
 
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         quality_output = f"""Traffic Quality Metrics and Trending
 Report Generated: {current_time}
@@ -4740,7 +4889,7 @@ Blocking Target:          Less than 0.01 probability
 Quality Index Target:     95% excellent/good ratings
 Satisfaction Target:      4.5/5.0 or better
 
-Next Quality Review: {(datetime.now() + timedelta(days=7)).strftime('%B %d, %Y')}"""
+Next Quality Review: {(self.clock.now() + timedelta(days=7)).strftime('%B %d, %Y')}"""
 
         return quality_output
 
@@ -4785,7 +4934,7 @@ Use 'uucp status' for detailed queue information"""
         self._update_tsps_state()
 
         if not args:
-            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
 
             return f"""Traffic Service Position System (TSPS)
 Operator Services and Assisted Calling
@@ -4852,7 +5001,7 @@ Commands:
 
         if not hasattr(self, 'tsps_data'):
             # Initialize TSPS operational data
-            hour = datetime.now().hour
+            hour = self.clock.now().hour
 
             # Adjust staffing and load based on time of day
             if 8 <= hour <= 17:  # Business hours
@@ -4883,19 +5032,19 @@ Commands:
                 'first_call_resolution': random.uniform(0.88, 0.96),
                 'customer_satisfaction': random.uniform(4.2, 4.8),
                 'system_availability': random.uniform(0.995, 0.999),
-                'last_update': datetime.now()
+                'last_update': self.clock.now()
             }
         else:
             # Update existing data with small variations
-            time_since_update = (datetime.now() - self.tsps_data['last_update']).total_seconds() / 60
+            time_since_update = (self.clock.now() - self.tsps_data['last_update']).total_seconds() / 60
             if time_since_update > 2:  # Update every 2 minutes
                 self.tsps_data['queue_length'] = max(0, self.tsps_data['queue_length'] + random.randint(-3, 5))
                 self.tsps_data['answer_time'] = max(1.0, self.tsps_data['answer_time'] + random.uniform(-0.5, 0.8))
-                self.tsps_data['last_update'] = datetime.now()
+                self.tsps_data['last_update'] = self.clock.now()
 
     def _get_tsps_period(self) -> str:
         """Get current TSPS period description."""
-        hour = datetime.now().hour
+        hour = self.clock.now().hour
         if 8 <= hour <= 17:
             return "busy hour"
         elif 17 <= hour <= 22:
@@ -4907,7 +5056,7 @@ Commands:
         """Show detailed status for a specific TSPS position."""
         import random
 
-        current_time = datetime.now().strftime("%H:%M:%S EST")
+        current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         # Generate realistic operator data
         operators = [
@@ -4980,7 +5129,7 @@ SUPERVISOR NOTES
         else:  # On break
             position_output += f"""
 Break Type:               {random.choice(['Scheduled 15-minute', 'Lunch break', 'Relief break'])}
-Return Time:              {(datetime.now() + timedelta(minutes=random.randint(5, 30))).strftime('%H:%M')}
+Return Time:              {(self.clock.now() + timedelta(minutes=random.randint(5, 30))).strftime('%H:%M')}
 Coverage:                 Position covered by relief operator"""
 
         return position_output
@@ -4988,7 +5137,7 @@ Coverage:                 Position covered by relief operator"""
     def _show_tsps_operator_status(self) -> str:
         """Show comprehensive operator staffing and performance status."""
 
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         operators_output = f"""TSPS Operator Staffing and Performance
 Report Generated: {current_time}
@@ -5067,7 +5216,7 @@ Overtime Authorized:      Up to {random.randint(8, 15)} hours per week"""
         """Show TSPS training programs and certification status."""
         import random
 
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         training_output = f"""TSPS Training Program Status
 Report Generated: {current_time}
@@ -5094,7 +5243,7 @@ CERTIFICATION PROGRAM
 Certification Levels:     4 levels (Basic through Senior)
 Current Testing Cycle:    {random.choice(['Week 2', 'Week 3', 'Week 4'])} of monthly cycle
 Pass Rate:                {random.uniform(0.85, 0.95):.1%} overall
-Next Exam Date:           {(datetime.now() + timedelta(days=random.randint(7, 21))).strftime('%B %d, %Y')}
+Next Exam Date:           {(self.clock.now() + timedelta(days=random.randint(7, 21))).strftime('%B %d, %Y')}
 
 CERTIFICATION STATUS
 {'=' * 35}
@@ -5123,10 +5272,10 @@ UPCOMING TRAINING
 {'=' * 35}"""
 
         upcoming_training = [
-            ("New Technology Integration", f"{(datetime.now() + timedelta(days=random.randint(7, 14))).strftime('%B %d')}"),
-            ("Customer Relations Workshop", f"{(datetime.now() + timedelta(days=random.randint(14, 28))).strftime('%B %d')}"),
-            ("Quality Assurance Methods", f"{(datetime.now() + timedelta(days=random.randint(21, 35))).strftime('%B %d')}"),
-            ("Regulatory Compliance Update", f"{(datetime.now() + timedelta(days=random.randint(28, 42))).strftime('%B %d')}")
+            ("New Technology Integration", f"{(self.clock.now() + timedelta(days=random.randint(7, 14))).strftime('%B %d')}"),
+            ("Customer Relations Workshop", f"{(self.clock.now() + timedelta(days=random.randint(14, 28))).strftime('%B %d')}"),
+            ("Quality Assurance Methods", f"{(self.clock.now() + timedelta(days=random.randint(21, 35))).strftime('%B %d')}"),
+            ("Regulatory Compliance Update", f"{(self.clock.now() + timedelta(days=random.randint(28, 42))).strftime('%B %d')}")
         ]
 
         for training, date in upcoming_training:
@@ -5148,7 +5297,7 @@ Contact: Training Coordinator ext 4225"""
     def _show_tsps_queue_management(self) -> str:
         """Show TSPS call queue management and statistics."""
 
-        current_time = datetime.now().strftime("%H:%M:%S EST")
+        current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         queue_output = f"""TSPS Call Queue Management
 Real-Time Status: {current_time}
@@ -5189,7 +5338,7 @@ TRAFFIC PATTERNS
 
         # Generate hourly queue patterns
         for hour_offset in range(-3, 1):
-            pattern_hour = (datetime.now().hour + hour_offset) % 24
+            pattern_hour = (self.clock.now().hour + hour_offset) % 24
             if 8 <= pattern_hour <= 17:
                 queue_size = random.randint(15, 35)
                 pattern = "Business Peak"
@@ -5242,7 +5391,7 @@ RECOMMENDED ACTIONS
 
     def _get_shift_hours(self) -> str:
         """Get current shift description."""
-        hour = datetime.now().hour
+        hour = self.clock.now().hour
         if 8 <= hour < 16:
             return "Day Shift (08:00-16:00)"
         elif 16 <= hour < 24:
@@ -5267,7 +5416,7 @@ Use 'tsps reports <type>' to generate specific report"""
         """Generate specific TSPS performance report."""
         import random
 
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         if report_type == "daily":
             return f"""TSPS Daily Performance Report
@@ -5322,7 +5471,7 @@ Training Impact:          {random.uniform(5, 15):.0f}% improvement"""
     def cmd_service(self, args: List[str]) -> str:
         """Service order management and provisioning"""
         if not args:
-            return f"""Bell System Service Orders - {datetime.now().strftime("%H:%M:%S EST")}
+            return f"""Bell System Service Orders - {self.clock.now().strftime("%H:%M:%S EST")}
 ============================================================
 
 Current Service Queue Status:
@@ -5353,7 +5502,7 @@ Commands:
                 return f"""URGENT REPAIR TICKET: EV-8042
 Pentagon Priority Circuit Outage
 ============================================================
-Ticket Created: {datetime.now().strftime("%Y-%m-%d %H:%M:%S EST")}
+Ticket Created: {self.clock.now().strftime("%Y-%m-%d %H:%M:%S EST")}
 Priority Level: GOVERNMENT EMERGENCY
 Customer: Department of Defense - Pentagon
 Circuit ID: T1-PENTAGON-MAIN-01
@@ -5393,7 +5542,7 @@ Next Update: 15:00 EST or upon status change"""
                 return f"""REPAIR TICKET: {ticket}
 ============================================================
 Ticket Status: {ticket}
-Created: {datetime.now().strftime("%Y-%m-%d %H:%M:%S EST")}
+Created: {self.clock.now().strftime("%Y-%m-%d %H:%M:%S EST")}
 
 Standard Repair Process:
 1. Trouble ticket analysis
@@ -5411,7 +5560,7 @@ Use 'service status {ticket}' for detailed ticket information"""
             return f"""SERVICE ORDER STATUS: {order_id}
 ============================================================
 Order Number: {order_id}
-Status Check: {datetime.now().strftime("%H:%M:%S EST")}
+Status Check: {self.clock.now().strftime("%H:%M:%S EST")}
 
 Order Information:
   Customer Type: Business Service
@@ -5434,7 +5583,7 @@ Progress Tracking:
 Contact your service representative for detailed updates."""
 
         elif args[0] == "queue":
-            return f"""COMPLETE SERVICE QUEUE - {datetime.now().strftime("%H:%M:%S EST")}
+            return f"""COMPLETE SERVICE QUEUE - {self.clock.now().strftime("%H:%M:%S EST")}
 ============================================================
 
 EMERGENCY REPAIRS (Government/Critical):
@@ -5480,7 +5629,7 @@ For immediate Pentagon repair: service repair EV-8042"""
         """Enhanced operator services with realistic assisted calling operations."""
 
         if not args:
-            current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+            current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
 
             return f"""Bell System Operator Services
 Assisted Calling and Special Services
@@ -5635,7 +5784,7 @@ For current rates to specific countries, dial 0 for operator assistance."""
     def _show_operator_detailed_status(self) -> str:
         """Show detailed operator service status."""
 
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         return f"""Detailed Operator Services Status
 Report Generated: {current_time}
@@ -5671,7 +5820,7 @@ Directory Assistance:       {random.randint(1200, 2100)} requests
 Emergency Services:         {random.randint(8, 25)} calls
 Credit Verification:        {random.randint(95, 180)} transactions
 
-Next Shift Change: {(datetime.now() + timedelta(hours=random.randint(2, 6))).strftime('%H:%M EST')}"""
+Next Shift Change: {(self.clock.now() + timedelta(hours=random.randint(2, 6))).strftime('%H:%M EST')}"""
 
     def cmd_directory(self, args: List[str]) -> str:
         """Enhanced directory assistance with realistic number lookup operations."""
@@ -5756,7 +5905,7 @@ Number:      {found_listing[1]}
 Address:     {found_listing[2]}
 
 Status:      CURRENT LISTING
-Last Update: {(datetime.now() - timedelta(days=random.randint(1, 90))).strftime('%B %Y')}
+Last Update: {(self.clock.now() - timedelta(days=random.randint(1, 90))).strftime('%B %Y')}
 
 Charges: {'Free (local)' if random.random() > 0.3 else '$0.50 (long distance)'}
 
@@ -5908,7 +6057,7 @@ Commands:
             return f"crossbar: System {system_id} not found\nAvailable systems: {', '.join(self.crossbar_systems.keys())}"
 
         system = self.crossbar_systems[system_id]
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         return f"""Crossbar System Status: {system_id}
 Status Report: {current_time}
@@ -5918,7 +6067,7 @@ SYSTEM OVERVIEW
 System Status:               {system['status']}
 Traffic Load:                {system['load']}%
 Maintenance Due:             {'YES' if system['maintenance_due'] else 'NO'}
-Last Inspection:             {(datetime.now() - timedelta(days=random.randint(30, 180))).strftime('%B %d, %Y')}
+Last Inspection:             {(self.clock.now() - timedelta(days=random.randint(30, 180))).strftime('%B %d, %Y')}
 
 MECHANICAL COMPONENTS
 {'=' * 25}
@@ -5952,7 +6101,7 @@ Maintenance Interval:        {'OVERDUE' if system['maintenance_due'] else 'CURRE
         system = self.crossbar_systems[system_id]
 
         return f"""Crossbar Mechanical Test Sequence: {system_id}
-Test Initiated: {datetime.now().strftime('%H:%M:%S EST')}
+Test Initiated: {self.clock.now().strftime('%H:%M:%S EST')}
 
 MECHANICAL TEST SUITE
 {'=' * 30}
@@ -5994,7 +6143,7 @@ CURRENT MAINTENANCE STATUS
             next_maint = "OVERDUE" if xb_data["maintenance_due"] else f"{random.randint(15, 90)} days"
             maintenance_output += f"""
 {xb_id}:
-  Last Service:        {(datetime.now() - timedelta(days=random.randint(60, 200))).strftime('%B %d, %Y')}
+  Last Service:        {(self.clock.now() - timedelta(days=random.randint(60, 200))).strftime('%B %d, %Y')}
   Next Due:            {next_maint}
   Priority:            {'HIGH' if xb_data['maintenance_due'] else 'NORMAL'}"""
 
@@ -6019,7 +6168,7 @@ Contact: Electromechanical Maintenance Team ext 4380"""
     def _show_crossbar_performance(self) -> str:
         """Show crossbar performance analysis."""
         performance_output = f"""Crossbar System Performance Analysis
-Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+Generated: {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
 
 PERFORMANCE COMPARISON
 {'=' * 35}"""
@@ -6113,7 +6262,7 @@ Commands:
         import random
 
         return f"""Network Capacity Analysis
-Report Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+Report Generated: {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
 
 CURRENT NETWORK UTILIZATION
 {'=' * 40}
@@ -6149,7 +6298,7 @@ ROI Projection:             {random.uniform(18, 35):.0f}% over 5 years"""
         """Show route planning and optimization analysis."""
 
         return f"""Route Planning and Optimization
-Analysis Date: {datetime.now().strftime('%B %d, %Y')}
+Analysis Date: {self.clock.now().strftime('%B %d, %Y')}
 
 ROUTE OPTIMIZATION STUDIES
 {'=' * 40}
@@ -6185,7 +6334,7 @@ Digital Microwave:          45% of new routes
 Satellite Backup:           20% for remote areas
 Copper Retirement:          Systematic replacement program
 
-Next Planning Review: {(datetime.now() + timedelta(days=90)).strftime('%B %d, %Y')}"""
+Next Planning Review: {(self.clock.now() + timedelta(days=90)).strftime('%B %d, %Y')}"""
 
     def _show_traffic_growth_projections(self) -> str:
         """Show traffic growth projections and forecasting."""
@@ -6334,7 +6483,7 @@ Public Service Benefits:   Universal service expansion"""
 
     def _show_trouble_ticket_dashboard(self) -> str:
         """Show comprehensive trouble ticket dashboard with real-time status."""
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
 
         # Calculate ticket statistics
         critical_tickets = [t for t in self.active_tickets if t['priority'] == 'CRITICAL']
@@ -6370,7 +6519,7 @@ RECENT CRITICAL ISSUES
 
         if recent_critical:
             for ticket in recent_critical:
-                age = datetime.now() - ticket['created_time']
+                age = self.clock.now() - ticket['created_time']
                 age_str = f"{int(age.total_seconds() // 3600)}h{int((age.total_seconds() % 3600) // 60)}m"
                 dashboard += f"\n{ticket['id']:<8} {age_str:<6} {ticket['affected_office']['city']:<12} {ticket['title'][:45]}"
         else:
@@ -6412,7 +6561,7 @@ Commands:
 
     def _list_trouble_tickets(self, priority_filter: Optional[str] = None) -> str:
         """List trouble tickets with optional priority filtering."""
-        current_time = datetime.now().strftime("%H:%M:%S EST")
+        current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         # Filter tickets if priority specified
         if priority_filter:
@@ -6435,7 +6584,7 @@ Query Time: {current_time}
                               key=lambda x: (priority_order[x['priority']], x['created_time']))
 
         for ticket in sorted_tickets:
-            age = datetime.now() - ticket['created_time']
+            age = self.clock.now() - ticket['created_time']
             age_str = f"{int(age.total_seconds() // 3600)}h{int((age.total_seconds() % 3600) // 60)}m"
 
             location = f"{ticket['affected_office']['city']}, {ticket['affected_office']['state']}"
@@ -6456,7 +6605,7 @@ Query Time: {current_time}
         if not ticket:
             return f"trouble: Ticket {ticket_id} not found\nUse 'trouble list' to see active tickets"
 
-        age = datetime.now() - ticket['created_time']
+        age = self.clock.now() - ticket['created_time']
         age_str = f"{int(age.total_seconds() // 3600)}h {int((age.total_seconds() % 3600) // 60)}m"
 
         detail = f"""Trouble Ticket Detail: {ticket['id']}
@@ -6547,7 +6696,7 @@ Commands:
 
         old_team = ticket['assigned_team']
         ticket['assigned_team'] = team
-        current_time = datetime.now().strftime("%H:%M:%S EST")
+        current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         # Add resolution step
         ticket['resolution_steps'].append(f"[{current_time}] Reassigned from '{old_team}' to '{team}' by {self.username}")
@@ -6575,7 +6724,7 @@ Ticket status updated in Bell System Trouble Management Database."""
 
         old_status = ticket['status']
         ticket['status'] = status
-        current_time = datetime.now().strftime("%H:%M:%S EST")
+        current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         # Add resolution step
         ticket['resolution_steps'].append(f"[{current_time}] Status changed from '{old_status}' to '{status}' by {self.username}")
@@ -6611,7 +6760,7 @@ Status change recorded in Bell System Operations Log."""
         if old_level == 1 and ticket['priority'] != 'CRITICAL':
             ticket['priority'] = priority_escalation[ticket['priority']]
 
-        current_time = datetime.now().strftime("%H:%M:%S EST")
+        current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         # Add resolution step
         escalation_note = f"[{current_time}] Escalated to level {ticket['escalation_level']} by {self.username}"
@@ -6648,7 +6797,7 @@ Escalation logged in Bell System Operations Database."""
             return f"trouble: Ticket {ticket_id} not found"
 
         # Calculate resolution time
-        resolution_time = datetime.now()
+        resolution_time = self.clock.now()
         total_time = resolution_time - ticket['created_time']
         resolution_minutes = int(total_time.total_seconds() / 60)
 
@@ -6733,7 +6882,7 @@ Example:
             'estimated_duration': estimated_duration,
             'status': 'OPEN',
             'assigned_team': 'UNASSIGNED',
-            'created_time': datetime.now(),
+            'created_time': self.clock.now(),
             'escalation_level': 1,
             'technical_details': 'Manually entered by craft; awaiting test board verification',
             'required_actions': ['Dispatch test board', 'Verify trouble condition', 'Assign repair force'],
@@ -6770,7 +6919,7 @@ Total Active Tickets: {len(self.active_tickets)}"""
 
     def _show_geographic_trouble_overview(self) -> str:
         """Show geographic distribution and analysis of trouble tickets."""
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         # Analyze geographic distribution
         state_analysis = {}
@@ -6862,7 +7011,7 @@ Recommended Actions:
 
     def _show_priority_analysis(self) -> str:
         """Show priority analysis and trends for trouble tickets."""
-        current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
+        current_time = self.clock.now().strftime("%B %d, %Y %H:%M EST")
 
         # Analyze current priorities
         priority_stats = {'CRITICAL': 0, 'MAJOR': 0, 'MINOR': 0}
@@ -6897,7 +7046,7 @@ ESCALATION ANALYSIS
         if escalated_tickets:
             analysis += "\n\nEscalated Ticket Details:"
             for ticket in escalated_tickets:
-                age = datetime.now() - ticket['created_time']
+                age = self.clock.now() - ticket['created_time']
                 age_str = f"{int(age.total_seconds() // 3600)}h{int((age.total_seconds() % 3600) // 60)}m"
                 analysis += f"\n{ticket['id']:<10} Level {ticket['escalation_level']} {ticket['priority']:<8} {age_str:<6} {ticket['affected_office']['city']}"
 
@@ -6967,7 +7116,7 @@ RECOMMENDATIONS
         unacknowledged = [a for a in self.active_alarms if not a['acknowledged']]
 
         output = f"""Bell System Shift Handoff Record
-{datetime.now().strftime('%B %d, %Y %H:%M EST')}
+{self.clock.now().strftime('%B %d, %Y %H:%M EST')}
 {'=' * 50}
 
 INCOMING FROM PREVIOUS SHIFT
@@ -7034,7 +7183,7 @@ Reference: BSP 010-100-000 (Shift Turnover Procedures)"""
                         f"Available categories: {', '.join(rates)}")
 
             output = f"""Bell System Tariff Schedule - {category.title()}
-Effective: {datetime.now().strftime('%B %Y')}
+Effective: {self.clock.now().strftime('%B %Y')}
 {'=' * 50}
 
 RATE SCHEDULE (per call, station-to-station)
@@ -7053,7 +7202,7 @@ Reference: FCC Tariff No. 263 (Interstate)"""
             return output
 
         output = f"""Bell System Tariff and Rate Structures
-Effective: {datetime.now().strftime('%B %Y')}
+Effective: {self.clock.now().strftime('%B %Y')}
 {'=' * 50}
 
 RATE CATEGORIES
@@ -7149,8 +7298,8 @@ Reference: FCC Tariff No. 263 (Interstate)
             output.append(f"Priority: {event['priority']}")
             output.append("")
             output.append("WORK LOG INITIATED:")
-            output.append(f"  {datetime.now().strftime('%H:%M')} - Work started by {self.username}")
-            output.append(f"  {datetime.now().strftime('%H:%M')} - Reviewing event details and recommended actions")
+            output.append(f"  {self.clock.now().strftime('%H:%M')} - Work started by {self.username}")
+            output.append(f"  {self.clock.now().strftime('%H:%M')} - Reviewing event details and recommended actions")
             output.append("")
             output.append("NEXT STEPS:")
             for i, action in enumerate(event['actions'], 1):
@@ -7653,7 +7802,7 @@ Type:             {alarm['type']}
 Severity:         {alarm['severity']}
 System:           {alarm['system']}
 Acknowledged By:  {self.username}
-Time:             {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+Time:             {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
 
 The alarm remains active until the condition clears."""
             return f"alarm: No active alarm with identifier '{alarm_id}'"
@@ -7663,7 +7812,7 @@ The alarm remains active until the condition clears."""
                     "Available commands: status, list, ack <alarm-id>" % args[0])
 
         output = f"""Bell System Central Office Alarm Monitor
-{datetime.now().strftime('%B %d, %Y %H:%M EST')}
+{self.clock.now().strftime('%B %d, %Y %H:%M EST')}
 {'=' * 50}
 
 SYSTEM HEALTH
@@ -7685,7 +7834,7 @@ ACTIVE ALARMS
                 self.active_alarms,
                 key=lambda a: {'CRITICAL': 0, 'MAJOR': 1, 'MINOR': 2}[a['severity']]
             ):
-                age = int((datetime.now() - alarm['timestamp']).total_seconds() / 60)
+                age = int((self.clock.now() - alarm['timestamp']).total_seconds() / 60)
                 output += f"""
 {alarm['id']} [{alarm['severity']}]
   Type:               {alarm['type']}
@@ -8554,7 +8703,7 @@ Regenerator Spacing:
         return """BELL SYSTEM STATUS OVERVIEW
 =============================
 
-System Time:           """ + time.strftime("%Y-%m-%d %H:%M:%S") + """
+System Time:           """ + self.clock.timestamp() + """
 Session ID:            """ + str(self.session_id) + """
 Current Role:          """ + (str(self.role) if self.role else "Not selected") + """
 Active Shift:          """ + str(self.current_shift) + """
@@ -8595,7 +8744,7 @@ Example: test trunk TG-001
             return """TRUNK GROUP TEST RESULTS
 ======================
 Test Target: """ + (args[1] if len(args) > 1 else "All Groups") + """
-Test Time: """ + time.strftime("%H:%M:%S") + """
+Test Time: """ + self.clock.log_stamp() + """
 
 Continuity:    PASS
 Signaling:     PASS
@@ -8609,7 +8758,7 @@ All trunk circuits operational.
 =====================
 Equipment: Crossbar No. 5
 Status: OPERATIONAL
-Test Completed: """ + time.strftime("%H:%M:%S") + """
+Test Completed: """ + self.clock.log_stamp() + """
 
 Register Tests:     PASS
 Marker Tests:       PASS
@@ -8645,7 +8794,7 @@ Usage: antenna [status|test|align|maintenance]
         if option == "status":
             return """ANTENNA DETAILED STATUS
 =====================
-Test Time: """ + time.strftime("%H:%M:%S") + """
+Test Time: """ + self.clock.log_stamp() + """
 
 Main Microwave Path (A1):
   Frequency:         6.125 GHz
@@ -8664,7 +8813,7 @@ All antenna systems operational.
         elif option == "test":
             return """ANTENNA TEST SEQUENCE
 ===================
-Initiated: """ + time.strftime("%H:%M:%S") + """
+Initiated: """ + self.clock.log_stamp() + """
 
 Testing A1 (Main Path):
   Transmitter Test:    PASS
@@ -8684,7 +8833,7 @@ All antenna tests completed successfully.
             return """ANTENNA ALIGNMENT PROCEDURE
 =========================
 Target: """ + (args[1] if len(args) > 1 else "A1") + """
-Started: """ + time.strftime("%H:%M:%S") + """
+Started: """ + self.clock.log_stamp() + """
 
 Phase 1: Coarse Alignment
   Azimuth sweep:      COMPLETED
@@ -8710,8 +8859,8 @@ Antenna alignment completed successfully.
                 self.logger.warning(f"Could not save command history: {exc}")
 
         self.logger.info(f"Session {self.session_id} terminated by user")
-        print("\nBell System session terminated.")
-        print("Thank you for using Bell System UNIX V7 Operations Terminal.")
+        self.emit("\nBell System session terminated.")
+        self.emit("Thank you for using Bell System UNIX V7 Operations Terminal.")
         sys.exit(0)
 
     def cmd_clear(self, args: Optional[List[str]] = None) -> str:

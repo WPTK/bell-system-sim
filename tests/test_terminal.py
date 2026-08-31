@@ -295,3 +295,155 @@ def test_state_is_written_outside_the_working_directory(terminal, tmp_path):
     """Logs go to the state directory, not a CWD-relative logs/ folder."""
     from bell_system.terminal import state_dir
     assert str(tmp_path) in state_dir()
+
+
+class TestSettingsCommand:
+    """The settings screen, and settings taking effect in the simulation."""
+
+    def test_screen_lists_every_option(self, terminal):
+        from bell_system.settings import OPTIONS
+        screen = terminal.execute_command('set')
+        for option in OPTIONS:
+            assert option.key in screen
+
+    def test_screen_reports_accuracy_when_untouched(self, terminal):
+        assert 'All settings are period-accurate' in terminal.execute_command('set')
+
+    def test_screen_flags_a_deviation(self, terminal):
+        terminal.execute_command('set display.charset unicode')
+        screen = terminal.execute_command('set')
+        assert 'depart from period-accurate' in screen
+        assert 'display.charset' in screen
+
+    def test_setting_one_value_reports_it(self, terminal):
+        assert 'date.format = iso' in terminal.execute_command('set date.format iso')
+
+    def test_departing_from_accuracy_warns(self, terminal):
+        result = terminal.execute_command('set date.source real')
+        assert "period-accurate value is 'simulated'" in result
+
+    def test_neutral_setting_does_not_warn(self, terminal):
+        result = terminal.execute_command('set date.seconds off')
+        assert 'period-accurate value' not in result
+
+    def test_detail_view_explains_a_setting(self, terminal):
+        detail = terminal.execute_command('set date.format')
+        assert 'Permitted' in detail and 'iso' in detail
+
+    def test_unknown_setting_is_reported(self, terminal):
+        assert 'no such setting' in terminal.execute_command('set date.nonsense')
+
+    def test_invalid_value_is_reported_not_raised(self, terminal):
+        assert 'not valid' in terminal.execute_command('set date.clock 37')
+
+    def test_reset_restores_accuracy(self, terminal):
+        terminal.execute_command('set display.charset unicode')
+        terminal.execute_command('set reset')
+        assert terminal.settings.deviations() == []
+
+    @pytest.mark.parametrize('alias', ['options', 'settings', 'config'])
+    def test_aliases_reach_the_screen(self, terminal, alias):
+        assert 'Simulation Settings' in terminal.execute_command(alias)
+
+
+class TestClockIsWiredIn:
+    """Timestamps come from the simulated clock, not the host."""
+
+    def test_date_command_reports_the_period(self, terminal):
+        assert '1983' in terminal.execute_command('date')
+
+    def test_date_command_default_is_v7_order(self, terminal):
+        assert terminal.execute_command('date').startswith('Mon Nov 14')
+
+    def test_date_format_setting_changes_the_date_command(self, terminal):
+        terminal.execute_command('set date.format iso')
+        assert terminal.execute_command('date').startswith('1983-11-14')
+
+    def test_clock_setting_changes_the_date_command(self, terminal):
+        terminal.execute_command('set date.clock 12')
+        assert 'AM' in terminal.execute_command('date')
+
+    def test_real_source_reports_the_host_year(self, terminal):
+        from datetime import datetime
+        terminal.execute_command('set date.source real')
+        assert str(datetime.now().year) in terminal.execute_command('date')
+
+    def test_no_command_reports_the_host_year_by_default(self, terminal):
+        """
+        The host year must not leak into any command's output.
+
+        This is the defect that broke the period on the first command typed.
+        """
+        from datetime import datetime
+        host_year = str(datetime.now().year)
+        leaked = []
+        for command in sorted(terminal._command_handlers):
+            if command in SESSION_CONTROL:
+                continue
+            if host_year in (terminal.execute_command(command) or ''):
+                leaked.append(command)
+        assert not leaked, f'commands leaking the host year: {leaked}'
+
+
+class TestPromptStyle:
+    def test_default_prompt_is_the_bourne_shell_prompt(self, terminal):
+        """V7 sh prompted with a bare '$ ' - no user, host or path."""
+        assert terminal.shell_prompt() == '$ '
+
+    def test_root_gets_a_hash_prompt(self, terminal):
+        terminal.username = 'root'
+        assert terminal.shell_prompt() == '# '
+
+    def test_verbose_prompt_restores_orientation(self, terminal):
+        terminal.execute_command('set display.prompt verbose')
+        prompt = terminal.shell_prompt()
+        assert terminal.username in prompt and terminal.hostname in prompt
+
+
+class TestOutputCharacterSet:
+    def test_no_command_emits_non_ascii_by_default(self, terminal):
+        """Every command's output is printable 7-bit ASCII as shipped."""
+        from bell_system.console import non_ascii_characters, render
+        charset = terminal.settings.get('display.charset')
+        offenders = {}
+        for command in sorted(terminal._command_handlers):
+            if command in SESSION_CONTROL:
+                continue
+            rendered = render(terminal.execute_command(command) or '', charset)
+            found = non_ascii_characters(rendered)
+            if found:
+                offenders[command] = found
+        assert not offenders, f'non-ASCII in output: {offenders}'
+
+    def test_no_man_page_emits_non_ascii_by_default(self, terminal):
+        from bell_system.console import non_ascii_characters, render
+        charset = terminal.settings.get('display.charset')
+        offenders = {}
+        for command in sorted(terminal.man_pages):
+            rendered = render(terminal.execute_command(f'man {command}'), charset)
+            found = non_ascii_characters(rendered)
+            if found:
+                offenders[command] = found
+        assert not offenders, f'non-ASCII in man pages: {offenders}'
+
+    def test_emit_transliterates(self, terminal, capsys):
+        terminal.emit('bar ███')
+        assert capsys.readouterr().out.strip() == 'bar ###'
+
+    def test_emit_passes_unicode_through_when_asked(self, terminal, capsys):
+        terminal.execute_command('set display.charset unicode')
+        terminal.emit('bar ███')
+        assert '███' in capsys.readouterr().out
+
+
+class TestDiagnosticLogging:
+    def test_log_records_do_not_reach_the_terminal(self, terminal, capsys):
+        """
+        A mistyped command used to print a Python log record with an ISO
+        timestamp and a file:line reference into the simulated terminal.
+        """
+        capsys.readouterr()
+        terminal.execute_command('definitelynotacommand')
+        captured = capsys.readouterr()
+        assert 'BellSystem' not in captured.err
+        assert 'WARNING' not in captured.err

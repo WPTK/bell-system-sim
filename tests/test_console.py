@@ -56,3 +56,65 @@ def test_terminal_clear_command_uses_the_console_layer(terminal, monkeypatch):
     )
     assert terminal.execute_command('clear') == ''
     assert calls, 'clear command did not reach the console layer'
+
+
+class TestCharacterSet:
+    """
+    Output must be printable 7-bit ASCII by default.
+
+    Bell System terminals of 1978-1983 were ASCII-1967 devices: a Teletype
+    Model 43 or DATASPEED 40 could not render a block glyph, a box-drawing
+    rule or an emoji. The simulation may still be written with them, but they
+    are transliterated on the way out unless a player opts into unicode.
+    """
+
+    def test_transliteration_yields_pure_ascii(self):
+        source = 'Bar: ██░ 75% ± 2° → ✓ ✅ ⚠ \U0001f527'
+        rendered = console.to_ascii(source)
+        assert console.non_ascii_characters(rendered) is None
+
+    def test_bars_keep_their_visual_weight(self):
+        assert console.to_ascii('███░░') == '###..'
+
+    def test_status_marks_become_words(self):
+        assert 'OK' in console.to_ascii('✓')
+        assert '[OK]' in console.to_ascii('✅')
+        assert '[XX]' in console.to_ascii('❌')
+
+    def test_units_are_preserved_readably(self):
+        assert console.to_ascii('±2°') == '+/-2 deg'
+
+    def test_ascii_passes_through_unchanged(self):
+        plain = 'TRUNK GROUP TG-001-NYC  utilization 74%'
+        assert console.to_ascii(plain) == plain
+
+    def test_newlines_and_tabs_survive(self):
+        assert console.to_ascii('a\n\tb') == 'a\n\tb'
+
+    def test_unicode_mode_passes_glyphs_through(self):
+        source = '██░'
+        assert console.render(source, 'unicode') == source
+
+    def test_ascii_mode_transliterates(self):
+        assert console.render('█', 'ascii') == '#'
+
+    def test_every_glyph_in_the_source_has_a_substitution(self):
+        """
+        No character the simulation writes may fall through untranslated.
+
+        Unmapped characters are dropped rather than passed through, so a new
+        glyph would silently vanish from output; this catches that at source.
+        """
+        from pathlib import Path
+
+        import bell_system
+
+        package_root = Path(bell_system.__file__).parent
+        used = set()
+        for path in package_root.rglob('*.py'):
+            used.update(c for c in path.read_text() if ord(c) > 0x7E)
+        unmapped = sorted(used - set(console.ASCII_SUBSTITUTIONS))
+        assert not unmapped, (
+            'characters with no ASCII substitution: '
+            + ', '.join(f'{c!r} U+{ord(c):04X}' for c in unmapped)
+        )

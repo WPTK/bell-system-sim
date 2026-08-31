@@ -10,13 +10,16 @@ A compact four-role terminal offering genuine filesystem exploration
 Four roles: Systems Operator, Switching Technician, Field Liaison, NOC Analyst.
 """
 
-from datetime import datetime
 
-from .console import clear_screen
+from .clock import SimClock
+from .console import clear_screen, render
+from .settings import Settings, settings_path, state_dir
 
 
 class SimpleTerminal:
     def __init__(self):
+        self.settings = Settings(settings_path(state_dir()))
+        self.clock = SimClock(self.settings)
         self.current_directory = "/usr/users/sysop"
         self.username = "sysop"
         self.hostname = "bell-unix"
@@ -73,35 +76,39 @@ class SimpleTerminal:
             {"user": "ken", "tty": "02", "login": "Mar 10 07:45"},  # Ken Thompson
         ]
 
+    def emit(self, text: str = '') -> None:
+        """Write output under the active character-set setting."""
+        print(render(text, self.settings.get('display.charset')))
+
     def show_banner(self):
         """Display authentic UNIX V7 login banner"""
-        print("\n" + "="*60)
-        print("UNIX Version 7")
-        print("Bell Telephone Laboratories")
-        print("Murray Hill, New Jersey")
-        print("="*60)
-        print("\nCopyright (c) 1976 Bell Telephone Laboratories, Incorporated.")
-        print("All rights reserved.")
-        print("\nlogin: ", end="")
+        self.emit("\n" + "="*60)
+        self.emit("UNIX Version 7")
+        self.emit("Bell Telephone Laboratories")
+        self.emit("Murray Hill, New Jersey")
+        self.emit("="*60)
+        self.emit("\nCopyright (c) 1976 Bell Telephone Laboratories, Incorporated.")
+        self.emit("All rights reserved.")
+        self.emit("\nlogin: ", end="")
 
     def login_sequence(self):
         """Simulate authentic V7 login"""
         username = input().strip()
         if username.lower() == 'root':
-            print("Password: ", end="")
+            self.emit("Password: ", end="")
             # V7 suppressed the echo here; the value itself is not checked.
             input()
-            print()
+            self.emit()
 
             # Show message of the day
             if "/etc/motd" in self.filesystem:
-                print(self.filesystem["/etc/motd"]["content"])
+                self.emit(self.filesystem["/etc/motd"]["content"])
 
-            print("You have mail.")
-            print()
+            self.emit("You have mail.")
+            self.emit()
             return True
         else:
-            print("Login incorrect.")
+            self.emit("Login incorrect.")
             return False
 
     def get_prompt(self):
@@ -281,10 +288,8 @@ class SimpleTerminal:
         return '\n'.join(output)
 
     def cmd_date(self, args):
-        """Implement date command"""
-        # Format like original V7: "Mon Mar 10 12:34:56 EST 1976"
-        now = datetime.now()
-        return now.strftime("%a %b %d %H:%M:%S EST %Y")
+        """Implement date command in the configured layout."""
+        return self.clock.date_command()
 
     def cmd_echo(self, args):
         """Implement echo command"""
@@ -544,26 +549,26 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
     def run(self):
         """Main terminal loop"""
         # Show login banner and auto-login
-        print("\n" + "="*60)
-        print("UNIX Version 7")
-        print("Bell Telephone Laboratories")
-        print("Murray Hill, New Jersey")
-        print("="*60)
-        print("\nCopyright (c) 1976 Bell Telephone Laboratories, Incorporated.")
-        print("All rights reserved.")
-        print("\nlogin: root")
-        print("Password: ")
-        print()
+        self.emit("\n" + "="*60)
+        self.emit("UNIX Version 7")
+        self.emit("Bell Telephone Laboratories")
+        self.emit("Murray Hill, New Jersey")
+        self.emit("="*60)
+        self.emit("\nCopyright (c) 1976 Bell Telephone Laboratories, Incorporated.")
+        self.emit("All rights reserved.")
+        self.emit("\nlogin: root")
+        self.emit("Password: ")
+        self.emit()
 
         # Show message of the day
         if "/etc/motd" in self.filesystem:
-            print(self.filesystem["/etc/motd"]["content"])
+            self.emit(self.filesystem["/etc/motd"]["content"])
 
-        print("You have mail.")
-        print()
-        print("Type 'help' for available commands or 'man <command>' for detailed help.")
-        print("Type 'exit' or 'logout' to quit.")
-        print()
+        self.emit("You have mail.")
+        self.emit()
+        self.emit("Type 'help' for available commands or 'man <command>' for detailed help.")
+        self.emit("Type 'exit' or 'logout' to quit.")
+        self.emit()
 
         # Main command loop
         try:
@@ -573,21 +578,21 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
                 try:
                     command = input(prompt)
                 except EOFError:
-                    print("\nlogout")
+                    self.emit("\nlogout")
                     break
 
                 # Execute command
                 result = self.execute_command(command)
 
                 if result == "LOGOUT":
-                    print("logout")
+                    self.emit("logout")
                     break
                 elif result:
-                    print(result)
+                    self.emit(result)
 
         except KeyboardInterrupt:
-            print("\n^C")
-            print("logout")
+            self.emit("\n^C")
+            self.emit("logout")
 
 if __name__ == "__main__":
     SimpleTerminal().run()

@@ -13,7 +13,8 @@ Run this tutorial BEFORE using the main Bell System simulation.
 import sys
 import time
 
-from .console import clear_screen
+from .console import clear_screen, render
+from .settings import Settings, settings_path, state_dir
 from typing import List
 
 
@@ -21,6 +22,7 @@ class BellSystemTutorial:
     """Interactive tutorial for Bell System terminal simulation"""
 
     def __init__(self):
+        self.settings = Settings(settings_path(state_dir()))
         self.user_progress = {
             'steps_completed': 0,
             'commands_practiced': [],
@@ -41,9 +43,13 @@ class BellSystemTutorial:
         """Clear terminal screen"""
         clear_screen()
 
+    def emit(self, text: str = '') -> None:
+        """Write output under the active character-set setting."""
+        print(render(text, self.settings.get('display.charset')))
+
     def type_effect(self, text: str, delay: float = 0.03):
         """Display text with typewriter effect"""
-        for char in text:
+        for char in render(text, self.settings.get('display.charset')):
             print(char, end='', flush=True)
             time.sleep(delay)
         print()
@@ -67,14 +73,14 @@ class BellSystemTutorial:
         total = len(self.tutorial_steps)
         progress_bar = "█" * completed + "░" * (total - completed)
 
-        print(f"\nTutorial Progress: [{progress_bar}] {completed}/{total} steps")
+        self.emit(f"\nTutorial Progress: [{progress_bar}] {completed}/{total} steps")
 
     def run(self):
         """Run the complete interactive tutorial"""
         self.clear_screen()
-        print("=" * 70)
-        print("     BELL SYSTEM UNIX V7 TERMINAL SIMULATION TUTORIAL")
-        print("=" * 70)
+        self.emit("=" * 70)
+        self.emit("     BELL SYSTEM UNIX V7 TERMINAL SIMULATION TUTORIAL")
+        self.emit("=" * 70)
 
         for step in self.tutorial_steps:
             method_name = f"step_{step}"
@@ -83,7 +89,7 @@ class BellSystemTutorial:
                 self.user_progress['steps_completed'] += 1
                 self.show_progress()
             else:
-                print(f"Tutorial step '{step}' not implemented.")
+                self.emit(f"Tutorial step '{step}' not implemented.")
 
         self.show_completion_certificate()
 
@@ -111,11 +117,11 @@ This tutorial takes approximately 15-20 minutes to complete.
 
         while not self.validate_input(response, ['yes', 'y']):
             if self.validate_input(response, ['no', 'n']):
-                print("Tutorial cancelled. Run again when ready.")
+                self.emit("Tutorial cancelled. Run again when ready.")
                 sys.exit(0)
             response = self.wait_for_user("Please enter 'yes' or 'no'")
 
-        print("\n✅ Excellent! Let's begin your Bell System training...")
+        self.emit("\n✅ Excellent! Let's begin your Bell System training...")
 
     def step_role_selection(self):
         """Learn about Bell System roles"""
@@ -145,11 +151,11 @@ responsibilities and command access. Let's explore the 12 available roles:
         ]
 
         for role in roles:
-            print(f"   {role}")
+            self.emit(f"   {role}")
             time.sleep(0.5)
 
-        print("\nFor this tutorial, we'll use the Radio/Microwave Technician role")
-        print("because it has comprehensive transmission system commands.")
+        self.emit("\nFor this tutorial, we'll use the Radio/Microwave Technician role")
+        self.emit("because it has comprehensive transmission system commands.")
 
         response = self.wait_for_user("Which role interests you most? (1-12)")
 
@@ -157,11 +163,11 @@ responsibilities and command access. Let's explore the 12 available roles:
             role_num = int(response)
             if 1 <= role_num <= 12:
                 self.user_progress['role_selected'] = role_num
-                print(f"\n✅ Great choice! Role {role_num} selected for reference.")
+                self.emit(f"\n✅ Great choice! Role {role_num} selected for reference.")
             else:
-                print("Invalid role number, but that's okay - this is just for learning!")
+                self.emit("Invalid role number, but that's okay - this is just for learning!")
         except ValueError:
-            print("That's not a number, but no worries - this is practice!")
+            self.emit("That's not a number, but no worries - this is practice!")
 
     def step_basic_commands(self):
         """Practice basic UNIX commands"""
@@ -184,18 +190,18 @@ Let's practice the fundamental commands you'll use daily:
         basic_commands = ['help', 'man', 'ps', 'who', 'date', 'events']
 
         for cmd in basic_commands:
-            print(f"\nPractice typing: {cmd}")
+            self.emit(f"\nPractice typing: {cmd}")
             user_input = self.wait_for_user("Type the command")
 
             if user_input.lower() == cmd:
-                print("✅ Perfect! Command typed correctly.")
+                self.emit("✅ Perfect! Command typed correctly.")
                 self.user_progress['commands_practiced'].append(cmd)
             else:
-                print(f"❌ You typed '{user_input}', but the command was '{cmd}'")
-                print("No worries - practice makes perfect!")
+                self.emit(f"❌ You typed '{user_input}', but the command was '{cmd}'")
+                self.emit("No worries - practice makes perfect!")
 
         commands_learned = len(self.user_progress['commands_practiced'])
-        print(f"\n🎯 You successfully practiced {commands_learned}/{len(basic_commands)} commands!")
+        self.emit(f"\n🎯 You successfully practiced {commands_learned}/{len(basic_commands)} commands!")
 
     def step_help_system(self):
         """Learn the help system"""
@@ -221,23 +227,23 @@ Let's practice using help commands:
         ]
 
         for cmd, description in help_examples:
-            print(f"\nCommand: {cmd}")
-            print(f"Purpose: {description}")
+            self.emit(f"\nCommand: {cmd}")
+            self.emit(f"Purpose: {description}")
 
             user_input = self.wait_for_user(f"Type: {cmd}")
 
             if user_input.lower() == cmd.lower():
-                print("✅ Excellent! This would show:")
+                self.emit("✅ Excellent! This would show:")
                 if cmd == "help":
-                    print("   → List of all commands for your role")
+                    self.emit("   → List of all commands for your role")
                 elif "help radio" in cmd:
-                    print("   → Radio system command options")
+                    self.emit("   → Radio system command options")
                 elif "man" in cmd:
-                    print("   → Complete manual page with examples")
+                    self.emit("   → Complete manual page with examples")
             else:
-                print(f"❌ You typed '{user_input}', try again!")
+                self.emit(f"❌ You typed '{user_input}', try again!")
 
-        print("\n💡 TIP: Always use 'help' when you're unsure about commands!")
+        self.emit("\n💡 TIP: Always use 'help' when you're unsure about commands!")
 
     def step_event_system(self):
         """Learn about shift events"""
@@ -261,10 +267,10 @@ Key commands:
 """)
 
         # Simulate event interaction
-        print("\nSIMULATED EVENT SCENARIO:")
-        print("Event EV-8040: TH-3 microwave fade detected on NYC-WAS path")
-        print("Priority: HIGH")
-        print("Status: MONITORING")
+        self.emit("\nSIMULATED EVENT SCENARIO:")
+        self.emit("Event EV-8040: TH-3 microwave fade detected on NYC-WAS path")
+        self.emit("Priority: HIGH")
+        self.emit("Status: MONITORING")
 
         scenarios = [
             ("events", "List all events"),
@@ -273,21 +279,21 @@ Key commands:
         ]
 
         for cmd, purpose in scenarios:
-            print(f"\nTo {purpose.lower()}, you would type: {cmd}")
+            self.emit(f"\nTo {purpose.lower()}, you would type: {cmd}")
             user_response = self.wait_for_user(f"Practice typing: {cmd}")
 
             if user_response.lower() == cmd.lower():
-                print("✅ Perfect! This would:")
+                self.emit("✅ Perfect! This would:")
                 if "detail" in cmd:
-                    print("   → Show technical details about the fade event")
+                    self.emit("   → Show technical details about the fade event")
                 elif "work" in cmd:
-                    print("   → Start troubleshooting procedures")
+                    self.emit("   → Start troubleshooting procedures")
                 else:
-                    print("   → Display all active events")
+                    self.emit("   → Display all active events")
             else:
-                print(f"❌ Close! The correct command was: {cmd}")
+                self.emit(f"❌ Close! The correct command was: {cmd}")
 
-        print("\n⚡ Events drive your daily workflow - check them frequently!")
+        self.emit("\n⚡ Events drive your daily workflow - check them frequently!")
 
     def step_ticket_system(self):
         """Learn trouble ticket management"""
@@ -310,8 +316,8 @@ Essential ticket commands:
 • ticket assign T-83047 - Assign ticket to technician
 """)
 
-        print("\nTICKET SCENARIO:")
-        print("Customer reports no dial tone on 212-555-1234")
+        self.emit("\nTICKET SCENARIO:")
+        self.emit("Customer reports no dial tone on 212-555-1234")
 
         ticket_workflow = [
             "ticket create",
@@ -323,12 +329,12 @@ Essential ticket commands:
             user_input = self.wait_for_user(f"What command would you use? (Hint: {cmd.split()[0]}...)")
 
             if cmd.lower() in user_input.lower():
-                print(f"✅ Correct! '{cmd}' would handle this step.")
+                self.emit(f"✅ Correct! '{cmd}' would handle this step.")
             else:
-                print(f"❌ The command was: {cmd}")
-                print("   Try to remember the ticket command structure!")
+                self.emit(f"❌ The command was: {cmd}")
+                self.emit("   Try to remember the ticket command structure!")
 
-        print("\n📋 Tickets ensure nothing gets lost and problems are tracked!")
+        self.emit("\n📋 Tickets ensure nothing gets lost and problems are tracked!")
 
     def step_specialized_commands(self):
         """Learn role-specific commands"""
@@ -363,21 +369,21 @@ NETWORK ANALYSIS:
             ("tnds status", "Network data analysis")
         ]
 
-        print("\nLet's practice some specialized commands:")
+        self.emit("\nLet's practice some specialized commands:")
 
         for cmd, purpose in speciality_commands:
-            print(f"\nCommand: {cmd}")
-            print(f"Purpose: {purpose}")
+            self.emit(f"\nCommand: {cmd}")
+            self.emit(f"Purpose: {purpose}")
 
             user_input = self.wait_for_user("Type this command")
 
             if user_input.lower() == cmd.lower():
-                print("✅ Excellent! You're mastering technical commands!")
+                self.emit("✅ Excellent! You're mastering technical commands!")
             else:
-                print(f"❌ You typed: {user_input}")
-                print(f"   Correct: {cmd}")
+                self.emit(f"❌ You typed: {user_input}")
+                self.emit(f"   Correct: {cmd}")
 
-        print("\n🔧 These specialized commands are the core of your daily work!")
+        self.emit("\n🔧 These specialized commands are the core of your daily work!")
 
     def step_graduation(self):
         """Complete the tutorial"""
@@ -416,10 +422,10 @@ REMEMBER:
         final_score = len(self.user_progress['commands_practiced'])
         role_selected = self.user_progress.get('role_selected', 'Not selected')
 
-        print("\nYOUR TUTORIAL RESULTS:")
-        print(f"Commands Practiced: {final_score}")
-        print(f"Preferred Role: {role_selected}")
-        print(f"Steps Completed: {self.user_progress['steps_completed']}")
+        self.emit("\nYOUR TUTORIAL RESULTS:")
+        self.emit(f"Commands Practiced: {final_score}")
+        self.emit(f"Preferred Role: {role_selected}")
+        self.emit(f"Steps Completed: {self.user_progress['steps_completed']}")
 
         self.wait_for_user("Press Enter to receive your certificate")
 
@@ -451,10 +457,10 @@ REMEMBER:
 ╚════════════════════════════════════════════════════════════════╝
 """
 
-        print(certificate)
-        print("\n🎉 Welcome to the Bell System operations team!")
-        print("\nYou are now ready to run the main simulation.")
-        print("Execute: python bell.py")
+        self.emit(certificate)
+        self.emit("\n🎉 Welcome to the Bell System operations team!")
+        self.emit("\nYou are now ready to run the main simulation.")
+        self.emit("Execute: bell-system")
 
 def main():
     """Main tutorial entry point"""
@@ -466,7 +472,7 @@ def main():
         tutorial.run()
     except KeyboardInterrupt:
         print("\n\nTutorial interrupted. You can restart anytime by running:")
-        print("python bell_system_tutorial.py")
+        print("bell-system --tutorial")
     except Exception as e:
         print(f"\nTutorial error: {e}")
         print("Please report this issue to the training coordinator.")

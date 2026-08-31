@@ -2415,4 +2415,73 @@ EXAMPLES
 SEE ALSO
      man(1), status(1)
 """,
+
+    "set": """
+NAME
+     set - display and change simulation settings
+
+SYNOPSIS
+     set
+     set <setting>
+     set <setting> <value>
+     set reset [<setting>]
+
+DESCRIPTION
+     Display the simulation settings screen, or change one setting.
+
+     The simulation runs period-accurate by default. Where a historically
+     accurate behaviour is less playable on a modern terminal, that choice
+     is offered here rather than decided for you. Settings whose value
+     departs from 1978-1983 behaviour are marked on the settings screen.
+
+     Settings persist between sessions in the state directory named by
+     BELL_SYSTEM_HOME.
+
+SETTINGS
+     date.source         simulated | real
+                         simulated runs the 1983 shift clock, which advances
+                         in real time from the configured epoch. real reports
+                         the host system clock.
+
+     date.epoch          YYYY-MM-DD
+                         Date on which the simulated shift begins. The shift
+                         starts at 08:00. Default 1983-11-14, a Monday.
+
+     date.format         v7 | iso | us
+                         v7 is UNIX date(1) order, as a Seventh Edition
+                         system printed it. iso is YYYY-MM-DD. us is
+                         MM-DD-YYYY.
+
+     date.clock          24 | 12
+                         24-hour was standard in Bell System operational
+                         records.
+
+     date.seconds        on | off
+                         Whether timestamps carry seconds.
+
+     display.charset     ascii | unicode
+                         ascii restricts output to printable 7-bit ASCII, as
+                         period terminals required. unicode permits block and
+                         box-drawing glyphs on a modern terminal.
+
+     display.prompt      v7 | verbose
+                         v7 is the bare Bourne shell prompt. verbose adds
+                         user, host and working directory.
+
+     display.log_console off | on
+                         Whether diagnostic log records print to the terminal.
+                         They always reach the log file.
+
+EXAMPLES
+     set                          Show the settings screen
+     set date.format              Explain one setting
+     set date.format iso          Display dates as YYYY-MM-DD
+     set date.clock 12            Use a 12-hour clock
+     set date.source real         Show the real date instead of 1983
+     set display.charset unicode  Permit block glyphs on a modern terminal
+     set reset                    Restore period-accurate defaults
+
+SEE ALSO
+     date(1), status(1), verbosity(1)
+""",
 }

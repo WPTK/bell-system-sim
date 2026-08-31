@@ -56,8 +56,34 @@ python -m bell_system          # Equivalent to `bell-system`
 - **50+ Period-Accurate Commands** with comprehensive functionality and historical accuracy
 - **Role-Specific Command Sets** with shift briefings and workflows for each position
 - **Event and Ticket Management** using authentic Bell System trouble ticket systems
+- **Simulated 1983 Shift Clock** running from Monday 14 November 1983, advancing in real time
+- **Adjustable Fidelity** via the `set` command, period-accurate by default
 - **Historical Documentation** based on Bell System Technical Journal and operations manuals
 - **Pure Python Implementation** using only standard library modules
+
+## Accuracy and Playability
+
+The simulation runs period-accurate by default: a 1983 clock, the bare Bourne
+shell prompt, and output restricted to the printable 7-bit ASCII a Teletype
+Model 43 or DATASPEED 40 could actually render.
+
+Where accuracy costs playability on a modern terminal, the choice is yours
+rather than ours. Type `set` for the settings screen:
+
+```
+set                          Show all settings and which depart from period behaviour
+set date.format iso          Dates as YYYY-MM-DD instead of UNIX date(1) order
+set date.clock 12            12-hour clock
+set date.seconds off         Drop seconds from timestamps
+set date.source real         Use your own system clock instead of 1983
+set date.epoch 1978-06-01    Run the shift on a different date
+set display.charset unicode  Allow block and box-drawing glyphs
+set display.prompt verbose   Add user, host and directory to the prompt
+set reset                    Restore period-accurate defaults
+```
+
+Settings persist between sessions, and the screen marks any that depart from
+1978-1983 behaviour. See `man set` for the full reference.
 
 ## Installation
 
@@ -108,6 +134,9 @@ bell-system --help
 │       ├── __init__.py              # Package exports and version
 │       ├── __main__.py              # `python -m bell_system` entry point
 │       ├── cli.py                   # Argument parsing and console script
+│       ├── settings.py              # User-adjustable simulation settings
+│       ├── clock.py                 # Simulated 1983 shift clock
+│       ├── console.py               # Terminal output and character set
 │       ├── terminal.py              # Main 12-role Bell System terminal
 │       ├── simple_terminal.py       # Four-role simplified terminal
 │       ├── tutorial.py              # Interactive tutorial system
