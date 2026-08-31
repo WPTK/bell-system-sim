@@ -7,12 +7,13 @@ regression fails the run rather than being counted as a success.
 
 import pytest
 
-from bell_system.terminal import (
+from bell_system.constants import (
     BELL_SYSTEM_ROLES,
     UNIMPLEMENTED_COMMANDS,
+)
+from bell_system.terminal import (
     BellSystemTerminal,
 )
-
 NOT_FOUND = 'command not found'
 
 # Commands that end the session or clear the screen rather than returning text.

@@ -422,19 +422,19 @@ class TestBellSystemPractices:
     """
 
     def test_real_divisions_are_used(self):
-        from bell_system.terminal import BSP_CATEGORIES
+        from bell_system.constants import BSP_CATEGORIES
         assert BSP_CATEGORIES['795'] == 'Common Language'
         assert BSP_CATEGORIES['660'] == 'Test Center Operation'
         assert BSP_CATEGORIES['800'] == 'Equipment Design Requirements'
 
     def test_no_computing_division_is_claimed(self):
-        from bell_system.terminal import BSP_CATEGORIES
+        from bell_system.constants import BSP_CATEGORIES
         for subject in BSP_CATEGORIES.values():
             assert 'UNIX' not in subject
             assert 'Computing' not in subject
 
     def test_clli_practice_is_cited(self):
-        from bell_system.terminal import BSP_PRACTICES
+        from bell_system.constants import BSP_PRACTICES
         assert '795-100-100' in BSP_PRACTICES
 
 

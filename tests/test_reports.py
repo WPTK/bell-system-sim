@@ -810,7 +810,7 @@ class TestShiftClock:
             assert event['status'] == 'ACTIVE'
 
     def test_the_wire_chief_calls_time_at_eight_hours(self, terminal):
-        from bell_system.terminal import SHIFT_LENGTH_MINUTES
+        from bell_system.constants import SHIFT_LENGTH_MINUTES
         terminal.shift_minutes = SHIFT_LENGTH_MINUTES
         notices = terminal._fire_due_events()
         assert any('eight hours' in notice for notice in notices)

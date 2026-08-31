@@ -157,3 +157,6 @@ class CentralOffice(TypedDict):
     installation_date: str
     maintenance_status: str
     coordinates: Any
+    # The COMMON LANGUAGE code assigned when the office is generated.
+    clli: str
+    switch_name: str

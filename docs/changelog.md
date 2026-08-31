@@ -228,6 +228,40 @@ from the documented "1300 ohms, typically about three miles" rather than quoted.
   adding to `terminal.py`, which is the shape the monolith is being broken
   into.
 
+## [Unreleased] - Roadmap R3
+
+### Changed
+
+- **`terminal.py` split from 11,241 lines to 1,800.** Two hundred and
+  thirty-three methods lived in one class because every subsystem's screens
+  were written into it. They now sit in `bell_system/screens/`, seventeen
+  modules grouped by the part of the plant they belong to, none over 1,000
+  lines. `terminal.py` keeps dispatch, session and construction.
+- **Shared constants moved to `bell_system/constants.py`** so the terminal and
+  its screens import them rather than one reaching into the other.
+- **The session contract is explicit.** `screens/session.py` declares every
+  attribute and cross-subsystem method a screen may use. The coupling was
+  always there and invisible; it is now written down in one place and checked.
+
+### Fixed
+
+- **Thirty-five type findings that were being suppressed.** `terminal.py` was
+  excluded from mypy by a per-module override. Splitting it exposed what the
+  override was hiding: a `CentralOffice` TypedDict missing the `clli` and
+  `switch_name` keys the code sets on it, four unguarded `Optional`
+  dereferences, ticket dictionaries appended to a `List[TroubleTicket]`
+  without matching it, `max()` over untyped values, and a role lookup that
+  could pass `None` to `dict.get`. All fixed, and **the override is gone** -
+  nothing in the package is excluded from type checking now.
+
+### Added
+
+- Four integrity guards so none of this can quietly come back: every screens
+  module must be mixed into the terminal, no screens module may exceed 1,000
+  lines, `terminal.py` may not exceed 2,000, and every `self.x()` call is
+  resolved against the constructed class's method resolution order rather
+  than a single file.
+
 ## [3.0.0] - 2025-05-27
 
 ### MAJOR RELEASE: COMPREHENSIVE COMMAND VALIDATION & CRITICAL ERROR RESOLUTION

@@ -1,0 +1,940 @@
+"""
+The working shift: its clock, its events, and the other craft on the wire.
+"""
+from ..constants import BELL_SYSTEM_ROLES, SHIFT_LENGTH_MINUTES
+import random
+from collections import (
+    deque,
+)
+from typing import (
+    List,
+    Optional,
+)
+from ..npc import (
+    CRAFT,
+    Message,
+    render as render_message,
+)
+from ..progression import (
+    QUALIFICATIONS,
+)
+from ..settings import (
+    EPOCH_HOUR,
+)
+
+
+from .session import SessionState
+
+
+class ShiftCommands(SessionState):
+    """
+    The working shift: its clock, its events, and the other craft on the wire.
+
+    Mixed into :class:`~bell_system.terminal.BellSystemTerminal`,
+    which owns the session state these read.
+    """
+
+    def _initialize_shift_handoff(self) -> None:
+        """Initialize authentic Bell System shift handoff data."""
+        self.shift_handoff = {
+            "previous_shift": {
+                "operator": "Johnson, R.",
+                "end_time": "07:59",
+                "summary": "Routine night operations - 3 tickets transferred",
+                "key_issues": [
+                    "RIDGE-X1 intermittent alarms - monitoring",
+                    "UUCP queue backup - resolved 06:30",
+                    "Crossbar maintenance scheduled 09:15"
+                ],
+                "open_tickets": ["SW-2847", "MX-2156", "FD-1293"],
+                "system_status": "All systems operational",
+                "special_instructions": "Monitor trunk TG-047 for blocking threshold"
+            }
+        }
+    def generate_shift_events(self) -> None:
+        """
+        Generate authentic Bell System operational events with ticket numbers.
+
+        Creates realistic operational events based on time of day, season,
+        and historical Bell System operations patterns. Each event has an
+        assigned ticket number for detailed investigation.
+        """
+        current_hour = self.clock.now().hour
+        current_month = self.clock.now().month
+
+        # Base events that occur during any shift with ticket numbers
+        base_events = [
+            {
+                "id": "EV-8001",
+                "time": "08:15",
+                "type": "SYSTEM",
+                "title": "Routine trunk group monitoring TG-023 to TG-067",
+                "priority": "LOW",
+                "status": "MONITORING",
+                "description": "Daily trunk group performance monitoring cycle initiated",
+                "details": "All 45 trunk groups showing normal utilization. TG-023 at 67%, TG-045 at 73%, TG-067 at 58%. No blocking events detected.",
+                "actions": ["Review hourly reports", "Monitor for threshold violations", "Document performance metrics"]
+            },
+            {
+                "id": "EV-8002",
+                "time": "08:30",
+                "type": "SYSTEM",
+                "title": "UUCP queue processing - 47 files transferred",
+                "priority": "LOW",
+                "status": "COMPLETE",
+                "description": "UNIX-to-UNIX Copy network file transfer cycle",
+                "details": "Overnight UUCP queue processed successfully. 47 files transferred between Bell Labs sites. Queue depth now at normal levels.",
+                "actions": ["Verify transfer logs", "Check for failed transfers", "Archive completed jobs"]
+            },
+            {
+                "id": "EV-8003",
+                "time": "08:45",
+                "type": "TEST",
+                "title": "Emergency services test call verification completed",
+                "priority": "MEDIUM",
+                "status": "COMPLETE",
+                "description": "Daily test of emergency service routing",
+                "details": "All 911 emergency routing paths tested successfully. Average setup time 1.8 seconds, all within specifications.",
+                "actions": ["Document test results", "Report to emergency services coordinator", "Schedule next test cycle"]
+            }
+        ]
+
+        # Time-specific events
+        time_events = []
+        if 6 <= current_hour < 14:  # Day shift
+            time_events = [
+                {
+                    "id": "EV-8010",
+                    "time": "09:15",
+                    "type": "MAINTENANCE",
+                    "title": "5ESS system cutover preparation scheduled 14:30",
+                    "priority": "HIGH",
+                    "status": "PENDING",
+                    "description": "Electronic switching system cutover coordination",
+                    "details": "5ESS-NYC-002 cutover from test to production. Requires coordination with traffic engineering and field operations.",
+                    "actions": ["Verify test results", "Coordinate with NOC", "Prepare rollback procedures", "Brief field technicians"]
+                },
+                {
+                    "id": "EV-8011",
+                    "time": "10:00",
+                    "type": "MEETING",
+                    "title": "Network planning meeting NP-8301 at 10:00",
+                    "priority": "MEDIUM",
+                    "status": "SCHEDULED",
+                    "description": "Northeast Corridor Expansion Project review",
+                    "details": "Quarterly review of NP-8301 project milestones. Discussion of capacity requirements and timeline adjustments.",
+                    "actions": ["Prepare traffic analysis reports", "Review budget status", "Present capacity forecasts"]
+                }
+            ]
+        elif 14 <= current_hour < 22:  # Evening shift
+            time_events = [
+                {
+                    "id": "EV-8020",
+                    "time": "15:30",
+                    "type": "TRAFFIC",
+                    "title": "Peak traffic period - all trunk groups monitored",
+                    "priority": "HIGH",
+                    "status": "ACTIVE",
+                    "description": "Daily peak traffic management",
+                    "details": "Evening calling peak approaching. All trunk groups under enhanced monitoring. TG-023 approaching 85% capacity.",
+                    "actions": ["Monitor trunk utilization", "Prepare overflow routing", "Coordinate with traffic engineering"]
+                },
+                {
+                    "id": "EV-8021",
+                    "time": "16:00",
+                    "type": "TRAINING",
+                    "title": "TSPS operator training session 16:00-17:30",
+                    "priority": "MEDIUM",
+                    "status": "SCHEDULED",
+                    "description": "Traffic Service Position System operator certification",
+                    "details": "Monthly TSPS operator training on new procedures and emergency protocols.",
+                    "actions": ["Prepare training materials", "Coordinate with training department", "Document attendance"]
+                }
+            ]
+        else:  # Night shift
+            time_events = [
+                {
+                    "id": "EV-8030",
+                    "time": "02:30",
+                    "type": "MAINTENANCE",
+                    "title": "Preventive maintenance window 02:00-05:00",
+                    "priority": "MEDIUM",
+                    "status": "ACTIVE",
+                    "description": "Scheduled overnight maintenance procedures",
+                    "details": "Crossbar system maintenance at three central offices. Estimated completion 04:30.",
+                    "actions": ["Monitor maintenance progress", "Coordinate with field teams", "Verify service restoration"]
+                }
+            ]
+
+        # Equipment-specific events with authentic Bell System issues
+        equipment_events = [
+            {
+                "id": "EV-8040",
+                "time": "09:47",
+                "type": "ALARM",
+                "title": "TH-3 microwave path NYC-WAS fade event detected",
+                "priority": "HIGH",
+                "status": "MONITORING",
+                "description": "Radio path fade margin below threshold",
+                "details": "TH-3 path NYC-WAS-001 experiencing atmospheric fade. Current RSL -65 dBm, fade margin reduced to 12 dB. Space diversity activated.",
+                "actions": ["Monitor signal levels", "Check weather conditions", "Verify diversity operation", "Prepare backup routing"]
+            },
+            {
+                "id": "EV-8041",
+                "time": "11:23",
+                "type": "EQUIPMENT",
+                "title": "3A Central Control Unit D diagnostic alert",
+                "priority": "HIGH",
+                "status": "INVESTIGATING",
+                "description": "Central control processor requires attention",
+                "details": "3A Central Control Unit D reporting memory parity errors. Unit switched to standby. Diagnostic testing in progress.",
+                "actions": ["Run comprehensive diagnostics", "Check memory modules", "Coordinate with maintenance", "Monitor standby unit"]
+            },
+            {
+                "id": "EV-8042",
+                "time": "13:15",
+                "type": "CUSTOMER",
+                "title": "Government priority circuit outage - Pentagon line",
+                "priority": "CRITICAL",
+                "status": "URGENT",
+                "description": "High-priority government customer service interruption",
+                "details": "Dedicated Pentagon communication line experiencing total outage. Customer class: GOVERNMENT-PRIORITY. Immediate response required.",
+                "actions": ["Dispatch emergency team", "Activate backup circuits", "Notify government liaison", "Escalate to Level 3"]
+            }
+        ]
+
+        # Seasonal events
+        seasonal_events = []
+        if current_month in [12, 1, 2]:  # Winter
+            seasonal_events = [
+                {
+                    "id": "EV-8050",
+                    "time": "07:30",
+                    "type": "WEATHER",
+                    "title": "Ice storm impact on microwave paths",
+                    "priority": "HIGH",
+                    "status": "MONITORING",
+                    "description": "Weather affecting radio propagation",
+                    "details": "Ice accumulation on microwave antennas in northeast corridor. Multiple paths showing degraded performance.",
+                    "actions": ["Monitor all radio paths", "Coordinate ice removal crews", "Implement backup routing", "Track weather conditions"]
+                }
+            ]
+        elif current_month in [6, 7, 8]:  # Summer
+            seasonal_events = [
+                {
+                    "id": "EV-8060",
+                    "time": "14:20",
+                    "type": "WEATHER",
+                    "title": "Thunderstorm fade analysis for radio paths",
+                    "priority": "MEDIUM",
+                    "status": "MONITORING",
+                    "description": "Summer storm impact assessment",
+                    "details": "Thunderstorm activity affecting multiple TH-3 paths. Increased fade events expected through evening hours.",
+                    "actions": ["Monitor fade events", "Verify diversity switching", "Prepare traffic rerouting", "Document performance"]
+                }
+            ]
+
+        # Always include base events, then add others based on current conditions
+        selected_events = base_events.copy()
+
+        # Add time-appropriate events
+        selected_events.extend(time_events)
+
+        # Add 2-3 equipment/customer events randomly
+        if equipment_events:
+            selected_events.extend(random.sample(equipment_events, min(2, len(equipment_events))))
+
+        # Add seasonal events if applicable
+        selected_events.extend(seasonal_events)
+
+        # Sort by time and limit to reasonable number
+        selected_events.sort(key=lambda event: str(event["time"]))
+        self.shift_events = selected_events[:8]  # Limit to 8 events per shift
+    def show_shift_briefing(self) -> None:
+        """
+        Display role-specific shift briefing.
+
+        Provides authentic Bell System shift briefing information
+        tailored to the selected operational role.
+        """
+        current_time = self.clock.now().strftime("%H:%M")
+        current_date = self.clock.now().strftime("%B %d, %Y")
+
+        self.emit(f"\n{'='*60}")
+        self.emit(f"BELL SYSTEM SHIFT BRIEFING - {current_date}")
+        self.emit(f"Shift Start Time: {current_time}")
+        # Find the role name for display
+        role_name = "Unknown Role"
+        for role_id, (role_key, name) in BELL_SYSTEM_ROLES.items():
+            if role_key == self.role:
+                role_name = name
+                break
+        self.emit(f"Role: {role_name}")
+        self.emit(f"{'='*60}")
+
+        # Role-specific briefings
+        role_briefings = {
+            "sysop": self._get_sysop_briefing(),
+            "switch": self._get_switch_briefing(),
+            "field": self._get_field_briefing(),
+            "noc": self._get_noc_briefing(),
+            "tsps": self._get_tsps_briefing(),
+            "dba": self._get_dba_briefing(),
+            "netplan": self._get_netplan_briefing(),
+            "custserv": self._get_custserv_briefing(),
+            "radio": self._get_radio_briefing(),
+            "tnds": self._get_tnds_briefing(),
+            "sarts": self._get_sarts_briefing(),
+            "docprep": self._get_docprep_briefing()
+        }
+
+        briefing = role_briefings.get(self.role or '',
+                                      "Generic Bell System briefing")
+        self.emit(briefing)
+
+        self.emit("\nShift Events:")
+        for i, event in enumerate(self.shift_events[:5], 1):
+            priority_marker = "*** " if event["priority"] == "CRITICAL" else "** " if event["priority"] == "HIGH" else "* " if event["priority"] == "MEDIUM" else ""
+            self.emit(f"  {i}. {event['time']} [{event['type']}] {priority_marker}{event['status']}")
+            self.emit(f"     {event['title']}")
+            self.emit(f"     ID: {event['id']}")
+            self.emit()
+
+        self.emit("\nCurrent System Status:")
+        self.emit("  Network Operations: NORMAL")
+        self.emit("  Switch Centers: 47/48 operational")
+        self.emit("  TNDS Collection: ACTIVE")
+        self.emit("  Emergency Services: OPERATIONAL")
+
+        self._emit_board_briefing()
+
+        self.emit("\nType 'help' for available commands or 'man <command>' for detailed help.")
+        self.emit(f"{'='*60}")
+    def _emit_board_briefing(self) -> None:
+        """
+        Show the board the shift starts with, and what to do about it.
+
+        Whatever position a craftsperson holds, there is a board of customer
+        trouble waiting. Saying so at the start of the shift is the
+        difference between a terminal with commands and a terminal with a
+        job.
+        """
+        pending = self.desk.pending()
+        difficulty = self._difficulty()
+
+        self.emit("\nRepair Service Bureau:")
+        self.emit(f"  Reports on your board: {len(pending)}")
+        if pending:
+            oldest = pending[0]
+            self.emit(f"  Nearest commitment:    {oldest.number} "
+                      f"({oldest.record.telephone_number}) in "
+                      f"{oldest.age_label()}")
+        self.emit(f"  Difficulty:            {difficulty.name}")
+        self.emit(f"  Service index:         "
+                  f"{self.career.service_index():.1f} of 100 "
+                  f"({self.career.index_band()})")
+        self.emit(f"  Shift:                 {self.career.shift}")
+
+        held = len(self.career.qualifications)
+        self.emit(f"  Qualifications:        {held} of "
+                  f"{len(QUALIFICATIONS)} held")
+
+        self.emit("\n  'report' for the board, 'mlt <report>' to measure a "
+                  "loop,")
+        self.emit("  'qual' for your craft record.")
+        if self.career.shift == 1 and not self.career.reports_closed:
+            self.emit("  'set game.difficulty craft' if you want the shift "
+                      "worked the hard way.")
+    def _get_shift_hours(self) -> str:
+        """Get current shift description."""
+        hour = self.clock.now().hour
+        if 8 <= hour < 16:
+            return "Day Shift (08:00-16:00)"
+        elif 16 <= hour < 24:
+            return "Evening Shift (16:00-24:00)"
+        else:
+            return "Night Shift (24:00-08:00)"
+    def cmd_handoff(self, args: List[str]) -> str:
+        """Bell System shift handoff briefing and turnover record."""
+        previous = self.shift_handoff["previous_shift"]
+        pending_reports = self.desk.pending()
+        overdue_reports = [r for r in pending_reports if r.overdue()]
+        untested_reports = [r for r in pending_reports if not r.tested]
+        open_now = [t for t in self.active_tickets if t['status'] != 'RESOLVED']
+        critical = [t for t in open_now if t['priority'] == 'CRITICAL']
+        unacknowledged = [a for a in self.active_alarms if not a['acknowledged']]
+
+        output = f"""Bell System Shift Handoff Record
+{self.clock.now().strftime('%B %d, %Y %H:%M EST')}
+{'=' * 50}
+
+INCOMING FROM PREVIOUS SHIFT
+{'=' * 40}
+Operator:                 {previous['operator']}
+Shift Ended:              {previous['end_time']}
+Summary:                  {previous['summary']}
+System Status:            {previous['system_status']}
+
+Key Issues Carried Forward:"""
+        for issue in previous['key_issues']:
+            output += f"\n  - {issue}"
+
+        output += f"""
+
+Tickets Transferred:      {', '.join(previous['open_tickets'])}
+
+Special Instructions:
+  {previous['special_instructions']}
+
+CURRENT SHIFT POSITION
+{'=' * 40}
+Operator On Duty:         {self.username}
+Role:                     {self.role_name or 'Unassigned'}
+Shift Number:             {self.career.shift}
+Time Worked:              {self.shift_time()} of \
+{SHIFT_LENGTH_MINUTES // 60}:00
+Commands This Session:    {len(self.command_history)}
+
+Open Trouble Tickets:     {len(open_now)}
+  Critical:               {len(critical)}
+Unacknowledged Alarms:    {len(unacknowledged)}
+Overall Health:           {self.system_health['overall_status']}
+
+REPAIR SERVICE BUREAU
+{'=' * 40}
+Reports Pending:          {len(pending_reports)}
+  Past Commitment:        {len(overdue_reports)}
+  Not Yet Measured:       {len(untested_reports)}
+Closed This Session:      {len(self.desk.closed())}
+Service Index:            {self.career.service_index():.1f} \
+({self.career.index_band()})
+Qualifications Held:      {len(self.career.qualifications)} of \
+{len(QUALIFICATIONS)}
+"""
+
+        if pending_reports:
+            output += ("\nREPORTS CARRIED TO THE NEXT SHIFT\n" + "=" * 40)
+            for report in pending_reports[:6]:
+                output += (
+                    f"\n{report.number}: {report.record.telephone_number}"
+                    f"\n  Customer states:    {report.symptom}"
+                    f"\n  Commitment:         "
+                    f"{report.commitment.strftime('%H:%M %a %b %d')}"
+                    f" ({report.age_label()}"
+                    f" {'past' if report.overdue() else 'remaining'})"
+                    f"\n  Measured:           "
+                    f"{'yes' if report.tested else 'NO'}")
+
+        if critical:
+            output += "\nCRITICAL TICKETS REQUIRING HANDOFF\n" + "=" * 40
+            for ticket in critical:
+                output += f"""
+{ticket['id']}: {ticket['title']}
+  Office:             {self._office_label(ticket['affected_office'])}
+  Assigned:           {ticket['assigned_team']}
+  Customers Affected: {ticket['customer_impact']:,}"""
+
+        output += f"""
+
+TURNOVER CHECKLIST
+{'=' * 40}
+  [ ] Review all open trouble tickets with relieving operator
+  [ ] Transfer unacknowledged alarms
+  [ ] Confirm maintenance windows in progress
+  [ ] Record special instructions in the shift log
+  [ ] Verify emergency contact roster is current
+  [ ] Hand the board over with every commitment stated
+
+Reference: BSP 010-100-000 (Shift Turnover Procedures)
+
+Type 'handoff relieve' to sign off. The service index is banked against
+this shift and the next one starts on a fresh board."""
+
+        if args and args[0].lower() in ('relieve', 'signoff', 'end'):
+            return self._end_shift()
+        return output
+    def _end_shift(self) -> str:
+        """
+        Sign off: bank the index, advance the shift, and start a new board.
+
+        Reports left pending are carried forward, because they were. Anything
+        past commitment is still past commitment in the morning.
+        """
+        banked = self.career.service_index()
+        worked = self.shift_time()
+        carried = self.desk.pending()
+        self.career.end_shift()
+        self.current_shift = self.career.shift
+
+        # A new shift starts with its own clock and its own schedule.
+        self.shift_minutes = 0
+        self._charged_total = sum(report.desk_minutes
+                                  for report in self.reports_all())
+        self._fired_events = set()
+        self.generate_shift_events()
+
+        difficulty = self._difficulty()
+        opened = self.desk.open_shift(
+            self.clock.now(), difficulty.commitment_slack_minutes)
+
+        lines = [
+            f"Relieved. Shift {self.career.shift - 1} closed after "
+            f"{worked} worked.",
+            '=' * 66,
+            f"  Service index banked      {banked:.1f}  "
+            f"{self.career.index_band()}",
+            f"  Reports closed to date    {self.career.reports_closed}",
+            f"  Carried forward           {len(carried)}",
+            f"  New on the board          {len(opened)}",
+            f"  Shift events              {len(self.shift_events)} scheduled",
+            '',
+            f"Shift {self.career.shift} begins. "
+            f"{len(self.desk.pending())} pending.",
+        ]
+        if self.career.index_history:
+            lines.append('  Index history             '
+                         + ', '.join(f"{entry:.1f}"
+                                     for entry in
+                                     self.career.index_history[-8:]))
+        granted = self._grant_qualifications()
+        if granted:
+            lines.append('')
+            lines.extend(granted)
+        return '\n'.join(lines)
+    def cmd_events(self, args: List[str]) -> str:
+        """Bell System operational events and shift activity"""
+        if not args:
+            output = [f"Bell System Operational Events - Shift {self.current_shift}"]
+            output.append("=" * 55)
+            output.append("")
+
+            for i, event in enumerate(self.shift_events, 1):
+                priority_marker = "*** " if event["priority"] == "CRITICAL" else "** " if event["priority"] == "HIGH" else "* " if event["priority"] == "MEDIUM" else ""
+                output.append(f"{i:2d}. {event['time']} [{event['type']}] {priority_marker}{event['status']}")
+                output.append(f"    {event['title']}")
+                output.append(f"    Event ID: {event['id']}")
+                output.append("")
+
+            output.append("Commands:")
+            output.append("  events detail <event_id>     - View detailed event information")
+            output.append("  events work <event_id>       - Work on specific event")
+            output.append("  events priority <level>      - Filter by priority (CRITICAL, HIGH, MEDIUM, LOW)")
+            output.append("  events status <status>       - Filter by status")
+            output.append("")
+            return "\n".join(output)
+
+        elif args[0] == "detail" and len(args) > 1:
+            event_id = args[1].upper()
+            found_event = next(
+                (e for e in self.shift_events if e["id"] == event_id), None)
+
+            if not found_event:
+                return f"Event {event_id} not found. Use 'events' to see available events."
+
+            output = [f"BELL SYSTEM EVENT DETAILS: {found_event['id']}"]
+            output.append("=" * 50)
+            output.append("")
+            output.append(f"Time:        {found_event['time']}")
+            output.append(f"Type:        {found_event['type']}")
+            output.append(f"Priority:    {found_event['priority']}")
+            output.append(f"Status:      {found_event['status']}")
+            output.append(f"Title:       {found_event['title']}")
+            output.append("")
+            output.append("Description:")
+            output.append(f"  {found_event['description']}")
+            output.append("")
+            output.append("Details:")
+            output.append(f"  {found_event['details']}")
+            output.append("")
+            output.append("Recommended Actions:")
+            for i, action in enumerate(found_event['actions'], 1):
+                output.append(f"  {i}. {action}")
+            output.append("")
+            output.append(f"Use 'events work {event_id}' to begin working this event")
+            output.append("")
+            return "\n".join(output)
+
+        elif args[0] == "work" and len(args) > 1:
+            event_id = args[1].upper()
+            found_event = next(
+                (e for e in self.shift_events if e["id"] == event_id), None)
+
+            if not found_event:
+                return f"Event {event_id} not found. Use 'events' to see available events."
+
+            # Update event status to indicate work started
+            found_event["status"] = "IN_PROGRESS"
+
+            output = [f"WORKING EVENT: {found_event['id']} - {found_event['title']}"]
+            output.append("=" * 60)
+            output.append("")
+            output.append(f"Event Type: {found_event['type']}")
+            output.append(f"Priority: {found_event['priority']}")
+            output.append("")
+            output.append("WORK LOG INITIATED:")
+            output.append(f"  {self.clock.now().strftime('%H:%M')} - Work started by {self.username}")
+            output.append(f"  {self.clock.now().strftime('%H:%M')} - Reviewing event details and recommended actions")
+            output.append("")
+            output.append("NEXT STEPS:")
+            for i, action in enumerate(found_event['actions'], 1):
+                output.append(f"  {i}. {action}")
+            output.append("")
+
+            # Role-specific guidance
+            role_guidance = {
+                "radio": "Use 'radio' commands to investigate microwave path issues",
+                "switch": "Use 'switch' and '3a' commands for switching system problems",
+                "noc": "Coordinate with other teams and monitor network impact",
+                "field": "Dispatch field technicians and coordinate on-site activities",
+                "sysop": "Check system logs and coordinate with development teams"
+            }
+
+            if self.role in role_guidance:
+                output.append("Role-Specific Guidance:")
+                output.append(f"  {role_guidance[self.role]}")
+                output.append("")
+
+            output.append("Use relevant Bell System commands to investigate and resolve this event.")
+            output.append("Document progress with 'ticket create' if escalation needed.")
+            output.append("")
+            return "\n".join(output)
+
+        elif args[0] == "priority" and len(args) > 1:
+            priority = args[1].upper()
+            filtered_events = [e for e in self.shift_events if e["priority"] == priority]
+
+            if not filtered_events:
+                return f"No events found with priority '{priority}'"
+
+            output = [f"Events with Priority: {priority}"]
+            output.append("=" * 40)
+            output.append("")
+            for event in filtered_events:
+                output.append(f"{event['time']} [{event['type']}] {event['status']}")
+                output.append(f"  {event['title']}")
+                output.append(f"  Event ID: {event['id']}")
+                output.append("")
+
+            return "\n".join(output)
+
+        elif args[0] == "status" and len(args) > 1:
+            status = args[1].upper()
+            filtered_events = [e for e in self.shift_events if e["status"] == status]
+
+            if not filtered_events:
+                return f"No events found with status '{status}'"
+
+            output = [f"Events with Status: {status}"]
+            output.append("=" * 40)
+            output.append("")
+            for event in filtered_events:
+                output.append(f"{event['time']} [{event['type']}] {event['priority']}")
+                output.append(f"  {event['title']}")
+                output.append(f"  Event ID: {event['id']}")
+                output.append("")
+
+            return "\n".join(output)
+
+        else:
+            return f"events: unknown option '{args[0]}'\nUse 'events' for available commands"
+    def _stamp(self) -> str:
+        """Return a timestamp in the form the messaging channels carried."""
+        return self.clock.log_stamp()
+    def _queue_message(self, message, after: int) -> None:
+        """Hold a message back so it lands a few commands from now."""
+        self._queued_messages.append([after, message])
+    def _drain_queue(self) -> List[str]:
+        """Return any held messages that are now due."""
+        due: List[str] = []
+        remaining: deque = deque()
+        while self._queued_messages:
+            countdown, message = self._queued_messages.popleft()
+            countdown -= 1
+            if countdown <= 0:
+                due.append(render_message(message, self._stamp()))
+            else:
+                remaining.append([countdown, message])
+        self._queued_messages = remaining
+        return due
+    def _interrupt(self) -> str:
+        """
+        Advance the shift and return whatever the building has to say.
+
+        Called after every command. The shift clock, new work arriving and
+        tickets being assigned are simulation state and happen regardless;
+        the ambience setting governs only whether anybody tells you about
+        them. Interruption rate is the difficulty's: a shift on the forgiving
+        setting is quiet, a shift on the other one is not.
+        """
+        quiet = not self.settings.is_on('game.ambience')
+        difficulty = self._difficulty()
+        pieces = self._advance_shift()
+        if not quiet:
+            pieces = self._drain_queue() + pieces
+
+        # The switching control centre puts a ticket on you now and then.
+        # These are the tickets the trouble system already carries; being
+        # handed one by name is the difference between a list and an
+        # assignment.
+        if random.random() < difficulty.interruption_rate * 0.3:
+            unassigned = [
+                ticket for ticket in self.active_tickets
+                if ticket['status'] != 'RESOLVED'
+                and ticket['id'] not in self._assigned_tickets
+            ]
+            if unassigned:
+                ticket = random.choice(unassigned)
+                self._assigned_tickets.add(ticket['id'])
+                ticket['assigned_team'] = f"{self.username} (this position)"
+                pieces.append(render_message(self.switchroom.ticket_assignment(
+                    self.clock.now(), ticket['id'], ticket['title'],
+                    ticket['priority'],
+                    self._office_label(ticket['affected_office']),
+                ), self._stamp()))
+
+        # New work arrives. The rate falls off as the board fills, which is
+        # what a finite repair force actually produces: a board that hovers
+        # around a working depth rather than emptying or running away.
+        depth = len(self.desk.pending())
+        arrival = max(0.0, 0.45 - 0.045 * depth)
+        if not self.desk.full() and random.random() < arrival:
+            report = self.desk.receive(
+                self.clock.now(), difficulty.commitment_slack_minutes)
+            same_day = report.commitment.date() == report.received.date()
+            committed = report.commitment.strftime(
+                '%H:%M' if same_day else '%H:%M %a')
+            pieces.append(render_message(self.switchroom.assignment(
+                self.clock.now(), report.number,
+                report.record.telephone_number, report.symptom, committed,
+            ), self._stamp()))
+
+        # Somebody says something, at the difficulty's rate.
+        if random.random() < difficulty.interruption_rate:
+            message = self._craft_interruption(difficulty)
+            if message is not None:
+                pieces.append(render_message(message, self._stamp()))
+
+        return '' if quiet else '\n'.join(pieces)
+    def _craft_interruption(self, difficulty):
+        """
+        Return whatever one of the other craft would say right now.
+
+        A report past its commitment gets chased first, because that is what
+        would actually happen. Otherwise it is advice on the forgiving
+        setting and ordinary building noise on either.
+        """
+        now = self.clock.now()
+        pending = self.desk.pending()
+        overdue = [report for report in pending if report.overdue()]
+        untested = [report for report in pending if not report.tested]
+        roll = random.random()
+
+        if overdue and roll < 0.45:
+            target = random.choice(overdue)
+            return self.switchroom.chase(
+                now, target.number, target.record.telephone_number)
+        if untested and roll < 0.60 and not difficulty.require_test_before_close:
+            return self.switchroom.hint(now)
+        if untested and roll < 0.50:
+            return self.switchroom.hint(now)
+        return self.switchroom.chatter(now)
+    def _advance_shift(self) -> List[str]:
+        """
+        Charge the shift for the work just done and fire anything now due.
+
+        Returns:
+            Rendered notices for events that came due, whether or not the
+            caller will display them
+        """
+        charged = sum(report.desk_minutes
+                      for report in self.reports_all())
+        self.shift_minutes += 1 + max(0, charged - self._charged_total)
+        self._charged_total = charged
+        return self._fire_due_events()
+    def shift_time(self) -> str:
+        """Return how far into the shift the work has got, as hours:minutes."""
+        return f"{self.shift_minutes // 60}:{self.shift_minutes % 60:02d}"
+    def _fire_due_events(self) -> List[str]:
+        """
+        Bring shift events due as the working shift reaches their time.
+
+        Events carry a wall-clock time because that is how a shift schedule
+        was written. They are measured here against the work done rather than
+        against the real-time clock, which would leave every afternoon event
+        unreachable in a session anybody would actually sit through.
+        """
+        reached = EPOCH_HOUR * 60 + self.shift_minutes
+        notices: List[str] = []
+        for event in self.shift_events:
+            if event['id'] in self._fired_events:
+                continue
+            try:
+                hour, minute = event['time'].split(':')
+                due = int(hour) * 60 + int(minute)
+            except (ValueError, KeyError):
+                continue
+            if due > reached:
+                continue
+
+            self._fired_events.add(event['id'])
+            if event.get('status') == 'PENDING':
+                event['status'] = 'ACTIVE'
+            notices.append(render_message(self.switchroom.shift_event(
+                self.clock.now(), event['id'], event['type'],
+                event['title'], event['priority'], event['time'],
+            ), self._stamp()))
+
+        if (self.shift_minutes >= SHIFT_LENGTH_MINUTES
+                and 'SHIFT-END' not in self._fired_events):
+            self._fired_events.add('SHIFT-END')
+            notices.append(self._shift_over_notice())
+        return notices
+    def _shift_over_notice(self) -> str:
+        """Return the wire chief telling you your eight hours are up."""
+        pending = len(self.desk.pending())
+        overdue = sum(1 for report in self.desk.pending() if report.overdue())
+        return render_message(Message(
+            channel='write', sender='ehalloran', received=self.clock.now(),
+            lines=[
+                'That is eight hours.',
+                f'{pending} still on your board, {overdue} past commitment.',
+                "'handoff relieve' when you are ready to sign off.",
+            ],
+            kind='shift', subject='End of shift', about=None,
+        ), self._stamp())
+    def cmd_write(self, args: Optional[List[str]] = None) -> str:
+        """Send a line to another craftsperson's terminal, as write(1) did."""
+        args = args or []
+        if not args:
+            lines = [
+                "write: usage: write <user> [message]",
+                '',
+                f"{'LOGIN':<12} {'TTY':<5} {'NAME':<16} WHERE",
+                '-' * 66,
+            ]
+            for person in CRAFT.values():
+                lines.append(f"{person.login:<12} tty{person.tty:<2} "
+                             f"{person.name:<16} {person.location}")
+            lines.append('-' * 66)
+            lines.append("Type 'who' for who is on the system.")
+            return '\n'.join(lines)
+
+        login = args[0].lower()
+        found = CRAFT.get(login)
+        if found is None:
+            return f"write: {args[0]} is not logged on."
+        if login == 'carot':
+            return ("write: CAROT is a test system, not a terminal. It prints "
+                    "to you; you\ndo not write back to it.")
+
+        if len(args) == 1:
+            return (f"write: say something.\n"
+                    f"Usage: write {login} <message>\n\n"
+                    f"{found.name}, {found.title}, {found.location}.\n"
+                    f"{found.manner}")
+
+        reply = self._craft_reply(login)
+        return (f"Message sent to {login} tty{found.tty}.\n"
+                f"EOT\n\n"
+                f"Message from {login} tty{found.tty} [{self._stamp()}]...\n"
+                f"{reply}\nEOT")
+    def _craft_reply(self, login: str) -> str:
+        """Return what a craftsperson says back when written to."""
+        pending = self.desk.pending()
+        oldest = pending[0] if pending else None
+        replies = {
+            'rjohnson': [
+                "Busy on the frame. If it is a pair, take it to the board.",
+                "I have seen that one. Measure it before you believe it.",
+            ],
+            'mreyes': [
+                f"You have {len(pending)} on your board. I have more coming.",
+                "Tell me something I can put on the card and I will call them.",
+            ],
+            'dpetrak': [
+                "SCC has you. Nothing outstanding from here.",
+                "Keep the order wire clear, we are routining trunks tonight.",
+            ],
+            'lokafor': [
+                "I am up a pole. Make it quick.",
+                "Give me a cable and pair and I will go look at it.",
+            ],
+            'gvasquez': [
+                "Board is yours. Send me a number and I will read it out.",
+                "Capacitance is the distance. That is the whole trick.",
+            ],
+            'ehalloran': [
+                f"Your index is {self.career.service_index():.1f}. "
+                f"{self.career.index_band()}.",
+                "Work what you are signed off on and nothing else.",
+            ],
+            'tnakamura': [
+                "Everything is stated at 1004 Hz. Read it there.",
+                "If a trunk is long on loss, do not put it back in service.",
+            ],
+        }
+        pool = replies.get(login, ["Go ahead."])
+        if oldest is not None and login == 'mreyes':
+            pool.append(f"{oldest.number} is the one I would do first.")
+        return random.choice(pool)
+    def cmd_mail(self, args: Optional[List[str]] = None) -> str:
+        """Read the mail the other craft have left, as mail(1) did."""
+        args = args or []
+        if args and args[0].lower() in ('-s', 'send'):
+            return ("mail: this terminal takes mail; it does not originate "
+                    "it.\nUse 'write <user>' to reach somebody now.")
+
+        waiting = self.switchroom.take_mail()
+        if not waiting:
+            return "No mail."
+        rendered = [f"Mail for {self.username}: {len(waiting)} message(s)", '']
+        for message in waiting:
+            rendered.append(render_message(
+                message, message.received.strftime('%a %b %d %H:%M:%S %Y')))
+            rendered.append('-' * 66)
+        return '\n'.join(rendered)
+    def cmd_orderwire(self, args: Optional[List[str]] = None) -> str:
+        """Listen on, or speak into, the maintenance order wire."""
+        args = args or []
+        if not args:
+            traffic = [
+                message for message in self.switchroom.log
+                if message.channel == 'orderwire'
+            ][-6:]
+            lines = [
+                "Order wire - maintenance circuit",
+                f"{self.home_office['clli']} to SCC_BEDMINSTER   "
+                f"{self.clock.timestamp()}",
+                '=' * 66,
+            ]
+            if not traffic:
+                lines.append("Circuit quiet. Nothing on the wire.")
+            else:
+                for message in traffic:
+                    lines.append(render_message(
+                        message, message.received.strftime('%H:%M')))
+            lines.extend([
+                '',
+                "Usage: orderwire report <what you are calling in>",
+                "       orderwire scc            raise the control centre",
+            ])
+            return '\n'.join(lines)
+
+        action = args[0].lower()
+        if action == 'scc':
+            pending = len(self.desk.pending())
+            return (f"[ORDER WIRE SCC_BEDMINSTER {self._stamp()}]\n"
+                    f"Petrak, SCC. Go ahead.\n\n"
+                    f"You report {pending} pending and a service index of "
+                    f"{self.career.service_index():.1f}.\n"
+                    f"SCC acknowledges. Nothing outstanding from this end.")
+        if action == 'report':
+            if len(args) < 2:
+                return "orderwire: say what you are reporting."
+            said = ' '.join(args[1:])
+            return (f"[ORDER WIRE {self.home_office['clli']} {self._stamp()}]\n"
+                    f"{self.username}: {said}\n\n"
+                    f"[ORDER WIRE SCC_BEDMINSTER {self._stamp()}]\n"
+                    f"SCC copies. Logged against this office.")
+        return ("orderwire: unknown option. Use 'orderwire', "
+                "'orderwire scc' or\n'orderwire report <text>'.")

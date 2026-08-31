@@ -132,13 +132,13 @@ System was the real front end for exactly the trouble reports the simulation
 now models, so it is a view onto state that already exists rather than new
 state.
 
-### R3 — Break up `terminal.py` · weeks · unblocks R4
+### R3 — Break up `terminal.py` · **done**
 
-- [ ] Extract by subsystem into modules of the shape `reports.py` already
+- [x] Extract by subsystem into modules of the shape `reports.py` already
       has: state and rules in the module, rendering in the terminal
-- [ ] Target: no module over 1,000 lines; `terminal.py` becomes dispatch,
+- [x] Target: no module over 1,000 lines; `terminal.py` becomes dispatch,
       session and rendering
-- [ ] Suggested cuts, roughly by size: TNDS, TSPS, traffic, trunks and
+- [x] Cuts made, roughly by size: TNDS, TSPS, traffic, trunks and
       switching, carrier, tickets, directory and operator
 
 Do this before R4, not after. Adding twenty subsystems to an 11,000-line file

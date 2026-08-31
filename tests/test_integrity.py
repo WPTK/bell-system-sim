@@ -95,31 +95,84 @@ def test_no_duplicate_definitions(path):
             assert not duplicates, f'{path.name}:{node.name} redefines {duplicates}'
 
 
-def test_no_calls_to_undefined_methods():
-    """
-    Every ``self.x()`` call in the terminal resolves to a defined method.
-
-    Nine methods were called but never defined, so whole command branches
-    raised AttributeError at runtime.
-    """
-    source = (PACKAGE_ROOT / 'terminal.py').read_text()
-    tree = ast.parse(source)
-    cls = next(n for n in ast.walk(tree) if isinstance(n, ast.ClassDef))
-    defined = {
-        n.name for n in cls.body
-        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-    }
-
+def _self_calls(source):
+    """Return every ``self.x()`` call in a source file, with its line."""
     called = {}
-    for node in ast.walk(tree):
+    for node in ast.walk(ast.parse(source)):
         if (isinstance(node, ast.Call)
                 and isinstance(node.func, ast.Attribute)
                 and isinstance(node.func.value, ast.Name)
                 and node.func.value.id == 'self'):
             called.setdefault(node.func.attr, node.lineno)
+    return called
 
-    missing = {name: line for name, line in called.items() if name not in defined}
+
+def test_no_calls_to_undefined_methods():
+    """
+    Every ``self.x()`` call resolves to a method the terminal actually has.
+
+    Nine methods were called but never defined, so whole command branches
+    raised AttributeError at runtime.
+
+    The screens live in mixins now, so a call in one file legitimately
+    resolves to a definition in another. Resolution therefore runs against
+    the constructed class's own method resolution order, which is what
+    Python will do at runtime - a stricter check than scanning one file, not
+    a looser one.
+    """
+    from bell_system.terminal import BellSystemTerminal
+
+    sources = {'terminal.py': (PACKAGE_ROOT / 'terminal.py').read_text()}
+    for path in sorted((PACKAGE_ROOT / 'screens').glob('*.py')):
+        sources[f'screens/{path.name}'] = path.read_text()
+
+    missing = {}
+    for where, source in sources.items():
+        for name, line in _self_calls(source).items():
+            if not hasattr(BellSystemTerminal, name):
+                missing[f'{where}:{line}'] = name
+
     assert not missing, f'called but never defined: {missing}'
+
+
+def test_every_screen_module_is_mixed_in():
+    """
+    A screens module that nothing inherits from is dead code.
+
+    Splitting the monolith made it possible to leave a module behind without
+    noticing, because nothing would fail - the commands would simply be gone.
+    """
+    from bell_system.terminal import BellSystemTerminal
+
+    inherited = {base.__module__ for base in BellSystemTerminal.__mro__}
+    for path in sorted((PACKAGE_ROOT / 'screens').glob('*.py')):
+        if path.name == '__init__.py':
+            continue
+        module = f'bell_system.screens.{path.stem}'
+        assert module in inherited, f'{path.name} is not mixed into the terminal'
+
+
+def test_no_screen_module_is_oversized():
+    """
+    No screens module may grow back into a monolith.
+
+    terminal.py reached 11,241 lines because there was nothing stopping it.
+    """
+    limit = 1000
+    oversized = {}
+    for path in sorted((PACKAGE_ROOT / 'screens').glob('*.py')):
+        length = len(path.read_text().splitlines())
+        if length > limit:
+            oversized[path.name] = length
+    assert not oversized, (
+        f'modules over {limit} lines: {oversized}. Split by subsystem.')
+
+
+def test_the_terminal_itself_stays_small():
+    """The terminal is dispatch and session, not a place to put screens."""
+    length = len((PACKAGE_ROOT / 'terminal.py').read_text().splitlines())
+    assert length < 2000, (
+        f'terminal.py is {length} lines. Screens belong in screens/.')
 
 
 def test_every_alias_resolves_to_a_real_command(terminal):

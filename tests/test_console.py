@@ -51,8 +51,10 @@ def test_no_module_shells_out_to_clear():
 
 def test_terminal_clear_command_uses_the_console_layer(terminal, monkeypatch):
     calls = []
+    # cmd_clear lives in the unix screens module, so that is where the name
+    # is looked up at call time.
     monkeypatch.setattr(
-        'bell_system.terminal.clear_screen', lambda *a, **k: calls.append(1)
+        'bell_system.screens.unix.clear_screen', lambda *a, **k: calls.append(1)
     )
     assert terminal.execute_command('clear') == ''
     assert calls, 'clear command did not reach the console layer'

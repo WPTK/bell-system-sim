@@ -30,7 +30,7 @@ from bell_system.special_services import (
     STATUS_TROUBLE,
     SartsInventory,
 )
-from bell_system.terminal import UNIMPLEMENTED_COMMANDS
+from bell_system.constants import UNIMPLEMENTED_COMMANDS
 
 
 def work_a_report(terminal, fault=None):

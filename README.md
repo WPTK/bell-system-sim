@@ -251,7 +251,11 @@ bell-system --help
 │       ├── reports.py               # Customer trouble reports and the bureau
 │       ├── loop_testing.py          # Loop measurement and test lines
 │       ├── npc.py                   # The other craft, and their channels
-│       ├── terminal.py              # Main 12-role Bell System terminal
+│       ├── terminal.py              # Dispatch, session and construction
+│       ├── constants.py             # Values the terminal and screens share
+│       ├── lmos.py                  # Loop Maintenance Operations System
+│       ├── special_services.py      # SARTS and special services circuits
+│       ├── screens/                 # One module per subsystem's screens
 │       ├── simple_terminal.py       # Four-role simplified terminal
 │       ├── tutorial.py              # Interactive tutorial system
 │       └── data/                    # Man pages, reference tables, and the
