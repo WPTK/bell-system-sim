@@ -1,20 +1,5 @@
 #!/usr/bin/env python3
 """
-import functools
-import json
-import logging
-import logging.handlers
-import os
-import random
-import sys
-import time
-import uuid
-
-from collections import defaultdict, deque
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Union, Callable
-
 Bell System UNIX V7 Terminal Simulation
 ========================================
 
@@ -40,26 +25,43 @@ Version: 2.0
 Date: November 2024
 """
 
-import functools
-import json
 import logging
 import logging.handlers
 import os
 import random
-import readline
 import sys
 import time
-import uuid
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Union, Callable
+from typing import Dict, List, Optional, Any
 
 try:
     import readline  # For command history and line editing
     READLINE_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - readline is absent on stock Windows
+    readline = None
     READLINE_AVAILABLE = False
+
+
+def state_dir() -> str:
+    """
+    Return the per-user directory for logs and command history.
+
+    Honours ``BELL_SYSTEM_HOME`` when set, otherwise follows the XDG state
+    convention. Writing here rather than the current working directory keeps
+    an installed ``bell-system`` from littering whatever directory it is run
+    from. The directory is created if it does not exist.
+    """
+    override = os.environ.get('BELL_SYSTEM_HOME')
+    if override:
+        path = override
+    else:
+        base = os.environ.get('XDG_STATE_HOME') or os.path.join(
+            os.path.expanduser('~'), '.local', 'state'
+        )
+        path = os.path.join(base, 'bell-system')
+    os.makedirs(path, exist_ok=True)
+    return path
 
 
 # Bell System Constants
@@ -128,10 +130,6 @@ class BellSystemTerminal:
         'chk': 'test',
         'alm': 'alarm',
         'alert': 'alarm',
-        'mnt': 'maintenance',
-        'maint': 'maintenance',
-        'perf': 'performance',
-        'monitor': 'performance',
 
         # Technical system aliases
         'rad': 'radio',
@@ -146,10 +144,9 @@ class BellSystemTerminal:
         'reg': 'regenerator',
 
         # Directory and file aliases
-        'ls': 'list',
-        'll': 'list',
-        'la': 'list',
-        'dir': 'list',
+        'll': 'ls',
+        'la': 'ls',
+        'dir': 'ls',
 
         # System monitoring aliases
         'top': 'ps',
@@ -205,6 +202,9 @@ class BellSystemTerminal:
         self.recent_errors = deque(maxlen=50)
         self.log_verbosity = 'INFO'
 
+        # Build the command dispatch table once, rather than per command.
+        self._command_handlers = self._build_command_handlers()
+
         # Setup command history for readline if available
         if READLINE_AVAILABLE:
             self._setup_readline()
@@ -214,10 +214,9 @@ class BellSystemTerminal:
         self.username: str = "sysop"
         self.hostname: str = "bell-unix"
         self.shell: str = "/bin/sh"
-        self.command_history: List[str] = []
         self.role: Optional[str] = None
+        self.role_name: Optional[str] = None
         self.shift_events: List[Dict[str, Any]] = []
-        self.tickets: List[Dict[str, Any]] = []
         self.current_shift: int = 1
 
         # Initialize Bell System environment
@@ -361,8 +360,7 @@ class BellSystemTerminal:
 
     def _setup_logging(self) -> None:
         """Setup comprehensive logging system with rotation."""
-        # Create logs directory if it doesn't exist
-        os.makedirs('logs', exist_ok=True)
+        log_dir = state_dir()
 
         # Setup main logger
         logger = logging.getLogger('BellSystem')
@@ -374,7 +372,7 @@ class BellSystemTerminal:
 
         # File handler with rotation
         file_handler = logging.handlers.RotatingFileHandler(
-            'logs/bell_system.log',
+            os.path.join(log_dir, 'bell_system.log'),
             maxBytes=10*1024*1024,  # 10MB
             backupCount=5
         )
@@ -398,14 +396,16 @@ class BellSystemTerminal:
         """Setup readline for command history and editing."""
         try:
             # Load command history if it exists
-            history_file = 'logs/bell_system_history.txt'
+            history_file = os.path.join(state_dir(), 'bell_system_history.txt')
             if os.path.exists(history_file):
                 readline.read_history_file(history_file)
 
             # Set history length
             readline.set_history_length(1000)
 
-            # Enable tab completion (basic)
+            # Complete Bell System commands, not host filesystem paths.
+            readline.set_completer(self._complete_command)
+            readline.set_completer_delims(' \t\n')
             readline.parse_and_bind('tab: complete')
 
             self.history_file = history_file
@@ -905,13 +905,22 @@ class BellSystemTerminal:
         selected_events.sort(key=lambda x: x["time"])
         self.shift_events = selected_events[:8]  # Limit to 8 events per shift
 
-    def select_role(self) -> None:
+    def select_role(self, preselected: Optional[int] = None) -> None:
         """
         Allow user to select their Bell System operational role.
 
         Displays authentic Bell System roles and sets up role-specific
         environment and command access.
+
+        Args:
+            preselected: Role number 1-12 to apply without prompting. Used by
+                the ``--role`` command-line option.
         """
+        if preselected is not None and preselected in BELL_SYSTEM_ROLES:
+            role_key, role_name = BELL_SYSTEM_ROLES[preselected]
+            self._apply_role(role_key, role_name)
+            return
+
         print("\n" + "="*60)
         print("BELL SYSTEM UNIX V7 INTERNAL OPERATIONS TERMINAL")
         print("AT&T Bell Laboratories - Murray Hill, New Jersey")
@@ -931,19 +940,25 @@ class BellSystemTerminal:
 
                 if 1 <= role_num <= 12:
                     role_key, role_name = BELL_SYSTEM_ROLES[role_num]
-                    self.role = role_key
-                    print(f"\nRole selected: {role_name}")
-                    print(f"User ID: {role_key}")
-                    print("Initializing workstation...")
-                    time.sleep(2)
+                    self._apply_role(role_key, role_name)
                     break
                 else:
                     print("Invalid selection. Please enter a number between 1 and 12.")
-            except (ValueError, KeyboardInterrupt):
-                print("\nInvalid input. Please enter a number between 1 and 12.")
-            except EOFError:
+            except ValueError:
+                print("Invalid input. Please enter a number between 1 and 12.")
+            except (EOFError, KeyboardInterrupt):
                 print("\nExiting...")
-                sys.exit(0)
+                raise SystemExit(0)
+
+    def _apply_role(self, role_key: str, role_name: str) -> None:
+        """Activate a Bell System role and configure the session for it."""
+        self.role = role_key
+        self.role_name = role_name
+        self.username = role_key
+        self.current_directory = f"/usr/users/{role_key}"
+        print(f"\nRole selected: {role_name}")
+        print(f"User ID: {role_key}")
+        print("Initializing workstation...")
 
     def show_shift_briefing(self) -> None:
         """
@@ -1243,15 +1258,119 @@ Current Priorities:
 Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
 """
 
-    def run(self) -> None:
+    def _build_command_handlers(self) -> Dict[str, Any]:
+        """
+        Build the command name to handler-method dispatch table.
+
+        Called once during initialisation; the resulting table is reused for
+        every command rather than being rebuilt on each keystroke.
+
+        Returns:
+            Mapping of command name to the bound method implementing it
+        """
+        return {
+        # Core Bell System commands
+        'trunk': self.cmd_trunk,
+        'switch': self.cmd_switch,
+        'testboard': self.cmd_testboard,
+        'toll': self.cmd_toll,
+        'trace': self.cmd_trace,
+        'dialtone': self.cmd_dialtone,
+        'emergency': self.cmd_emergency,
+        'ticket': self.cmd_ticket,
+        'trouble': self.cmd_trouble,
+        'uucp': self.cmd_uucp,
+        'traffic': self.cmd_traffic,
+        'routing': self.cmd_routing,
+        'capacity': self.cmd_capacity,
+        'billing': self.cmd_billing,
+        'service': self.cmd_service,
+        'operator': self.cmd_operator,
+        'directory': self.cmd_directory,
+        'crossbar': self.cmd_crossbar,
+        'netplan': self.cmd_netplan,
+        'dbquery': self.cmd_dbquery,
+        'custdb': self.cmd_custdb,
+        'provision': self.cmd_provision,
+        'collect': self.cmd_collect,
+        'tsps': self.cmd_tsps,
+        'handoff': self.cmd_handoff,
+        'tariff': self.cmd_tariff,
+        'events': self.cmd_events,
+        'training': self.cmd_training,
+
+        # Enhanced Bell System commands
+        '3a': self.cmd_3a,
+        '5ess': self.cmd_5ess,
+        'bsp': self.cmd_bsp,
+        'western': self.cmd_western,
+        'coer': self.cmd_coer,
+        'lmos': self.cmd_lmos,
+        'tnds': self.cmd_tnds,
+        'sarts': self.cmd_sarts,
+        'radio': self.cmd_radio,
+        'microwave': self.cmd_microwave,
+        'satellite': self.cmd_satellite,
+        'alarm': self.cmd_alarm,
+        'pwb': self.cmd_pwb,
+        'rje': self.cmd_rje,
+        'nroff': self.cmd_nroff,
+        'troff': self.cmd_troff,
+        'tbl': self.cmd_tbl,
+        'eqn': self.cmd_eqn,
+        'pic': self.cmd_pic,
+        'refer': self.cmd_refer,
+        'netdata': self.cmd_netdata,
+        'analysis': self.cmd_analysis,
+        't1carrier': self.cmd_t1carrier,
+        'lcarrier': self.cmd_lcarrier,
+        'multiplex': self.cmd_multiplex,
+        'regenerator': self.cmd_regenerator,
+        'antenna': self.cmd_antenna,
+
+        # Enhanced UX commands
+        'errors': self.cmd_errors,
+        'verbosity': self.cmd_verbosity,
+        'history': self.cmd_history,
+
+        # Standard UNIX commands
+        'ps': self.cmd_ps,
+        'who': self.cmd_who,
+        'ls': self.cmd_ls,
+        'pwd': self.cmd_pwd,
+        'date': self.cmd_date,
+        'df': self.cmd_df,
+        'help': self.cmd_help,
+        'man': self.cmd_man,
+        'status': self.cmd_status,
+        'test': self.cmd_test,
+        'quit': self.cmd_quit,
+        'clear': self.cmd_clear
+        }
+    def _complete_command(self, text: str, state: int):
+        """
+        Readline completer offering Bell System command names.
+
+        Replaces readline's default filename completion, which would otherwise
+        expose the host filesystem inside the simulated terminal.
+        """
+        names = sorted(set(self._command_handlers) | set(self.COMMAND_ALIASES))
+        matches = [n for n in names if n.startswith(text)]
+        return matches[state] if state < len(matches) else None
+
+    def run(self, role: Optional[int] = None) -> None:
         """
         Main Bell System terminal session loop.
 
         Handles user interaction, command processing, and maintains
         the authentic Bell System terminal experience.
+
+        Args:
+            role: Optional role number 1-12 to start with, bypassing the
+                interactive role-selection menu.
         """
         try:
-            self.select_role()
+            self.select_role(role)
             self.show_shift_briefing()
 
             while True:
@@ -1263,10 +1382,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                     if not command_line:
                         continue
 
-                    # Add to command history
-                    self.command_history.append(command_line)
-
-                    # Process the command
+                    # History is recorded once, inside execute_command().
                     if command_line.lower() in ['exit', 'quit', 'logout']:
                         print("Logging out of Bell System terminal...")
                         print("Session terminated.")
@@ -1332,89 +1448,12 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                 self.logger.debug(f"Command alias expanded: {original_command} -> {command} {' '.join(args)}")
 
             # Map commands to their handler methods
-            command_handlers = {
-                # Core Bell System commands
-                'trunk': self.cmd_trunk,
-                'switch': self.cmd_switch,
-                'testboard': self.cmd_testboard,
-                'toll': self.cmd_toll,
-                'trace': self.cmd_trace,
-                'dialtone': self.cmd_dialtone,
-                'emergency': self.cmd_emergency,
-                'ticket': self.cmd_ticket,
-                'uucp': self.cmd_uucp,
-                'traffic': self.cmd_traffic,
-                'routing': self.cmd_routing,
-                'capacity': self.cmd_capacity,
-                'billing': self.cmd_billing,
-                'service': self.cmd_service,
-                'operator': self.cmd_operator,
-                'directory': self.cmd_directory,
-                'crossbar': self.cmd_crossbar,
-                'netplan': self.cmd_netplan,
-                'dbquery': self.cmd_dbquery,
-                'custdb': self.cmd_custdb,
-                'provision': self.cmd_provision,
-                'collect': self.cmd_collect,
-                'tsps': self.cmd_tsps,
-                'handoff': self.cmd_handoff,
-                'tariff': self.cmd_tariff,
-                'events': self.cmd_events,
-                'training': self.cmd_training,
-
-                # Enhanced Bell System commands
-                '3a': self.cmd_3a,
-                '5ess': self.cmd_5ess,
-                'bsp': self.cmd_bsp,
-                'western': self.cmd_western,
-                'coer': self.cmd_coer,
-                'lmos': self.cmd_lmos,
-                'tnds': self.cmd_tnds,
-                'sarts': self.cmd_sarts,
-                'radio': self.cmd_radio,
-                'microwave': self.cmd_microwave,
-                'satellite': self.cmd_satellite,
-                'alarm': self.cmd_alarm,
-                'pwb': self.cmd_pwb,
-                'rje': self.cmd_rje,
-                'nroff': self.cmd_nroff,
-                'troff': self.cmd_troff,
-                'tbl': self.cmd_tbl,
-                'eqn': self.cmd_eqn,
-                'pic': self.cmd_pic,
-                'refer': self.cmd_refer,
-                'netdata': self.cmd_netdata,
-                'analysis': self.cmd_analysis,
-                't1carrier': self.cmd_t1carrier,
-                'lcarrier': self.cmd_lcarrier,
-                'multiplex': self.cmd_multiplex,
-                'regenerator': self.cmd_regenerator,
-                'antenna': self.cmd_antenna,
-
-                # Enhanced UX commands
-                'errors': self.cmd_errors,
-                'verbosity': self.cmd_verbosity,
-                'history': self.cmd_history,
-
-                # Standard UNIX commands
-                'ps': self.cmd_ps,
-                'who': self.cmd_who,
-                'ls': self.cmd_ls,
-                'pwd': self.cmd_pwd,
-                'date': self.cmd_date,
-                'df': self.cmd_df,
-                'help': self.cmd_help,
-                'man': self.cmd_man,
-                'status': self.cmd_status,
-                'test': self.cmd_test,
-                'quit': self.cmd_quit,
-                'clear': self.cmd_clear
-            }
+            handlers = self._command_handlers
 
             # Execute command if it exists
             # Execute command
-            if command in command_handlers:
-                result = command_handlers[command](args)
+            if command in handlers:
+                result = handlers[command](args)
 
                 # Log performance metrics
                 execution_time = time.time() - start_time
@@ -3723,35 +3762,6 @@ UNIX V7 PROGRAMMER'S MANUAL
 """
         }
 
-    def cmd_ps(self, args: List[str] = None) -> str:
-        """
-        Display Bell System processes in authentic UNIX V7 format.
-
-        Shows currently running processes on the Bell System workstation
-        including system daemons, switching processes, and user sessions.
-
-        Returns:
-            Process listing formatted in traditional ps output style
-        """
-        current_time = datetime.now().strftime("%a %b %d %H:%M:%S EST %Y")
-        processes = [
-            "    1  ?        0:01 init",
-            "   23  ?        0:00 cron",
-            "   45  ?        0:02 switching_monitor",
-            "   67  ?        0:01 ama_collector",
-            "   89  ?        0:00 billing_daemon",
-            "  112  ?        0:03 tnds_agent",
-            "  134  ?        0:01 tsps_monitor",
-            "  156  tty01    0:00 -sh (bell)",
-            "  178  tty02    0:00 -sh (sysop)",
-            "  201  tty03    0:00 -sh (netplan)"
-        ]
-
-        header = f"Bell System UNIX V7 - Process Status - {current_time}\n"
-        header += "   PID TTY      TIME CMD\n"
-
-        return header + "\n".join(processes)
-
     def _initialize_nanpa_data(self) -> None:
         """Initialize authentic NANPA geographic data for Bell System infrastructure."""
         import csv
@@ -5854,6 +5864,470 @@ Next Analysis Report: {(datetime.now() + timedelta(days=7)).strftime('%B %d, %Y'
 
         return analysis_output
 
+    def _handle_tnds_collection_command(self, args: List[str]) -> str:
+        """Handle TNDS data collection subcommands (start, stop, verify, poll)."""
+        action = args[0].lower()
+        timestamp = datetime.now().strftime("%B %d, %Y %H:%M EST")
+
+        if action == "start":
+            self.tnds_data['processing_status'] = 'Normal operation'
+            return f"""TNDS Data Collection - Start Request
+{'=' * 50}
+Requested: {timestamp}
+
+EADAS collection scheduler ACKNOWLEDGED
+Collection points activated:  {self.tnds_data['collection_points']} of 1,255
+Active data streams:          {self.tnds_data['active_streams']} trunk groups
+Polling interval:             300 seconds (5 minute registers)
+
+Status: COLLECTION ACTIVE
+Authorization: WO-83054"""
+
+        if action == "stop":
+            self.tnds_data['processing_status'] = 'Collection suspended'
+            return f"""TNDS Data Collection - Stop Request
+{'=' * 50}
+Requested: {timestamp}
+
+WARNING: Halting collection creates gaps in the traffic record.
+Peak-hour data cannot be reconstructed once the interval closes.
+
+Collection points quiesced:   {self.tnds_data['collection_points']}
+Records buffered for flush:   {random.randint(400, 2200):,}
+
+Status: COLLECTION SUSPENDED
+Resume with: tnds collect start"""
+
+        if action == "verify":
+            error_rate = 1 - self.tnds_data['data_quality']
+            return f"""TNDS Collection Verification
+{'=' * 50}
+Verification Run: {timestamp}
+
+REGISTER INTEGRITY
+{'=' * 35}
+Collection Points Polled:     {self.tnds_data['collection_points']}
+Points Responding:            {self.tnds_data['collection_points'] - random.randint(0, 4)}
+Success Rate:                 {self.tnds_data['collection_success']:.3%}
+Validation Error Rate:        {error_rate:.3%}
+
+DATA QUALITY
+{'=' * 35}
+Completeness Index:           {self.tnds_data['data_quality']:.3%}
+Records Accepted Today:       {self.tnds_data['records_today']:,}
+Records Rejected:             {int(self.tnds_data['records_today'] * error_rate):,}
+
+Verification Result: {'PASS' if self.tnds_data['data_quality'] > 0.995 else 'REVIEW REQUIRED'}"""
+
+        if action == "poll":
+            target = args[1].upper() if len(args) > 1 else "ALL"
+            polled = [t for t in self.trunk_groups if target in ("ALL", t)] or list(self.trunk_groups)
+            output = f"""TNDS On-Demand Poll
+{'=' * 50}
+Poll Initiated: {timestamp}
+Target: {target}
+
+TRUNK GROUP REGISTERS
+{'=' * 35}"""
+            for tg_name in polled:
+                tg = self.trunk_groups[tg_name]
+                ccs = int(tg['capacity'] * tg['utilization'] * 0.36)
+                output += f"""
+{tg_name}:
+  Route:              {tg['route']}
+  Usage:              {ccs} CCS
+  Utilization:        {tg['utilization']}%
+  Register Status:    {'READ OK' if tg['status'] == 'ACTIVE' else 'OUT OF SERVICE'}"""
+            output += f"\n\nPoll complete. {len(polled)} register set(s) read."
+            return output
+
+        return (f"tnds collect: Unknown action '{args[0]}'\n"
+                "Available actions: start, stop, verify, poll [trunk-group]")
+
+    def _generate_tnds_forecast(self, period: str) -> str:
+        """Generate a TNDS traffic growth forecast for the requested period."""
+        horizons = {
+            "monthly": ("Monthly", 1, 30),
+            "quarterly": ("Quarterly", 3, 90),
+            "annual": ("Annual", 12, 365),
+        }
+        label, months, days = horizons.get(period.lower(), ("Monthly", 1, 30))
+        growth = random.uniform(0.9, 1.8) * months
+        current_ccs = sum(
+            int(tg['capacity'] * tg['utilization'] * 0.36)
+            for tg in self.trunk_groups.values()
+        )
+        projected_ccs = int(current_ccs * (1 + growth / 100))
+        target = (datetime.now() + timedelta(days=days)).strftime('%B %Y')
+
+        output = f"""TNDS Traffic Forecast - {label} Model
+Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+Forecast Horizon: {target}
+{'=' * 55}
+
+MODEL PARAMETERS
+{'=' * 40}
+Forecast Method:              Exponential smoothing with seasonal index
+Historical Base:              36 months of EADAS register data
+Model Accuracy (backtest):    {self.tnds_data['forecast_accuracy']:.1%}
+Confidence Interval:          {random.uniform(90, 95):.0f}%
+
+AGGREGATE PROJECTION
+{'=' * 40}
+Current Measured Load:        {current_ccs:,} CCS
+Projected Load ({label}):     {projected_ccs:,} CCS
+Growth Rate:                  {growth:+.1f}%
+Busy Hour Shift:              {random.choice(['None', '+30 min later', '-15 min earlier'])}
+
+PER-ROUTE FORECAST
+{'=' * 40}"""
+
+        for tg_name, tg in self.trunk_groups.items():
+            if tg['status'] != 'ACTIVE':
+                continue
+            route_growth = growth * random.uniform(0.6, 1.5)
+            projected_util = min(100, tg['utilization'] * (1 + route_growth / 100))
+            flag = 'BLOCKING RISK' if projected_util > 85 else 'WITHIN CAPACITY'
+            output += f"""
+{tg_name} ({tg['route']}):
+  Current Utilization:  {tg['utilization']}%
+  Projected:            {projected_util:.0f}%
+  Growth:               {route_growth:+.1f}%
+  Assessment:           {flag}"""
+
+        at_risk = [
+            n for n, t in self.trunk_groups.items()
+            if t['status'] == 'ACTIVE' and t['utilization'] * (1 + growth / 100) > 85
+        ]
+        output += f"""
+
+CAPACITY RECOMMENDATIONS
+{'=' * 40}"""
+        if at_risk:
+            for i, name in enumerate(at_risk, 1):
+                output += f"\n{i}. Augment {name} before {target} - projected blocking above P.01 grade of service"
+            output += f"\n{len(at_risk) + 1}. Submit trunk order via TIRKS for affected routes"
+        else:
+            output += "\n1. No augmentation required within forecast horizon"
+            output += "\n2. Continue routine quarterly capacity review"
+
+        output += f"""
+
+Distribution: Network Planning, Traffic Engineering
+Project Reference: NP-8306 (TNDS Phase III)
+Next Forecast Run: {(datetime.now() + timedelta(days=days)).strftime('%B %d, %Y')}"""
+        return output
+
+    def _show_network_hierarchy_analysis(self) -> str:
+        """Show Bell System switching hierarchy analysis (Class 1 through Class 5)."""
+        hierarchy = [
+            ("Class 1", "Regional Center", 10, random.uniform(0.72, 0.84)),
+            ("Class 2", "Sectional Center", 52, random.uniform(0.68, 0.80)),
+            ("Class 3", "Primary Center", 168, random.uniform(0.64, 0.78)),
+            ("Class 4", "Toll Center", 933, random.uniform(0.58, 0.74)),
+            ("Class 5", "End Office", 19000, random.uniform(0.52, 0.70)),
+        ]
+
+        output = f"""TNDS Network Hierarchy Analysis
+Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+{'=' * 55}
+
+SWITCHING HIERARCHY UTILIZATION
+{'=' * 45}
+Class    Office Type          Offices    Avg Util
+{'-' * 45}"""
+        for cls, name, count, util in hierarchy:
+            output += f"\n{cls:<8} {name:<20} {count:>7,}    {util:>6.1%}"
+
+        output += f"""
+
+FINAL AND HIGH-USAGE GROUPS
+{'=' * 45}
+Final Trunk Groups:           {random.randint(2400, 2900):,} (hierarchical backbone)
+High-Usage Groups:            {random.randint(5200, 6400):,} (direct routes)
+Overflow Discipline:          Hierarchical alternate routing
+Grade of Service Objective:   P.01 final groups / P.10 high-usage
+
+TANDEM ROUTING ANALYSIS
+{'=' * 45}"""
+
+        for tg_name, tg in self.trunk_groups.items():
+            if tg['status'] != 'ACTIVE':
+                continue
+            route_kind = 'High-usage direct' if tg['utilization'] > 65 else 'Final group'
+            output += f"""
+{tg_name} ({tg['route']}):
+  Group Type:           {route_kind}
+  Overflow Path:        {random.choice(['Via Class 3 tandem', 'Via Class 2 sectional', 'Direct final'])}
+  Tandem Switches:      {random.randint(1, 3)} in path"""
+
+        output += f"""
+
+HIERARCHY OBSERVATIONS
+{'=' * 45}
+Offices Homing Correctly:     {random.uniform(0.985, 0.998):.1%}
+Misrouted Homing Records:     {random.randint(3, 18)} (referred to Network Planning)
+Alternate Route Depth:        {random.randint(2, 4)} levels average
+
+Reference: Notes on the Network, Section 4 (Switching Hierarchy)
+Distribution: Network Planning, Traffic Engineering"""
+        return output
+
+    def _show_dynamic_routing_analysis(self) -> str:
+        """Show dynamic routing performance analysis for the trunk network."""
+        active = {n: t for n, t in self.trunk_groups.items() if t['status'] == 'ACTIVE'}
+        overflow_total = sum(
+            int(t['capacity'] * max(0, t['utilization'] - 70) * 0.12) for t in active.values()
+        )
+
+        output = f"""TNDS Dynamic Routing Analysis
+Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+{'=' * 55}
+
+ROUTING PERFORMANCE SUMMARY
+{'=' * 45}
+Routes Under Analysis:        {len(active)}
+Total Overflow Attempts:      {overflow_total:,} (last measurement hour)
+First-Route Completion:       {random.uniform(0.88, 0.96):.1%}
+Alternate Route Completion:   {random.uniform(0.96, 0.995):.1%}
+Network Blocking:             {random.uniform(0.002, 0.012):.3%}
+
+PER-ROUTE ROUTING BEHAVIOR
+{'=' * 45}"""
+
+        for tg_name, tg in active.items():
+            overflow = int(tg['capacity'] * max(0, tg['utilization'] - 70) * 0.12)
+            output += f"""
+{tg_name} ({tg['route']}):
+  Offered Load:         {int(tg['capacity'] * tg['utilization'] * 0.36)} CCS
+  Overflow to Alternate:{overflow:>6,} attempts
+  Transmission Quality: {tg['quality']:.3%}
+  Routing Decision:     {'Overflow active' if overflow else 'Direct route sufficient'}"""
+
+        output += f"""
+
+TIME-OF-DAY ROUTING
+{'=' * 45}
+Morning Business Peak:        10:00-11:00 EST ({random.randint(88, 97)}% of capacity)
+Afternoon Business Peak:      14:00-15:00 EST ({random.randint(85, 95)}% of capacity)
+Evening Residential Peak:     19:00-20:00 EST ({random.randint(70, 85)}% of capacity)
+Time-Zone Load Shifting:      {random.uniform(12, 22):.0f}% capacity recovered east-to-west
+
+ROUTING RECOMMENDATIONS
+{'=' * 45}
+1. Continue load-shifting studies against measured busy hour
+2. Review alternate route depth on routes exceeding 85% utilization
+3. Coordinate routing pattern changes with Network Planning (NP-8306)
+
+Distribution: Network Operations, Traffic Engineering"""
+        return output
+
+    def _show_available_tnds_reports(self) -> str:
+        """Show the catalog of standard TNDS reports available for generation."""
+        return f"""TNDS Standard Report Catalog
+{'=' * 55}
+
+AVAILABLE REPORTS
+{'=' * 45}
+  tnds reports traffic        Traffic Usage Summary (TUS-1)
+  tnds reports blocking       Blocking and Overflow Report (BOR-3)
+  tnds reports quality        Data Quality Assurance Report (DQA-2)
+  tnds reports capacity       Capacity Exhaust Projection (CEP-4)
+  tnds reports monthly        Monthly Network Summary (MNS-1)
+
+REPORT CHARACTERISTICS
+{'=' * 45}
+Source Data:                  EADAS collection registers
+Retention Period:             36 months on-line, 7 years archived
+Standard Distribution:        Network Planning, Traffic Engineering,
+                              Revenue Accounting, Bell Laboratories
+Generation Time:              2-6 minutes depending on period
+
+SCHEDULING
+{'=' * 45}
+Daily Reports:                Generated 02:00 EST
+Weekly Reports:               Generated Monday 03:00 EST
+Monthly Reports:              Generated first business day 04:00 EST
+Last Generation Run:          {(datetime.now() - timedelta(hours=random.randint(2, 20))).strftime('%B %d, %Y %H:%M EST')}
+
+Usage: tnds reports <report-name>"""
+
+    def _generate_tnds_report(self, report_name: str) -> str:
+        """Generate a named standard TNDS report."""
+        name = report_name.lower()
+        stamp = datetime.now().strftime('%B %d, %Y %H:%M EST')
+        active = {n: t for n, t in self.trunk_groups.items() if t['status'] == 'ACTIVE'}
+
+        if name == "traffic":
+            total_ccs = sum(int(t['capacity'] * t['utilization'] * 0.36) for t in active.values())
+            output = f"""Traffic Usage Summary (TUS-1)
+Generated: {stamp}
+{'=' * 55}
+
+NETWORK TOTALS
+{'=' * 45}
+Measured Trunk Groups:        {len(active)}
+Total Offered Load:           {total_ccs:,} CCS
+Average Utilization:          {sum(t['utilization'] for t in active.values()) / max(1, len(active)):.1f}%
+Records Processed:            {self.tnds_data['records_today']:,}
+
+PER-GROUP USAGE
+{'=' * 45}"""
+            for tg_name, tg in active.items():
+                output += (f"\n{tg_name:<12} {tg['route']:<10} "
+                           f"{int(tg['capacity'] * tg['utilization'] * 0.36):>6,} CCS  "
+                           f"{tg['utilization']:>3}%")
+            return output + "\n\nDistribution: Traffic Engineering, Network Planning"
+
+        if name == "blocking":
+            output = f"""Blocking and Overflow Report (BOR-3)
+Generated: {stamp}
+{'=' * 55}
+
+GRADE OF SERVICE OBJECTIVE: P.01 (final groups)
+{'=' * 45}"""
+            for tg_name, tg in active.items():
+                blocking = max(0.0001, (tg['utilization'] - 60) / 4000)
+                status = 'OBJECTIVE MET' if blocking <= 0.01 else 'OBJECTIVE EXCEEDED'
+                output += f"""
+{tg_name} ({tg['route']}):
+  Utilization:          {tg['utilization']}%
+  Measured Blocking:    {blocking:.3%}
+  Assessment:           {status}"""
+            return output + "\n\nDistribution: Network Operations, Traffic Engineering"
+
+        if name == "quality":
+            error_rate = 1 - self.tnds_data['data_quality']
+            return f"""Data Quality Assurance Report (DQA-2)
+Generated: {stamp}
+{'=' * 55}
+
+COLLECTION INTEGRITY
+{'=' * 45}
+Collection Success Rate:      {self.tnds_data['collection_success']:.3%}
+Data Completeness:            {self.tnds_data['data_quality']:.3%}
+Validation Error Rate:        {error_rate:.3%}
+Processing Efficiency:        {self.tnds_data['processing_efficiency']:.1%}
+
+EXCEPTION SUMMARY
+{'=' * 45}
+Records Rejected:             {int(self.tnds_data['records_today'] * error_rate):,}
+Missing Register Reads:       {random.randint(0, 12)}
+Out-of-Range Values:          {random.randint(2, 30)}
+Duplicate Records Purged:     {random.randint(0, 8)}
+
+Assessment: {'WITHIN STANDARD' if error_rate < 0.005 else 'REVIEW REQUIRED'}
+Distribution: Data Administration, Bell Laboratories"""
+
+        if name == "capacity":
+            output = f"""Capacity Exhaust Projection (CEP-4)
+Generated: {stamp}
+{'=' * 55}
+
+PROJECTED EXHAUST BY ROUTE
+{'=' * 45}"""
+            for tg_name, tg in active.items():
+                months = max(1, int((90 - tg['utilization']) / random.uniform(0.8, 2.2)))
+                exhaust = (datetime.now() + timedelta(days=months * 30)).strftime('%B %Y')
+                output += f"""
+{tg_name} ({tg['route']}):
+  Current Utilization:  {tg['utilization']}%
+  Months to Exhaust:    {months}
+  Projected Exhaust:    {exhaust}
+  Action:               {'Trunk order required' if months <= 6 else 'Monitor'}"""
+            return output + "\n\nDistribution: Network Planning, Capital Planning"
+
+        if name == "monthly":
+            return f"""Monthly Network Summary (MNS-1)
+Generated: {stamp}
+Reporting Period: {datetime.now().strftime('%B %Y')}
+{'=' * 55}
+
+VOLUME SUMMARY
+{'=' * 45}
+Total Records Collected:      {self.tnds_data['records_today'] * 30:,}
+Collection Points:            {self.tnds_data['collection_points']} of 1,255
+Active Data Streams:          {self.tnds_data['active_streams']}
+Storage Utilization:          {self.tnds_data['storage_used']}% of {self.tnds_data['storage_capacity']}GB
+
+SERVICE SUMMARY
+{'=' * 45}
+Average Network Utilization:  {sum(t['utilization'] for t in active.values()) / max(1, len(active)):.1f}%
+Trunk Groups In Service:      {len(active)} of {len(self.trunk_groups)}
+Groups Under Maintenance:     {len(self.trunk_groups) - len(active)}
+Forecast Model Accuracy:      {self.tnds_data['forecast_accuracy']:.1%}
+
+Distribution: Network Planning, Traffic Engineering, Revenue Accounting"""
+
+        return (f"tnds reports: Unknown report '{report_name}'\n"
+                "Use 'tnds reports' to list the available reports.")
+
+    def _show_tnds_export_options(self) -> str:
+        """Show available TNDS data export formats and destinations."""
+        return f"""TNDS Data Export Options
+{'=' * 55}
+
+EXPORT FORMATS
+{'=' * 45}
+  tnds export tape            9-track tape, 1600 BPI, EBCDIC
+  tnds export cards           80-column card image deck
+  tnds export rje             Remote Job Entry to Bell Labs
+  tnds export print           Line printer listing (132 column)
+
+DESTINATIONS
+{'=' * 45}
+Network Planning:             Murray Hill, NJ
+Traffic Engineering:          Holmdel, NJ
+Bell Laboratories:            Whippany, NJ (research studies)
+Revenue Accounting:           Regional accounting centers
+
+DATA SETS AVAILABLE
+{'=' * 45}
+Trunk Group Usage:            {len(self.trunk_groups)} groups, 36 months history
+Collection Registers:         {self.tnds_data['collection_points']} points
+Records Available Today:      {self.tnds_data['records_today']:,}
+
+Note: Exports require authorization under WO-83054.
+Usage: tnds export <format> [destination]"""
+
+    def _handle_tnds_export(self, args: List[str]) -> str:
+        """Handle a TNDS data export request."""
+        fmt = args[0].lower()
+        destination = " ".join(args[1:]) if len(args) > 1 else "Network Planning"
+        formats = {
+            "tape": ("9-track tape, 1600 BPI, EBCDIC", "TAPE-" + str(random.randint(1000, 9999))),
+            "cards": ("80-column card image deck", "DECK-" + str(random.randint(100, 999))),
+            "rje": ("Remote Job Entry stream", "RJE-" + str(random.randint(1000, 9999))),
+            "print": ("132-column line printer listing", "LP-" + str(random.randint(100, 999))),
+        }
+
+        if fmt not in formats:
+            return (f"tnds export: Unknown format '{args[0]}'\n"
+                    "Available formats: tape, cards, rje, print")
+
+        description, volume_id = formats[fmt]
+        records = self.tnds_data['records_today']
+        return f"""TNDS Data Export - Request Accepted
+{'=' * 55}
+Submitted: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+
+EXPORT PARAMETERS
+{'=' * 45}
+Format:                       {description}
+Volume Identifier:            {volume_id}
+Destination:                  {destination}
+Records Selected:             {records:,}
+Estimated Volume:             {records * 80 / 1_000_000:.1f} MB
+
+PROCESSING
+{'=' * 45}
+Queue Position:               {random.randint(1, 5)}
+Estimated Completion:         {(datetime.now() + timedelta(minutes=random.randint(15, 90))).strftime('%H:%M EST')}
+Operator Notification:        Console message on completion
+
+Authorization: WO-83054
+Status: QUEUED FOR PROCESSING"""
+
     def cmd_bsp(self, args: List[str]) -> str:
         """Bell System Practices - Standard Operating Procedures"""
         if not args:
@@ -7584,7 +8058,7 @@ All government directory assistance is provided free of charge."""
         import random
 
         if not args:
-            return f"""Bell System Crossbar Switching Systems
+            crossbar_output = f"""Bell System Crossbar Switching Systems
 Electromechanical Central Office Equipment
 {'=' * 50}
 
@@ -7592,9 +8066,8 @@ CROSSBAR SYSTEMS STATUS
 {'=' * 30}"""
 
             # Show crossbar systems from our initialized state
-            crossbar_output = ""
             for xb_id, xb_data in self.crossbar_systems.items():
-                status_detail = f"Normal operation"
+                status_detail = "Normal operation"
                 if xb_data["maintenance_due"]:
                     status_detail = "Preventive maintenance due"
                 elif xb_data["status"] == "MAINT":
@@ -7628,6 +8101,8 @@ Commands:
   crossbar test <system>      Run mechanical tests
   crossbar maintenance        Maintenance schedule
   crossbar performance        Performance analysis"""
+
+            return crossbar_output
 
         elif args[0] == "status" and len(args) > 1:
             system_id = args[1].upper()
@@ -7723,7 +8198,7 @@ Use 'crossbar maintenance' for service scheduling."""
     def _show_crossbar_maintenance(self) -> str:
         """Show crossbar maintenance requirements and schedule."""
 
-        return f"""Crossbar System Maintenance Schedule
+        maintenance_output = f"""Crossbar System Maintenance Schedule
 {'=' * 45}
 
 MAINTENANCE REQUIREMENTS
@@ -7736,7 +8211,6 @@ Complete Inspection:         Every 18 months
 CURRENT MAINTENANCE STATUS
 {'=' * 35}"""
 
-        maintenance_output = ""
         for xb_id, xb_data in self.crossbar_systems.items():
             next_maint = "OVERDUE" if xb_data["maintenance_due"] else f"{random.randint(15, 90)} days"
             maintenance_output += f"""
@@ -7765,15 +8239,12 @@ Contact: Electromechanical Maintenance Team ext 4380"""
 
     def _show_crossbar_performance(self) -> str:
         """Show crossbar performance analysis."""
-        import random
-
-        return f"""Crossbar System Performance Analysis
+        performance_output = f"""Crossbar System Performance Analysis
 Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
 
 PERFORMANCE COMPARISON
 {'=' * 35}"""
 
-        performance_output = ""
         for xb_id, xb_data in self.crossbar_systems.items():
             efficiency = random.uniform(0.88, 0.95)
             setup_time = random.uniform(0.9, 2.5)
@@ -8036,8 +8507,6 @@ Service Quality:           {random.uniform(15, 28):.0f}% improvement target
 Regulatory Approval:       Required for major projects
 Environmental Impact:      Assessments in progress
 Public Service Benefits:   Universal service expansion"""
-
-        return investment_output
 
     def cmd_trouble(self, args: List[str]) -> str:
         """Enhanced trouble ticket management with authentic Bell System operations."""
@@ -8437,6 +8906,89 @@ Resolution Details:
 
 Ticket closed and archived in Bell System Trouble Management Database.
 Service restoration confirmed for affected customers."""
+
+    def _create_manual_ticket(self, args: List[str]) -> str:
+        """Create a trouble ticket manually from craft-entered parameters."""
+        valid_categories = list(self.ticket_categories.keys())
+        valid_priorities = ['CRITICAL', 'MAJOR', 'MINOR']
+
+        if not args:
+            return f"""Trouble Ticket - Manual Entry
+{'=' * 50}
+
+Usage: trouble create <category> <priority> <description>
+
+Valid categories:  {', '.join(valid_categories)}
+Valid priorities:  {', '.join(valid_priorities)}
+
+Example:
+  trouble create cable_trouble MAJOR Water in cable at Elm St manhole"""
+
+        category = args[0].lower()
+        if category not in self.ticket_categories:
+            return (f"trouble create: Unknown category '{args[0]}'\n"
+                    f"Valid categories: {', '.join(valid_categories)}")
+
+        priority = args[1].upper() if len(args) > 1 else 'MINOR'
+        if priority not in valid_priorities:
+            return (f"trouble create: Unknown priority '{args[1]}'\n"
+                    f"Valid priorities: {', '.join(valid_priorities)}")
+
+        description = " ".join(args[2:]) if len(args) > 2 else "Craft-reported trouble, details pending"
+
+        category_data = self.ticket_categories[category]
+        self.ticket_counter += random.randint(1, 5)
+        ticket_id = f"TK-{self.ticket_counter}"
+
+        affected_office = random.choice(list(self.central_offices.keys())) if self.central_offices else "LOCAL CO"
+        customer_impact = random.randint(*category_data['customer_impact'][priority])
+        estimated_duration = random.randint(*category_data['typical_duration'][priority])
+
+        ticket = {
+            'id': ticket_id,
+            'category': category,
+            'priority': priority,
+            'title': description[:60],
+            'description': description,
+            'affected_office': affected_office,
+            'customer_impact': customer_impact,
+            'estimated_duration': estimated_duration,
+            'status': 'OPEN',
+            'assigned_team': 'UNASSIGNED',
+            'created_time': datetime.now(),
+            'escalation_level': 1,
+            'technical_details': 'Manually entered by craft; awaiting test board verification',
+            'required_actions': ['Dispatch test board', 'Verify trouble condition', 'Assign repair force'],
+            'equipment_involved': [],
+            'geographic_scope': 'LOCAL',
+            'business_impact': self._calculate_business_impact(priority, customer_impact),
+            'resolution_steps': []
+        }
+        self.active_tickets.append(ticket)
+
+        return f"""Trouble Ticket Created
+{'=' * 50}
+Ticket ID:                {ticket_id}
+Created:                  {ticket['created_time'].strftime('%B %d, %Y %H:%M EST')}
+Entered By:               {self.username}
+
+TICKET DETAILS
+{'=' * 40}
+Category:                 {category}
+Priority:                 {priority}
+Description:              {description}
+Affected Office:          {affected_office}
+Customers Affected:       {customer_impact:,}
+Estimated Duration:       {estimated_duration} minutes
+Status:                   OPEN (unassigned)
+
+NEXT STEPS
+{'=' * 40}
+  trouble detail {ticket_id}          Review full ticket record
+  trouble assign {ticket_id} <team>   Assign to a repair team
+  trouble escalate {ticket_id}        Escalate priority
+
+Total Active Tickets: {len(self.active_tickets)}"""
 
     def _show_geographic_trouble_overview(self) -> str:
         """Show geographic distribution and analysis of trouble tickets."""
@@ -10018,7 +10570,7 @@ Regenerator Spacing:
         result += "=" * 40 + "\n\n"
 
         # Show last 20 commands by default
-        history_slice = self.command_history[-20:]
+        history_slice = list(self.command_history)[-20:]
 
         for i, cmd in enumerate(history_slice, 1):
             result += f"{i:2d}. {cmd}\n"

@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """
-import random
+Bell System UNIX V7 Terminal Simulation - Simplified Interface
+=============================================================
 
-from datetime import datetime
-from pathlib import Path
+Authentic AT&T Internal Operations Workstation (1978-1983).
 
-Bell System UNIX V7 Terminal Simulation
-Authentic AT&T Internal Operations Workstation (1978-1983)
-Four Role Simulation: Systems Operator, Switching Technician, Field Liaison, NOC Analyst
+A compact four-role terminal offering genuine filesystem exploration
+(``cat``, ``cd``, ``grep``, ``find``) alongside the core V7 command set.
+Four roles: Systems Operator, Switching Technician, Field Liaison, NOC Analyst.
 """
 
 import os
 import sys
 import time
+from datetime import datetime
 
-class BellSystemTerminal:
+
+class SimpleTerminal:
     def __init__(self):
         self.current_directory = "/usr/users/sysop"
         self.username = "sysop"
@@ -590,5 +592,4 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
             print("logout")
 
 if __name__ == "__main__":
-    terminal = UnixV7Terminal()
-    terminal.run()
+    SimpleTerminal().run()
