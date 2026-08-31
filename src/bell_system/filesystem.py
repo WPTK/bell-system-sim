@@ -23,6 +23,7 @@ ends with divestiture" on 1 January 1984. The simulated shift is 14 November
 words for a thing that really was about to happen.
 """
 
+from .data.homes import HOMES
 from typing import Callable, Dict, List, NamedTuple, Optional, Union
 
 # Divestiture took effect on 1 January 1984.
@@ -85,6 +86,9 @@ sys::4:4::/usr/src:
 adm::5:5::/usr/adm:
 uucp::6:6::/usr/spool/uucp:/usr/lib/uucp/uucico
 sysop::17:1::/usr/users/sysop:/bin/sh
+switch::18:1::/usr/users/switch:/bin/sh
+field::19:1::/usr/users/field:/bin/sh
+noc::20:1::/usr/users/noc:/bin/sh
 rjohnson::21:1::/usr/users/rjohnson:/bin/sh
 mreyes::22:1::/usr/users/mreyes:/bin/sh
 dpetrak::23:1::/usr/users/dpetrak:/bin/sh
@@ -92,6 +96,14 @@ lokafor::24:1::/usr/users/lokafor:/bin/sh
 gvasquez::25:1::/usr/users/gvasquez:/bin/sh
 ehalloran::26:1::/usr/users/ehalloran:/bin/sh
 tnakamura::27:1::/usr/users/tnakamura:/bin/sh
+tsps::28:1::/usr/users/tsps:/bin/sh
+dba::29:1::/usr/users/dba:/bin/sh
+netplan::30:1::/usr/users/netplan:/bin/sh
+custserv::31:1::/usr/users/custserv:/bin/sh
+radio::32:1::/usr/users/radio:/bin/sh
+tnds::33:1::/usr/users/tnds:/bin/sh
+sarts::34:1::/usr/users/sarts:/bin/sh
+docprep::35:1::/usr/users/docprep:/bin/sh
 """
 
 GROUP = """other::1:
@@ -104,42 +116,7 @@ craft::10:rjohnson,lokafor,gvasquez,mreyes
 mgmt::11:ehalloran,dpetrak,tnakamura
 """
 
-PROFILE = """# Profile for the operations position
-PATH=:/bin:/usr/bin
-export PATH
-HOME=/usr/users/sysop
-export HOME
-SHELL=/bin/sh
-export SHELL
-TERM=43
-export TERM
-stty erase '^h' kill '^u'
-echo "Board:"; report
-"""
 
-NOTES = """Notes left for whoever has this position next.
-
-Read /usr/doc/divestiture before you do anything else. It is not
-optional and it is not long.
-
-The board fills faster than it clears between about ten and two. Work
-the nearest commitment first, not the oldest report - they are not the
-same thing and the index only cares about the commitment.
-
-If you get three or four reports off one cable in the same morning,
-stop and look at the cable and pair before you dispatch anybody. It is
-almost always water and one splicer trip fixes all of them. I sent four
-separate crews to Franklin Street last month. Do not be me.
-
-Halloran reads the index every morning. He will not say anything if it
-is good.
-
-The 5 crossbar in aisle four has a marker that takes its time on the
-third trial. It has been like that for two years. It is not yours to
-fix and it is not worth a ticket.
-
-                                             - R. Alvarez, tour 2
-"""
 
 DIVESTITURE_MEMO = """                    BELL SYSTEM - CONFIDENTIAL
                  RECORDS RETENTION AND TRANSFER
@@ -1494,12 +1471,6 @@ FILESYSTEM: Dict[str, Node] = {
     '/usr/lmos': _dir(owner='sysop', group='craft'),
 
     '/usr/users': _dir(),
-    '/usr/users/sysop': _dir(owner='sysop', group='craft', mode='drwxr-x---'),
-    '/usr/users/sysop/.profile': _file(PROFILE, owner='sysop', group='craft'),
-    '/usr/users/sysop/notes': _file(NOTES, owner='sysop', group='craft'),
-    '/usr/users/sysop/.mailrc': _file(
-        "set nosave\nalias chief ehalloran\nalias board mreyes\n",
-        owner='sysop', group='craft'),
     '/usr/users/rjohnson/marker.notes': _file(
         "aisle 4 no. 5 crossbar, marker 2\n"
         "third trial slow since 81. measured it again 11/2, still slow,\n"
@@ -1518,6 +1489,18 @@ for _login in ('rjohnson', 'mreyes', 'dpetrak', 'lokafor', 'gvasquez',
                'ehalloran', 'tnakamura'):
     FILESYSTEM[f'/usr/users/{_login}'] = _dir(
         owner=_login, group='craft', mode='drwxr-x---')
+
+
+# One home directory for each position somebody can be put at. Selecting a
+# role puts you in /usr/users/<role>, and for eleven of the twelve that was
+# a directory that did not exist: pwd(1) named it and ls(1) said it was not
+# there. What is in them lives in data/homes.py.
+for _role, _files in HOMES.items():
+    FILESYSTEM[f'/usr/users/{_role}'] = _dir(
+        owner=_role, group='craft', mode='drwxr-x---')
+    for _name, _text in _files.items():
+        FILESYSTEM[f'/usr/users/{_role}/{_name}'] = _file(
+            _text, owner=_role, group='craft')
 
 
 def normalise(path: str, cwd: str) -> str:

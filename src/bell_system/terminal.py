@@ -581,6 +581,25 @@ class BellSystemTerminal(
             qualification = QUALIFICATIONS_BY_KEY[assigned]
             self.emit(f"Position sign-off: {qualification.name}")
 
+        # login(1) runs the .profile in your home directory, and each
+        # position's does something different: this is where a switching
+        # desk opening on its alarms and a radio desk opening on its routes
+        # comes from. It runs after the sign-off, because a profile that
+        # opens on a command the desk is not signed off for is no use to
+        # anybody.
+        opened = self.run_profile()
+        if opened:
+            self.emit('')
+            self.emit(opened)
+
+        home = f"/usr/users/{role_key}/"
+        left = sorted(name.rsplit('/', 1)[1] for name in self.filesystem
+                      if name.startswith(home)
+                      and name.rsplit('/', 1)[1].endswith('notes'))
+        if left:
+            self.emit(f"\nWhoever had this position last left "
+                      f"{', '.join(left)}. Worth reading.")
+
         self.emit("Initializing workstation...")
 
 
@@ -1028,6 +1047,18 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
         # a line editor on a teletype behaved.
         if self._editor is not None:
             return self.editor_input(command_line)
+
+        # Commands separated by a semicolon run one after the other. This
+        # is how a .profile puts two things on a line, and how anybody who
+        # has used a shell expects to type two commands at once.
+        separator = self._unquoted(command_line, ';')
+        if separator is not None:
+            head = command_line[:separator]
+            tail = command_line[separator + 1:]
+            outputs = [self.execute_command(head)] if head.strip() else []
+            if tail.strip():
+                outputs.append(self.execute_command(tail))
+            return '\n'.join(part for part in outputs if part.strip())
 
         if (self._unquoted(command_line, '|') is not None
                 and not command_line.strip().startswith('|')):

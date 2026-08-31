@@ -560,3 +560,34 @@ class ShellCommands(SessionState):
     def cmd_sync(self, args: Optional[List[str]] = None) -> str:
         """Flush the buffer cache. Prints nothing, as it should."""
         return ''
+
+    def run_profile(self) -> str:
+        """
+        Run the .profile in the home directory, the way login does.
+
+        The Bourne shell reads .profile once when you log in and not again.
+        This is the same: assignments and exports are noted rather than
+        obeyed, because there are no shell variables here to hold them, and
+        anything that is an actual command is run.
+
+        It is the reason each position starts by showing you something
+        different. The switching desk opens with its alarms because whoever
+        sat there put that line in their profile.
+        """
+        text = self._read(f"{self.current_directory}/.profile")
+        if text is None:
+            return ''
+        outputs: List[str] = []
+        for line in text.split('\n'):
+            stripped = line.strip()
+            if not stripped or stripped.startswith('#'):
+                continue
+            first = stripped.split()[0]
+            if '=' in first and not first.startswith(('echo', 'stty')):
+                continue
+            if first in ('export', 'stty', 'umask'):
+                continue
+            produced = self.execute_command(stripped)
+            if produced.strip():
+                outputs.append(produced.rstrip())
+        return '\n'.join(outputs)

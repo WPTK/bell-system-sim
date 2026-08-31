@@ -216,6 +216,10 @@ class SessionState:
         """Run one command line, as if it had been typed."""
         raise NotImplementedError
 
+    def run_profile(self) -> str:
+        """Run the home directory's .profile, the way login does."""
+        raise NotImplementedError
+
     def at_due(self) -> List[str]:
         """Run every at(1) job now due and return what they printed."""
         raise NotImplementedError
