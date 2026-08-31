@@ -51,6 +51,7 @@ from .data.clli import (
     entity_for_switch,
     parse as parse_clli,
 )
+from .data import geography
 from .data.man_pages import MAN_PAGES
 from .data.testlines import TEST_LINE_ORDER, TEST_LINES
 from .data.trouble import (
@@ -293,9 +294,10 @@ class BellSystemTerminal:
         'lmos': 'lmos'
     }
 
-    # Parsed NANPA data, shared across instances in a process. The source
-    # file is large and never changes during a run.
+    # Parsed geographic data, shared across instances in a process. It is
+    # static reference data and never changes during a run.
     _NANPA_CACHE: Optional[Dict[str, Any]] = None
+    _NANPA_DEGRADED: bool = False
 
     def __init__(self) -> None:
         """Initialize the Bell System terminal simulation environment."""
@@ -2148,73 +2150,42 @@ Subsystems available in this release:
 
     def _initialize_nanpa_data(self) -> None:
         """
-        Load NANPA geographic data for Bell System infrastructure.
+        Load the geographic data the simulated network is placed on.
 
-        The source file is 48 MB, so the parsed result is cached for the life
-        of the process: it is static reference data, and re-reading it for
-        every terminal made construction take a second apiece.
+        The data ships inside the package and is read through
+        :mod:`bell_system.data.geography`, not from the working directory.
+        That used to be a relative path, which meant an installed copy run
+        from anywhere but the source tree fell back to a handful of offices
+        without saying so, and every geographic feature degraded with it.
+
+        The parsed result is cached for the life of the process: it is static
+        reference data, and re-reading it for every terminal made
+        construction take a second apiece.
         """
-        import csv
-
         cached = BellSystemTerminal._NANPA_CACHE
         if cached is not None:
             self.nanpa_data = cached
-            self.bell_system_exchanges = {}
+            self.bell_system_exchanges: Dict[str, Any] = {}
+            self.geography_degraded = BellSystemTerminal._NANPA_DEGRADED
             return
 
-        # Load and process NANPA data for authentic Bell System operations
-        self.nanpa_data = {}
         self.bell_system_exchanges = {}
-
         try:
-            # Read NANPA CSV data
-            with open('attached_assets/full_dataset_csv.csv', 'r') as csvfile:
-                reader = csv.DictReader(csvfile)
-
-                # Sample and process key Bell System service areas from 1978-1983 era
-                bell_system_areas = ['202', '212', '213', '214', '215', '216', '301', '302', '303', '305', '312', '313', '314', '401', '404', '412', '413', '414', '415', '416', '501', '502', '503', '504', '505', '507', '509', '512', '513', '515', '516', '517', '518', '601', '602', '603', '605', '606', '607', '608', '609', '612', '614', '615', '616', '617', '618', '701', '702', '703', '704', '712', '713', '714', '715', '716', '717', '801', '802', '803', '804', '805', '806', '807', '808', '812', '813', '814', '815', '816', '817', '901', '902', '904', '906', '907', '912', '913', '914', '915', '916', '918', '919']
-
-                wanted = set(bell_system_areas)
-                per_npa_cap = 40
-
-                for row in reader:
-                    npa = row['npa']
-                    if npa not in wanted:
-                        continue
-                    if len(self.nanpa_data.get(npa, {})) >= per_npa_cap:
-                        continue
-
-                    nxx = row['nxx']
-                    city = row['city']
-                    state = row['state']
-
-                    # Focus on US Bell System territories
-                    if npa in bell_system_areas and row['country'] == 'United States':
-                        if npa not in self.nanpa_data:
-                            self.nanpa_data[npa] = {}
-
-                        if nxx not in self.nanpa_data[npa]:
-                            self.nanpa_data[npa][nxx] = []
-
-                        self.nanpa_data[npa][nxx].append({
-                            'city': city,
-                            'state': state,
-                            'latitude': row.get('latitude', '0'),
-                            'longitude': row.get('longitude', '0')
-                        })
-
-            BellSystemTerminal._NANPA_CACHE = self.nanpa_data
-
-        except FileNotFoundError:
-            # Fallback to core Bell System data if file not accessible
+            self.nanpa_data = geography.load()
+            self.geography_degraded = False
+        except geography.GeographyUnavailable as exc:
+            # Degraded, and said out loud. The point of this path is that a
+            # player and a maintainer both find out immediately.
             self.nanpa_data = {
-                '212': {'555': [{'city': 'New York', 'state': 'NY', 'latitude': '40.7128', 'longitude': '-74.0060'}]},
-                '213': {'555': [{'city': 'Los Angeles', 'state': 'CA', 'latitude': '34.0522', 'longitude': '-118.2437'}]},
-                '312': {'555': [{'city': 'Chicago', 'state': 'IL', 'latitude': '41.8781', 'longitude': '-87.6298'}]},
-                '617': {'555': [{'city': 'Boston', 'state': 'MA', 'latitude': '42.3601', 'longitude': '-71.0589'}]},
-                '202': {'555': [{'city': 'Washington', 'state': 'DC', 'latitude': '38.9072', 'longitude': '-77.0369'}]},
-                '301': {'555': [{'city': 'Silver Spring', 'state': 'MD', 'latitude': '38.9907', 'longitude': '-77.0261'}]}
+                npa: {nxx: [dict(place) for place in places]
+                      for nxx, places in exchanges.items()}
+                for npa, exchanges in geography.FALLBACK.items()
             }
+            self.geography_degraded = True
+            self.logger.error(f"Geographic data unavailable: {exc}")
+
+        BellSystemTerminal._NANPA_CACHE = self.nanpa_data
+        BellSystemTerminal._NANPA_DEGRADED = self.geography_degraded
 
     def _initialize_bell_system_infrastructure(self) -> None:
         """Initialize authentic Bell System infrastructure based on NANPA data."""

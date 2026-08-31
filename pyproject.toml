@@ -52,6 +52,12 @@ package-dir = {"" = "src"}
 where = ["src"]
 include = ["bell_system*"]
 
+# The geographic dataset ships with the code. Reading it from the working
+# directory instead is what made an installed copy quietly different from a
+# copy run out of the source tree.
+[tool.setuptools.package-data]
+bell_system = ["data/*.csv.gz"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

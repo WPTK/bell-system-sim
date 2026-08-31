@@ -254,10 +254,14 @@ bell-system --help
 │       ├── terminal.py              # Main 12-role Bell System terminal
 │       ├── simple_terminal.py       # Four-role simplified terminal
 │       ├── tutorial.py              # Interactive tutorial system
-│       └── data/                    # Manual page text and other static data
+│       └── data/                    # Man pages, reference tables, and the
+│                                    # packaged geographic dataset
 ├── tests/                           # pytest suite
+├── tools/                           # Build scripts for packaged data
 ├── docs/                            # Manual, command reference, and guides
-├── attached_assets/                 # Historical Bell System documentation
+├── attached_assets/                 # Searchable text of the cited sources
+├── SOURCES.md                       # What every historical claim rests on
+├── ROADMAP.md                       # What is planned, and why
 ├── pyproject.toml                   # Packaging, linting, and test configuration
 ├── LICENSE
 └── README.md
@@ -270,7 +274,9 @@ bell-system --help
 - **Architecture Overview**: `docs/overview.md` - How the package fits together
 - **API Reference**: `docs/api.md` - Programmatic use of the simulation classes
 - **Change Log**: `docs/changelog.md` - Version history and improvements
-- **Historical Assets**: `attached_assets/` - Authentic Bell System documentation
+- **Sources**: `SOURCES.md` - What every historical claim rests on
+- **Roadmap**: `ROADMAP.md` - What is planned, and why
+- **Historical Assets**: `attached_assets/` - Searchable text of the cited documents
 
 ## Development
 

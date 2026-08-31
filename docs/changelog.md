@@ -137,6 +137,53 @@ test line access codes; commitment intervals and per-action time costs; the
 transmission working limits; the loop resistance per mile, which is derived
 from the documented "1300 ohms, typically about three miles" rather than quoted.
 
+## [Unreleased] - Roadmap R1
+
+### Fixed
+
+- **The installed package was a different product.** `_initialize_nanpa_data`
+  opened the geographic dataset by a path relative to the working directory.
+  From the source tree that loaded 80 numbering plan areas and 3,200 central
+  offices; from anywhere else - which is what `pip install bell-system &&
+  bell-system` does - `FileNotFoundError` was caught and swallowed into a
+  six-office fallback with no warning. Every geographic feature degraded with
+  it: CLLI assignment, the geographic trouble overview, office selection for
+  the repair bureau, the ticket system's affected offices.
+
+### Added
+
+- **A packaged geographic dataset.** `bell_system/data/nanpa.csv.gz`, 42 KB,
+  read through `importlib.resources` so it is found wherever the package is
+  installed. Coverage went up as well as becoming reliable: **108 numbering
+  plan areas and 4,320 central offices, everywhere**, against 80 and 3,200 in
+  the best case before.
+- **A period filter with a source.** Engineering and Operations in the Bell
+  System (2nd ed., 1984) describes "the basic set of 152 area codes possible
+  using the N0/1X format", making a middle digit of 0 or 1 a structural
+  property of every area code in service during 1978-1983. Codes created
+  between 1984 and 1994 share that format, so eighteen of them - 718 among
+  them - are excluded by name in `tools/build_nanpa.py`, each carrying its
+  year and parent code, and marked as externally sourced rather than
+  repo-verified.
+- **`tools/build_nanpa.py`**, so the dataset is reproducible from its source
+  rather than a binary someone has to trust.
+- **`SOURCES.md`**, mapping every historical claim to the document it rests
+  on, and recording what no longer ships and how to get it back.
+- **Loud failure.** Missing data raises `GeographyUnavailable`, and the
+  terminal marks itself `geography_degraded` and logs it rather than quietly
+  substituting a stub network.
+- **The guard that was missing.** `tests/test_geography.py` builds a terminal
+  from a temporary working directory and asserts full coverage. Every test
+  previously ran from the repository root, which is why nothing saw this.
+
+### Changed
+
+- 166 MB removed from the working tree: 120 MB of scanned PDFs, which no line
+  of code cites because they are images rather than searchable text, and the
+  46 MB NANPA dump now superseded by the packaged dataset. The 21 MB of
+  searchable text that the code actually cites stays, so every claim remains
+  checkable with `grep`.
+
 ## [3.0.0] - 2025-05-27
 
 ### MAJOR RELEASE: COMPREHENSIVE COMMAND VALIDATION & CRITICAL ERROR RESOLUTION

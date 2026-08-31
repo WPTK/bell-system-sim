@@ -90,3 +90,6 @@ profile_*.txt
 # Security scan reports
 bandit-report.json
 safety-report.txt
+# Scanned PDFs and the NANPA dump: see SOURCES.md
+attached_assets/*.pdf
+attached_assets/full_dataset_csv.csv
