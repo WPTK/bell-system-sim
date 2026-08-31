@@ -261,6 +261,24 @@ class Switchroom:
             about=report_number,
         ))
 
+    def ticket_assignment(self, now: datetime, ticket_id: str, title: str,
+                          priority: str, office: str) -> Message:
+        """The switching control centre putting a trouble ticket on you."""
+        urgency = ('This one is critical. Everything else waits.'
+                   if priority == 'CRITICAL'
+                   else 'When you have a gap.')
+        return self._deliver(Message(
+            channel=CHANNEL_ORDERWIRE, sender='dpetrak', received=now,
+            lines=[
+                'SCC to office.',
+                f'{ticket_id} is yours: {title}',
+                f'{office}, {priority.lower()}. {urgency}',
+                f"'trouble detail {ticket_id}' has the rest of it.",
+            ],
+            kind='ticket', subject=f'{ticket_id} assigned',
+            about=ticket_id,
+        ))
+
     def chase(self, now: datetime, report_number: str,
               telephone_number: str) -> Message:
         """Ask, once, about a report that has passed its commitment."""

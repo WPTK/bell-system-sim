@@ -52,6 +52,17 @@ testline [code] [ckt]   Far-end test lines and responders
   noise with tone and gain slope; balance test line; remote office test
   line. Every loss reading is taken at 1004 Hz.
 
+testcall <from> <to> [test line]
+                        Place a test call through the network
+  Syntax: testcall | testcall <from> <to> | testcall <from> <to> <test line>
+  Example: testcall EO-NYC-01 EO-BOS-01 105
+
+  Seizure removes the 2600 Hz supervisory tone toward the far end, the far
+  end returns a start signal, the address goes out in multifrequency
+  bracketed by KP and ST, the call advances through the hierarchy, and
+  answer supervision comes back. Name a test line and the connection is
+  measured rather than merely completed.
+
 qual [index]            Craft record, qualifications and service index
   Syntax: qual | qual index
   Example: qual

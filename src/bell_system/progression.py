@@ -129,7 +129,7 @@ QUALIFICATIONS: List[Qualification] = [
         'Trunk testing, supervision and the routing of calls between '
         'offices.',
         requires_reports=6,
-        unlocks=('trunk', 'routing', 'dialtone'),
+        unlocks=('trunk', 'routing', 'dialtone', 'testcall'),
     ),
     Qualification(
         'toll', 'Toll Network',

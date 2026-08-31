@@ -431,6 +431,35 @@ TRANSMISSION TESTING
      connection is up is an irregularity; report it and hold the circuit
      out of service.
 
+TEST CALLS
+     testcall <from> <to> [test line]
+
+     A test call is how a trunk is proved. The stages are the real ones:
+
+     Seizure          2600 Hz sits on an idle trunk. Seizing it removes the
+                      tone toward the far end, which is what the far end
+                      watches for.
+     Start signal     Wink start winks off-hook and back; delay dial holds
+                      off-hook until its register frees; immediate start
+                      relies on a fixed interval instead.
+     Address          Outpulsed in multifrequency, bracketed by KP to open
+                      the register and ST to release it. The talking path is
+                      muted while an office outpulses, which is why MF needs
+                      no protection against the human voice.
+     Route advance    High-usage group first, overflowing up the homing
+                      chain to a final group. All trunks busy in a final
+                      group means reorder.
+     Answer           Answer supervision returns, tone off both directions.
+     Release          Tone restored, trunk back to idle.
+
+     Name a test line as the third argument and the connection is measured
+     rather than merely completed. Loss accumulates on every trunk in
+     tandem.
+
+     Test numbers, test line access codes and start arrangements were all
+     office records rather than national rules, so those here are the
+     simulation's own.
+
 DIFFICULTY
      set game.difficulty fun
          Fun Simulation. Loop testing names the fault it reads, a report

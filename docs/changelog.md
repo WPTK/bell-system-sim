@@ -53,6 +53,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   carries the field forces and the switching control centre, and the
   maintenance teletype prints CAROT's exceptions whether anybody is reading or
   not. `who` and `write` now list the same eight people.
+- **Test calls.** `testcall <from> <to> [test line]` places a call through the
+  network and shows every stage: seizure removing the 2600 Hz supervisory tone,
+  the start signal from the far end, the multifrequency address bracketed by KP
+  and ST, the route advance through the hierarchy, answer supervision, and
+  release. Name a test line and the connection is measured rather than merely
+  completed, with loss accumulating over every trunk in tandem.
+- **Ticket assignment by name.** The switching control centre puts one of the
+  existing trouble tickets on your position over the order wire, which is the
+  difference between a list and an assignment.
 - **`set game.ambience off`** for players who want the terminal to themselves.
 
 ### Changed
@@ -64,6 +73,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A trouble ticket entered by craft crashed every screen that read it.**
+  `trouble create` stored a bare office code where generated tickets store the
+  office record, so `trouble list`, `trouble geographic`, `trouble priority`
+  and `handoff` all raised `string indices must be integers` for the rest of
+  the session. Manual tickets now carry the same record.
+- **Shift handoff printed a Python dictionary.** The critical-ticket block
+  rendered the office record raw, putting `{'npa': '213', ...}` on a terminal
+  that could not have produced one. Offices now render as a place and a CLLI.
+- `TroubleTicket.affected_office` was declared as `str` while every producer
+  and consumer treated it as a record. The declaration now matches the code.
 - The module integrity guard no longer flags ordinary prose that begins with
   the word "from" as an import stranded in a docstring.
 

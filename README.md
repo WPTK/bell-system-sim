@@ -113,6 +113,20 @@ it has been measured. Wrongly closed lines come back as repeat reports at a
 rate you will not enjoy. Missed commitments count. Qualification is four times
 slower, and the rest of the building interrupts you four times as often.
 
+A test call proves a trunk end to end:
+
+```
+testcall EO-NYC-01 EO-BOS-01        Seize, outpulse, advance, answer, release
+testcall EO-NYC-01 EO-BOS-01 105    ...and measure the connection you built
+```
+
+Seizure removes the 2600 Hz supervisory tone toward the far end, the far end
+returns a start signal, the address goes out in multifrequency bracketed by KP
+and ST, the call advances through the hierarchy - high-usage group first,
+overflowing up the homing chain to a final group - and answer supervision
+comes back. Loss accumulates on every trunk in tandem, so a call that took five
+measures worse than one that took three.
+
 ### Progression
 
 What a craftsperson was allowed to work on was governed by qualification. You

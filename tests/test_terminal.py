@@ -35,6 +35,7 @@ def test_all_twelve_roles_start(isolated_state):
     'trunk', 'switch', 'testboard', 'toll', 'trace', 'dialtone',
     'ticket', 'trouble', 'uucp', 'traffic', 'routing', 'crossbar',
     'lmos', 'tnds', 'sarts', 'radio', 'microwave', 'alarm', 'pwb',
+    'report', 'testline', 'testcall', 'qual', 'write', 'mail', 'orderwire',
 ])
 def test_core_commands_produce_output(terminal, command):
     """Core commands return substantive output, not an error."""
@@ -43,7 +44,8 @@ def test_core_commands_produce_output(terminal, command):
     assert NOT_FOUND not in result, f'{command} was not dispatched'
 
 
-@pytest.mark.parametrize('alias', ['ll', 'la', 'dir', 'st', 'h', 'w', 'proc'])
+@pytest.mark.parametrize('alias', ['ll', 'la', 'dir', 'st', 'h', 'w', 'proc',
+                                   'board', 'career', 'ow', 'tl', 'tc'])
 def test_aliases_dispatch(terminal, alias):
     """Aliases reach a working handler rather than failing to resolve."""
     result = terminal.execute_command(alias)
@@ -185,6 +187,51 @@ class TestCrossbarReports:
         assert 'HISTORICAL TRENDS' in result
         for system_id in terminal.crossbar_systems:
             assert system_id in result
+
+
+class TestManualTickets:
+    """A ticket entered by craft must be the same shape as a generated one."""
+
+    def _create(self, terminal):
+        result = terminal.execute_command(
+            'trouble create EQUIPMENT_FAILURE MAJOR Marker failure on the five')
+        assert 'Trouble Ticket Created' in result
+        return result
+
+    def test_a_manual_ticket_carries_an_office_record(self, terminal):
+        before = {ticket['id'] for ticket in terminal.active_tickets}
+        self._create(terminal)
+        created = [ticket for ticket in terminal.active_tickets
+                   if ticket['id'] not in before]
+        assert len(created) == 1
+        office = created[0]['affected_office']
+        assert isinstance(office, dict)
+        for key in ('city', 'state', 'npa', 'nxx', 'switch_type'):
+            assert key in office
+
+    @pytest.mark.parametrize('command', [
+        'trouble list', 'trouble geographic', 'trouble priority',
+        'trouble', 'handoff',
+    ])
+    def test_the_ticket_screens_survive_a_manual_ticket(self, terminal, command):
+        """A bare office code here used to crash every screen that read it."""
+        self._create(terminal)
+        result = terminal.execute_command(command)
+        assert 'string indices' not in result
+        assert 'Command execution error' not in result
+
+    def test_no_screen_prints_a_python_dictionary(self, terminal):
+        self._create(terminal)
+        for command in ('trouble', 'trouble list', 'handoff',
+                        'trouble geographic'):
+            result = terminal.execute_command(command)
+            assert "{'npa'" not in result, f'{command} printed a raw record'
+
+    def test_an_office_renders_as_a_place_and_a_clli(self, terminal):
+        ticket = terminal.active_tickets[0]
+        label = terminal._office_label(ticket['affected_office'])
+        assert ticket['affected_office']['city'] in label
+        assert '{' not in label
 
 
 class TestSubsystemHonesty:

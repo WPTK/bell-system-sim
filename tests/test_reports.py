@@ -640,3 +640,109 @@ class TestTimeAccounting:
     def test_the_label_reads_as_hours_and_minutes(self, desk):
         report = desk.receive(SHIFT_START, fault='OPEN')
         assert ':' in report.age_label()
+
+
+class TestTestCalls:
+    """Placing a call through the network and reading every stage of it."""
+
+    def test_the_usage_screen_lists_the_offices(self, terminal):
+        result = terminal.execute_command('testcall')
+        assert 'Test Call' in result
+        for code in list(terminal.toll_network.offices)[:3]:
+            assert code in result
+
+    def test_a_call_shows_seizure_address_and_route(self, terminal):
+        result = terminal.execute_command('testcall EO-NYC-01 EO-BOS-01')
+        assert 'SF tone removed' in result
+        assert 'KP' in result and 'ST' in result
+        assert 'ROUTE ADVANCE' in result
+        assert 'Trunks in tandem' in result
+
+    def test_the_address_outpulsed_is_only_mf_digits(self, terminal):
+        result = terminal.execute_command('testcall EO-NYC-01 EO-BOS-01')
+        line = next(row for row in result.splitlines()
+                    if 'Address outpulsed' in row)
+        symbols = line.split('Address outpulsed')[1].split()
+        assert symbols[0] == 'KP'
+        assert symbols[-1] == 'ST'
+        assert all(symbol.isdigit() for symbol in symbols[1:-1])
+
+    def test_a_start_signal_is_always_named(self, terminal):
+        result = terminal.execute_command('testcall EO-NYC-01 EO-BOS-01')
+        assert any(word in result
+                   for word in ('wink start', 'delay dial', 'immediate start'))
+
+    def test_the_same_office_answers_the_same_way_every_time(self, terminal):
+        first = terminal.execute_command('testcall EO-NYC-01 EO-BOS-01')
+        second = terminal.execute_command('testcall EO-NYC-01 EO-CHI-01')
+        start = 'Start signal'
+        assert next(r for r in first.splitlines() if start in r) == \
+            next(r for r in second.splitlines() if start in r)
+
+    def test_terminating_on_a_test_line_measures_the_connection(self, terminal):
+        result = terminal.execute_command('testcall EO-NYC-01 EO-BOS-01 105')
+        assert 'MEASUREMENT' in result
+        assert 'Loss at 1004 Hz' in result
+        assert 'Gain slope' in result
+
+    def test_a_completed_call_releases_the_trunk(self, terminal):
+        result = terminal.execute_command('testcall EO-NYC-01 EO-BOS-01')
+        if 'COMPLETED' in result:
+            assert 'SF tone restored' in result
+
+    def test_an_unknown_office_is_reported(self, terminal):
+        assert 'no office' in terminal.execute_command('testcall XX YY')
+
+    def test_a_call_to_itself_is_refused(self, terminal):
+        result = terminal.execute_command('testcall EO-NYC-01 EO-NYC-01')
+        assert 'two different offices' in result
+
+    def test_an_unknown_test_line_is_reported(self, terminal):
+        result = terminal.execute_command('testcall EO-NYC-01 EO-BOS-01 999')
+        assert 'no 999 test line' in result
+
+    def test_a_test_call_needs_the_trunk_sign_off(self, raw_terminal):
+        result = raw_terminal.execute_command('testcall EO-NYC-01 EO-BOS-01')
+        assert 'not signed off' in result
+        assert 'Interoffice Trunks' in result
+
+
+class TestTicketAssignment:
+    """The switching control centre putting a ticket on you by name."""
+
+    def test_an_assignment_names_the_ticket_and_the_office(self, terminal):
+        ticket = terminal.active_tickets[0]
+        label = terminal._office_label(ticket['affected_office'])
+        message = terminal.switchroom.ticket_assignment(
+            terminal.clock.now(), ticket['id'], ticket['title'],
+            ticket['priority'], label)
+        rendered = render(message, 'stamp')
+        assert ticket['id'] in rendered
+        assert label in rendered
+        assert 'trouble detail' in rendered
+
+    def test_a_critical_ticket_says_everything_else_waits(self, terminal):
+        message = terminal.switchroom.ticket_assignment(
+            terminal.clock.now(), 'SW-0001', 'Marker failure',
+            'CRITICAL', 'NWRKNJ02')
+        assert 'Everything else waits' in render(message, 'stamp')
+
+    def test_an_assignment_reaches_the_position_it_was_given_to(self, terminal):
+        terminal.settings.set('game.ambience', 'on')
+        terminal.career.set_difficulty('craft')
+        for _ in range(400):
+            terminal.execute_command('pwd')
+            assigned = [ticket for ticket in terminal.active_tickets
+                        if 'this position' in ticket.get('assigned_team', '')]
+            if assigned:
+                assert assigned[0]['id'] in terminal._assigned_tickets
+                return
+        pytest.skip('no ticket was assigned in this run')
+
+    def test_a_ticket_is_never_assigned_twice(self, terminal):
+        terminal.settings.set('game.ambience', 'on')
+        terminal.career.set_difficulty('craft')
+        for _ in range(200):
+            terminal.execute_command('pwd')
+        assert len(terminal._assigned_tickets) == len(
+            set(terminal._assigned_tickets))

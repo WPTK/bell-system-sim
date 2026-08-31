@@ -230,6 +230,8 @@ class BellSystemTerminal:
         'index': 'qual',
         'ow': 'orderwire',
         'tl': 'testline',
+        'tc': 'testcall',
+        'call': 'testcall',
         'loop': 'mlt',
 
         # Technical system aliases
@@ -1498,6 +1500,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
         'write': self.cmd_write,
         'mail': self.cmd_mail,
         'orderwire': self.cmd_orderwire,
+        'testcall': self.cmd_testcall,
 
         # Standard UNIX commands
         'ps': self.cmd_ps,
@@ -2326,6 +2329,21 @@ Subsystems available in this release:
 
         self.active_tickets.append(ticket)
         return ticket
+
+    @staticmethod
+    def _office_label(office: Any) -> str:
+        """
+        Render an affected office for display.
+
+        Tickets carry the office record itself, not a name, so anything that
+        shows one has to render it. Printing the record raw put a Python
+        dictionary on a terminal that could not have produced one.
+        """
+        if isinstance(office, dict):
+            name = f"{office.get('city', 'Unknown')}, {office.get('state', '')}"
+            clli = office.get('clli')
+            return f"{name.rstrip(', ')} ({clli})" if clli else name.rstrip(', ')
+        return str(office)
 
     def _select_affected_infrastructure(self) -> dict:
         """Select realistic affected infrastructure from Bell System network."""
@@ -7716,7 +7734,10 @@ Example:
         self.ticket_counter += random.randint(1, 5)
         ticket_id = f"TK-{self.ticket_counter}"
 
-        affected_office = random.choice(list(self.central_offices.keys())) if self.central_offices else "LOCAL CO"
+        # The same shape the generated tickets carry. This used to be a bare
+        # office code, which every display that reached into the office
+        # record then crashed on.
+        affected_office = self._select_affected_infrastructure()
         customer_impact = random.randint(*category_data['customer_impact'][priority])
         estimated_duration = random.randint(*category_data['typical_duration'][priority])
 
@@ -7753,7 +7774,7 @@ TICKET DETAILS
 Category:                 {category}
 Priority:                 {priority}
 Description:              {description}
-Affected Office:          {affected_office}
+Affected Office:          {self._office_label(affected_office)}
 Customers Affected:       {customer_impact:,}
 Estimated Duration:       {estimated_duration} minutes
 Status:                   OPEN (unassigned)
@@ -8031,7 +8052,7 @@ Qualifications Held:      {len(self.career.qualifications)} of \
             for ticket in critical:
                 output += f"""
 {ticket['id']}: {ticket['title']}
-  Office:             {ticket['affected_office']}
+  Office:             {self._office_label(ticket['affected_office'])}
   Assigned:           {ticket['assigned_team']}
   Customers Affected: {ticket['customer_impact']:,}"""
 
@@ -9809,6 +9830,7 @@ Antenna alignment completed successfully.
         self.desk = ReportDesk(npa, nxx, self.home_office['clli'])
         self.switchroom = Switchroom()
         self._queued_messages: deque = deque()
+        self._assigned_tickets: set = set()
 
         slack = self.career.difficulty.commitment_slack_minutes
         self.desk.open_shift(self.clock.now(), slack)
@@ -9877,6 +9899,26 @@ Antenna alignment completed successfully.
                 message = self.switchroom.chatter(now)
             if message is not None:
                 pieces.append(render_message(message, self._stamp()))
+
+        # The switching control centre puts a ticket on you now and then.
+        # These are the tickets the trouble system already carries; being
+        # handed one by name is the difference between a list and an
+        # assignment.
+        if random.random() < difficulty.interruption_rate * 0.3:
+            unassigned = [
+                ticket for ticket in self.active_tickets
+                if ticket['status'] != 'RESOLVED'
+                and ticket['id'] not in self._assigned_tickets
+            ]
+            if unassigned:
+                ticket = random.choice(unassigned)
+                self._assigned_tickets.add(ticket['id'])
+                ticket['assigned_team'] = f"{self.username} (this position)"
+                pieces.append(render_message(self.switchroom.ticket_assignment(
+                    self.clock.now(), ticket['id'], ticket['title'],
+                    ticket['priority'],
+                    self._office_label(ticket['affected_office']),
+                ), self._stamp()))
 
         # New work arrives while the board has room for it.
         if not self.desk.full() and random.random() < 0.10:
@@ -10693,6 +10735,225 @@ Antenna alignment completed successfully.
                     f"SCC copies. Logged against this office.")
         return ("orderwire: unknown option. Use 'orderwire', "
                 "'orderwire scc' or\n'orderwire report <text>'.")
+
+    # -- test calls ------------------------------------------------------
+
+    def cmd_testcall(self, args: Optional[List[str]] = None) -> str:
+        """Place a test call through the network and watch every stage of it."""
+        args = args or []
+        network = self.toll_network
+
+        if not args or args[0].lower() in ('help', 'offices'):
+            lines = [
+                "Test Call",
+                '=' * 74,
+                '',
+                "A test call is how a trunk is proved. The originating office",
+                "seizes it, outpulses the address in multifrequency, the",
+                "network advances the call through the hierarchy, and",
+                "something at the far end answers so the connection can be",
+                "measured. Every stage leaves a signal a craftsperson can",
+                "read.",
+                '',
+                "Usage:",
+                "  testcall <from> <to>              Place a call and follow it",
+                "  testcall <from> <to> <test line>  Terminate on a test line",
+                "                                    and measure the connection",
+                '',
+                "Test lines: " + ', '.join(TEST_LINE_ORDER),
+                '',
+                "OFFICES",
+                '-' * 74,
+            ]
+            for office in sorted(network.offices.values(),
+                                 key=lambda entry: (entry.switch_class,
+                                                    entry.code)):
+                lines.append(f"  {office.code:<13} {office.class_name():<22} "
+                             f"{office.name}")
+            return '\n'.join(lines)
+
+        if len(args) < 2:
+            return ("testcall: name an originating and a terminating office.\n"
+                    "Usage: testcall <from> <to> [test line]")
+
+        origin, destination = args[0].upper(), args[1].upper()
+        for code in (origin, destination):
+            if code not in network.offices:
+                return (f"testcall: no office {code} in the routing table.\n"
+                        f"Type 'testcall offices' for the list.")
+        if origin == destination:
+            return ("testcall: a test call needs two different offices. A "
+                    "call to the office\nit started in never reaches a trunk.")
+
+        test_line = None
+        if len(args) > 2:
+            code = args[2].upper()
+            if code not in TEST_LINES:
+                return (f"testcall: no {args[2]} test line.\n"
+                        f"Test lines: {', '.join(TEST_LINE_ORDER)}")
+            test_line = TEST_LINES[code]
+
+        return self._place_test_call(origin, destination, test_line)
+
+    def _place_test_call(self, origin: str, destination: str,
+                         test_line: Optional[Any]) -> str:
+        """
+        Run a test call from seizure to release and narrate every stage.
+
+        The stages are the real ones: seizure removes the single frequency
+        supervisory tone toward the far end, the far end returns a start
+        signal, the address goes out in multifrequency bracketed by KP and
+        ST, the network advances the call through the hierarchy, and answer
+        supervision comes back. Release restores the tone.
+        """
+        network = self.toll_network
+        result = network.route(origin, destination)
+        terminating = network.offices[destination]
+
+        # The address outpulsed. A test line has its own access code; a plain
+        # trunk test outpulses the terminating office's test number. Both are
+        # the simulation's own: real test numbers were office records.
+        address = (test_line.access if test_line is not None
+                   else self.__class__._test_number_for(terminating.code))
+        train = mf_sequence(address)
+        train_ms = mf_train_duration_ms(train)
+        start_type = self.__class__._start_signal_for(origin)
+
+        lines = [
+            f"Test Call  {origin} to {destination}",
+            f"{self.clock.timestamp()}",
+            '=' * 74,
+            '',
+            'SUPERVISION AND ADDRESS',
+            '-' * 74,
+            f"  Seizure              SF tone removed toward the far end "
+            f"({SF_FREQUENCY_HZ} Hz)",
+            f"  Idle tone level      {SF_IDLE_LEVEL_DBM:+.1f} dBm before "
+            f"seizure",
+            f"  Start signal         {start_type}",
+            "  Address signalling   multifrequency; the talking path is "
+            "muted while",
+            "                       an office outpulses, which is why MF "
+            "needs no",
+            "                       protection against the human voice",
+            f"  Address outpulsed    "
+            f"{' '.join(signal.symbol for signal in train)}",
+            f"  Train duration       {train_ms} ms",
+            '',
+            'ROUTE ADVANCE',
+            '-' * 74,
+        ]
+        for step, attempt in enumerate(result.attempts, 1):
+            lines.append(f"  {step}. {attempt}")
+
+        lines.extend(['', 'RESULT', '-' * 74])
+        if not result.completed:
+            lines.extend([
+                "  Outcome              BLOCKED",
+                "  Caller receives      reorder",
+                f"  Trunks in tandem     {result.trunk_count()} before the "
+                f"block",
+                '',
+                "  Every trunk in a final group was busy. A final group is the",
+                "  last route available, so there is nowhere for the call to",
+                "  overflow to. Final groups are engineered to P.01 - one call",
+                "  in a hundred finds all trunks busy - so this is the one in",
+                "  a hundred, not a fault.",
+            ])
+            return '\n'.join(lines)
+
+        lines.extend([
+            "  Outcome              COMPLETED",
+            f"  Trunks in tandem     {result.trunk_count()} of "
+            f"{MAX_TRUNKS_IN_CONNECTION} permitted",
+            "  Answer supervision   returned; SF tone off in both directions",
+        ])
+
+        if test_line is None:
+            lines.extend([
+                '',
+                "  The connection is up and the talking path is through. To",
+                "  measure it, terminate the call on a test line:",
+                f"    testcall {origin} {destination} 105",
+                '',
+                "  Release              SF tone restored, trunk returned to "
+                "idle",
+            ])
+            return '\n'.join(lines)
+
+        degraded = result.trunk_count() >= 5
+        measurement = access_test_line(
+            test_line.code, f"{origin}-{destination}", degraded=degraded)
+
+        lines.extend([
+            '',
+            f'MEASUREMENT - {test_line.name.upper()}',
+            '-' * 74,
+            f"  {tone_header()}",
+        ])
+        if measurement.loss_db is not None:
+            label = ('Return loss' if test_line.code == 'BAL'
+                     else 'Loss at 1004 Hz')
+            lines.append(f"  {label:<24}{measurement.loss_db:>8.1f} dB")
+        if measurement.noise_dbrnc is not None:
+            lines.append(f"  {'Noise':<24}{measurement.noise_dbrnc:>8.1f} "
+                         f"dBrnC")
+        if measurement.noise_with_tone_dbrnc is not None:
+            lines.append(f"  {'Noise with tone':<24}"
+                         f"{measurement.noise_with_tone_dbrnc:>8.1f} dBrnC")
+        if measurement.slope_db is not None:
+            lines.append(f"  {'Gain slope':<24}{measurement.slope_db:>8.1f} dB")
+
+        lines.append('')
+        lines.append(f"  {'PASS' if measurement.passed else 'FAIL'}")
+        for note in measurement.notes:
+            lines.append(f"  {note}")
+        if degraded:
+            lines.append("  Five trunks in tandem. Loss and noise accumulate "
+                         "on every one of them.")
+        lines.extend([
+            '',
+            "  Release              SF tone restored, trunk returned to idle",
+        ])
+        if not measurement.passed:
+            lines.extend([
+                '',
+                "  A circuit outside its working limits should not go back in",
+                "  service. CAROT routines these groups and will find it again",
+                "  tonight if you leave it.",
+            ])
+        return '\n'.join(lines)
+
+    @staticmethod
+    def _test_number_for(code: str) -> str:
+        """
+        Return the seven digit test number an office answers on.
+
+        Real test numbers were carried in office records and varied office to
+        office, so this one is the simulation's own, derived from the office
+        code so a given office always answers on the same number.
+        """
+        seed = sum(ord(character) for character in code)
+        nxx = 200 + seed % 700
+        line = 1100 + seed % 90
+        return f"{nxx}{line}"
+
+    @staticmethod
+    def _start_signal_for(origin: str) -> str:
+        """
+        Return the start signal the originating office would see.
+
+        Which start arrangement a trunk group used was an office record, not
+        a national rule. The choice here is deterministic on the office code
+        so a group answers the same way every time it is tested.
+        """
+        arrangements = (
+            'wink start - far end winks off-hook then on again, register ready',
+            'delay dial - far end holds off-hook until its register is free',
+            'immediate start - outpulse after a fixed interval, no handshake',
+        )
+        return arrangements[sum(ord(character) for character in origin)
+                            % len(arrangements)]
 
     def cmd_quit(self, args: Optional[List[str]] = None) -> str:
         """Exit the Bell System terminal session."""

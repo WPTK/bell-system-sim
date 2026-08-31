@@ -2907,4 +2907,67 @@ SUPERVISION
 SEE ALSO
      mlt(1), testline(1), report(1), trunk(1)
 """,
+    "testcall": """
+NAME
+     testcall - place a test call through the network
+
+SYNOPSIS
+     testcall
+     testcall <from> <to>
+     testcall <from> <to> <test line>
+
+DESCRIPTION
+     A test call is how a trunk is proved. The originating office seizes it,
+     outpulses the address, the network advances the call through the
+     hierarchy, and something at the far end answers so the connection can
+     be measured. Every stage leaves a signal a craftsperson can read.
+
+STAGES
+     Seizure          Single frequency signalling puts 2600 Hz on an idle
+                      trunk. Seizing it removes the tone toward the far end,
+                      which is what the far end is watching for.
+
+     Start signal     The far end says when its register is ready. Wink
+                      start winks off-hook and back; delay dial holds
+                      off-hook until the register frees; immediate start
+                      does neither and relies on a fixed interval.
+
+     Address          Outpulsed in multifrequency, bracketed by KP to open
+                      the register and ST to release it. The talking path is
+                      muted while an office outpulses, which is why MF needs
+                      no protection against the human voice and Touch-Tone
+                      does.
+
+     Route advance    Each group is offered in turn. A call goes to a
+                      high-usage group first and overflows up its homing
+                      chain to a final group. When every trunk in a final
+                      group is busy the call is blocked and the caller gets
+                      reorder.
+
+     Answer           Answer supervision comes back and the tone is off in
+                      both directions.
+
+     Release          The tone is restored and the trunk returns to idle.
+
+MEASUREMENT
+     Name a test line as the third argument and the call terminates on it,
+     so the connection itself is measured rather than merely completed. Loss
+     accumulates on every trunk in tandem, so a call that took five is
+     measurably worse than one that took three.
+
+     A circuit outside its working limits should not go back in service.
+
+NOTES
+     Test numbers and test line access codes here are the simulation's own.
+     Real ones were carried in office records, office by office, not in any
+     national list. Which start arrangement a trunk group used was an office
+     record too; the choice here is deterministic on the office code so a
+     group answers the same way every time it is tested.
+
+QUALIFICATION
+     Requires the Interoffice Trunks sign-off.
+
+SEE ALSO
+     testline(1), testboard(1), routing(1), dialtone(1), trunk(1)
+""",
 }

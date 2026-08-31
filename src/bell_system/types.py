@@ -124,7 +124,9 @@ class TroubleTicket(TypedDict, total=False):
     priority: str
     title: str
     description: str
-    affected_office: str
+    # The office record itself, not a name. Anything that displays it must
+    # render it; see BellSystemTerminal._office_label.
+    affected_office: Dict[str, Any]
     customer_impact: int
     estimated_duration: int
     status: str
