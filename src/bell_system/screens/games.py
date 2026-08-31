@@ -144,6 +144,35 @@ class GameCommands(SessionState):
             return f"{guess}: 4 bulls. Got it in {count}."
         return f"{guess}: {bulls} bulls, {cows} cows"
 
+    def _news_articles(self) -> List[str]:
+        """
+        Every article in the spool, in the order readnews numbers them.
+
+        Sorted by group and then by article number as a number: the spool
+        holds net.unix-wizards/114 alongside net.jokes/88, and a plain string
+        sort would put 114 before 88.
+        """
+        spool = '/usr/spool/news'
+        paths = [path for path in self.filesystem
+                 if path.startswith(spool + '/')
+                 and not self.filesystem[path].is_dir]
+
+        def order(path: str) -> Tuple[str, int, str]:
+            group, _, article = path[len(spool) + 1:].partition('/')
+            return (group, int(article) if article.isdigit() else 0, article)
+
+        return sorted(paths, key=order)
+
+    def _news_header(self, body: str, name: str) -> str:
+        """Pull one header out of an article, or return an empty string."""
+        prefix = name + ': '
+        for line in body.split('\n'):
+            if not line:
+                break
+            if line.startswith(prefix):
+                return line[len(prefix):]
+        return ''
+
     def cmd_readnews(self, args: Optional[List[str]] = None) -> str:
         """
         Read netnews.
@@ -154,32 +183,40 @@ class GameCommands(SessionState):
         """
         args = args or []
         spool = '/usr/spool/news'
-        articles = sorted(
-            path for path in self.filesystem
-            if path.startswith(spool + '/') and not self.filesystem[path].is_dir)
+        articles = self._news_articles()
         if not articles:
             return "readnews: no news is good news."
 
         if args and args[0] == '-n' and len(args) > 1:
-            wanted = args[1]
-            picked = [a for a in articles if wanted in a]
+            wanted = [name.strip() for name in args[1].split(',')]
+            picked = [path for path in articles
+                      if path[len(spool) + 1:].split('/')[0] in wanted]
             if not picked:
-                return f"readnews: no articles in {wanted}"
+                return f"readnews: no articles in {args[1]}"
             articles = picked
         elif args and args[0].isdigit():
             index = int(args[0]) - 1
             if not 0 <= index < len(articles):
                 return f"readnews: no article {args[0]}"
             return self._read(articles[index]) or ''
+        elif args and args[0] == '-g':
+            groups: Dict[str, int] = {}
+            for path in articles:
+                group = path[len(spool) + 1:].split('/')[0]
+                groups[group] = groups.get(group, 0) + 1
+            rows = [f"{group:<20}{count:>3} article"
+                    f"{'' if count == 1 else 's'}"
+                    for group, count in sorted(groups.items())]
+            return '\n'.join(rows)
 
         rows = [f"{len(articles)} articles waiting, fed nightly over uucp.",
                 '']
         for number, path in enumerate(articles, 1):
             body = self._read(path) or ''
-            subject = next((line[9:] for line in body.split('\n')
-                            if line.startswith('Subject: ')), path)
+            subject = self._news_header(body, 'Subject') or path
             group = path[len(spool) + 1:].split('/')[0]
-            rows.append(f"{number:>3}  {group:<18}{subject}")
+            rows.append(f"{number:>3}  {group:<17}{subject[:56]}")
         rows.extend(['', "readnews <n> to read one, readnews -n <group> to "
-                         "pick a group."])
+                         "pick a group,", "readnews -g to list the groups the "
+                         "feed carries."])
         return '\n'.join(rows)

@@ -286,15 +286,49 @@ uucico mhuxco (11/14-06:44) FAILED (call to ihnp4, no answer)
 """
 
 
-# Netnews. Usenet began in 1980 and by 1983 a Bell machine on the uucp
-# network took a nightly feed. These are this simulation's own articles,
-# written in the form the software used; no real posting is reproduced.
-NEWS_WIZARDS = """Relay-Version: version B 2.10.1 6/24/83; site mhuxco
-Newsgroups: net.unix-wizards
-Subject: Re: how many files is too many in one directory?
-Date: Fri, 11-Nov-83 03:12:44 EST
+# Netnews. Usenet began in 1980 and by 1983 a Bell machine on the uucp network
+# took a nightly feed. The header block follows RFC 850 (June 1983), the
+# standard in force during the simulated period: Relay-Version first, then
+# Posting-Version, Path, From, Newsgroups, Subject, Message-ID and Date, with
+# the day of the week spelled out and the site suffixed .UUCP.
+#
+# The relay sites in the Path lines are real machines of the period - cbosgd,
+# mhuxj, mhuxt and eagle appear in RFC 850's own worked example, and ihnp4,
+# research and pwba are already carried in this machine's uucp log. mhuxco is
+# this simulation's machine. The user names, and every article below, are this
+# simulation's own: no real posting is reproduced and nothing here is put in
+# the mouth of a real person.
+_RELAY = 'Relay-Version: version B 2.10.1 6/24/83; site mhuxco.UUCP'
 
-> We have a spool directory with about 900 files in it and ls has
+
+def _article(posting: str, path: str, sender: str, group: str, subject: str,
+             message_id: str, date: str, body: str, **extra: str) -> str:
+    """
+    Assemble one article in RFC 850 order.
+
+    Building them rather than writing out fourteen header blocks by hand keeps
+    the order right everywhere and makes a missing header impossible.
+    """
+    lines = [_RELAY,
+             f'Posting-Version: version B 2.10.1 6/24/83; site {posting}.UUCP',
+             f'Path: {path}',
+             f'From: {sender}',
+             f'Newsgroups: {group}',
+             f'Subject: {subject}',
+             f'Message-ID: {message_id}',
+             f'Date: {date}']
+    lines.extend(f'{name.replace("_", "-")}: {value}'
+                 for name, value in extra.items())
+    return '\n'.join(lines) + '\n\n' + body
+
+
+NEWS_WIZARDS_114 = _article(
+    'eagle', 'mhuxco!mhuxt!mhuxj!eagle!dkellner',
+    'dkellner@eagle.uucp (D Kellner)',
+    'net.unix-wizards',
+    'Re: how many files is too many in one directory?',
+    '<3114@eagle.UUCP>', 'Friday, 11-Nov-83 03:12:44 EST',
+    """> We have a spool directory with about 900 files in it and ls has
 > started taking a noticeable amount of time.
 
 Nine hundred is nothing. The problem is not the count, it is that you
@@ -303,14 +337,63 @@ one file, ask for one file.
 
 The other half of your problem is that ls sorts. If you do not need
 them in order, you are paying for a sort you are going to throw away.
-"""
+""")
 
-NEWS_GENERAL = """Relay-Version: version B 2.10.1 6/24/83; site mhuxco
-Newsgroups: net.general
-Subject: What actually happens to us on January 1?
-Date: Sun, 06-Nov-83 22:41:09 EST
+NEWS_WIZARDS_121 = _article(
+    'cbosgd', 'mhuxco!ihnp4!cbosgd!pmarchetti',
+    'pmarchetti@cbosgd.uucp (P Marchetti)',
+    'net.unix-wizards',
+    'Re: System V, and what happens to the commands we know',
+    '<1121@cbosgd.UUCP>', 'Saturday, 12-Nov-83 19:40:11 EST',
+    """> Now that the company is selling it, are we going to be told which
+> version we are allowed to run?
 
-Nobody in my building can give a straight answer, so let me try here.
+Somebody in this thread has the order of events backwards. The company
+could not sell it before. The 1956 decree kept AT&T out of the computer
+business, so the system went out to universities on a tape and a
+handshake and that is the whole reason any of us learned it. The 1982
+decree is what let them into the business, and System V is what that
+looks like when it arrives in a carton with a price on it.
+
+I am not going to tell you that is bad news. I will tell you it is a
+different kind of news than the tape was. The tape came with source.
+
+Practical answer for your machine: nothing you type today stops
+working. ed is ed. The differences you will actually hit are in the
+shell and in what the manual calls things.
+""")
+
+NEWS_WIZARDS_126 = _article(
+    'mhuxj', 'mhuxco!mhuxt!mhuxj!bcorrigan',
+    'bcorrigan@mhuxj.uucp (B Corrigan)',
+    'net.unix-wizards',
+    'Re: ed(1) prints ? and I would like to know why',
+    '<807@mhuxj.UUCP>', 'Sunday, 13-Nov-83 21:02:57 EST',
+    """> It will not tell me what I did wrong. It prints a question mark and
+> waits. I am supposed to guess.
+
+Yes.
+
+This is not an oversight and it is not the editor being unfriendly at
+you. It was written for a teletype at 110 baud on a machine that had to
+hold the whole thing in core, and a message you already know the meaning
+of is thirty characters you have to sit and watch print. The question
+mark is the shortest thing that means "no."
+
+Once you have used it for a week you will find you know which ? it is
+before you have finished reading it. It is nearly always one of three
+things: you gave an address that does not exist, you are in input mode
+and thought you were in command mode, or you are in command mode and
+thought you were in input mode.
+""")
+
+NEWS_GENERAL_203 = _article(
+    'ihnp4', 'mhuxco!ihnp4!rteixeira',
+    'rteixeira@ihnp4.uucp (R Teixeira)',
+    'net.general',
+    'What actually happens to us on January 1?',
+    '<2203@ihnp4.UUCP>', 'Sunday, 6-Nov-83 22:41:09 EST',
+    """Nobody in my building can give a straight answer, so let me try here.
 
 The operating company gets the wire centres, the loops and the local
 switching. AT&T keeps long lines and everything above class 4. Fine.
@@ -321,14 +404,100 @@ it.
 I am told the answer is "the records stay with the wire centre." The
 records are on a disc. The disc is in a machine. Nobody has told the
 machine.
-"""
+""")
 
-NEWS_JOKES = """Relay-Version: version B 2.10.1 6/24/83; site mhuxco
-Newsgroups: net.jokes
-Subject: overheard at the frame
-Date: Wed, 09-Nov-83 11:55:02 EST
+NEWS_GENERAL_211 = _article(
+    'research', 'mhuxco!research!aweatherly',
+    'aweatherly@research.uucp (A Weatherly)',
+    'net.general',
+    'Re: What actually happens to us on January 1?',
+    '<914@research.UUCP>', 'Thursday, 10-Nov-83 12:18:33 EST',
+    """> Nobody has told the machine.
 
-New man asks the wire chief how you tell if a pair is good.
+The machine is the easy part. Somebody will come and put a new label on
+it and it will keep answering to the old name for years, because the
+scripts that call it were written in 1974 and nobody is going to find
+all of them.
+
+What I would think about is the parts of the job that were never
+written down because they did not need to be. When you want a pair
+carried past the wire centre today you ring a man and he does it. In
+January that man works for a different company and there is a form.
+
+Nobody is going to hand you a list of those. You find them one at a
+time, and you find them at 3am.
+""",
+    References='<2203@ihnp4.UUCP>', Followup_To='net.general')
+
+NEWS_MISC_88 = _article(
+    'mhuxt', 'mhuxco!mhuxt!jsandoval',
+    'jsandoval@mhuxt.uucp (J Sandoval)',
+    'net.misc',
+    'Re: what the August walkout actually settled',
+    '<556@mhuxt.UUCP>', 'Monday, 7-Nov-83 18:26:40 EST',
+    """> Three weeks out and I still cannot tell you what we got.
+
+Twenty-two days, and what came back was five and a half in the first
+year and one and a half in each of the next two. You can decide for
+yourself what that is against what the groceries did.
+
+The part nobody put on a leaflet is the part that should worry you.
+Service did not fall over while we were out. It used to be that a
+walkout of that size meant the dial tone went with it, and this time
+the switches mostly just ran. That is not because anyone crossed. It is
+because there is less and less of this job that needs a person standing
+in front of it, and the company now knows that, and so do we.
+
+Whatever the number turns out to have been worth, employment security
+was the thing on the table that was actually about the next ten years.
+""")
+
+NEWS_NEWS_45 = _article(
+    'mhuxj', 'mhuxco!mhuxt!mhuxj!lstrand',
+    'lstrand@mhuxj.uucp (L Strand)',
+    'net.news',
+    'expire is set to 14 days here and I am still full',
+    '<791@mhuxj.UUCP>', 'Monday, 7-Nov-83 09:33:15 EST',
+    """Two weeks of net.all is now more than this spool will hold, which is
+not something I expected to be typing this year.
+
+Before anybody tells me to buy a disc: the growth is not in the number
+of articles, it is in how many groups the feed carries. We subscribed
+to a feed, not to net.all, and the difference has quietly stopped
+being small.
+
+If you are running a site and you have not looked at what you are
+taking lately, go and look. sys(5) will let you say what you want
+instead of taking everything and expiring it in a fortnight.
+""",
+    Expires='Monday, 21-Nov-83 00:00:00')
+
+NEWS_NEWS_51 = _article(
+    'cbosgd', 'mhuxco!ihnp4!cbosgd!hgillam',
+    'hgillam@cbosgd.uucp (H Gillam)',
+    'net.news',
+    'Reply paths stay in reply format until January 1',
+    '<1140@cbosgd.UUCP>', 'Tuesday, 8-Nov-83 14:07:52 EST',
+    """The Path line is not documentation. Until the first of January it has
+to be something you could hand to uux and have arrive, which means
+host!host!host!user with no gaps and no editorialising in the middle.
+
+After the first of January it is a trace and you may stop caring
+whether it would route. Not before. There are sites out there whose
+only way of answering you is to run what is in that line.
+
+Two things change for me on the first of January and this is the one I
+expect to go smoothly.
+""",
+    Followup_To='net.news')
+
+NEWS_JOKES_88 = _article(
+    'mhuxco', 'mhuxco!dpetrak',
+    'dpetrak@mhuxco.uucp (D Petrak)',
+    'net.jokes',
+    'overheard at the frame',
+    '<41@mhuxco.UUCP>', 'Wednesday, 9-Nov-83 11:55:02 EST',
+    """New man asks the wire chief how you tell if a pair is good.
 
 Chief says: you put a tone on it and you go and listen for the tone.
 
@@ -337,14 +506,54 @@ New man asks what if you do not hear the tone.
 Chief says: then it is either a bad pair or you are in the wrong
 building, and after twenty years I can tell you which one it usually
 is.
-"""
+""")
 
-NEWS_SOURCES = """Relay-Version: version B 2.10.1 6/24/83; site mhuxco
-Newsgroups: net.sources
-Subject: one-liner: how deep is the board
-Date: Mon, 14-Nov-83 07:22:18 EST
+NEWS_JOKES_93 = _article(
+    'eagle', 'mhuxco!mhuxt!mhuxj!eagle!fokonkwo',
+    'fokonkwo@eagle.uucp (F Okonkwo)',
+    'net.jokes',
+    'Re: overheard at the frame',
+    '<3129@eagle.UUCP>', 'Saturday, 12-Nov-83 08:14:26 EST',
+    """Ours is shorter.
 
-For those of you sitting at a repair position wondering whether it is
+Q. How many craft does it take to clear a trouble that is not there?
+
+A. Two. One to not find it and one to write "NTF" so convincingly that
+it comes back in April as somebody else's.
+""",
+    References='<41@mhuxco.UUCP>')
+
+NEWS_LANG_C_62 = _article(
+    'mhuxt', 'mhuxco!mhuxt!ggreenhalgh',
+    'ggreenhalgh@mhuxt.uucp (G Greenhalgh)',
+    'net.lang.c',
+    'Re: printf does not put the newline there for you',
+    '<563@mhuxt.UUCP>', 'Tuesday, 8-Nov-83 23:51:08 EST',
+    """> Everything comes out on one line and then the prompt lands on the
+> end of it.
+
+That is because you did not ask for a newline and it did not invent
+one. printf prints what you told it to print and nothing else, which is
+the whole reason you can use it to print half a line.
+
+	printf("hello, world");        no newline
+	printf("hello, world\\n");      newline
+
+The second one is what is in the book. Put the \\n in.
+
+The related surprise, since you will hit it next: the shell's echo does
+add one, so a program you wrote and a shell line that looks the same
+behave differently, and you will spend an afternoon on that at least
+once.
+""")
+
+NEWS_SOURCES_41 = _article(
+    'mhuxco', 'mhuxco!lokafor',
+    'lokafor@mhuxco.uucp (L Okafor)',
+    'net.sources',
+    'one-liner: how deep is the board',
+    '<44@mhuxco.UUCP>', 'Monday, 14-Nov-83 07:22:18 EST',
+    """For those of you sitting at a repair position wondering whether it is
 worth getting a coffee:
 
 	grep -c PEND /usr/lmos/board
@@ -354,7 +563,53 @@ getting one.
 
 Somebody will tell me report(1) already prints this. It does. This one
 fits in a .profile.
-"""
+""")
+
+NEWS_SOURCES_44 = _article(
+    'mhuxco', 'mhuxco!rjohnson',
+    'rjohnson@mhuxco.uucp (R Johnson)',
+    'net.sources',
+    'Re: one-liner: how deep is the board',
+    '<45@mhuxco.UUCP>', 'Monday, 14-Nov-83 07:48:03 EST',
+    """The other half of that, for when you are waiting on a load to come off
+and you would rather be told than keep looking:
+
+	until [ `grep -c PEND /usr/lmos/board` -lt 5 ]
+	do
+		sleep 300
+	done
+	echo board is down to size
+
+Set it going in one window if you have one and forget about it. Do not
+make the sleep smaller than five minutes. The board does not change
+faster than that and neither does the machine.
+""",
+    References='<44@mhuxco.UUCP>')
+
+NEWS_GAMES_17 = _article(
+    'mhuxco', 'mhuxco!lokafor',
+    'lokafor@mhuxco.uucp (L Okafor)',
+    'net.games',
+    'Re: moo strategy, and a scoreboard that lies',
+    '<46@mhuxco.UUCP>', 'Wednesday, 9-Nov-83 23:37:41 EST',
+    """> Is there a way to do it in five every time?
+
+No, but there is a way to stop doing it in eleven.
+
+Your first two guesses are not for guessing. Spend them. 1234 and then
+5678 tells you how many of your four digits live in each half and which
+of them are placed, and you have not tried to be clever yet. Everything
+after that is bookkeeping.
+
+The one that gets people is bulls versus cows. A bull is the right
+digit in the right column. A cow is a digit you have got, in a column
+you have not. Two cows and no bulls is good news. It means you are one
+rearrangement away and most people throw the guess out and start again.
+
+While I am here: whoever is keeping /usr/games/lib/moo.scores, mine is
+not an eleven. The terminal was dropping characters that night and I
+have witnesses.
+""")
 
 
 # Everything the tree holds. Paths are absolute and directories carry no
@@ -407,14 +662,28 @@ FILESYSTEM: Dict[str, Node] = {
     '/usr/games/fortunes': _file(FORTUNES),
 
     '/usr/spool/news': _dir(owner='uucp', group='uucp'),
-    '/usr/spool/news/net.unix-wizards': _dir(owner='uucp', group='uucp'),
-    '/usr/spool/news/net.unix-wizards/114': _file(NEWS_WIZARDS, owner='uucp'),
+    '/usr/spool/news/net.games': _dir(owner='uucp', group='uucp'),
+    '/usr/spool/news/net.games/17': _file(NEWS_GAMES_17, owner='uucp'),
     '/usr/spool/news/net.general': _dir(owner='uucp', group='uucp'),
-    '/usr/spool/news/net.general/207': _file(NEWS_GENERAL, owner='uucp'),
+    '/usr/spool/news/net.general/203': _file(NEWS_GENERAL_203, owner='uucp'),
+    '/usr/spool/news/net.general/211': _file(NEWS_GENERAL_211, owner='uucp'),
     '/usr/spool/news/net.jokes': _dir(owner='uucp', group='uucp'),
-    '/usr/spool/news/net.jokes/88': _file(NEWS_JOKES, owner='uucp'),
+    '/usr/spool/news/net.jokes/88': _file(NEWS_JOKES_88, owner='uucp'),
+    '/usr/spool/news/net.jokes/93': _file(NEWS_JOKES_93, owner='uucp'),
+    '/usr/spool/news/net.lang.c': _dir(owner='uucp', group='uucp'),
+    '/usr/spool/news/net.lang.c/62': _file(NEWS_LANG_C_62, owner='uucp'),
+    '/usr/spool/news/net.misc': _dir(owner='uucp', group='uucp'),
+    '/usr/spool/news/net.misc/88': _file(NEWS_MISC_88, owner='uucp'),
+    '/usr/spool/news/net.news': _dir(owner='uucp', group='uucp'),
+    '/usr/spool/news/net.news/45': _file(NEWS_NEWS_45, owner='uucp'),
+    '/usr/spool/news/net.news/51': _file(NEWS_NEWS_51, owner='uucp'),
     '/usr/spool/news/net.sources': _dir(owner='uucp', group='uucp'),
-    '/usr/spool/news/net.sources/41': _file(NEWS_SOURCES, owner='uucp'),
+    '/usr/spool/news/net.sources/41': _file(NEWS_SOURCES_41, owner='uucp'),
+    '/usr/spool/news/net.sources/44': _file(NEWS_SOURCES_44, owner='uucp'),
+    '/usr/spool/news/net.unix-wizards': _dir(owner='uucp', group='uucp'),
+    '/usr/spool/news/net.unix-wizards/114': _file(NEWS_WIZARDS_114, owner='uucp'),
+    '/usr/spool/news/net.unix-wizards/121': _file(NEWS_WIZARDS_121, owner='uucp'),
+    '/usr/spool/news/net.unix-wizards/126': _file(NEWS_WIZARDS_126, owner='uucp'),
 
     '/usr/bsp': _dir(),
     '/usr/lmos': _dir(owner='sysop', group='craft'),

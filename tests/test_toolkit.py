@@ -243,7 +243,69 @@ class TestNetnews:
 
     def test_articles_are_files_too(self, terminal):
         assert 'Relay-Version' in terminal.execute_command(
-            'cat /usr/spool/news/net.general/207')
+            'cat /usr/spool/news/net.general/203')
+
+    def test_the_groups_the_feed_carries_can_be_listed(self, terminal):
+        listing = terminal.execute_command('readnews -g')
+        assert 'net.unix-wizards' in listing
+        assert '3 articles' in listing
+        assert '1 article\n' in listing + '\n'
+
+    def test_articles_are_numbered_numerically_not_lexically(self, terminal):
+        """
+        net.unix-wizards holds 114 and net.jokes holds 88. A plain string
+        sort puts 114 first; within a group the numbers must run up.
+        """
+        listing = terminal.execute_command('readnews').split('\n')
+        wizards = [row for row in listing if 'net.unix-wizards' in row]
+        assert len(wizards) == 3
+        assert 'how many files' in wizards[0]
+        assert 'System V' in wizards[1]
+        assert 'ed(1)' in wizards[2]
+
+    def test_every_article_carries_the_headers_rfc_850_requires(self, terminal):
+        """
+        RFC 850 (June 1983) is the standard in force in the simulated period.
+        Relay-Version must come first, and the rest of the required set must
+        be present and in order.
+        """
+        required = ['Relay-Version', 'Posting-Version', 'Path', 'From',
+                    'Newsgroups', 'Subject', 'Message-ID', 'Date']
+        for path, node in terminal.filesystem.items():
+            if not path.startswith('/usr/spool/news/') or node.is_dir:
+                continue
+            headers = [line.split(':')[0]
+                       for line in str(node.content).split('\n\n')[0].split('\n')]
+            assert headers[:len(required)] == required, path
+
+    def test_paths_are_in_reply_format(self, terminal):
+        """
+        Until 1 January 1984 the Path line had to be something uux could
+        route, which means host!host!user ending in the sender's name.
+        """
+        for path, node in terminal.filesystem.items():
+            if not path.startswith('/usr/spool/news/') or node.is_dir:
+                continue
+            body = str(node.content)
+            route = next(line[6:] for line in body.split('\n')
+                         if line.startswith('Path: '))
+            sender = next(line[6:].split('@')[0] for line in body.split('\n')
+                          if line.startswith('From: '))
+            assert route.startswith('mhuxco!'), path
+            assert route.split('!')[-1] == sender, path
+            assert ' ' not in route, path
+
+    def test_followups_name_the_article_they_answer(self, terminal):
+        """A References line has to point at an article the spool holds."""
+        known = {str(node.content).split('Message-ID: ')[1].split('\n')[0]
+                 for path, node in terminal.filesystem.items()
+                 if path.startswith('/usr/spool/news/') and not node.is_dir}
+        for path, node in terminal.filesystem.items():
+            if not path.startswith('/usr/spool/news/') or node.is_dir:
+                continue
+            for line in str(node.content).split('\n\n')[0].split('\n'):
+                if line.startswith('References: '):
+                    assert line[12:] in known, path
 
 
 class TestEd:
