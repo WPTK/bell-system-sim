@@ -1500,6 +1500,12 @@ EXAMPLES
      set display.charset unicode  Permit block glyphs on a modern terminal
      set reset                    Restore period-accurate defaults
 
+     display.pacing  Print output at a terminal speed: 110 for a Model 33,
+                     300 for the Model 43 this position has, 1200 for a
+                     later CRT, or off. A teleprinter printed one character
+                     at a time and you watched it happen. Ctrl-C stops a
+                     listing, as it did then. A pipe is never paced.
+
 SEE ALSO
      date(1), status(1), verbosity(1)
 """,

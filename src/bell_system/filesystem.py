@@ -79,7 +79,15 @@ Practices:       /usr/bsp
 Questions:       write ehalloran
 """
 
-PASSWD = """root::0:1::/:/bin/sh
+# /etc/passwd. A Seventh Edition entry is name, password, uid, gid, gecos,
+# home directory, shell. An empty second field means the account has no
+# password and login(1) does not ask for one: most of these are like that,
+# because the machine is in a locked building and the door is the security.
+#
+# root is not. The hash is not a real one and nothing checks it - what it
+# does is make login(1) and su(1) ask, and refuse, which is what
+# /usr/adm/sulog is already a record of somebody finding out.
+PASSWD = """root:x8Zt4qKcNvBhE:0:1::/:/bin/sh
 daemon::1:1::/:
 bin::3:3::/bin:
 sys::4:4::/usr/src:

@@ -135,6 +135,19 @@ OPTIONS: List[Option] = [
         'off leaves the terminal to you.',
     ),
     Option(
+        'display.pacing', '300', ['off', '110', '300', '1200'],
+        'Print output at a terminal speed',
+        'A teleprinter printed one character at a time and you watched it '
+        'happen. A Teletype Model 33 ran at 110 baud, ten characters a '
+        'second; the Model 43 this position has is switchable to 110 or 300, '
+        'ten or thirty characters a second, and 300 is what it is strapped '
+        'for. 1200 is a later CRT. off prints instantly, which no terminal '
+        'of the period did. Ctrl-C stops a listing, as it did then. Pacing '
+        'applies to a terminal and not to a pipe, because a program that '
+        'slowed down output nobody was watching would be a strange program.',
+        accurate='300',
+    ),
+    Option(
         'display.log_console', 'off', ['off', 'on'],
         'Print diagnostic log records to the terminal',
         'on interleaves Python logging output with simulation output; '

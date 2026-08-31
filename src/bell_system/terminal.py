@@ -30,11 +30,13 @@ import logging.handlers
 import os
 import random
 import shlex
+import getpass
 import sys
+import warnings
 import time
 from collections import defaultdict, deque
 from datetime import timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 
 from .constants import (
     BELL_SYSTEM_ROLES,
@@ -530,49 +532,166 @@ class BellSystemTerminal(
             self._apply_role(role_key, role_name)
             return
 
-        self.emit("\n" + "="*60)
-        self.emit("BELL SYSTEM UNIX V7 INTERNAL OPERATIONS TERMINAL")
-        self.emit("AT&T Bell Laboratories - Murray Hill, New Jersey")
-        self.emit("="*60)
-        self.emit("\nSELECT YOUR BELL SYSTEM OPERATIONAL ROLE:")
-        self.emit("-" * 45)
+        self.login()
 
-        for role_id, (role_key, role_name) in BELL_SYSTEM_ROLES.items():
-            self.emit(f"{role_id:2d}. {role_name}")
+    # -- login ------------------------------------------------------------
 
-        self.emit("-" * 45)
+    def login(self) -> None:
+        """
+        Sit at the terminal and log in, the way you did.
+
+        A Seventh Edition machine did not offer you a menu. getty(8) put a
+        banner and a ``login:`` prompt on the line, login(1) took a name,
+        asked for a password only if the account had one, printed
+        /etc/motd, and handed you to the shell - which read your .profile.
+        That is the sequence, in that order.
+
+        The account names are the twelve positions, so the role picker is
+        still reachable: typing a number logs you in as that position, and
+        typing ``?`` prints the list. Nobody at a craft position has the
+        root password, which /usr/adm/sulog is already a record of.
+        """
+        self.emit()
+        for line in self._getty_banner():
+            self.emit(line)
 
         while True:
             try:
-                choice = input("\nEnter role number (1-12): ").strip()
-                role_num = int(choice)
-
-                if 1 <= role_num <= 12:
-                    role_key, role_name = BELL_SYSTEM_ROLES[role_num]
-                    self._apply_role(role_key, role_name)
-                    break
-                else:
-                    self.emit("Invalid selection. Please enter a number between 1 and 12.")
-            except ValueError:
-                self.emit("Invalid input. Please enter a number between 1 and 12.")
+                name = input(f"{self.hostname} login: ").strip()
             except (EOFError, KeyboardInterrupt):
                 self.emit("\nExiting...")
                 raise SystemExit(0)
 
-    def _apply_role(self, role_key: str, role_name: str) -> None:
+            if not name:
+                continue
+            if name in ('?', 'help'):
+                self.emit(self._login_roster())
+                continue
+
+            resolved = self._resolve_login(name)
+            if resolved is None:
+                # login(1) asked for the password anyway on an unknown name,
+                # so that a wrong name and a wrong password looked the same
+                # from the outside. It still does.
+                self._ask_password(name)
+                self.emit("Login incorrect")
+                continue
+
+            role_number, role_key, role_name = resolved
+            if self._password_needed(role_key):
+                self._ask_password(role_key)
+                self.emit("Login incorrect")
+                continue
+
+            del role_number
+            self.emit()
+            for line in (self._read('/etc/motd') or '').rstrip().split('\n'):
+                self.emit(line)
+            self._apply_role(role_key, role_name)
+            return
+
+    def _getty_banner(self) -> List[str]:
+        """
+        What is on the line before anybody types anything.
+
+        getty printed /etc/issue and then the login prompt. This machine's
+        is the building it is in and the speed the line is running at,
+        which is what a craftsperson needed to know before they started.
+        """
+        pacing = self.settings.get('display.pacing')
+        speed = f"{pacing} baud" if pacing.isdigit() else 'no pacing'
+        lines = [
+            "AT&T Bell System Operations",
+            f"{self.home_office['city']}, {self.home_office['state']}  "
+            f"{self.home_office['clli']}",
+            f"UNIX Version 7   tty01   {speed}",
+            '',
+            "Type ? at the login prompt for the positions on this machine.",
+        ]
+        if pacing.isdigit():
+            # Worth saying on a line this slow, and a real operator would
+            # have known it: the interrupt stops the program and the paper
+            # stops with it.
+            lines.append("Interrupt (Ctrl-C) stops a listing. "
+                         "'set display.pacing off' prints at once.")
+        lines.append('')
+        return lines
+
+    def _login_roster(self) -> str:
+        """The accounts on this machine that answer to a person."""
+        rows = ["", "Positions on this machine:", '-' * 45]
+        for role_id, (role_key, role_name) in BELL_SYSTEM_ROLES.items():
+            rows.append(f"{role_id:2d}. {role_key:<10}{role_name}")
+        rows.extend(['-' * 45,
+                     "Log in with the name or the number."])
+        return '\n'.join(rows)
+
+    @staticmethod
+    def _resolve_login(name: str) -> Optional[Tuple[int, str, str]]:
+        """Turn a typed login name or number into a position, or None."""
+        if name.isdigit() and int(name) in BELL_SYSTEM_ROLES:
+            number = int(name)
+            role_key, role_name = BELL_SYSTEM_ROLES[number]
+            return number, role_key, role_name
+        for number, (role_key, role_name) in BELL_SYSTEM_ROLES.items():
+            if role_key == name.lower():
+                return number, role_key, role_name
+        return None
+
+    def _password_needed(self, name: str) -> bool:
+        """
+        Whether /etc/passwd carries a password for an account.
+
+        A Seventh Edition passwd entry with an empty second field has no
+        password and login(1) did not prompt for one. Most accounts on this
+        machine are like that: it is in a locked building and the door is
+        the security. root is not, which is why su(1) refuses and why the
+        su log has the attempts in it.
+        """
+        for line in (self._read('/etc/passwd') or '').split('\n'):
+            fields = line.split(':')
+            if len(fields) > 1 and fields[0] == name:
+                return bool(fields[1])
+        return False
+
+    def _ask_password(self, name: str) -> None:
+        """Ask for a password without echoing it, as login(1) did."""
+        del name
+        try:
+            with warnings.catch_warnings():
+                # getpass warns when it cannot turn the echo off, which
+                # happens when input is piped. There is no real password
+                # here and nothing to protect by hiding it.
+                warnings.simplefilter('ignore', getpass.GetPassWarning)
+                getpass.getpass("Password: ")
+        except (EOFError, KeyboardInterrupt):
+            self.emit("\nExiting...")
+            raise SystemExit(0)
+
+    def _apply_role(self, role_key: str, role_name: str,
+                    announce: bool = True) -> None:
         """
         Activate a Bell System role and configure the session for it.
 
         Being put at a position carries its own sign-off: the wire chief
         qualified you for the desk you were assigned to. Everything beyond
         that desk is still earned a report at a time.
+
+        Args:
+            role_key: The position's login name
+            role_name: What the position is called
+            announce: Whether to say which position this is. False when
+                login(1) got here, because asking for the name said it.
         """
         self.role = role_key
         self.role_name = role_name
         self.username = role_key
         self.current_directory = f"/usr/users/{role_key}"
-        self.emit(f"\nRole selected: {role_name}")
-        self.emit(f"User ID: {role_key}")
+        if announce:
+            # Reached by --role rather than through login(1), which has
+            # already said all this by asking for it.
+            self.emit(f"\nRole selected: {role_name}")
+            self.emit(f"User ID: {role_key}")
 
         assigned = ROLE_QUALIFICATIONS.get(role_key)
         if assigned and not self.career.is_qualified(assigned):
@@ -600,7 +719,8 @@ class BellSystemTerminal(
             self.emit(f"\nWhoever had this position last left "
                       f"{', '.join(left)}. Worth reading.")
 
-        self.emit("Initializing workstation...")
+        self.emit(f"\nYou are at the {role_name.lower()} position, "
+                  f"tour 1, {self.clock.date()}.")
 
 
 
@@ -948,12 +1068,78 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
 
     def emit(self, text: str = '', end: str = '\n') -> None:
         """
-        Write simulation output under the active character-set setting.
+        Write simulation output under the active display settings.
 
         Args:
             text: The text to display; empty prints a blank line
         """
-        print(render(text, self.settings.get('display.charset')))
+        rendered = render(text, self.settings.get('display.charset'))
+        if self._pace_rate() is None:
+            print(rendered)
+            return
+        self._print_paced(rendered)
+
+    def _pace_rate(self) -> Optional[float]:
+        """
+        Return seconds per character at the configured terminal speed.
+
+        A teleprinter printed one character at a time, and how many of them
+        it got through a second is the baud rate divided by the bits it
+        took to send one.
+
+        That divisor is not constant. At 110 baud the frame is eleven bits
+        - one start, eight data, two stop - because a mechanical printer
+        needed the extra stop bit to finish moving before the next
+        character arrived. At 300 and above one stop bit is enough and the
+        frame is ten. That is exactly why the Model 33 at 110 does ten
+        characters a second and the Model 43 at 300 does thirty, rather
+        than the twenty-seven a flat eleven bits would give.
+
+        Returns None when pacing is off, and also when output is not going
+        to a terminal. A pipe or a redirect has nobody watching it, and a
+        program that slowed those down would be a strange program - the
+        speed was a property of the printer, not of the software.
+        """
+        setting = self.settings.get('display.pacing')
+        if setting == 'off' or not setting.isdigit():
+            return None
+        if not sys.stdout.isatty():
+            return None
+        baud = int(setting)
+        return (11.0 if baud <= 110 else 10.0) / baud
+
+    def _print_paced(self, text: str) -> None:
+        """
+        Print at the configured speed, a character at a time.
+
+        Interrupting stops the listing and leaves the rest unprinted, which
+        is exactly what Ctrl-C on a teleprinter did: the program stopped and
+        the paper stopped with it.
+
+        Writing whole lines and sleeping between them would be cheaper and
+        would look wrong. A teleprinter's carriage moves across the page,
+        and the thing worth feeling here is the line arriving rather than
+        appearing.
+        """
+        rate = self._pace_rate()
+        if rate is None:  # pragma: no cover - guarded by the caller
+            print(text)
+            return
+        try:
+            for character in text:
+                sys.stdout.write(character)
+                sys.stdout.flush()
+                time.sleep(rate)
+                if character == '\n':
+                    # A carriage return and a line feed are two characters
+                    # on the wire, so a new line costs the time of one more
+                    # than the text on it.
+                    time.sleep(rate)
+            sys.stdout.write('\n')
+            sys.stdout.flush()
+        except KeyboardInterrupt:
+            sys.stdout.write('\n')
+            sys.stdout.flush()
 
     def shell_prompt(self) -> str:
         """
