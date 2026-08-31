@@ -4,7 +4,8 @@ NAME
      bell_system_unix - Bell System UNIX Version 7 Internal Operations Terminal Simulation
 
 SYNOPSIS
-     python bell_system_unix.py
+     bell-system [--tutorial] [--role N] [--simple] [--version]
+     python -m bell_system [--tutorial] [--role N] [--simple] [--version]
 
 DESCRIPTION
      The Bell System UNIX V7 Terminal Simulation provides an authentic recreation 
@@ -27,20 +28,21 @@ HISTORICAL CONTEXT
 
 INSTALLATION
      Requirements:
-       - Python 3.6 or higher
+       - Python 3.9 or higher
        - Terminal emulator supporting ANSI escape sequences
        - Unix-like operating system (Linux, macOS, BSD) or Windows with WSL
 
      Setup:
-       1. Download bell_system_unix.py
-       2. Ensure Python 3 is installed: python3 --version
-       3. Run the simulation: python3 bell_system_unix.py
+       1. Ensure Python 3 is installed: python3 --version
+       2. Clone the repository and install it: pip install -e .
+       3. Run the simulation: bell-system
 
 USAGE
-     Start the simulation by running the Python script. You will be presented 
-     with a role selection menu offering 12 authentic Bell System positions. 
-     After selecting a role, you'll receive a shift briefing and access to 
-     role-appropriate commands.
+     Start the simulation with the bell-system command. You will be presented
+     with a role selection menu offering 12 authentic Bell System positions.
+     After selecting a role, you'll receive a shift briefing and access to
+     role-appropriate commands. The --role option takes a number from 1 to 12
+     and skips the menu.
 
      Commands are entered at the Unix-style prompt. Type 'help' for available 
      commands or 'man <command>' for detailed documentation.
@@ -394,8 +396,8 @@ HISTORICAL REFERENCES
 
 EXAMPLES
      Starting a shift as a Switching Technician:
-       $ python3 bell_system_unix.py
-       [Select role 2: Switching Station Technician]
+       $ bell-system --role 2
+       [Role 2: Switching Station Technician]
        bell$ help
        bell$ trunk status
        bell$ 3a diagnostics
@@ -415,14 +417,25 @@ EXAMPLES
        bell$ handoff initiate
 
 FILES
-     bell_system_unix.py    Main simulation program
-     manual.txt             This manual page
-     README.md              Project documentation
+     src/bell_system/           Main simulation package
+     docs/manual.txt            This manual page
+     docs/command_reference.txt Command cheat sheet
+     README.md                  Project documentation
+
+     Logs and command history are written to a per-user state directory:
+       bell_system.log          Rotating application log (10 MB, 5 backups)
+       bell_system_history.txt  Command history
 
 ENVIRONMENT
-     The simulation runs in a standard Unix terminal environment and requires 
-     no special configuration. All Bell System procedures and data are 
+     The simulation runs in a standard Unix terminal environment and requires
+     no special configuration. All Bell System procedures and data are
      historically accurate representations based on authentic documentation.
+
+     BELL_SYSTEM_HOME
+          Directory for logs and command history. When unset, the simulation
+          uses $XDG_STATE_HOME/bell-system, falling back to
+          ~/.local/state/bell-system. Nothing is written to the working
+          directory.
 
 NOTES
      This simulation is for educational and historical preservation purposes. 

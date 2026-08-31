@@ -54,7 +54,7 @@ python -m bell_system          # Equivalent to `bell-system`
 
 - **12 Authentic Operational Roles** from UNIX Systems Operator to Document Preparation Specialist
 - **50+ Period-Accurate Commands** with comprehensive functionality and historical accuracy
-- **Role-Based Access Control** with commands and workflows specific to each position
+- **Role-Specific Command Sets** with shift briefings and workflows for each position
 - **Event and Ticket Management** using authentic Bell System trouble ticket systems
 - **Historical Documentation** based on Bell System Technical Journal and operations manuals
 - **Pure Python Implementation** using only standard library modules

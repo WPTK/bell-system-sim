@@ -24,8 +24,9 @@ For new features:
 ### Branching Strategy
 ```bash
 # Clone and setup
-git clone https://github.com/your-username/bell-system-sim.git
+git clone https://github.com/WPTK/bell-system-sim.git
 cd bell-system-sim
+pip install -e ".[dev]"
 
 # Create feature branch
 git checkout -b feature/add-switching-commands
@@ -45,28 +46,27 @@ git checkout -b docs/update-installation-guide
 
 ### Python Standards
 - **PEP 8 compliance** for all Python code
-- **Line length**: 88 characters maximum
+- **Line length**: 100 characters, configured in `pyproject.toml`
 - **Type hints**: Use for function parameters and returns
 - **Docstrings**: Required for all public functions and classes
 
-### Formatting Tools
+### Linting
+Linting is handled by [ruff](https://docs.astral.sh/ruff/), configured under
+`[tool.ruff]` in `pyproject.toml`.
+
 ```bash
-# Install development tools
-pip install black flake8
+# Install development tools (ruff and pytest)
+pip install -e ".[dev]"
 
-# Format code
-black src/ tests/ bin/
-
-# Check style
-flake8 src/ tests/ bin/
+# Check style - this is the same command CI runs
+ruff check src tests
 ```
 
 ### Pre-commit Checks
 ```bash
 # Run before committing
-black --check src/ tests/ bin/
-flake8 src/ tests/ bin/
-python -m pytest tests/
+ruff check src tests
+python -m pytest tests
 ```
 
 ## Running Tests Locally
@@ -74,22 +74,23 @@ python -m pytest tests/
 ### Test Suite Execution
 ```bash
 # Run all tests
-python -m pytest tests/
+python -m pytest tests
 
-# Run specific test file
-python -m pytest tests/comprehensive_test_suite.py
+# Run a specific test file
+python -m pytest tests/test_terminal.py
 
-# Run with coverage
-python -m pytest --cov=src tests/
-
-# Test CLI functionality
-bell-system --test
+# Run a single test by name
+python -m pytest tests -k role
 ```
 
+The suite points logs and command history at a temporary directory, so running
+it will not touch your real `~/.local/state/bell-system`.
+
 ### Test Requirements
+- **Behavioural assertions**: a test must assert on real behaviour, not merely
+  execute code and report success
 - **Historical accuracy validation** for all Bell System commands
-- **Role-based access control** testing
-- **Error handling** verification
+- **Error handling** verification, including unknown and malformed input
 - **Command syntax** compliance with period standards
 
 ## Historical Accuracy Guidelines
@@ -117,31 +118,32 @@ Use authentic Bell System documentation:
 
 ### File Structure
 ```
-src/                    # Source code modules
-├── __init__.py        # Package initialization
-├── bell.py            # Main 12-role simulation
-├── unix_terminal.py   # Simplified 4-role interface  
-├── bell_system_tutorial.py  # Interactive tutorial
-├── logging_enhancements.py  # Professional logging
-├── performance_profiling.py # Optimization tools
-└── ux_command_enhancements.py  # UX improvements
+src/bell_system/        # The installable package
+├── __init__.py        # Package exports and version
+├── __main__.py        # python -m bell_system
+├── cli.py             # Argument parsing, the bell-system console script
+├── terminal.py        # Main 12-role simulation (BellSystemTerminal)
+├── simple_terminal.py # Simplified 4-role interface (SimpleTerminal)
+├── tutorial.py        # Interactive tutorial (BellSystemTutorial)
+└── data/              # Manual page text and other static data
 
-tests/                  # Test suites
-├── comprehensive_test_suite.py  # Main test framework
-└── test_*.py          # Additional test modules
+tests/                  # pytest suite
+├── conftest.py        # Shared fixtures, state isolation
+├── test_cli.py        # Command line entry point
+├── test_terminal.py   # 12-role terminal behaviour
+├── test_simple_terminal.py  # 4-role terminal behaviour
+└── test_integrity.py  # Source integrity: imports, aliases, dispatch table
 
 docs/                   # Documentation
 ├── overview.md        # Architecture documentation
 ├── api.md            # API reference
 ├── contributing.md   # This file
 ├── changelog.md      # Version history
-└── faq.md           # Troubleshooting guide
+├── faq.md           # Troubleshooting guide
+├── manual.txt       # Full user manual
+└── command_reference.txt  # Command cheat sheet
 
-bin/                   # CLI entry points
-└── bell-system       # Main executable
-
-examples/              # Usage demonstrations
-└── *.py              # Example scripts
+pyproject.toml          # Packaging, console script, ruff and pytest config
 ```
 
 ### Naming Conventions
@@ -170,7 +172,8 @@ examples/              # Usage demonstrations
 - **Minimize startup time** for CLI responsiveness
 - **Cache command lookups** for frequently used operations
 - **Optimize string operations** in command processing
-- **Profile performance** using included tools
+- **Profile performance** with the standard library (`cProfile`, `timeit`); the
+  terminal also logs per-command execution times at DEBUG level
 
 ### Memory Management
 - **Avoid memory leaks** in long-running sessions

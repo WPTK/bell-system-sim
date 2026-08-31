@@ -136,6 +136,41 @@ def test_every_dispatch_entry_is_callable(terminal):
         assert callable(handler), f'{name} is not callable'
 
 
+def test_advertised_subcommands_are_implemented(terminal):
+    """
+    A command must implement every subcommand its own error message lists.
+
+    ``trunk status`` was rejected as an unknown option by the very message
+    that listed the available options, and the manual page advertised four
+    more subcommands that did not exist.
+    """
+    import re
+
+    broken = []
+    for name in sorted(terminal._command_handlers):
+        if name in {'quit', 'clear', 'test'}:
+            continue
+        probe = terminal.execute_command(f'{name} __unlikely_subcommand__')
+        match = re.search(r'Available commands?:\s*(.+)', probe)
+        if not match:
+            continue
+        for sub in (s.strip() for s in match.group(1).split(',')):
+            if not sub or ' ' in sub:
+                continue
+            # Many subcommands require one or two arguments, so a bare call
+            # correctly falls through. A subcommand rejected at every arity
+            # has no branch at all.
+            attempts = [
+                terminal.execute_command(f'{name} {sub}'),
+                terminal.execute_command(f'{name} {sub} PROBE'),
+                terminal.execute_command(f'{name} {sub} PROBE VALUE'),
+            ]
+            if all('Unknown option' in attempt for attempt in attempts):
+                broken.append(f'{name} {sub}')
+
+    assert not broken, f'advertised but not implemented: {broken}'
+
+
 def test_dispatch_table_is_built_once(terminal):
     """
     The dispatch table is built during construction, not per command.

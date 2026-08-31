@@ -68,3 +68,14 @@ exclude = ["build", "dist", "attached_assets"]
 [tool.ruff.lint]
 select = ["E", "F", "W"]
 ignore = ["E501", "E741"]
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+
+# Every module except terminal.py type-checks cleanly, so those are gated in
+# CI. terminal.py still carries findings inherited from its untyped origins;
+# lifting this suppression is the next step in the typing ratchet.
+[[tool.mypy.overrides]]
+module = "bell_system.terminal"
+ignore_errors = true

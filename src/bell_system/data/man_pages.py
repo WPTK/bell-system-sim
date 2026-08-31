@@ -12,7 +12,7 @@ NAME
      trunk - Bell System trunk group monitoring and management
 
 SYNOPSIS
-     trunk [status|detail|traffic|history|route|capacity|billing] [trunk-group]
+     trunk [status|detail|test|traffic|maintenance] [trunk-group]
 
 DESCRIPTION
      Monitor and manage Bell System inter-office trunk groups including
@@ -22,18 +22,17 @@ DESCRIPTION
      Each trunk group (TG-xxx) has specific capacity and routing characteristics.
 
 OPTIONS
-     status          Display summary of all trunk groups
+     status          Display summary of all trunk groups (the default)
      detail TG-xxx   Detailed analysis of specific trunk group
+     test TG-xxx     Run transmission tests against a trunk group
      traffic TG-xxx  Real-time traffic monitoring
-     history TG-xxx  Historical utilization patterns
-     route TG-xxx    Routing table and path analysis
-     capacity        System-wide capacity analysis
-     billing         Trunk usage billing summary
+     maintenance     Trunk maintenance schedule
 
 EXAMPLES
-     trunk status                    Show all trunk groups
-     trunk detail TG-001            Analyze trunk group TG-001
-     trunk traffic TG-045           Monitor TG-045 traffic
+     trunk                           Show all trunk groups
+     trunk status                    Same as above
+     trunk detail TG-001-NYC        Analyze trunk group TG-001-NYC
+     trunk traffic TG-023-BOS       Monitor TG-023-BOS traffic
 
 SEE ALSO
      switch(1), traffic(1), routing(1), capacity(1)
