@@ -145,18 +145,45 @@ state.
 Do this before R4, not after. Adding twenty subsystems to an 11,000-line file
 is how it got to 11,000 lines.
 
-### R4 — Finish or retire the stubs · weeks
+### R4 — Finish or retire the stubs · **done**
 
-- [ ] Decide role 12: build `nroff`/`troff`/`tbl`/`eqn` (the V7 document
-      tools are well documented and the man pages are already written), or
-      reduce the advertised roles from twelve to eleven
-- [ ] Work the rest in the order the roles need them
-- [ ] Every subsystem retired from `UNIMPLEMENTED_COMMANDS` needs the same
-      provenance discipline the rest of the work carries
+`UNIMPLEMENTED_COMMANDS` started at eighteen names and is now empty. Every
+command on the machine does something.
 
-The honest thing is to pick one per subsystem: build it, or stop advertising
-it. A stub that never becomes anything is a promise the product is not
-keeping.
+- [x] Role 12 built rather than dropped: `nroff`, `troff`, `tbl` and `eqn`,
+      then `pic` and `refer` as well. `refer` fills citations from a
+      bibliography of real papers whose page ranges were checked
+- [x] Fourteen implemented, four removed. `pwb` and `rje` were removed
+      because there was nothing behind the name — PWB was a system, not a
+      program, and its remote job entry was `send(1)` and `rjestat(1)`,
+      which the machine now has. `analysis` and `netdata` were command names
+      with no referent that duplicated `tnds` subcommands
+- [x] Four of the fourteen turned out to have real data already in the
+      simulation behind them: `trace` is the routing engine printed one leg
+      at a time, `capacity` reads the trunk groups, `coer` reads the offices
+      and the board, `custdb` prints the card LMOS already holds. Tests
+      check the join, not just the output
+- [x] `_subsystem_unavailable()` removed with its last caller. The empty
+      set stays, because it is where the next honest stub goes
+
+### R4a — The Seventh Edition toolkit · **done**
+
+Twenty-six commands added on the UNIX side, because the fun of this is
+using UNIX at work in 1983 and the toolkit was half there.
+
+- [x] Filters: `pr`, `comm`, `join`, `look`, `split`, `sum`, `dd`, `expr`,
+      `basename`, `true`, `false`
+- [x] Deferred work: `at` against the shift clock with jobs spooled under
+      `/usr/spool/at`, `make` against a real makefile, `nohup`, `nice`,
+      `time`, `kill`
+- [x] The network: `uuname`, `uulog`, `uux`, and `su` writing to the
+      `/usr/adm/sulog` that was already on the machine
+- [x] `paste`, `dirname` and `nl` deliberately absent: PWB and System III,
+      after the period
+- [x] Two shell bugs found on the way: `|` and `>` were searched for in the
+      raw line, so `grep '|'` started a pipeline and `expr 5 '>' 3` wrote a
+      file. A shell decides punctuation before anything else
+- [x] `;` as a command separator
 
 ### R5 — Deepen the loop with what the new model makes possible · weeks
 
@@ -182,6 +209,26 @@ work the old codebase could not have:
       apportionment (55/35/20) is the simulation's own and untested against
       how the loop actually plays over many shifts.
 
+### R5a — What is different about each position · **started**
+
+The answer used to be: the help text, one qualification, and a home
+directory that did not exist for eleven of the twelve.
+
+- [x] Twelve homes, each with a `.profile` that opens the desk on its own
+      work and a file left by whoever sat there last. That file is where a
+      good deal of what you need to know about the job actually lives
+- [x] The role logins are in `/etc/passwd`
+- [ ] **Different work, not just a different opening.** The board is the
+      same twelve ways. A radio position should be handed radio troubles, a
+      special services position should be handed circuits. The report
+      generator already knows about fault categories; the positions do not
+      read them
+- [ ] **Different people talking to you.** The order wire and the NPC
+      chatter are the same regardless of desk. A TSPS operator should hear
+      from operators
+- [ ] **Different measure of a good tour.** The repair index is a repair
+      measure. A planning desk is not judged on commitments met
+
 ### R6 — More than one office · weeks
 
 The unfinished half of the original P5:
@@ -199,10 +246,12 @@ The unfinished half of the original P5:
       33, 300 for a Model 43, off). The last unbuilt P3 item, and it belongs
       as a setting rather than a default
 - [ ] A login sequence, honouring the same setting pattern
-- [ ] Real filesystem exploration: `cat`, `cd`, `grep`, `more`, `head`, `wc`.
-      The simulated V7 filesystem is data with no way to walk it — `ls` and
-      `pwd` exist and go nowhere. This is also where readable BSPs and
-      practice documents would live.
+- [x] Real filesystem exploration: `cat`, `cd`, `grep`, `more`, `head`, `wc`
+      and the rest. The tree is now 114 nodes, writable, with a dictionary,
+      a bibliography, a netnews spool and twelve home directories
+- [x] A login sequence of the right kind: selecting a position runs the
+      `.profile` in its home, the way `login(1)` did, so each desk opens on
+      its own work
 
 ### R8 — Stretch
 
