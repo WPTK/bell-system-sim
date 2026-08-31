@@ -1,5 +1,10 @@
 """
-Bell System Practices and the Writer's Workbench document tools.
+Bell System Practices, and the Programmer's Workbench commands.
+
+nroff, troff, tbl and eqn moved to :mod:`bell_system.screens.docprep`
+when they stopped being placeholders. Leaving the stubs here would
+have let them win the method resolution order and shadow the real
+implementations, which is exactly what happened once.
 """
 
 from typing import (
@@ -12,7 +17,12 @@ from .session import SessionState
 
 class DocumentCommands(SessionState):
     """
-    Bell System Practices and the Writer's Workbench document tools.
+    Bell System Practices, and the Programmer's Workbench commands.
+
+nroff, troff, tbl and eqn moved to :mod:`bell_system.screens.docprep`
+when they stopped being placeholders. Leaving the stubs here would
+have let them win the method resolution order and shadow the real
+implementations, which is exactly what happened once.
 
     Mixed into :class:`~bell_system.terminal.BellSystemTerminal`,
     which owns the session state these read.
@@ -127,18 +137,6 @@ Use 'uucp status' for detailed queue information"""
     def cmd_rje(self, args: List[str]) -> str:
         """Remote Job Entry system"""
         return self._subsystem_unavailable("rje", "RJE operations")
-    def cmd_nroff(self, args: List[str]) -> str:
-        """Document formatting with nroff"""
-        return self._subsystem_unavailable("nroff", "nroff text processing")
-    def cmd_troff(self, args: List[str]) -> str:
-        """Typesetting with troff"""
-        return self._subsystem_unavailable("troff", "troff typesetting")
-    def cmd_tbl(self, args: List[str]) -> str:
-        """Table formatting preprocessor"""
-        return self._subsystem_unavailable("tbl", "Table formatting")
-    def cmd_eqn(self, args: List[str]) -> str:
-        """Mathematical equation formatting"""
-        return self._subsystem_unavailable("eqn", "Equation formatting")
     def cmd_pic(self, args: List[str]) -> str:
         """Picture drawing language"""
         return self._subsystem_unavailable("pic", "Picture drawing")

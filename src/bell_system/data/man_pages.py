@@ -1753,137 +1753,9 @@ ENHANCED TERMINAL FEATURES
      Part of Bell System UX enhancement package with readline support
 """,
 
-    "nroff": """
-NAME
-     nroff - Text formatting and document preparation
 
-SYNOPSIS
-     nroff [-options] [files...]
 
-DESCRIPTION
-     Format text documents for Bell System documentation including
-     technical manuals, operational procedures, and administrative
-     reports. Part of the Bell System document preparation system.
 
-OPTIONS
-     -ms             Use manuscript macro package
-     -mm             Use memorandum macro package
-     -man            Use manual page macro package
-
-DOCUMENT TYPES
-     TECHNICAL MANUALS:      Equipment specifications and procedures
-     OPERATIONAL PROCEDURES: Bell System Practices documentation
-     ADMINISTRATIVE REPORTS: Management and statistical reports
-     CORRESPONDENCE:         Business letters and memoranda
-
-EXAMPLES
-     nroff -ms technical_spec.ms     Format technical specification
-     nroff -man command.1            Format manual page
-     nroff procedure.txt             Format procedure document
-
-SEE ALSO
-     troff(1), tbl(1), eqn(1), pic(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     nroff(1) - January 1979
-""",
-
-    "troff": """
-NAME
-     troff - Typesetting and document formatting
-
-SYNOPSIS
-     troff [-options] [files...]
-
-DESCRIPTION
-     Typeset high-quality documents for Bell System publications
-     including technical documentation, engineering reports, and
-     formal correspondence requiring professional presentation.
-
-OPTIONS
-     -ms             Use manuscript macro package
-     -mm             Use memorandum macro package
-     -Tdevice        Specify output device type
-
-TYPESETTING FEATURES
-     PROPORTIONAL FONTS:     Multiple typefaces and sizes
-     MATHEMATICAL NOTATION:  Equations and technical symbols
-     GRAPHICS INTEGRATION:   Diagrams and illustrations
-     PAGE LAYOUT:           Professional document formatting
-
-EXAMPLES
-     troff -ms -Tcat report.ms       Typeset technical report
-     troff -mm memo.mm               Format memorandum
-     troff engineering_spec.tr       Typeset specification
-
-SEE ALSO
-     nroff(1), tbl(1), eqn(1), pic(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     troff(1) - January 1979
-""",
-
-    "tbl": """
-NAME
-     tbl - Table formatting preprocessor
-
-SYNOPSIS
-     tbl [files...] | nroff
-     tbl [files...] | troff
-
-DESCRIPTION
-     Format tables for Bell System documentation including technical
-     specifications, performance data, equipment lists, and statistical
-     reports requiring structured tabular presentation.
-
-TABLE FEATURES
-     COLUMN ALIGNMENT:       Left, right, center, numeric alignment
-     SPANNING:              Column and row spanning capabilities
-     BOXING:                Table borders and grid lines
-     FORMATTING:            Text formatting within table cells
-
-EXAMPLES
-     tbl equipment_list.tbl | nroff  Format equipment table
-     tbl performance.tbl | troff     Typeset performance data
-     tbl specifications.tbl          Process specification table
-
-SEE ALSO
-     nroff(1), troff(1), eqn(1), pic(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     tbl(1) - January 1979
-""",
-
-    "eqn": """
-NAME
-     eqn - Mathematical equation formatting
-
-SYNOPSIS
-     eqn [files...] | nroff
-     eqn [files...] | troff
-
-DESCRIPTION
-     Format mathematical equations and technical formulas for Bell System
-     engineering documentation including transmission calculations,
-     traffic engineering formulas, and technical specifications.
-
-EQUATION FEATURES
-     MATHEMATICAL NOTATION:  Fractions, exponents, subscripts
-     SPECIAL SYMBOLS:       Greek letters, mathematical operators
-     ALIGNMENT:             Multi-line equation alignment
-     SIZING:               Automatic size adjustment
-
-EXAMPLES
-     eqn formulas.eqn | troff        Format engineering formulas
-     eqn calculations.eqn | nroff    Process traffic calculations
-     eqn specifications.eqn          Format technical equations
-
-SEE ALSO
-     nroff(1), troff(1), tbl(1), pic(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     eqn(1) - January 1979
-""",
 
     "pic": """
 NAME
@@ -3212,5 +3084,662 @@ DESCRIPTION
 
 SEE ALSO
      date(1)
+""",
+    "cp": """
+NAME
+     cp - copy a file
+
+SYNOPSIS
+     cp source target
+
+DESCRIPTION
+     Copy the source file to the target. If the target is a directory,
+     the copy is made inside it under the same name.
+
+SEE ALSO
+     mv(1), rm(1)
+""",
+    "mv": """
+NAME
+     mv - move or rename a file
+
+SYNOPSIS
+     mv source target
+
+DESCRIPTION
+     Rename the source, or move it into the target directory.
+
+SEE ALSO
+     cp(1), rm(1)
+""",
+    "rm": """
+NAME
+     rm - remove files
+
+SYNOPSIS
+     rm [-r] file ...
+
+DESCRIPTION
+     Remove each file. A directory needs -r, which removes everything
+     under it as well and does not ask twice.
+
+SEE ALSO
+     rmdir(1), cp(1)
+""",
+    "mkdir": """
+NAME
+     mkdir - make directories
+
+SYNOPSIS
+     mkdir directory ...
+
+DESCRIPTION
+     Create each directory. The parent must already exist.
+
+SEE ALSO
+     rmdir(1), ls(1)
+""",
+    "rmdir": """
+NAME
+     rmdir - remove empty directories
+
+SYNOPSIS
+     rmdir directory ...
+
+DESCRIPTION
+     Remove each directory, which must be empty. Use rm -r otherwise.
+
+SEE ALSO
+     mkdir(1), rm(1)
+""",
+    "touch": """
+NAME
+     touch - create a file
+
+SYNOPSIS
+     touch file ...
+
+DESCRIPTION
+     Create each file if it does not already exist. An existing file is
+     left alone.
+
+SEE ALSO
+     cp(1), ed(1)
+""",
+    "chmod": """
+NAME
+     chmod - change mode
+
+SYNOPSIS
+     chmod mode file ...
+
+DESCRIPTION
+     Change the permission bits, given in octal. The mode is shown by
+     ls -l and read by file(1).
+
+     Nothing in this simulation enforces permission, which is stated here
+     rather than implied by the command existing.
+
+SEE ALSO
+     ls(1)
+""",
+    "du": """
+NAME
+     du - summarise space used
+
+SYNOPSIS
+     du [name ...]
+
+DESCRIPTION
+     Report the space used, in 512-byte blocks, the unit V7 counted in.
+
+SEE ALSO
+     df(1), ls(1)
+""",
+    "find": """
+NAME
+     find - walk a file tree
+
+SYNOPSIS
+     find path [-name pattern] [-type f|d]
+
+DESCRIPTION
+     Walk the tree under the path, printing what it finds. Supports
+     -name and -type, which is most of what find gets used for.
+
+SEE ALSO
+     ls(1), grep(1)
+""",
+    "tty": """
+NAME
+     tty - print the terminal name
+
+SYNOPSIS
+     tty
+
+DESCRIPTION
+     Print the name of the terminal you are on.
+
+SEE ALSO
+     who(1)
+""",
+    "sync": """
+NAME
+     sync - flush the buffer cache
+
+SYNOPSIS
+     sync
+
+DESCRIPTION
+     Write out any buffered blocks. Prints nothing, which is correct.
+
+SEE ALSO
+     df(1)
+""",
+    "tr": """
+NAME
+     tr - translate characters
+
+SYNOPSIS
+     tr [-d] set1 [set2]
+
+DESCRIPTION
+     Read standard input and translate characters in set1 to the
+     corresponding character in set2. Ranges are written a-z.
+
+     -d deletes the characters in set1 instead.
+
+EXAMPLES
+     cat notes | tr a-z A-Z
+     cat file | tr -d 0123456789
+
+SEE ALSO
+     sed(1), cut(1)
+""",
+    "cut": """
+NAME
+     cut - cut out columns
+
+SYNOPSIS
+     cut -f list [-d char] [file]
+     cut -c list [file]
+
+DESCRIPTION
+     Take fields or character positions out of every line. A list is
+     written 1,3-5. Fields are separated by tabs unless -d says otherwise.
+
+EXAMPLES
+     cat /etc/passwd | cut -d: -f1
+
+SEE ALSO
+     tr(1), sed(1), sort(1)
+""",
+    "sed": """
+NAME
+     sed - stream editor
+
+SYNOPSIS
+     sed 's/old/new/[g]' [file]
+     sed '/pattern/d' [file]
+
+DESCRIPTION
+     Edit a stream. This sed does substitution and deletion, not the
+     whole language, and says so rather than failing quietly on the rest.
+
+SEE ALSO
+     ed(1), grep(1), tr(1)
+""",
+    "tee": """
+NAME
+     tee - copy input to a file and on
+
+SYNOPSIS
+     tee [-a] file ...
+
+DESCRIPTION
+     Copy standard input to each named file and to the output, so a
+     pipeline can be tapped part way along. -a appends.
+
+SEE ALSO
+     cat(1)
+""",
+    "rev": """
+NAME
+     rev - reverse lines
+
+SYNOPSIS
+     rev [file]
+
+DESCRIPTION
+     Reverse the characters of every line.
+
+SEE ALSO
+     tr(1)
+""",
+    "cmp": """
+NAME
+     cmp - compare two files
+
+SYNOPSIS
+     cmp file1 file2
+
+DESCRIPTION
+     Say where two files first differ, by character and line. Silent if
+     they are the same, which is the point.
+
+SEE ALSO
+     diff(1)
+""",
+    "diff": """
+NAME
+     diff - report differing lines
+
+SYNOPSIS
+     diff file1 file2
+
+DESCRIPTION
+     Report the lines that differ, in ed(1) command form: the output was
+     meant to be fed back into the editor to turn one file into the other.
+
+SEE ALSO
+     cmp(1), ed(1)
+""",
+    "od": """
+NAME
+     od - octal dump
+
+SYNOPSIS
+     od [file]
+
+DESCRIPTION
+     Dump a file in octal, which is what the o stands for.
+
+SEE ALSO
+     cat(1)
+""",
+    "spell": """
+NAME
+     spell - find spelling errors
+
+SYNOPSIS
+     spell [file]
+
+DESCRIPTION
+     Print the words not in the dictionary.
+
+     The dictionary on this machine is small and Bell-flavoured, so spell
+     is a toy here. It will call most ordinary English wrong.
+
+SEE ALSO
+     grep(1)
+""",
+    "banner": """
+NAME
+     banner - print in large letters
+
+SYNOPSIS
+     banner text
+
+DESCRIPTION
+     Print its argument in letters five rows high, for the top of a
+     listing or the front of a printout.
+
+SEE ALSO
+     echo(1)
+""",
+    "factor": """
+NAME
+     factor - factor a number
+
+SYNOPSIS
+     factor number
+
+DESCRIPTION
+     Print the prime factors. factor: ouch means it did not like the
+     number, which is what it said in 1979 too.
+
+SEE ALSO
+     primes(1), bc(1)
+""",
+    "primes": """
+NAME
+     primes - print primes
+
+SYNOPSIS
+     primes [start [stop]]
+
+DESCRIPTION
+     Print the primes in the range.
+
+SEE ALSO
+     factor(1)
+""",
+    "bc": """
+NAME
+     bc - calculator
+
+SYNOPSIS
+     bc expression
+
+DESCRIPTION
+     Evaluate an arithmetic expression. Takes it on the command line
+     rather than reading a session, because this terminal cannot feed it
+     one a line at a time.
+
+     ^ is exponentiation.
+
+SEE ALSO
+     factor(1), units(1)
+""",
+    "units": """
+NAME
+     units - convert units
+
+SYNOPSIS
+     units number from to
+
+DESCRIPTION
+     Convert between units, including the ones the outside plant is
+     measured in: miles, kilofeet, feet, kilometres, inches, centimetres,
+     pounds and kilogrammes.
+
+EXAMPLES
+     units 3 mile kft
+
+SEE ALSO
+     bc(1)
+""",
+    "sleep": """
+NAME
+     sleep - suspend execution
+
+SYNOPSIS
+     sleep seconds
+
+DESCRIPTION
+     Wait. Nothing blocks this terminal, so sleep charges the shift
+     clock instead, which is what time means here.
+
+SEE ALSO
+     date(1)
+""",
+    "mesg": """
+NAME
+     mesg - permit or deny messages
+
+SYNOPSIS
+     mesg [y|n]
+
+DESCRIPTION
+     Allow or refuse messages from write(1) and the rest of the craft.
+     With no argument, report the current state.
+
+     This is the same switch as set game.ambience.
+
+SEE ALSO
+     write(1), set(1)
+""",
+    "wall": """
+NAME
+     wall - write to all users
+
+SYNOPSIS
+     wall message
+
+DESCRIPTION
+     Send a message to everybody logged on. They will have opinions
+     about whether it needed to be a wall.
+
+SEE ALSO
+     write(1), mesg(1)
+""",
+    "passwd": """
+NAME
+     passwd - change login password
+
+SYNOPSIS
+     passwd
+
+DESCRIPTION
+     Change your password. This terminal cannot read one without
+     echoing it, so nothing is changed; and every account in /etc/passwd
+     has an empty password field anyway. It was 1983.
+
+SEE ALSO
+     who(1)
+""",
+    "stty": """
+NAME
+     stty - set terminal options
+
+SYNOPSIS
+     stty [everything]
+
+DESCRIPTION
+     Report or set the terminal modes. This is a 300 baud line.
+
+SEE ALSO
+     tty(1)
+""",
+    "fortune": """
+NAME
+     fortune - print a random adage
+
+SYNOPSIS
+     fortune
+
+DESCRIPTION
+     Print a saying from /usr/games/fortunes.
+
+SEE ALSO
+     cat(1)
+""",
+    "bcd": """
+NAME
+     bcd - convert to punched card
+
+SYNOPSIS
+     bcd text
+
+DESCRIPTION
+     Print its argument as an 80-column punched card. Letters take a
+     zone punch and a digit punch, the way an 026 keypunch encoded them:
+     A to I on the 12 zone, J to R on the 11 zone, S to Z on the 0 zone.
+
+SEE ALSO
+     ppt(6)
+""",
+    "ppt": """
+NAME
+     ppt - convert to paper tape
+
+SYNOPSIS
+     ppt text
+
+DESCRIPTION
+     Print its argument as punched paper tape, sprocket holes and all.
+
+SEE ALSO
+     bcd(6)
+""",
+    "arithmetic": """
+NAME
+     arithmetic - provide drill in arithmetic
+
+SYNOPSIS
+     arithmetic
+
+DESCRIPTION
+     Pose a problem. This terminal takes one line at a time, so it gives
+     the answer rather than waiting for yours.
+
+SEE ALSO
+     bc(1)
+""",
+    "moo": """
+NAME
+     moo - guess the number
+
+SYNOPSIS
+     moo
+     moo nnnn
+
+DESCRIPTION
+     Bulls and cows. The number has four digits, all different. A bull
+     is a right digit in the right place, a cow a right digit in the wrong
+     place.
+
+     moo starts a game; moo 1234 guesses.
+
+     There is a scoreboard in /usr/games/lib/moo.scores that somebody has
+     been keeping.
+
+SEE ALSO
+     arithmetic(6)
+""",
+    "readnews": """
+NAME
+     readnews - read netnews
+
+SYNOPSIS
+     readnews [n]
+     readnews -n group
+
+DESCRIPTION
+     Read the news. This machine takes a feed nightly over uucp.
+
+     With no argument, list what is waiting. With a number, read that
+     article. With -n, pick a newsgroup.
+
+     Articles are files under /usr/spool/news, so cat(1) and grep(1) work
+     on them as well.
+
+SEE ALSO
+     uucp(1), mail(1)
+""",
+    "ed": """
+NAME
+     ed - text editor
+
+SYNOPSIS
+     ed [file]
+
+DESCRIPTION
+     The editor. Every line you type goes to ed until you type q.
+
+COMMANDS
+     a         append lines after the current one; a lone . ends it
+     i         insert before the current line
+     c         change lines
+     d         delete lines
+     p         print lines
+     n         print lines with numbers
+     s/old/new/[g]   substitute on the addressed lines
+     w [file]  write out; prints the byte count
+     r file    read a file in
+     =         print a line number
+     q         quit; refuses once if the buffer is modified
+     Q         quit without writing
+     h         explain the last ?
+     H         leave explanations on
+
+ADDRESSES
+     A number, . for the current line, $ for the last, /pattern/ to search,
+     a,b for a range, and 1,$ or % for the whole buffer.
+
+DIAGNOSTICS
+     ?
+
+     That is the entire diagnostic. It is not a fault in this simulation.
+     h will explain the last one, and after three in a row ed relents and
+     says how to get out - which the real editor never did.
+
+SEE ALSO
+     sed(1), cat(1)
+""",
+    "cc": """
+NAME
+     cc - C compiler
+
+SYNOPSIS
+     cc [-o name] file.c
+
+DESCRIPTION
+     Compile a C program and leave the result in a.out, or in the name
+     given after -o. Run it by typing its name.
+
+     This compiler understands printf and nothing else. It reads the calls
+     out of your program and builds something that prints them. That is
+     enough for /usr/src/cmd/hello.c and it is not a C compiler; saying so
+     plainly is better than letting you find out.
+
+SEE ALSO
+     ed(1)
+""",
+    "nroff": """
+NAME
+     nroff - format text
+
+SYNOPSIS
+     nroff [-ms|-man] [file]
+
+DESCRIPTION
+     Format a document for a terminal or a line printer, filling and
+     breaking lines to the measure.
+
+REQUESTS
+     .TH .SH .PP .LP .IP .TP .B .I .br .sp .nf .fi
+
+     Reads standard input when given no file, so tbl table | nroff works
+     the way it always did.
+
+SEE ALSO
+     troff(1), tbl(1), man(1)
+""",
+    "troff": """
+NAME
+     troff - typeset text
+
+SYNOPSIS
+     troff [-ms|-man] [file]
+
+DESCRIPTION
+     Format a document for a phototypesetter. There is no typesetter on
+     this machine, so troff sets to a wider measure and says so rather
+     than emitting codes nothing can read.
+
+SEE ALSO
+     nroff(1), tbl(1)
+""",
+    "tbl": """
+NAME
+     tbl - format tables
+
+SYNOPSIS
+     tbl [file]
+
+DESCRIPTION
+     Lay out the tables between .TS and .TE and pass everything on.
+     The line after .TS gives the column formats: l, r or c.
+
+EXAMPLES
+     tbl report | nroff
+
+SEE ALSO
+     nroff(1), troff(1)
+""",
+    "eqn": """
+NAME
+     eqn - typeset mathematics
+
+SYNOPSIS
+     eqn [file]
+
+DESCRIPTION
+     Set mathematics for troff. There is no typesetter here, so eqn
+     passes its input through and says why.
+
+SEE ALSO
+     troff(1), tbl(1)
 """,
 }

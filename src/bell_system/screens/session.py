@@ -135,6 +135,9 @@ class SessionState:
     # standard input when given no file arguments.
     _pipe_input: str
     _in_pipeline: bool
+    # The running ed session, and the programs cc has built.
+    _editor: Any
+    _compiled: Dict[str, str]
     processes: List[Dict[str, Any]]
     users: List[Dict[str, str]]
     project_numbers: Dict[str, Any]
@@ -174,6 +177,31 @@ class SessionState:
 
     def _stamp(self) -> str:
         """Return a timestamp in the form the messaging channels carried."""
+        raise NotImplementedError
+
+    def _read(self, path: str) -> Optional[str]:
+        """Return a file's text, or None if it is not a readable file."""
+        raise NotImplementedError
+
+    def _gather(self, args: List[str], command: str) -> tuple:
+        """Return (text, error) for a command reading files or stdin."""
+        raise NotImplementedError
+
+    def _node(self, path: str) -> Optional[Any]:
+        """Return the filesystem entry at a path, or None."""
+        raise NotImplementedError
+
+    def editor_input(self, line: str) -> str:
+        """Hand one line to the running editor."""
+        raise NotImplementedError
+
+    def run_compiled(self, path: str) -> Optional[str]:
+        """Return a compiled program's output, or None."""
+        raise NotImplementedError
+
+    def write_file(self, path: str, text: str,
+                   append: bool = False) -> Optional[str]:
+        """Create or replace a file; returns an error string or None."""
         raise NotImplementedError
 
     def _queue_message(self, message: Any, after: int) -> None:

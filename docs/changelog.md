@@ -327,6 +327,55 @@ is the point, and it was the one part not implemented.
   with a pipe and which files are worth reading.
 - The shift briefing points at the filesystem on the first shift.
 
+## [Unreleased] - The rest of the machine
+
+### Added
+
+- **A writable filesystem.** `cp`, `mv`, `rm`, `mkdir`, `rmdir`, `touch`,
+  `chmod`, `du`, `find`, and `>` and `>>` redirection. Everything downstream
+  needed somewhere to put its output.
+- **Shell quoting.** `grep 'two words'` and `sed 's/a/b/'` used to see the
+  quote as part of the argument. The line is tokenised properly now.
+- **Filters**: `tr`, `cut`, `sed`, `tee`, `rev`, `cmp`, `diff`, `od`, `spell`.
+  `diff` reports in ed(1) command form, which is what diff output was for.
+- **Utilities**: `banner`, `factor`, `primes`, `bc`, `units`, `sleep`, `mesg`,
+  `wall`, `passwd`, `stty`, `tty`, `sync`. `units` knows kilofeet, because
+  that is what outside plant is measured in.
+- **Section 6.** `fortune`, `bcd`, `ppt`, `arithmetic`, `moo`. `bcd` punches a
+  real 026 card - A to I on the 12 zone, J to R on the 11, S to Z on the 0 -
+  and `ppt` punches paper tape.
+- **Netnews.** `/usr/spool/news` carries a nightly uucp feed:
+  net.unix-wizards, net.general, net.jokes, net.sources. `readnews` lists and
+  reads them, and they are files, so `grep` works on them too.
+- **ed.** The editor, with addresses, ranges, `a i c d p n s w r q Q = h H`
+  and `/pattern/`. Every line goes to it until you type `q`. It answers
+  mistakes with a single question mark and nothing else, which is the whole
+  point of ed - with one deliberate deviation: after three in a row it says
+  how to get out.
+- **cc.** Compiles a C program to a runnable `a.out`. It understands `printf`
+  and nothing else, which the manual page states plainly rather than letting
+  you discover it. `cp /usr/src/cmd/hello.c . && cc hello.c && a.out` works.
+- **nroff, troff and tbl.** Real formatters over the ms and man macros, with
+  filling to a measure. `tbl table | nroff` lays out a table and formats it,
+  which is how they were used. The Document Preparation role is no longer
+  stubbed end to end.
+
+### Changed
+
+- The dispatch table and command aliases moved to `screens/dispatch.py`. The
+  integrity guard caught `terminal.py` creeping back over 2,000 lines, which
+  is what it is for.
+- Stubs: 25 of 81 commands, then 18 of 131. UNIX commands: 20 of 81 (24%),
+  now 70 of 131 (53%).
+
+### Fixed
+
+- The stub `nroff`, `troff`, `tbl` and `eqn` in `screens/documents.py` won the
+  method resolution order over the real implementations and shadowed them.
+  Removed, with a note in that module saying why.
+- `pic` and `refer` were taken off the stub list by an over-eager edit without
+  being implemented. The honesty test caught it and they are back on it.
+
 ## [3.0.0] - 2025-05-27
 
 ### MAJOR RELEASE: COMPREHENSIVE COMMAND VALIDATION & CRITICAL ERROR RESOLUTION

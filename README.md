@@ -84,10 +84,29 @@ so `grep` and `sort` and `wc` are genuinely useful on it. Your shift log is a
 file. The practices are files. Reading the board with `cat` is a real
 alternative to the `report` screens.
 
+It is writable, so `ed` and `cc` and `nroff` have somewhere to put things:
+
+```
+cp /usr/src/cmd/hello.c .    cc hello.c    a.out
+ed report                    tbl table | nroff
+echo 'note to self' > notes  banner SHIFT 2
+```
+
+`ed` is the real one — every line goes to it until you type `q`, and it
+answers mistakes with a single question mark. `cc` compiles a C program and
+leaves a working `a.out`; it understands `printf` and nothing else, and says
+so. `nroff` and `tbl` are real formatters, so the Document Preparation role
+finally does something.
+
 There are things to find: the notes the previous operator left, this week's
-operations bulletin, C source under `/usr/src/cmd`, the accounting logs, and a
-memo explaining what happens on 1 January 1984 — which is forty-eight days
-after the shift starts, and is the day the Bell System stopped existing.
+operations bulletin, C source under `/usr/src/cmd`, a scoreboard somebody has
+been keeping for `moo`, the accounting logs, a nightly netnews feed under
+`/usr/spool/news` with people arguing on net.unix-wizards, and a memo
+explaining what happens on 1 January 1984 — which is forty-eight days after
+the shift starts, and is the day the Bell System stopped existing.
+
+`bcd` punches your text onto an 026 card. `ppt` punches it onto paper tape.
+`fortune` does what it always did.
 
 You do not need to know anything about telephony to enjoy any of that.
 

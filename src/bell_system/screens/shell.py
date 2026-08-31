@@ -323,3 +323,240 @@ class ShellCommands(SessionState):
         if (year, month) == (1983, 12):
             text += "\n  The Bell System is dissolved on 1 January 1984.\n"
         return text.rstrip('\n')
+
+    # -- writing ---------------------------------------------------------
+
+    def _writable(self, path: str, command: str) -> Optional[str]:
+        """
+        Return an error if a path cannot be written, or None if it can.
+
+        The parent has to exist and the target must not already be a
+        directory, which is the same pair of conditions the real thing
+        enforces.
+        """
+        node = self.filesystem.get(path)
+        if node is not None and node.is_dir:
+            return f"{command}: {path}: is a directory"
+        parent = path.rsplit('/', 1)[0] or '/'
+        holder = self.filesystem.get(parent)
+        if holder is None:
+            return f"{command}: {parent}: no such directory"
+        if not holder.is_dir:
+            return f"{command}: {parent}: not a directory"
+        return None
+
+    def write_file(self, path: str, text: str,
+                   append: bool = False) -> Optional[str]:
+        """
+        Create or replace a file. Returns an error string, or None on success.
+
+        Args:
+            path: Where to write, already resolved
+            text: What to write
+            append: Add to the end rather than replacing
+        """
+        error = self._writable(path, 'sh')
+        if error:
+            return error
+        existing = self.filesystem.get(path)
+        if append and existing is not None and isinstance(existing.content, str):
+            text = existing.content + text
+        owner = self.username or 'sysop'
+        self.filesystem[path] = Node('file', owner, 'craft', '-rw-r--r--', text)
+        return None
+
+    def cmd_mkdir(self, args: Optional[List[str]] = None) -> str:
+        """Make directories."""
+        args = args or []
+        if not args:
+            return "mkdir: usage: mkdir directory ..."
+        problems = []
+        for name in args:
+            path = normalise(name, self.current_directory)
+            if path in self.filesystem:
+                problems.append(f"mkdir: {name}: file exists")
+                continue
+            parent = path.rsplit('/', 1)[0] or '/'
+            if parent not in self.filesystem:
+                problems.append(f"mkdir: {name}: no such file or directory")
+                continue
+            self.filesystem[path] = Node(
+                'dir', self.username or 'sysop', 'craft', 'drwxr-xr-x')
+        return '\n'.join(problems)
+
+    def cmd_rmdir(self, args: Optional[List[str]] = None) -> str:
+        """Remove empty directories."""
+        args = args or []
+        if not args:
+            return "rmdir: usage: rmdir directory ..."
+        problems = []
+        for name in args:
+            path = normalise(name, self.current_directory)
+            node = self.filesystem.get(path)
+            if node is None:
+                problems.append(f"rmdir: {name}: no such file or directory")
+            elif not node.is_dir:
+                problems.append(f"rmdir: {name}: not a directory")
+            elif children(path, self.filesystem):
+                problems.append(f"rmdir: {name}: directory not empty")
+            else:
+                del self.filesystem[path]
+        return '\n'.join(problems)
+
+    def cmd_rm(self, args: Optional[List[str]] = None) -> str:
+        """Remove files. ``-r`` removes a directory and everything under it."""
+        args = args or []
+        flags = ''.join(a[1:] for a in args if a.startswith('-'))
+        names = [a for a in args if not a.startswith('-')]
+        if not names:
+            return "rm: usage: rm [-r] file ..."
+        problems = []
+        for name in names:
+            path = normalise(name, self.current_directory)
+            node = self.filesystem.get(path)
+            if node is None:
+                problems.append(f"rm: {name}: no such file or directory")
+                continue
+            if node.is_dir:
+                if 'r' not in flags:
+                    problems.append(f"rm: {name}: is a directory")
+                    continue
+                doomed = [p for p in self.filesystem
+                          if p == path or p.startswith(path + '/')]
+                for victim in doomed:
+                    del self.filesystem[victim]
+                continue
+            del self.filesystem[path]
+        return '\n'.join(problems)
+
+    def cmd_cp(self, args: Optional[List[str]] = None) -> str:
+        """Copy a file."""
+        args = args or []
+        if len(args) < 2:
+            return "cp: usage: cp source target"
+        text = self._read(args[0])
+        if text is None:
+            return f"cp: {args[0]}: cannot open"
+        target = normalise(args[1], self.current_directory)
+        if target in self.filesystem and self.filesystem[target].is_dir:
+            target = f"{target}/{args[0].rsplit('/', 1)[-1]}"
+        return self.write_file(target, text) or ''
+
+    def cmd_mv(self, args: Optional[List[str]] = None) -> str:
+        """Move or rename a file."""
+        args = args or []
+        if len(args) < 2:
+            return "mv: usage: mv source target"
+        source = normalise(args[0], self.current_directory)
+        node = self.filesystem.get(source)
+        if node is None:
+            return f"mv: {args[0]}: cannot access"
+        target = normalise(args[1], self.current_directory)
+        if target in self.filesystem and self.filesystem[target].is_dir:
+            target = f"{target}/{source.rsplit('/', 1)[-1]}"
+        error = self._writable(target, 'mv')
+        if error:
+            return error
+        self.filesystem[target] = node
+        del self.filesystem[source]
+        return ''
+
+    def cmd_touch(self, args: Optional[List[str]] = None) -> str:
+        """Create a file if it does not exist."""
+        args = args or []
+        if not args:
+            return "touch: usage: touch file ..."
+        for name in args:
+            path = normalise(name, self.current_directory)
+            if path not in self.filesystem:
+                error = self.write_file(path, '')
+                if error:
+                    return error
+        return ''
+
+    def cmd_chmod(self, args: Optional[List[str]] = None) -> str:
+        """
+        Change a file's mode.
+
+        Takes the octal form. The mode is displayed by ls(1) and read by
+        file(1); nothing here enforces permission, which is honest about
+        what this simulation does and does not model.
+        """
+        args = args or []
+        if len(args) < 2:
+            return "chmod: usage: chmod mode file ..."
+        octal = args[0]
+        if not (octal.isdigit() and len(octal) in (3, 4)):
+            return f"chmod: {octal}: bad mode"
+        bits = octal[-3:]
+        letters = ''.join(
+            ('r' if int(d) & 4 else '-') + ('w' if int(d) & 2 else '-')
+            + ('x' if int(d) & 1 else '-') for d in bits)
+        problems = []
+        for name in args[1:]:
+            path = normalise(name, self.current_directory)
+            node = self.filesystem.get(path)
+            if node is None:
+                problems.append(f"chmod: {name}: cannot access")
+                continue
+            head = 'd' if node.is_dir else '-'
+            self.filesystem[path] = node._replace(mode=head + letters)
+        return '\n'.join(problems)
+
+    def cmd_du(self, args: Optional[List[str]] = None) -> str:
+        """Report space used, in 512-byte blocks as V7 did."""
+        args = args or []
+        names = [a for a in args if not a.startswith('-')] or ['.']
+        rows = []
+        for name in names:
+            base = normalise(name, self.current_directory)
+            if base not in self.filesystem:
+                rows.append(f"du: {name}: cannot access")
+                continue
+            total = 0
+            for path, node in self.filesystem.items():
+                if path != base and not path.startswith(base.rstrip('/') + '/'):
+                    continue
+                size = (len(node.content) if isinstance(node.content, str)
+                        else 512 if node.is_dir else 0)
+                total += max(1, (size + 511) // 512)
+            rows.append(f"{total}\t{base}")
+        return '\n'.join(rows)
+
+    def cmd_find(self, args: Optional[List[str]] = None) -> str:
+        """
+        Walk a directory tree.
+
+        Supports ``-name`` and ``-type f`` or ``-type d``, which is most of
+        what find gets used for.
+        """
+        args = args or []
+        start = normalise(args[0] if args and not args[0].startswith('-')
+                          else '.', self.current_directory)
+        pattern = kind = None
+        for index, arg in enumerate(args):
+            if arg == '-name' and index + 1 < len(args):
+                pattern = args[index + 1].strip('"\'*')
+            if arg == '-type' and index + 1 < len(args):
+                kind = args[index + 1]
+
+        found = []
+        for path, node in sorted(self.filesystem.items()):
+            if path != start and not path.startswith(start.rstrip('/') + '/'):
+                continue
+            if kind == 'f' and node.is_dir:
+                continue
+            if kind == 'd' and not node.is_dir:
+                continue
+            if pattern and pattern not in path.rsplit('/', 1)[-1]:
+                continue
+            found.append(path)
+        return '\n'.join(found)
+
+    def cmd_tty(self, args: Optional[List[str]] = None) -> str:
+        """Print the terminal name."""
+        return '/dev/tty01'
+
+    def cmd_sync(self, args: Optional[List[str]] = None) -> str:
+        """Flush the buffer cache. Prints nothing, as it should."""
+        return ''

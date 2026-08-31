@@ -285,6 +285,78 @@ uucico mhuxco (11/14-04:02) OK (conversation complete)
 uucico mhuxco (11/14-06:44) FAILED (call to ihnp4, no answer)
 """
 
+
+# Netnews. Usenet began in 1980 and by 1983 a Bell machine on the uucp
+# network took a nightly feed. These are this simulation's own articles,
+# written in the form the software used; no real posting is reproduced.
+NEWS_WIZARDS = """Relay-Version: version B 2.10.1 6/24/83; site mhuxco
+Newsgroups: net.unix-wizards
+Subject: Re: how many files is too many in one directory?
+Date: Fri, 11-Nov-83 03:12:44 EST
+
+> We have a spool directory with about 900 files in it and ls has
+> started taking a noticeable amount of time.
+
+Nine hundred is nothing. The problem is not the count, it is that you
+are calling ls and then reading the whole thing. Pipe it. If you want
+one file, ask for one file.
+
+The other half of your problem is that ls sorts. If you do not need
+them in order, you are paying for a sort you are going to throw away.
+"""
+
+NEWS_GENERAL = """Relay-Version: version B 2.10.1 6/24/83; site mhuxco
+Newsgroups: net.general
+Subject: What actually happens to us on January 1?
+Date: Sun, 06-Nov-83 22:41:09 EST
+
+Nobody in my building can give a straight answer, so let me try here.
+
+The operating company gets the wire centres, the loops and the local
+switching. AT&T keeps long lines and everything above class 4. Fine.
+Understood. What I cannot get anybody to tell me is which one of those
+this computer belongs to, and I have twelve years of trouble history on
+it.
+
+I am told the answer is "the records stay with the wire centre." The
+records are on a disc. The disc is in a machine. Nobody has told the
+machine.
+"""
+
+NEWS_JOKES = """Relay-Version: version B 2.10.1 6/24/83; site mhuxco
+Newsgroups: net.jokes
+Subject: overheard at the frame
+Date: Wed, 09-Nov-83 11:55:02 EST
+
+New man asks the wire chief how you tell if a pair is good.
+
+Chief says: you put a tone on it and you go and listen for the tone.
+
+New man asks what if you do not hear the tone.
+
+Chief says: then it is either a bad pair or you are in the wrong
+building, and after twenty years I can tell you which one it usually
+is.
+"""
+
+NEWS_SOURCES = """Relay-Version: version B 2.10.1 6/24/83; site mhuxco
+Newsgroups: net.sources
+Subject: one-liner: how deep is the board
+Date: Mon, 14-Nov-83 07:22:18 EST
+
+For those of you sitting at a repair position wondering whether it is
+worth getting a coffee:
+
+	grep -c PEND /usr/lmos/board
+
+If that number is under five, go. If it is over eight, you are not
+getting one.
+
+Somebody will tell me report(1) already prints this. It does. This one
+fits in a .profile.
+"""
+
+
 # Everything the tree holds. Paths are absolute and directories carry no
 # listing of their own: children are found by walking the keys, so a listing
 # can never name a file that is not there - which is what the old structure
@@ -331,7 +403,18 @@ FILESYSTEM: Dict[str, Node] = {
     '/usr/src/cmd/testlog.c': _file(TESTLOG_C, owner='sys', group='sys'),
 
     '/usr/games': _dir(),
+    '/usr/games/lib': _dir(),
     '/usr/games/fortunes': _file(FORTUNES),
+
+    '/usr/spool/news': _dir(owner='uucp', group='uucp'),
+    '/usr/spool/news/net.unix-wizards': _dir(owner='uucp', group='uucp'),
+    '/usr/spool/news/net.unix-wizards/114': _file(NEWS_WIZARDS, owner='uucp'),
+    '/usr/spool/news/net.general': _dir(owner='uucp', group='uucp'),
+    '/usr/spool/news/net.general/207': _file(NEWS_GENERAL, owner='uucp'),
+    '/usr/spool/news/net.jokes': _dir(owner='uucp', group='uucp'),
+    '/usr/spool/news/net.jokes/88': _file(NEWS_JOKES, owner='uucp'),
+    '/usr/spool/news/net.sources': _dir(owner='uucp', group='uucp'),
+    '/usr/spool/news/net.sources/41': _file(NEWS_SOURCES, owner='uucp'),
 
     '/usr/bsp': _dir(),
     '/usr/lmos': _dir(owner='sysop', group='craft'),
@@ -340,6 +423,20 @@ FILESYSTEM: Dict[str, Node] = {
     '/usr/users/sysop': _dir(owner='sysop', group='craft', mode='drwxr-x---'),
     '/usr/users/sysop/.profile': _file(PROFILE, owner='sysop', group='craft'),
     '/usr/users/sysop/notes': _file(NOTES, owner='sysop', group='craft'),
+    '/usr/users/sysop/.mailrc': _file(
+        "set nosave\nalias chief ehalloran\nalias board mreyes\n",
+        owner='sysop', group='craft'),
+    '/usr/users/rjohnson/marker.notes': _file(
+        "aisle 4 no. 5 crossbar, marker 2\n"
+        "third trial slow since 81. measured it again 11/2, still slow,\n"
+        "still inside limits. do not raise a ticket, they will only close\n"
+        "it no trouble found and it will come back to me.\n"
+        "if it ever fails outright the trouble is in the sequence relay,\n"
+        "not the marker. i have been saying this for two years.\n",
+        owner='rjohnson', group='craft'),
+    '/usr/games/lib/moo.scores': _file(
+        "gvasquez  4\nrjohnson  5\nsysop     -\nmreyes    7\n"
+        "lokafor  11  (says the terminal was slow)\n"),
 }
 
 # Home directories for the other craft, so /usr/users is not a lie.

@@ -29,6 +29,7 @@ import logging
 import logging.handlers
 import os
 import random
+import shlex
 import sys
 import time
 from collections import defaultdict, deque
@@ -43,6 +44,7 @@ from .constants import (
 from .clock import SimClock
 from .console import render
 from .data import geography
+from .filesystem import normalise
 from .data.man_pages import MAN_PAGES
 from .progression import (
     DIFFICULTIES,
@@ -54,12 +56,16 @@ from .progression import (
 from .routing import build_default_network
 from .screens.customer import CustomerCommands
 from .screens.frame import FrameCommands
+from .screens.games import GameCommands
 from .screens.radio import RadioCommands
 from .screens.ticket_generation import TicketGeneration
 from .screens.unix import UnixCommands
 from .screens.bureau import BureauCommands
 from .screens.carrier import CarrierCommands
+from .screens.dispatch import CommandDispatch
+from .screens.docprep import DocumentCommands as DocPrepCommands
 from .screens.documents import DocumentCommands
+from .screens.editor import EditorCommands
 from .screens.shift import ShiftCommands
 from .screens.shell import ShellCommands
 from .screens.switching import SwitchingCommands
@@ -67,6 +73,7 @@ from .screens.testing import TestingCommands
 from .screens.tickets import TicketCommands
 from .screens.tnds import TndsCommands
 from .screens.toll import TollCommands
+from .screens.tools import ToolCommands
 from .screens.traffic import TrafficCommands
 from .screens.trunks import TrunkCommands
 from .screens.tsps import TspsCommands
@@ -105,6 +112,7 @@ except ImportError:  # pragma: no cover - readline is absent on stock Windows
 
 
 class BellSystemTerminal(
+    CommandDispatch,
     CarrierCommands,
     SwitchingCommands,
     TndsCommands,
@@ -123,6 +131,10 @@ class BellSystemTerminal(
     FrameCommands,
     UnixCommands,
     ShellCommands,
+    ToolCommands,
+    GameCommands,
+    DocPrepCommands,
+    EditorCommands,
 ):
     """
     Main Bell System UNIX V7 Terminal Simulation Class.
@@ -131,89 +143,6 @@ class BellSystemTerminal(
     during 1978-1983, including authentic commands, procedures, and workflows.
     """
 
-    # Enhanced command aliases for improved user experience
-    COMMAND_ALIASES = {
-        # Traditional UNIX aliases
-        'h': 'help',
-        '?': 'help',
-        'q': 'quit',
-        'exit': 'quit',
-        'logout': 'quit',
-        'clear': 'clear',
-
-        # Bell System operation aliases
-        'st': 'status',
-        'stat': 'status',
-        'tst': 'test',
-        'chk': 'test',
-        'alm': 'alarm',
-        'alert': 'alarm',
-        'options': 'set',
-        'settings': 'set',
-        'config': 'set',
-
-        # Repair service bureau
-        'rsb': 'report',
-        'board': 'report',
-        'reports': 'report',
-        'career': 'qual',
-        'index': 'qual',
-        'ow': 'orderwire',
-        'tl': 'testline',
-        'tc': 'testcall',
-        'call': 'testcall',
-        'loop': 'mlt',
-
-        # Technical system aliases
-        'rad': 'radio',
-        'mw': 'microwave',
-        't1': 't1carrier',
-        'ds1': 't1carrier',
-        'lc': 'lcarrier',
-        'coax': 'lcarrier',
-        'mult': 'multiplex',
-        'mux': 'multiplex',
-        'regen': 'regenerator',
-        'reg': 'regenerator',
-
-        # Directory and file aliases
-        'll': 'ls',
-        'la': 'ls',
-        'dir': 'ls',
-
-        # System monitoring aliases
-        'proc': 'ps',
-        'users': 'who',
-        'w': 'who',
-        'disk': 'df',
-
-        # Bell System specific shortcuts
-        'bsp': 'bsp',
-        'practices': 'bsp',
-        'tnds': 'tnds',
-        'sarts': 'sarts',
-        'tsps': 'tsps',
-        'toll': 'toll',
-        'trace': 'trace',
-        'route': 'routing',
-        'cap': 'capacity',
-        'traf': 'traffic',
-        'bill': 'billing',
-        'cust': 'custdb',
-        'db': 'dbquery',
-        'net': 'netplan',
-        'switch': 'switch',
-        'trunk': 'trunk',
-        'crossbar': 'crossbar',
-        'events': 'events',
-        'handoff': 'handoff',
-        'tariff': 'tariff',
-        'train': 'training',
-        '5ess': '5ess',
-        'western': 'western',
-        'coer': 'coer',
-        'lmos': 'lmos'
-    }
 
     # Parsed geographic data, shared across instances in a process. It is
     # static reference data and never changes during a run.
@@ -244,6 +173,9 @@ class BellSystemTerminal(
         self.failed_command_attempts = 0
         # What the previous stage of a pipeline produced.
         self._pipe_input = ''
+        # The running ed session, if any, and what cc has compiled.
+        self._editor = None
+        self._compiled: Dict[str, str] = {}
         # True while a pipeline is running, so its stages do not each count
         # as a separate command against the shift.
         self._in_pipeline = False
@@ -839,122 +771,6 @@ Current Priorities:
 Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
 """
 
-    def _build_command_handlers(self) -> Dict[str, Any]:
-        """
-        Build the command name to handler-method dispatch table.
-
-        Called once during initialisation; the resulting table is reused for
-        every command rather than being rebuilt on each keystroke.
-
-        Returns:
-            Mapping of command name to the bound method implementing it
-        """
-        return {
-        # Core Bell System commands
-        'trunk': self.cmd_trunk,
-        'switch': self.cmd_switch,
-        'testboard': self.cmd_testboard,
-        'toll': self.cmd_toll,
-        'trace': self.cmd_trace,
-        'dialtone': self.cmd_dialtone,
-        'emergency': self.cmd_emergency,
-        'ticket': self.cmd_ticket,
-        'trouble': self.cmd_trouble,
-        'uucp': self.cmd_uucp,
-        'traffic': self.cmd_traffic,
-        'routing': self.cmd_routing,
-        'capacity': self.cmd_capacity,
-        'billing': self.cmd_billing,
-        'service': self.cmd_service,
-        'operator': self.cmd_operator,
-        'directory': self.cmd_directory,
-        'crossbar': self.cmd_crossbar,
-        'netplan': self.cmd_netplan,
-        'dbquery': self.cmd_dbquery,
-        'custdb': self.cmd_custdb,
-        'provision': self.cmd_provision,
-        'collect': self.cmd_collect,
-        'tsps': self.cmd_tsps,
-        'handoff': self.cmd_handoff,
-        'tariff': self.cmd_tariff,
-        'events': self.cmd_events,
-        'training': self.cmd_training,
-
-        # Enhanced Bell System commands
-        '3a': self.cmd_3a,
-        '5ess': self.cmd_5ess,
-        'bsp': self.cmd_bsp,
-        'western': self.cmd_western,
-        'coer': self.cmd_coer,
-        'lmos': self.cmd_lmos,
-        'tnds': self.cmd_tnds,
-        'sarts': self.cmd_sarts,
-        'radio': self.cmd_radio,
-        'microwave': self.cmd_microwave,
-        'satellite': self.cmd_satellite,
-        'alarm': self.cmd_alarm,
-        'pwb': self.cmd_pwb,
-        'rje': self.cmd_rje,
-        'nroff': self.cmd_nroff,
-        'troff': self.cmd_troff,
-        'tbl': self.cmd_tbl,
-        'eqn': self.cmd_eqn,
-        'pic': self.cmd_pic,
-        'refer': self.cmd_refer,
-        'netdata': self.cmd_netdata,
-        'analysis': self.cmd_analysis,
-        't1carrier': self.cmd_t1carrier,
-        'lcarrier': self.cmd_lcarrier,
-        'multiplex': self.cmd_multiplex,
-        'regenerator': self.cmd_regenerator,
-        'antenna': self.cmd_antenna,
-
-        # Enhanced UX commands
-        'errors': self.cmd_errors,
-        'verbosity': self.cmd_verbosity,
-        'history': self.cmd_history,
-        'set': self.cmd_set,
-        'clli': self.cmd_clli,
-        'cosmos': self.cmd_cosmos,
-
-        # Repair service bureau, loop testing and the craft record
-        'report': self.cmd_report,
-        'mlt': self.cmd_mlt,
-        'testline': self.cmd_testline,
-        'qual': self.cmd_qual,
-        'write': self.cmd_write,
-        'mail': self.cmd_mail,
-        'orderwire': self.cmd_orderwire,
-        'testcall': self.cmd_testcall,
-
-        # The shell: moving around, reading, text handling
-        'cd': self.cmd_cd,
-        'cat': self.cmd_cat,
-        'more': self.cmd_more,
-        'head': self.cmd_head,
-        'tail': self.cmd_tail,
-        'grep': self.cmd_grep,
-        'wc': self.cmd_wc,
-        'sort': self.cmd_sort,
-        'uniq': self.cmd_uniq,
-        'echo': self.cmd_echo,
-        'file': self.cmd_file,
-        'cal': self.cmd_cal,
-
-        # Standard UNIX commands
-        'ps': self.cmd_ps,
-        'who': self.cmd_who,
-        'ls': self.cmd_ls,
-        'pwd': self.cmd_pwd,
-        'date': self.cmd_date,
-        'df': self.cmd_df,
-        'help': self.cmd_help,
-        'man': self.cmd_man,
-        'status': self.cmd_status,
-        'test': self.cmd_test,
-        'quit': self.cmd_quit,
-        'clear': self.cmd_clear
-        }
     def cmd_set(self, args: Optional[List[str]] = None) -> str:
         """Display and change simulation settings."""
         args = args or []
@@ -1231,11 +1047,22 @@ Subsystems available in this release:
         # A pipeline runs each stage in turn, feeding one stage's output to
         # the next. Joining commands together is most of what a shell is for,
         # so who | wc -l should work here the way it did on the real thing.
+        # While ed is running every line belongs to it, which is exactly how
+        # a line editor on a teletype behaved.
+        if self._editor is not None:
+            return self.editor_input(command_line)
+
         if '|' in command_line and not command_line.strip().startswith('|'):
             return self._run_pipeline(command_line)
 
+        # Redirection. The shell takes the file off the end of the line,
+        # runs what is left, and puts the output there instead of on the
+        # terminal.
+        if '>' in command_line:
+            return self._run_redirect(command_line)
+
         try:
-            parts = command_line.split()
+            parts = self._tokenise(command_line)
             if not parts:
                 return ""
 
@@ -1288,6 +1115,19 @@ Subsystems available in this release:
 
                 return result
             else:
+                # A program cc built is run by naming it, the way ./a.out or
+                # a.out on the path would be.
+                produced = self.run_compiled(
+                    normalise(command, self.current_directory))
+                if produced is None and not command.startswith(('/', '.')):
+                    produced = self.run_compiled(
+                        normalise(f'./{command}', self.current_directory))
+                if produced is not None:
+                    self.command_counts[command] += 1
+                    interruption = self._interrupt()
+                    return (f"{produced.rstrip()}\n{interruption}".strip()
+                            if interruption else produced.rstrip())
+
                 # Enhanced error handling with suggestions
                 error_msg = f"{command}: command not found"
                 return self._handle_command_error(command, error_msg)
@@ -1296,6 +1136,21 @@ Subsystems available in this release:
             error_msg = f"Command execution error: {e}"
             self.logger.error(f"Exception in command '{command}': {e}")
             return self._handle_command_error(command, error_msg)
+
+    @staticmethod
+    def _tokenise(command_line: str) -> List[str]:
+        """
+        Split a command line the way a shell does, honouring quotes.
+
+        Without this, grep 'two words' searched for a word with a quote in
+        it and sed 's/a/b/' never saw the s. Falls back to a plain split on
+        an unbalanced quote, which is what a forgiving shell does rather
+        than refusing the line outright.
+        """
+        try:
+            return shlex.split(command_line)
+        except ValueError:
+            return command_line.split()
 
     def _run_pipeline(self, command_line: str) -> str:
         """
@@ -1327,6 +1182,31 @@ Subsystems available in this release:
         if interruption:
             carried = f"{carried}\n{interruption}" if carried else interruption
         return carried
+
+    def _run_redirect(self, command_line: str) -> str:
+        """
+        Run a command with its output sent to a file.
+
+        Args:
+            command_line: A line containing ``>`` or ``>>``
+
+        Returns:
+            Whatever the shell has to say, which on success is nothing
+        """
+        append = '>>' in command_line
+        head, _, tail = command_line.partition('>>' if append else '>')
+        command, target = head.strip(), tail.strip()
+        if not command:
+            return "sh: syntax error"
+        if not target or len(target.split()) > 1:
+            return "sh: syntax error"
+
+        produced = self.execute_command(command) or ''
+        if produced and not produced.endswith('\n'):
+            produced += '\n'
+        path = normalise(target, self.current_directory)
+        error = self.write_file(path, produced, append=append)
+        return error or ''
 
     def _render_board_file(self) -> str:
         """
