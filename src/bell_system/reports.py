@@ -33,6 +33,9 @@ import random
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Sequence
 
+from .cable import CablePlant
+from .field import FieldForce
+from .weather import Weather
 from .data.trouble import (
     DISPATCH_FORCES,
     DISPOSITIONS,
@@ -183,6 +186,13 @@ class TroubleReport:
         self.test_notes: List[str] = []
         self.dispatched_to: Optional[str] = None
         self.field_finding: Optional[str] = None
+        # Who went, and how long it took them to get there.
+        self.crew: Optional[str] = None
+        self.travel_minutes = 0
+        # Set when a splicer's trip to another pair in the same binder group
+        # repaired this one too. The report still has to be closed out; it
+        # just does not need its own dispatch.
+        self.sheath_repaired = False
         self.disposition: Optional[int] = None
         self.found: Optional[str] = None
         self.closed_at: Optional[datetime] = None
@@ -251,6 +261,13 @@ class ReportDesk:
         self._sequence = self.rng.randint(1200, 8600)
         self.closed_count = 0
         self.repeat_count = 0
+        # The cables this centre serves and the water in them. Wet cable is
+        # a sheath fault, not a pair fault, so where a wet pair lands is the
+        # plant's decision and not a pair of random numbers.
+        self.plant = CablePlant(self.rng)
+        self.weather = Weather(self.rng)
+        # Who is available to go out, and where they are standing.
+        self.force = FieldForce(self.rng)
 
     # -- generation ------------------------------------------------------
 
@@ -259,11 +276,20 @@ class ReportDesk:
         self._sequence += self.rng.randint(1, 4)
         return f"TR-{self._sequence:05d}"
 
-    def _make_record(self, fault: str) -> LineRecord:
-        """Build a line record carrying a given electrical condition."""
+    def _make_record(self, fault: str, now: datetime) -> LineRecord:
+        """
+        Build a line record carrying a given electrical condition.
+
+        Cable and pair come from the plant rather than from two random
+        numbers: a wet pair lands in a binder group that is already wet, and
+        a dry fault deliberately does not, so that several reports off one
+        sheath mean what they look like they mean.
+        """
         line = f"{self.rng.randint(0, 9999):04d}"
         surname = self.rng.choice(_SURNAMES)
         initial = self.rng.choice(_INITIALS)
+        cable, pair = (self.plant.wet_pair(now)
+                       if fault == 'WET' else self.plant.dry_pair())
         classes = [code for code, _ in _CLASS_WEIGHTS]
         weights = [weight for _, weight in _CLASS_WEIGHTS]
         class_of_service = self.rng.choices(classes, weights=weights)[0]
@@ -271,8 +297,8 @@ class ReportDesk:
             npa=self.npa, nxx=self.nxx, line=line,
             name=f"{surname}, {initial}",
             address=f"{self.rng.randint(2, 1480)} {self.rng.choice(_STREETS)}",
-            cable=self.rng.randint(1, 88),
-            pair=self.rng.randint(1, 900),
+            cable=cable,
+            pair=pair,
             class_of_service=class_of_service,
             horizontal=f"{self.rng.randint(1, 24):02d}",
             vertical=f"{self.rng.randint(1, 52):02d}",
@@ -323,7 +349,7 @@ class ReportDesk:
             The report that was created
         """
         condition = fault or self._choose_fault()
-        line_record = record or self._make_record(condition)
+        line_record = record or self._make_record(condition, now)
         line_record.fault = condition
         symptom = self.rng.choice(REPORT_SYMPTOMS.get(condition, ('Trouble',)))
         report = TroubleReport(
@@ -336,6 +362,9 @@ class ReportDesk:
         )
         self.reports[report.number] = report
         self.order.append(report.number)
+        if condition == 'WET':
+            self.plant.attach(line_record.cable, line_record.pair,
+                              report.number)
         return report
 
     def open_shift(self, now: datetime, slack_minutes: int = 0) -> List[TroubleReport]:
@@ -409,7 +438,8 @@ class ReportDesk:
             report.status = STATUS_TESTED
         report.spend(minutes)
 
-    def dispatch(self, report: TroubleReport, force: str) -> str:
+    def dispatch(self, report: TroubleReport, force: str,
+                 now: Optional[datetime] = None) -> str:
         """
         Send a repair force and return what the field reports back.
 
@@ -418,27 +448,122 @@ class ReportDesk:
         """
         fault = FAULTS[report.record.fault]
         wanted = fault.dispatch
+        now = now or report.received
+
+        if report.sheath_repaired:
+            # A splicer has already been to this binder group on somebody
+            # else's report and the pair came back with it. Sending a
+            # second crew to a sheath that is dry is the exact waste the
+            # cable model exists to teach against, so it does not happen.
+            report.dispatched_to = None
+            return (f"{report.number} is on a sheath a splicer has already "
+                    f"opened. The pair came back with the rest of the "
+                    f"group.\nNobody needs to go. Close it out: code 5, "
+                    f"found WET.")
+
         report.dispatched_to = force
 
         if force.lower() != wanted.lower():
-            report.spend(COST_WRONG_DISPATCH + COST_DISPATCH,
+            crew, travel, came_from = self.force.send(
+                force, report.number, COST_WRONG_DISPATCH, now)
+            report.spend(COST_WRONG_DISPATCH + COST_DISPATCH + travel,
                          desk=COST_DISPATCH + COST_WRONG_DISPATCH_DESK)
             report.status = STATUS_DISPATCHED
-            return (f"{force} reports nothing found at their end. "
-                    f"{COST_WRONG_DISPATCH} minutes charged against the "
-                    f"commitment.")
+            if crew is None:
+                return (f"Nobody free on {force.lower()}, which is just as "
+                        f"well: the trouble is not theirs.")
+            report.crew = crew.name
+            report.travel_minutes = travel
+            return (f"{crew.name} rolled from {came_from}, {travel} minutes, "
+                    f"and found nothing at their end.\n"
+                    f"{COST_WRONG_DISPATCH + travel} minutes charged against "
+                    f"the commitment, and {crew.name} is now out on nothing.")
 
         low, high = fault.typical_minutes
         repair = self.rng.randint(low, high)
-        # The repair is the field force's time, not yours.
-        report.spend(repair + COST_DISPATCH, desk=COST_DISPATCH)
+        crew, travel, came_from = self.force.send(
+            force, report.number, repair, now)
+        if crew is None:
+            # Everybody who answers this category is already out. The job
+            # does not vanish; it waits, and the wait is on the commitment.
+            waiting = self.force.soonest_free(force, now)
+            report.spend(COST_DISPATCH, desk=COST_DISPATCH)
+            report.status = STATUS_PENDING
+            report.dispatched_to = None
+            if waiting is None:  # pragma: no cover - no crew for the category
+                return f"Nobody answers {force} from this position."
+            back = waiting.back_at().strftime('%H:%M')
+            return (f"Nobody free on {force.lower()}. "
+                    f"{waiting.crew.name} is on {waiting.report} and is not "
+                    f"back before {back}.\n"
+                    f"{report.number} stays on the board. Try again when "
+                    f"somebody is in.")
+
+        report.crew = crew.name
+        report.travel_minutes = travel
+        # The repair and the drive are the field force's time, not yours,
+        # but both run against the customer's commitment.
+        report.spend(repair + travel + COST_DISPATCH, desk=COST_DISPATCH)
         report.status = STATUS_DISPATCHED
         report.field_finding = fault.code
+        went = (f"{crew.name} ({crew.title.lower()}) rolled from "
+                f"{came_from}, {travel} minutes.")
         if fault.code == 'NONE':
-            return (f"{force} reports the line tests good at the station. "
+            return (f"{went}\n{crew.name} reports the line tests good at "
+                    f"the station. {repair} minutes on the job.")
+        if fault.code == 'WET':
+            return f"{went}\n" + self._repair_sheath(
+                report, crew.name, repair)
+        return (f"{went}\n{crew.name} reports {fault.name.lower()} located "
+                f"and cleared. {repair} minutes on the job.")
+
+    def _repair_sheath(self, report: 'TroubleReport', force: str,
+                       repair: int) -> str:
+        """
+        A splicer has opened one sheath, which repairs every pair in it.
+
+        This is the whole reason the cable plant is modelled. Water is a
+        binder group fault: the splicer finds the opening, dries and
+        reseals the section, and every wet pair in that group is fixed by
+        the one trip. A craftsperson who reads the board before dispatching
+        pays for one trip instead of six, which is the advice the previous
+        tour left in their notes.
+        """
+        record = report.record
+        section = self.plant.section_at(record.cable, record.pair)
+        if section is None:
+            return (f"{force} reports wet cable located and cleared. "
                     f"{repair} minutes charged.")
-        return (f"{force} reports {fault.name.lower()} located and cleared. "
-                f"{repair} minutes charged.")
+
+        cleared = self.plant.repair(section, report.received)
+        others = [self.reports[number] for number in cleared
+                  if number in self.reports
+                  and number != report.number
+                  and self.reports[number].status != STATUS_CLOSED]
+        for other in others:
+            # The sheath is dry. The other pairs in it were repaired by the
+            # same trip and cost nothing further; they still have to be
+            # closed out, which is the craftsperson's job and not the
+            # splicer's.
+            other.field_finding = 'WET'
+            other.sheath_repaired = True
+            if other.status == STATUS_PENDING:
+                other.status = STATUS_TESTED
+
+        lines = [f"{force} reports water in cable {section.cable}, binder "
+                 f"{section.binder} ({section.colour()}), pairs "
+                 f"{section.first_pair}-{section.last_pair}.",
+                 f"Sheath opened, dried and resealed. {repair} minutes "
+                 f"charged."]
+        if others:
+            numbers = ', '.join(sorted(other.number for other in others))
+            lines.append('')
+            lines.append(f"The one trip clears every pair in that group. "
+                         f"{len(others)} other report"
+                         f"{'' if len(others) == 1 else 's'} on this sheath "
+                         f"can be closed without a further dispatch:")
+            lines.append(f"  {numbers}")
+        return '\n'.join(lines)
 
     def close(self, report: TroubleReport, disposition: int,
               found: Optional[str], now: datetime,

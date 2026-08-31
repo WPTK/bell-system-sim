@@ -763,9 +763,44 @@ this shift and the next one starts on a fresh board."""
         """
         charged = sum(report.desk_minutes
                       for report in self.reports_all())
+        was = self.shift_minutes
         self.shift_minutes += 1 + max(0, charged - self._charged_total)
         self._charged_total = charged
-        return self._fire_due_events()
+        return self._weather_events(was) + self._fire_due_events()
+
+    def _weather_events(self, was: int) -> List[str]:
+        """
+        Move the weather on, and let the rain get into the cable.
+
+        Wet cable is documented as worsening with rain, and this is where
+        the two are actually connected: water in an unrepaired binder group
+        takes another pair, faster the harder it is raining, and that pair
+        becomes a report. A sheath somebody has been to does not spread,
+        which is the reward for going.
+        """
+        pieces: List[str] = []
+        changed = self.desk.weather.advance(self.shift_minutes)
+        if changed:
+            pieces.append(render_message(
+                self.switchroom.weather(self.clock.now(), changed),
+                self._stamp()))
+
+        elapsed = max(0, self.shift_minutes - was)
+        if not elapsed:
+            return pieces
+        spreading = self.desk.plant.spread(elapsed, self.desk.weather.rain)
+        for _ in range(spreading):
+            if self.desk.full():
+                break
+            report = self.desk.receive(
+                self.clock.now(), self._difficulty().commitment_slack_minutes,
+                fault='WET')
+            pieces.append(render_message(self.switchroom.assignment(
+                self.clock.now(), report.number,
+                report.record.telephone_number, report.symptom,
+                report.commitment.strftime('%H:%M'),
+            ), self._stamp()))
+        return pieces
     def shift_time(self) -> str:
         """Return how far into the shift the work has got, as hours:minutes."""
         return f"{self.shift_minutes // 60}:{self.shift_minutes % 60:02d}"

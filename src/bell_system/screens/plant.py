@@ -15,6 +15,9 @@ absent rather than guessed at, which is why the table is short.
 import random
 from typing import Dict, List, NamedTuple, Optional
 
+from ..data.trouble import DISPATCH_FORCES
+from ..field import CREWS, LOCATIONS
+from ..weather import CONDITIONS
 from .session import SessionState
 
 
@@ -462,3 +465,101 @@ SEE ALSO
 {'=' * 62}
 microwave(1), radio(1), trace(1)
 """
+
+    # -- weather(1) -------------------------------------------------------
+
+    def cmd_weather(self, args: Optional[List[str]] = None) -> str:
+        """
+        What it is doing outside, and what that means for the plant.
+
+        This is not scenery. Wet cable is documented as worsening with rain,
+        and on this position that is a literal mechanism: water in an
+        unrepaired binder group takes another pair faster the harder it is
+        raining, and each pair that goes is another report on your board.
+        """
+        weather = self.desk.weather
+        sections = self.desk.plant.open_sections()
+        rows = ["WEATHER", self.clock.timestamp(), '=' * 62, '',
+                f"  Now           {weather.label()}",
+                f"  Outlook       {weather.outlook()}",
+                '',
+                f"  {weather.condition.note}",
+                '']
+
+        if weather.history and len(weather.history) > 1:
+            rows.append("THROUGH THE TOUR")
+            for minutes, key in weather.history:
+                rows.append(f"  {minutes // 60 + 8:02d}:00  "
+                            f"{CONDITIONS[key].label}")
+            rows.append('')
+
+        rows.append("WHAT IT IS DOING TO THE PLANT")
+        if not sections:
+            rows.append("  No wet sheath on this board. Rain costs you "
+                        "nothing today.")
+        elif not weather.wet:
+            rows.append(f"  {len(sections)} wet sheath"
+                        f"{'' if len(sections) == 1 else 's'} open, and "
+                        f"nothing falling on {'it' if len(sections) == 1 else 'them'}.")
+            rows.append("  Water already in a sheath does not dry out on "
+                        "its own, but it")
+            rows.append("  spreads slower when it is not being fed.")
+        else:
+            rows.append(f"  {len(sections)} wet sheath"
+                        f"{'' if len(sections) == 1 else 's'} open and it is "
+                        f"raining on {'it' if len(sections) == 1 else 'them'}.")
+            rows.append("  Expect more pairs off the same cables. A splicer "
+                        "trip now costs")
+            rows.append("  one dispatch; the same water tomorrow costs "
+                        "several.")
+        for section in sections:
+            rows.append(f"    {section.describe()}")
+            if section.alarming():
+                rows.append("      pressure contactor alarming on this "
+                            "sheath")
+        rows.extend(['', "lmos cable groups the board by binder group."])
+        return '\n'.join(rows)
+
+    # -- force(1) ---------------------------------------------------------
+
+    def cmd_force(self, args: Optional[List[str]] = None) -> str:
+        """
+        Who is available to go out, and who is already on something.
+
+        Dispatching used to go to a category, and a category is never busy.
+        This wire centre has five people. When they are all out, the job
+        waits, and knowing that before you promise a customer a time is the
+        whole reason to look.
+        """
+        force = self.desk.force
+        now = self.clock.now()
+        rows = ["FIELD FORCE", self.clock.timestamp(), '=' * 62, '',
+                f"  {'WHO':<16}{'TITLE':<32}STATE",
+                '  ' + '-' * 60]
+        for crew in CREWS:
+            job = force.out.get(crew.key)
+            if job is None:
+                state = f"free, {LOCATIONS[force.at[crew.key]].standing}"
+            else:
+                state = (f"out on {job.report}, back "
+                         f"{job.back_at().strftime('%H:%M')}")
+            rows.append(f"  {crew.name:<16}{crew.title:<32}{state}")
+
+        rows.append('')
+        short = [category for category in DISPATCH_FORCES
+                 if force.crews_for(category)
+                 and not force.free(category, now)]
+        if short:
+            rows.append("NOBODY FREE ON")
+            for category in short:
+                waiting = force.soonest_free(category, now)
+                when = waiting.back_at().strftime('%H:%M') if waiting else '?'
+                rows.append(f"  {category:<20}next in at {when}")
+            rows.append('')
+            rows.append("A report dispatched to one of those stays on the "
+                        "board. It is not")
+            rows.append("lost; it is queued, and the queue runs on the "
+                        "customer's commitment.")
+        else:
+            rows.append("Somebody is free on every category.")
+        return '\n'.join(rows)

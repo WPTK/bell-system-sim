@@ -2143,6 +2143,11 @@ NOTES
 QUALIFICATION
      Requires the Main Distributing Frame sign-off.
 
+     lmos cable      Group the pending board by cable and binder group.
+                     Water is a sheath fault: several reports in one
+                     twenty-five-pair binder group is what it looks like,
+                     and one splicer trip repairs all of them.
+
 SEE ALSO
      report(1), mlt(1), cosmos(1), qual(1)
 """,
@@ -3931,5 +3936,54 @@ EXAMPLES
 
 SEE ALSO
      qual(1), report(1), trouble(1), man(1)
+""",
+    "weather": """
+NAME
+     weather - what it is doing outside, and what that does to the plant
+
+SYNOPSIS
+     weather
+
+DESCRIPTION
+     The conditions over the wire centre, how they got there through the
+     tour, and what they are doing to the cable.
+
+     This is not scenery. Wet cable is water in a sheath, and rain is what
+     makes it worse: an unrepaired binder group takes another pair faster
+     the harder it is raining, and each pair that goes is another report on
+     your board. A splicer trip while it is dry costs one dispatch. The
+     same water after an afternoon of rain costs several.
+
+     A sheath whose pressure has fallen far enough is shown as alarming.
+     Cable is pressurised with dry air to keep water out, so the pressure
+     goes first and the water comes after - the contactor is the thing that
+     could have told you before the customer did.
+
+SEE ALSO
+     lmos(1), report(1), radio(1)
+""",
+    "force": """
+NAME
+     force - who is available to go out
+
+SYNOPSIS
+     force
+
+DESCRIPTION
+     The field force this wire centre has, where each of them is, and who
+     is already on a job.
+
+     Dispatching used to go to a category, and a category is never busy.
+     There are five people here. A report dispatched when they are all out
+     does not vanish - it stays on the board and the queue runs on the
+     customer's commitment, which is the cost of a finite force and is
+     worth knowing before you promise anybody a time.
+
+     A crew's travel time depends on where they are standing when the call
+     goes out, and it is charged against the commitment like everything
+     else.
+
+SEE ALSO
+     report(1), lmos(1), trouble(1), weather(1)
 """,
 }

@@ -261,6 +261,23 @@ class Switchroom:
             about=report_number,
         ))
 
+    def weather(self, now: datetime, change: str) -> Message:
+        """
+        Somebody looking out of the window, which is a maintenance report.
+
+        Rain is the documented reason wet cable gets worse, so a change in
+        the weather is operational news on a repair position and not
+        scenery. It comes from the frame because the frame is where the
+        window is.
+        """
+        return self._deliver(Message(
+            channel=CHANNEL_WRITE, sender='rjohnson', received=now,
+            lines=[change,
+                   'Anything you have on a wet sheath is about to get '
+                   'busier.'] if 'started raining' in change else [change],
+            kind='weather', subject='Weather', about=None,
+        ))
+
     def ticket_assignment(self, now: datetime, ticket_id: str, title: str,
                           priority: str, office: str) -> Message:
         """The switching control centre putting a trouble ticket on you."""

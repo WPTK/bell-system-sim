@@ -134,12 +134,23 @@ class TestWorkingAReport:
         assert report.field_finding == 'GROUND'
 
     def test_the_wrong_force_finds_nothing_and_costs_time(self, desk):
+        """
+        A named person drives out to the wrong place, which is the point of
+        the penalty: it is somebody's morning, not an abstraction.
+        """
         report = desk.receive(SHIFT_START, fault='GROUND')
         before = report.minutes_spent
-        result = desk.dispatch(report, 'Central office')
-        assert 'nothing found' in result
+        result = desk.dispatch(report, 'Central office', SHIFT_START)
+        assert 'found nothing at their end' in result
         assert report.field_finding is None
+        assert report.crew is not None
         assert report.minutes_spent > before
+
+    def test_the_wrong_force_charges_the_drive_as_well(self, desk):
+        report = desk.receive(SHIFT_START, fault='GROUND')
+        before = report.minutes_spent
+        desk.dispatch(report, 'Central office', SHIFT_START)
+        assert report.minutes_spent - before > report.travel_minutes
 
     def test_naming_the_right_fault_on_code_five_is_correct(self, desk):
         report = desk.receive(SHIFT_START, fault='SHORT')

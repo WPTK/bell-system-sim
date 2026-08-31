@@ -27,6 +27,7 @@ from the reports the desk has closed.
 from collections import Counter
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
+from .cable import binder_colour, binder_of
 from .data.trouble import DISPOSITIONS, FAULTS
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle guard for type checking
@@ -257,8 +258,72 @@ class LmosConsole:
             return self.treat(rest[0] if rest else None)
         if action in ('utilisation', 'utilization', 'equipment'):
             return self.utilisation()
+        if action in ('cable', 'sheath', 'plant'):
+            return self.cable_analysis()
         return (f"lmos: unknown option '{args[0]}'\n"
-                "Options: status, line, reports, chronic, treat, utilisation")
+                "Options: status, line, reports, chronic, treat, "
+                "utilisation, cable")
+
+
+    def cable_analysis(self) -> str:
+        """
+        Group the pending reports by cable and binder group.
+
+        Water in a sheath is not a pair fault. It drops insulation
+        resistance across the pairs in one twenty-five-pair binder group at
+        once, so several reports off one group is what water looks like from
+        a repair position - and one splicer trip repairs all of them.
+
+        This is the view that makes that visible without reading the whole
+        board. The same information is in /usr/lmos/board, where sort(1)
+        and uniq(1) will find it too.
+        """
+        pending = self.terminal.desk.pending()
+        if not pending:
+            return "lmos: nothing pending"
+
+        groups: Dict[Tuple[int, int], List['TroubleReport']] = {}
+        for report in pending:
+            record = report.record
+            key = (record.cable, binder_of(record.pair))
+            groups.setdefault(key, []).append(report)
+
+        rows = ["Loop Maintenance Operations System - cable analysis",
+                f"{self.terminal.clock.timestamp()}",
+                '=' * 74, '',
+                f"{'CABLE':<8}{'BINDER':<8}{'COLOUR':<16}{'PAIRS':<12}"
+                f"{'RPTS':<6}REPORTS",
+                '-' * 74]
+        suspect = []
+        for (cable, binder), reports in sorted(groups.items()):
+            pairs = sorted(report.record.pair for report in reports)
+            span = (f"{pairs[0]}" if len(pairs) == 1
+                    else f"{pairs[0]}-{pairs[-1]}")
+            numbers = ' '.join(report.number for report in reports)
+            rows.append(f"{cable:<8}{binder:<8}{binder_colour(binder):<16}"
+                        f"{span:<12}{len(reports):<6}{numbers[:28]}")
+            if len(reports) > 1:
+                suspect.append((cable, binder, len(reports)))
+
+        rows.append('-' * 74)
+        rows.append('')
+        if suspect:
+            rows.append("MORE THAN ONE REPORT IN A BINDER GROUP")
+            for cable, binder, count in suspect:
+                rows.append(f"  cable {cable} binder {binder} "
+                            f"({binder_colour(binder)}): {count} reports")
+            rows.append('')
+            rows.append("That is what water looks like. Test one of them "
+                        "before you dispatch:")
+            rows.append("a single trip to the sheath repairs every pair in "
+                        "the group, and")
+            rows.append("six trips to six pairs repairs the same thing six "
+                        "times over.")
+        else:
+            rows.append("No binder group has more than one report on it. "
+                        "Nothing here looks")
+            rows.append("like water.")
+        return '\n'.join(rows)
 
     # -- screens ---------------------------------------------------------
 

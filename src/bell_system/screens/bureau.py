@@ -357,7 +357,11 @@ class BureauCommands(SessionState):
             return (f"report: '{force}' is not a repair force.\n"
                     f"Forces: {', '.join(DISPATCH_FORCES)}")
 
-        finding = self.desk.dispatch(report, canonical)
+        finding = self.desk.dispatch(report, canonical, self.clock.now())
+        if report.dispatched_to is None:
+            # Nobody went: either the force is all out, or the sheath is
+            # already repaired. Either way there is no field call coming.
+            return finding
         if report.field_finding:
             fault = FAULTS[report.field_finding]
             called_in = (

@@ -139,6 +139,8 @@ class CommandDispatch:
         'traffic': self.cmd_traffic,
         'routing': self.cmd_routing,
         'capacity': self.cmd_capacity,
+        'weather': self.cmd_weather,
+        'force': self.cmd_force,
         'billing': self.cmd_billing,
         'service': self.cmd_service,
         'operator': self.cmd_operator,
