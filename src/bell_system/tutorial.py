@@ -11,10 +11,9 @@ Run this tutorial BEFORE using the main Bell System simulation.
 """
 
 import os
-import random
 import sys
 import time
-from typing import List, Dict
+from typing import List
 
 
 class BellSystemTutorial:
@@ -416,7 +415,7 @@ REMEMBER:
         final_score = len(self.user_progress['commands_practiced'])
         role_selected = self.user_progress.get('role_selected', 'Not selected')
 
-        print(f"\nYOUR TUTORIAL RESULTS:")
+        print("\nYOUR TUTORIAL RESULTS:")
         print(f"Commands Practiced: {final_score}")
         print(f"Preferred Role: {role_selected}")
         print(f"Steps Completed: {self.user_progress['steps_completed']}")
