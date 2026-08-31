@@ -136,7 +136,13 @@ excluded by name for postdating the simulation.
 
 These are page scans. No line of code cites any of them, because they are
 images rather than searchable text - every verifiable claim in this project
-rests on the `.txt` files above. They were reference reading during the
+rests on the `.txt` files above.
+
+They were removed from the git history as well as the working tree, which
+took a clone from 126.33 MiB to 6.21 MiB. Every commit is otherwise
+unchanged: the rewrite was verified file by file, and all 119 files present
+at the previous `main` and all 149 at the branch tip are byte-identical
+before and after. They were reference reading during the
 historical accuracy work and are not needed to build or run anything.
 
 Scans of this material are held by the Internet Archive and by bitsavers,

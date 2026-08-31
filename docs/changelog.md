@@ -262,6 +262,26 @@ from the documented "1300 ohms, typically about three miles" rather than quoted.
   resolved against the constructed class's method resolution order rather
   than a single file.
 
+## [Unreleased] - History rewrite
+
+### Changed
+
+- **Git history rewritten to remove 167 MB of files no code cites.** A clone
+  went from **126.33 MiB to 6.21 MiB**, and from roughly a minute to one
+  second. Removed: ten scanned PDFs, the 46 MB NANPA dump the packaged
+  dataset supersedes, and two leftovers from the deleted Replit stack
+  (`generated-icon.png`, `package-lock.json`).
+- The 21.5 MB of searchable text the code actually cites was retained in
+  full, so every historical claim is still checkable with `grep`.
+
+### Note for existing clones
+
+Every commit SHA changed. An existing clone cannot be pulled into and must be
+re-cloned. File contents are unchanged: the rewrite was verified path by path
+and content-hash by content-hash — 119 files at the previous `main` and 149
+at the branch tip are byte-identical before and after, with zero additions
+and no removals beyond the ten intended files.
+
 ## [3.0.0] - 2025-05-27
 
 ### MAJOR RELEASE: COMPREHENSIVE COMMAND VALIDATION & CRITICAL ERROR RESOLUTION

@@ -208,6 +208,12 @@ cd bell-system-sim
 pip install -e .
 ```
 
+> **If you cloned before 31 August 2026:** the history was rewritten to remove
+> 167 MB of scanned PDFs and a superseded data dump, taking a clone from
+> 126 MiB to 6 MiB. Every commit SHA changed, so an existing clone cannot be
+> pulled into — re-clone instead. File contents are unchanged; only the
+> removed files and the commit identifiers differ. See `SOURCES.md`.
+
 ### Verify Installation
 ```bash
 bell-system --version

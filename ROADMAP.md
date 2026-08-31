@@ -112,7 +112,8 @@ interesting to build.
 - [x] Fail loudly, not silently: if the data is missing, say so
 - [x] Add a test that constructs a terminal from a temporary working
       directory and asserts full coverage — the guard that was missing
-- [x] Removed from the working tree; history rewrite still outstanding; publish it
+- [x] Removed from the working tree **and from history** — a clone went
+      from 126.33 MiB to 6.21 MiB; publish it
       as a release asset or a documented separate download
 - [x] Keep a short `SOURCES.md` mapping every historical claim to its
       document, so the provenance survives the files leaving the repo
