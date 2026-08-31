@@ -36,6 +36,16 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 
 from .data.man_pages import MAN_PAGES
+from .types import (
+    Alarm,
+    CentralOffice,
+    CrossbarSystem,
+    SystemHealth,
+    TndsData,
+    TroubleTicket,
+    TrunkGroup,
+    TspsData,
+)
 
 try:
     import readline  # For command history and line editing
@@ -203,16 +213,16 @@ class BellSystemTerminal:
         self.logger = logging.getLogger('BellSystem')
 
         # Performance monitoring
-        self._performance_log = {}
+        self._performance_log: Dict[str, Any] = {}
         self.session_start_time = time.time()
         self.session_id = f"BELL-{int(time.time())}-{os.getpid()}"
         self.failed_command_attempts = 0
 
         # Enhanced UX features - command history and error tracking
-        self.command_history = deque(maxlen=1000)
-        self.command_counts = defaultdict(int)
-        self.error_counts = defaultdict(int)
-        self.recent_errors = deque(maxlen=50)
+        self.command_history: deque = deque(maxlen=1000)
+        self.command_counts: Dict[str, int] = defaultdict(int)
+        self.error_counts: Dict[str, int] = defaultdict(int)
+        self.recent_errors: deque = deque(maxlen=50)
         self.log_verbosity = 'INFO'
 
         # Build the command dispatch table once, rather than per command.
@@ -260,7 +270,7 @@ class BellSystemTerminal:
         """Initialize dynamic network state for realistic simulation behavior."""
 
         # Trunk group states with realistic utilization patterns
-        self.trunk_groups = {
+        self.trunk_groups: Dict[str, TrunkGroup] = {
             "TG-001-NYC": {"capacity": 24, "utilization": random.randint(45, 85), "status": "ACTIVE", "route": "NYC-WAS", "quality": random.uniform(0.995, 0.999)},
             "TG-023-BOS": {"capacity": 96, "utilization": random.randint(60, 90), "status": "ACTIVE", "route": "NYC-BOS", "quality": random.uniform(0.992, 0.998)},
             "TG-045-PHL": {"capacity": 48, "utilization": random.randint(35, 75), "status": "ACTIVE", "route": "NYC-PHL", "quality": random.uniform(0.994, 0.999)},
@@ -295,7 +305,7 @@ class BellSystemTerminal:
         }
 
         # Crossbar systems (legacy equipment)
-        self.crossbar_systems = {
+        self.crossbar_systems: Dict[str, CrossbarSystem] = {
             "XB-NYC-003": {"status": "ACTIVE", "load": random.randint(40, 70), "maintenance_due": random.choice([True, False])},
             "XB-PHL-001": {"status": random.choice(["ACTIVE", "MAINT"]), "load": random.randint(0, 85), "maintenance_due": False},
             "XB-BOS-002": {"status": "ACTIVE", "load": random.randint(35, 65), "maintenance_due": random.choice([True, False])}
@@ -351,7 +361,7 @@ class BellSystemTerminal:
         ]
 
         # Randomly select active alarms based on time and conditions
-        self.active_alarms = []
+        self.active_alarms: List[Alarm] = []
         for alarm in possible_alarms:
             if random.random() < 0.3:  # 30% chance each alarm is active
                 alarm["timestamp"] = datetime.now() - timedelta(minutes=random.randint(5, 480))
@@ -359,7 +369,7 @@ class BellSystemTerminal:
                 self.active_alarms.append(alarm)
 
         # System health metrics
-        self.system_health = {
+        self.system_health: SystemHealth = {
             "overall_status": "OPERATIONAL" if len(self.active_alarms) < 3 else "DEGRADED",
             "critical_alarms": len([a for a in self.active_alarms if a["severity"] == "CRITICAL"]),
             "major_alarms": len([a for a in self.active_alarms if a["severity"] == "MAJOR"]),
@@ -1589,7 +1599,7 @@ Subsystems available in this release:
         """Initialize authentic Bell System infrastructure based on NANPA data."""
 
         # Create realistic Bell System central offices and switching centers
-        self.central_offices = {}
+        self.central_offices: Dict[str, CentralOffice] = {}
         self.switching_centers = {}
         self.microwave_sites = {}
 
@@ -1671,7 +1681,7 @@ Subsystems available in this release:
         }
 
         # Initialize dynamic ticket generation
-        self.active_tickets = []
+        self.active_tickets: List[TroubleTicket] = []
         self.ticket_counter = 4500  # Start from realistic Bell System ticket numbers
         self.completed_tickets = []
 
@@ -1921,7 +1931,7 @@ Subsystems available in this release:
 
         return impact
 
-    def cmd_help(self, args: List[str] = None) -> str:
+    def cmd_help(self, args: Optional[List[str]] = None) -> str:
         """
         Show available commands based on role with enhanced documentation.
 
@@ -2023,7 +2033,7 @@ For Bell System Practices: bsp search <topic>
             return f"No manual entry for {command}"
 
     # Basic UNIX commands
-    def cmd_ps(self, args: List[str] = None) -> str:
+    def cmd_ps(self, args: Optional[List[str]] = None) -> str:
         """
         Display Bell System processes in authentic UNIX V7 format.
 
@@ -2038,7 +2048,7 @@ For Bell System Practices: bsp search <topic>
             output += f"{proc['pid']:5d} {proc['tty']:>3} {proc['time']:>5} {proc['command']}\n"
         return output
 
-    def cmd_who(self, args: List[str] = None) -> str:
+    def cmd_who(self, args: Optional[List[str]] = None) -> str:
         """
         Display currently logged-in Bell System users.
 
@@ -2072,15 +2082,15 @@ For Bell System Practices: bsp search <topic>
             return "  ".join(files)
         return "ls: cannot access directory"
 
-    def cmd_pwd(self, args: List[str] = None) -> str:
+    def cmd_pwd(self, args: Optional[List[str]] = None) -> str:
         """Print current working directory."""
         return self.current_directory
 
-    def cmd_date(self, args: List[str] = None) -> str:
+    def cmd_date(self, args: Optional[List[str]] = None) -> str:
         """Display current system date and time."""
         return datetime.now().strftime("%a %b %d %H:%M:%S EST %Y")
 
-    def cmd_df(self, args: List[str] = None) -> str:
+    def cmd_df(self, args: Optional[List[str]] = None) -> str:
         """Display filesystem disk space usage."""
         return """Filesystem    1024-blocks  Used Available Capacity  Mounted on
 /dev/hp0a           7943  5129      1814    74%    /
@@ -2094,7 +2104,7 @@ For Bell System Practices: bsp search <topic>
         # Update trunk states based on time and network conditions
         self._update_trunk_states()
 
-        if not args:
+        if not args or args[0] == "status":
             # Dynamic trunk status with real-time variability
             current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
             active_count = len([tg for tg in self.trunk_groups.values() if tg["status"] == "ACTIVE"])
@@ -2312,7 +2322,7 @@ Next test due: {(datetime.now() + timedelta(days=30)).strftime('%B %d, %Y')}"""
             return self._show_trunk_maintenance_schedule()
 
         else:
-            available_commands = ["detail", "test", "traffic", "maintenance"]
+            available_commands = ["status", "detail", "test", "traffic", "maintenance"]
             return f"trunk: Unknown option '{args[0]}'\nAvailable commands: {', '.join(available_commands)}"
 
     def _update_trunk_states(self) -> None:
@@ -3303,7 +3313,7 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
             hour = datetime.now().hour
             base_records = 2800000  # Base daily record count
 
-            self.tnds_data = {
+            self.tnds_data: TndsData = {
                 'records_today': int(base_records * (hour / 24) * random.uniform(0.95, 1.05)),
                 'processing_status': random.choice(['Normal operation', 'High volume processing', 'Backlog processing']),
                 'storage_used': random.randint(65, 85),
@@ -4854,7 +4864,7 @@ Commands:
                 base_positions = random.randint(8, 15)
                 base_occupancy = random.uniform(40, 65)
 
-            self.tsps_data = {
+            self.tsps_data: TspsData = {
                 'total_positions': 52,
                 'active_positions': base_positions,
                 'occupancy': base_occupancy,
@@ -6399,7 +6409,7 @@ Commands:
 
         return dashboard
 
-    def _list_trouble_tickets(self, priority_filter: str = None) -> str:
+    def _list_trouble_tickets(self, priority_filter: Optional[str] = None) -> str:
         """List trouble tickets with optional priority filtering."""
         current_time = datetime.now().strftime("%H:%M:%S EST")
 
@@ -8463,7 +8473,7 @@ Regenerator Spacing:
         else:
             return f"regenerator: unknown option '{args[0]}'\nUse 'regenerator' for available commands"
 
-    def cmd_errors(self, args: List[str] = None) -> str:
+    def cmd_errors(self, args: Optional[List[str]] = None) -> str:
         """Display recent command errors and troubleshooting information."""
         if not self.recent_errors:
             return "No recent errors recorded.\n"
@@ -8511,7 +8521,7 @@ Regenerator Spacing:
         else:
             return f"Invalid level '{args[0]}'. Use: debug, info, warning, error\n"
 
-    def cmd_history(self, args: List[str] = None) -> str:
+    def cmd_history(self, args: Optional[List[str]] = None) -> str:
         """Display command history with optional filtering."""
         if not self.command_history:
             return "No command history available.\n"
@@ -8538,7 +8548,7 @@ Regenerator Spacing:
 
         return result
 
-    def cmd_status(self, args: List[str] = None) -> str:
+    def cmd_status(self, args: Optional[List[str]] = None) -> str:
         """Display Bell System operational status overview."""
         return """BELL SYSTEM STATUS OVERVIEW
 =============================
@@ -8561,7 +8571,7 @@ Recent Activity:
 Type 'help' for available commands.
 """
 
-    def cmd_test(self, args: List[str] = None) -> str:
+    def cmd_test(self, args: Optional[List[str]] = None) -> str:
         """Bell System equipment testing interface."""
         if not args:
             return """BELL SYSTEM TEST INTERFACE
@@ -8610,7 +8620,7 @@ All switching functions normal.
         else:
             return f"test: unknown test type '{test_type}'\nUse 'test' for available options"
 
-    def cmd_antenna(self, args: List[str] = None) -> str:
+    def cmd_antenna(self, args: Optional[List[str]] = None) -> str:
         """Bell System antenna and microwave equipment management."""
         if not args:
             return """ANTENNA SYSTEM STATUS
@@ -8689,7 +8699,7 @@ Antenna alignment completed successfully.
         else:
             return f"antenna: unknown option '{option}'\nUse 'antenna' for available commands"
 
-    def cmd_quit(self, args: List[str] = None) -> str:
+    def cmd_quit(self, args: Optional[List[str]] = None) -> str:
         """Exit the Bell System terminal session."""
         # Save command history if readline is available
         if READLINE_AVAILABLE and getattr(self, 'history_file', None):
@@ -8703,7 +8713,7 @@ Antenna alignment completed successfully.
         print("Thank you for using Bell System UNIX V7 Operations Terminal.")
         sys.exit(0)
 
-    def cmd_clear(self, args: List[str] = None) -> str:
+    def cmd_clear(self, args: Optional[List[str]] = None) -> str:
         """Clear the terminal screen."""
         os.system('clear' if os.name == 'posix' else 'cls')
         return ""
