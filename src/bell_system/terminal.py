@@ -45,6 +45,17 @@ except ImportError:  # pragma: no cover - readline is absent on stock Windows
     READLINE_AVAILABLE = False
 
 
+# Commands that are dispatched and documented but whose operational screens
+# are not built yet. Kept here so the terminal can tell the operator honestly
+# what is and is not available, and so a test can hold the list accountable.
+UNIMPLEMENTED_COMMANDS = frozenset({
+    '5ess', 'analysis', 'capacity', 'coer', 'collect', 'custdb', 'dbquery',
+    'dialtone', 'eqn', 'lmos', 'microwave', 'netdata', 'nroff', 'pic', 'provision',
+    'pwb', 'refer', 'rje', 'routing', 'sarts', 'satellite', 'tbl', 'toll', 'trace',
+    'training', 'troff', 'western',
+})
+
+
 def state_dir() -> str:
     """
     Return the per-user directory for logs and command history.
@@ -1345,6 +1356,45 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
         'quit': self.cmd_quit,
         'clear': self.cmd_clear
         }
+    def _subsystem_unavailable(self, command: str, summary: str) -> str:
+        """
+        Report a command whose interactive subsystem is not in this release.
+
+        These commands are dispatched and documented, but their operational
+        screens are not built yet. Saying so plainly is better than emitting a
+        placeholder string that reads like real output.
+
+        Args:
+            command: The command name, used to point at its manual page
+            summary: Short description of what the subsystem does
+
+        Returns:
+            A consistent operator-facing notice
+        """
+        available = sorted(set(self._command_handlers) - UNIMPLEMENTED_COMMANDS)
+        wrapped = []
+        line = '  '
+        for name in available:
+            if len(line) + len(name) + 2 > 72:
+                wrapped.append(line.rstrip())
+                line = '  '
+            line += name + ', '
+        wrapped.append(line.rstrip().rstrip(','))
+
+        return f"""{summary}
+{'=' * 50}
+
+{command}: subsystem not available in this release.
+
+This command is recognised and documented, but its operational screens
+have not been implemented. The manual page describes the intended
+interface:
+
+  man {command}
+
+Subsystems available in this release:
+""" + '\n'.join(wrapped)
+
     def _complete_command(self, text: str, state: int):
         """
         Readline completer offering Bell System command names.
@@ -5240,23 +5290,23 @@ Training Impact:          {random.uniform(5, 15):.0f}% improvement"""
     # Implement remaining critical commands with similar patterns
     def cmd_toll(self, args: List[str]) -> str:
         """Toll switching and billing operations"""
-        return "Toll switching operations - implementation follows pattern"
+        return self._subsystem_unavailable("toll", "Toll switching operations")
 
     def cmd_trace(self, args: List[str]) -> str:
         """Call tracing and routing analysis"""
-        return "Call trace operations - implementation follows pattern"
+        return self._subsystem_unavailable("trace", "Call trace operations")
 
     def cmd_dialtone(self, args: List[str]) -> str:
         """Dial tone testing and verification"""
-        return "Dial tone testing - implementation follows pattern"
+        return self._subsystem_unavailable("dialtone", "Dial tone testing")
 
     def cmd_routing(self, args: List[str]) -> str:
         """Call routing and path analysis"""
-        return "Routing analysis - implementation follows pattern"
+        return self._subsystem_unavailable("routing", "Routing analysis")
 
     def cmd_capacity(self, args: List[str]) -> str:
         """Network capacity planning and utilization"""
-        return "Capacity planning - implementation follows pattern"
+        return self._subsystem_unavailable("capacity", "Capacity planning")
 
     def cmd_service(self, args: List[str]) -> str:
         """Service order management and provisioning"""
@@ -6884,27 +6934,140 @@ RECOMMENDATIONS
 
     def cmd_dbquery(self, args: List[str]) -> str:
         """Database query and management tools"""
-        return "Database operations - implementation follows pattern"
+        return self._subsystem_unavailable("dbquery", "Database operations")
 
     def cmd_custdb(self, args: List[str]) -> str:
         """Customer database operations"""
-        return "Customer database - implementation follows pattern"
+        return self._subsystem_unavailable("custdb", "Customer database")
 
     def cmd_provision(self, args: List[str]) -> str:
         """Service provisioning and installation"""
-        return "Service provisioning - implementation follows pattern"
+        return self._subsystem_unavailable("provision", "Service provisioning")
 
     def cmd_collect(self, args: List[str]) -> str:
         """Toll collection and billing verification"""
-        return "Collect call operations - implementation follows pattern"
+        return self._subsystem_unavailable("collect", "Collect call operations")
 
     def cmd_handoff(self, args: List[str]) -> str:
-        """Authentic Bell System shift handoff procedures"""
-        return "Shift handoff procedures - implementation follows pattern"
+        """Bell System shift handoff briefing and turnover record."""
+        previous = self.shift_handoff["previous_shift"]
+        open_now = [t for t in self.active_tickets if t['status'] != 'RESOLVED']
+        critical = [t for t in open_now if t['priority'] == 'CRITICAL']
+        unacknowledged = [a for a in self.active_alarms if not a['acknowledged']]
+
+        output = f"""Bell System Shift Handoff Record
+{datetime.now().strftime('%B %d, %Y %H:%M EST')}
+{'=' * 50}
+
+INCOMING FROM PREVIOUS SHIFT
+{'=' * 40}
+Operator:                 {previous['operator']}
+Shift Ended:              {previous['end_time']}
+Summary:                  {previous['summary']}
+System Status:            {previous['system_status']}
+
+Key Issues Carried Forward:"""
+        for issue in previous['key_issues']:
+            output += f"\n  - {issue}"
+
+        output += f"""
+
+Tickets Transferred:      {', '.join(previous['open_tickets'])}
+
+Special Instructions:
+  {previous['special_instructions']}
+
+CURRENT SHIFT POSITION
+{'=' * 40}
+Operator On Duty:         {self.username}
+Role:                     {self.role_name or 'Unassigned'}
+Shift Number:             {self.current_shift}
+Commands This Session:    {len(self.command_history)}
+
+Open Trouble Tickets:     {len(open_now)}
+  Critical:               {len(critical)}
+Unacknowledged Alarms:    {len(unacknowledged)}
+Overall Health:           {self.system_health['overall_status']}
+"""
+
+        if critical:
+            output += "\nCRITICAL TICKETS REQUIRING HANDOFF\n" + "=" * 40
+            for ticket in critical:
+                output += f"""
+{ticket['id']}: {ticket['title']}
+  Office:             {ticket['affected_office']}
+  Assigned:           {ticket['assigned_team']}
+  Customers Affected: {ticket['customer_impact']:,}"""
+
+        output += f"""
+
+TURNOVER CHECKLIST
+{'=' * 40}
+  [ ] Review all open trouble tickets with relieving operator
+  [ ] Transfer unacknowledged alarms
+  [ ] Confirm maintenance windows in progress
+  [ ] Record special instructions in the shift log
+  [ ] Verify emergency contact roster is current
+
+Reference: BSP 010-100-000 (Shift Turnover Procedures)"""
+        return output
 
     def cmd_tariff(self, args: List[str]) -> str:
-        """Bell System tariff and rate structure information"""
-        return "Tariff information - implementation follows pattern"
+        """Bell System tariff and rate structure information."""
+        rates = self.rate_structures
+
+        if args:
+            category = args[0].lower()
+            if category not in rates:
+                return (f"tariff: Unknown category '{args[0]}'\n"
+                        f"Available categories: {', '.join(rates)}")
+
+            output = f"""Bell System Tariff Schedule - {category.title()}
+Effective: {datetime.now().strftime('%B %Y')}
+{'=' * 50}
+
+RATE SCHEDULE (per call, station-to-station)
+{'=' * 45}
+Period/Destination        First Minute    Each Additional
+{'-' * 45}"""
+            for period, amounts in rates[category].items():
+                output += (f"\n{period.title():<24}      ${amounts['first_minute']:>5.2f}"
+                           f"          ${amounts['additional']:>5.2f}")
+            output += """
+
+Rates shown are for direct-dialed station-to-station calls.
+Operator-assisted calls carry an additional service charge.
+
+Reference: FCC Tariff No. 263 (Interstate)"""
+            return output
+
+        output = f"""Bell System Tariff and Rate Structures
+Effective: {datetime.now().strftime('%B %Y')}
+{'=' * 50}
+
+RATE CATEGORIES
+{'=' * 45}"""
+        for category, periods in rates.items():
+            output += f"\n\n{category.upper()}"
+            for period, amounts in periods.items():
+                output += (f"\n  {period.title():<14} "
+                           f"${amounts['first_minute']:.2f} first minute, "
+                           f"${amounts['additional']:.2f} additional")
+
+        output += """
+
+RATE PERIODS
+=============================================
+Day:              8:00 AM - 5:00 PM weekdays
+Evening:          5:00 PM - 11:00 PM daily
+Night/Weekend:    11:00 PM - 8:00 AM, all day Saturday,
+                  Sunday until 5:00 PM
+
+Usage: tariff <category>   Detailed schedule for one category
+
+Reference: FCC Tariff No. 263 (Interstate)
+           State commission tariffs (Intrastate)"""
+        return output
 
     def cmd_events(self, args: List[str]) -> str:
         """Bell System operational events and shift activity"""
@@ -7043,28 +7206,28 @@ RECOMMENDATIONS
 
     def cmd_training(self, args: List[str]) -> str:
         """Bell System training programs and procedures"""
-        return "Training programs - implementation follows pattern"
+        return self._subsystem_unavailable("training", "Training programs")
 
     # Enhanced commands
     def cmd_5ess(self, args: List[str]) -> str:
         """5ESS Electronic Switching System operations"""
-        return "5ESS operations - implementation follows pattern"
+        return self._subsystem_unavailable("5ess", "5ESS operations")
 
     def cmd_western(self, args: List[str]) -> str:
         """Western Electric equipment specifications"""
-        return "Western Electric equipment - implementation follows pattern"
+        return self._subsystem_unavailable("western", "Western Electric equipment")
 
     def cmd_coer(self, args: List[str]) -> str:
         """Central Office Equipment Reports"""
-        return "COER reporting - implementation follows pattern"
+        return self._subsystem_unavailable("coer", "COER reporting")
 
     def cmd_lmos(self, args: List[str]) -> str:
         """Loop Maintenance Operations System"""
-        return "LMOS operations - implementation follows pattern"
+        return self._subsystem_unavailable("lmos", "LMOS operations")
 
     def cmd_sarts(self, args: List[str]) -> str:
         """Special service remote testing"""
-        return "SARTS testing - implementation follows pattern"
+        return self._subsystem_unavailable("sarts", "SARTS testing")
 
     def cmd_radio(self, args: List[str]) -> str:
         """TH-3 microwave radio system monitoring and maintenance"""
@@ -7455,56 +7618,126 @@ Use 'radio alignment' for antenna optimization"""
 
     def cmd_microwave(self, args: List[str]) -> str:
         """Microwave system analysis"""
-        return "Microwave analysis - implementation follows pattern"
+        return self._subsystem_unavailable("microwave", "Microwave analysis")
 
     def cmd_satellite(self, args: List[str]) -> str:
         """Satellite communication links"""
-        return "Satellite operations - implementation follows pattern"
+        return self._subsystem_unavailable("satellite", "Satellite operations")
 
     def cmd_alarm(self, args: List[str]) -> str:
-        """Central office alarm monitoring"""
-        return "Alarm monitoring - implementation follows pattern"
+        """Central office alarm monitoring and acknowledgement."""
+        health = self.system_health
+
+        if args and args[0] == "ack" and len(args) > 1:
+            alarm_id = args[1].upper()
+            for alarm in self.active_alarms:
+                if alarm["id"] == alarm_id:
+                    if alarm["acknowledged"]:
+                        return f"alarm: {alarm_id} was already acknowledged."
+                    alarm["acknowledged"] = True
+                    return f"""Alarm Acknowledged
+{'=' * 45}
+Alarm:            {alarm_id}
+Type:             {alarm['type']}
+Severity:         {alarm['severity']}
+System:           {alarm['system']}
+Acknowledged By:  {self.username}
+Time:             {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+
+The alarm remains active until the condition clears."""
+            return f"alarm: No active alarm with identifier '{alarm_id}'"
+
+        if args and args[0] not in ("status", "list"):
+            return ("alarm: Unknown option '%s'\n"
+                    "Available commands: status, list, ack <alarm-id>" % args[0])
+
+        output = f"""Bell System Central Office Alarm Monitor
+{datetime.now().strftime('%B %d, %Y %H:%M EST')}
+{'=' * 50}
+
+SYSTEM HEALTH
+{'=' * 40}
+Overall Status:           {health['overall_status']}
+Critical Alarms:          {health['critical_alarms']}
+Major Alarms:             {health['major_alarms']}
+Minor Alarms:             {health['minor_alarms']}
+Continuous Uptime:        {health['uptime_days']} days
+Last Service Outage:      {health['last_outage'].strftime('%B %d, %Y')}
+
+ACTIVE ALARMS
+{'=' * 40}"""
+
+        if not self.active_alarms:
+            output += "\nNo active alarms. All monitored systems normal."
+        else:
+            for alarm in sorted(
+                self.active_alarms,
+                key=lambda a: {'CRITICAL': 0, 'MAJOR': 1, 'MINOR': 2}[a['severity']]
+            ):
+                age = int((datetime.now() - alarm['timestamp']).total_seconds() / 60)
+                output += f"""
+{alarm['id']} [{alarm['severity']}]
+  Type:               {alarm['type']}
+  System:             {alarm['system']}
+  Condition:          {alarm['description']}
+  Raised:             {alarm['timestamp'].strftime('%H:%M EST')} ({age} minutes ago)
+  Acknowledged:       {'YES' if alarm['acknowledged'] else 'NO - REQUIRES ATTENTION'}"""
+
+        unacknowledged = [a for a in self.active_alarms if not a['acknowledged']]
+        output += f"""
+
+SUMMARY
+{'=' * 40}
+Total Active:             {len(self.active_alarms)}
+Awaiting Acknowledgement: {len(unacknowledged)}
+
+Commands:
+  alarm status              Show this display
+  alarm ack <alarm-id>      Acknowledge an alarm
+
+Reference: BSP 660-100-000 (Alarm Surveillance)"""
+        return output
 
     def cmd_pwb(self, args: List[str]) -> str:
         """Programmer's Workbench operations"""
-        return "PWB operations - implementation follows pattern"
+        return self._subsystem_unavailable("pwb", "PWB operations")
 
     def cmd_rje(self, args: List[str]) -> str:
         """Remote Job Entry system"""
-        return "RJE operations - implementation follows pattern"
+        return self._subsystem_unavailable("rje", "RJE operations")
 
     # Document preparation commands
     def cmd_nroff(self, args: List[str]) -> str:
         """Document formatting with nroff"""
-        return "nroff text processing - implementation follows pattern"
+        return self._subsystem_unavailable("nroff", "nroff text processing")
 
     def cmd_troff(self, args: List[str]) -> str:
         """Typesetting with troff"""
-        return "troff typesetting - implementation follows pattern"
+        return self._subsystem_unavailable("troff", "troff typesetting")
 
     def cmd_tbl(self, args: List[str]) -> str:
         """Table formatting preprocessor"""
-        return "Table formatting - implementation follows pattern"
+        return self._subsystem_unavailable("tbl", "Table formatting")
 
     def cmd_eqn(self, args: List[str]) -> str:
         """Mathematical equation formatting"""
-        return "Equation formatting - implementation follows pattern"
+        return self._subsystem_unavailable("eqn", "Equation formatting")
 
     def cmd_pic(self, args: List[str]) -> str:
         """Picture drawing language"""
-        return "Picture drawing - implementation follows pattern"
+        return self._subsystem_unavailable("pic", "Picture drawing")
 
     def cmd_refer(self, args: List[str]) -> str:
         """Bibliography and reference management"""
-        return "Reference management - implementation follows pattern"
+        return self._subsystem_unavailable("refer", "Reference management")
 
     def cmd_netdata(self, args: List[str]) -> str:
         """Network data collection tools"""
-        return "Network data tools - implementation follows pattern"
+        return self._subsystem_unavailable("netdata", "Network data tools")
 
     def cmd_analysis(self, args: List[str]) -> str:
         """Advanced network analysis and modeling"""
-        return "Network analysis - implementation follows pattern"
+        return self._subsystem_unavailable("analysis", "Network analysis")
 
     def cmd_t1carrier(self, args: List[str]) -> str:
         """T1 Digital Carrier System Operations"""
