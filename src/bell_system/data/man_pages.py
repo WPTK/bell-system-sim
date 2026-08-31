@@ -1074,43 +1074,7 @@ BELL SYSTEM PRACTICES
      BSP 100-400-001 - Toll Service Procedures
 """,
 
-    "routing": """
-NAME
-     routing - Call routing and path analysis
-
-SYNOPSIS
-     routing [analyze|optimize|tables|alternate] [origin-destination]
-
-DESCRIPTION
-     Analyze and optimize call routing paths through the Bell System
-     network including route selection algorithms, alternate routing,
-     and traffic engineering for efficient network utilization.
-
-OPTIONS
-     analyze         Analyze current routing patterns
-     optimize        Optimize routing for efficiency
-     tables          Display routing table information
-     alternate       Configure alternate routing paths
-
-ROUTING METHODS
-     HIERARCHICAL:           Traditional Bell System hierarchy
-     DYNAMIC:               Traffic-responsive routing
-     ECONOMIC:              Cost-optimized path selection
-     LOAD BALANCING:        Traffic distribution algorithms
-
-EXAMPLES
-     routing analyze NYC-CHI            Analyze route efficiency
-     routing optimize NORTHEAST         Optimize regional routing
-     routing tables display             Show routing tables
-
-SEE ALSO
-     traffic(1), capacity(1), toll(1), netplan(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-700-001 - Network Routing Procedures
-""",
-
-    "capacity": """
+        "capacity": """
 NAME
      capacity - Network capacity planning and utilization
 
@@ -2499,5 +2463,58 @@ SEE ALSO
 
 BELL SYSTEM PRACTICES
      BSP 660-100-000 - Transmission Maintenance
+""",
+
+    "routing": """
+NAME
+     routing - hierarchical alternate routing analysis
+
+SYNOPSIS
+     routing [status]
+     routing trace <from-office> <to-office>
+     routing chain <office>
+
+DESCRIPTION
+     Examine how the toll network routes a call, and follow one through.
+
+     The rule is to complete each connection at the lowest level of the
+     hierarchy that can carry it, using the fewest trunks in tandem. A
+     call is offered first to a high-usage group - a direct route
+     engineered to overflow - and only when every trunk there is busy
+     does it climb its homing chain on final groups.
+
+     Final groups are the last route available. When every trunk in one
+     is busy the call is blocked and the caller receives reorder.
+
+     Note the distinction between topology and use: a direct trunk group
+     is not necessarily a high-usage group. Direct and tandem describe how
+     groups are connected; high-usage and final describe how traffic is
+     offered to them, and the two are engineered differently.
+
+GRADE OF SERVICE
+     Final groups        P.01 - one call in a hundred finds all trunks
+                         busy in the busy hour
+     High-usage groups   P.10 - overflow is their purpose
+
+     Grade of service is engineered per group, not end to end, so a
+     connection crossing several groups blocks more often than any one
+     of them does.
+
+CONNECTION LENGTH
+     A minimum toll connection is three trunks: up a toll connecting
+     trunk from the originating end office, across one intertoll group,
+     and back down at the far end. The average was slightly over three.
+     No connection could use more than nine trunks in tandem.
+
+     Some end offices had end office toll trunks that bypassed the toll
+     centre entirely, and those are tried first where they exist.
+
+EXAMPLES
+     routing                            Show the routing table
+     routing trace EO-BOS-01 EO-CHI-01  Follow a Boston to Chicago call
+     routing chain EO-CHI-01            Show an office's homing chain
+
+SEE ALSO
+     trunk(1), tnds(1), switch(1), dialtone(1)
 """,
 }

@@ -44,6 +44,7 @@ from .data.carrier import (
     MULTIPLEX_PILOTS_KHZ,
 )
 from .data.man_pages import MAN_PAGES
+from .routing import MAX_TRUNKS_IN_CONNECTION, build_default_network
 from .data.signaling import (
     MF_FREQUENCIES,
     PROGRESS_TONES,
@@ -88,8 +89,9 @@ except ImportError:  # pragma: no cover - readline is absent on stock Windows
 # are not built yet. Kept here so the terminal can tell the operator honestly
 # what is and is not available, and so a test can hold the list accountable.
 UNIMPLEMENTED_COMMANDS = frozenset({
-    '5ess', 'analysis', 'capacity', 'coer', 'collect', 'custdb', 'dbquery', 'eqn', 'lmos', 'microwave', 'netdata', 'nroff', 'pic', 'provision',
-    'pwb', 'refer', 'rje', 'routing', 'sarts', 'satellite', 'tbl', 'toll', 'trace',
+    '5ess', 'analysis', 'capacity', 'coer', 'collect', 'custdb', 'dbquery',
+    'eqn', 'lmos', 'microwave', 'netdata', 'nroff', 'pic', 'provision',
+    'pwb', 'refer', 'rje', 'sarts', 'satellite', 'tbl', 'toll', 'trace',
     'training', 'troff', 'western',
 })
 
@@ -260,6 +262,8 @@ class BellSystemTerminal:
         self.current_shift: int = 1
 
         # Initialize Bell System environment
+        # The toll network the routing engine searches.
+        self.toll_network = build_default_network()
         self._initialize_ticket_system()
         self._initialize_project_numbers()
         self._initialize_rate_structures()
@@ -5716,9 +5720,104 @@ Dial tone is {' + '.join(f'{hz} Hz' for hz in dial.frequencies)} at {dial.level_
         return (f"dialtone: Unknown option '{args[0]}'\n"
                 "Available commands: test, tone, mf")
 
-    def cmd_routing(self, args: List[str]) -> str:
-        """Call routing and path analysis"""
-        return self._subsystem_unavailable("routing", "Routing analysis")
+    def cmd_routing(self, args: Optional[List[str]] = None) -> str:
+        """Hierarchical alternate routing analysis and call tracing."""
+        args = args or []
+        network = self.toll_network
+
+        if not args or args[0] == 'status':
+            output = f"""Hierarchical Alternate Routing
+{self.clock.timestamp()}
+{'=' * 62}
+
+ROUTING RULE
+{'=' * 62}
+Complete each connection at the lowest level of the hierarchy that can
+carry it, using the fewest trunks in tandem. A call is offered first to a
+high-usage group; only when every trunk there is busy does it overflow to
+a final group up its homing chain.
+
+Final groups are the last route available. When every trunk in one is
+busy the call is blocked and the caller receives reorder.
+
+GRADE OF SERVICE
+{'=' * 62}
+Final trunk groups:       P.01 - one call in 100 finds all trunks busy
+High-usage groups:        P.10 - engineered to overflow, which is the
+                          purpose of provisioning one
+Maximum trunks in tandem: {MAX_TRUNKS_IN_CONNECTION}
+Typical toll connection:  3 trunks - up a toll connecting trunk, across
+                          one intertoll group, and back down
+
+OFFICES IN THE ROUTING TABLE
+{'=' * 62}
+CODE          CLASS  OFFICE                          HOMES ON
+{'-' * 62}"""
+            for office in sorted(network.offices.values(),
+                                 key=lambda o: (o.switch_class, o.code)):
+                output += (f"\n{office.code:<13} {office.switch_class:<6} "
+                           f"{office.name[:30]:<31} {office.homes_on or '-'}")
+            return output + """
+
+Commands:
+  routing trace <from> <to>   Offer a call and follow it through
+  routing chain <office>      Show an office's homing chain
+  routing status              This display"""
+
+        if args[0] == 'chain' and len(args) > 1:
+            code = args[1].upper()
+            if code not in network.offices:
+                return f"routing: no office {code} in the routing table"
+            output = f"""Homing Chain: {code}
+{'=' * 55}
+
+An office joined to a higher class office by a final group is said to
+home on it, though not every office homes on the next class up.
+
+"""
+            for depth, entry in enumerate(network.homing_chain(code)):
+                office = network.offices[entry]
+                output += (f"{'  ' * depth}{'+- ' if depth else ''}"
+                           f"{office.code} ({office.class_name()}) {office.name}\n")
+            return output.rstrip()
+
+        if args[0] == 'trace' and len(args) > 2:
+            origin, destination = args[1].upper(), args[2].upper()
+            result = network.route(origin, destination)
+            output = f"""Route Trace
+{self.clock.timestamp()}
+{'=' * 62}
+Originating office:   {origin}
+Terminating office:   {destination}
+
+ROUTE ADVANCE
+{'=' * 62}"""
+            for step, attempt in enumerate(result.attempts, 1):
+                output += f"\n{step}. {attempt}"
+
+            output += f"""
+
+RESULT
+{'=' * 62}
+Outcome:              {'COMPLETED' if result.completed else 'BLOCKED - REORDER'}
+Trunks in tandem:     {result.trunk_count()} of {MAX_TRUNKS_IN_CONNECTION} maximum
+{result.reason}"""
+
+            if result.legs:
+                output += f"""
+
+CONNECTION
+{'=' * 62}
+FROM          TO            GROUP TYPE             OCCUPANCY
+{'-' * 62}"""
+                for leg in result.legs:
+                    output += (f"\n{leg.from_office:<13} {leg.to_office:<13} "
+                               f"{leg.group_type:<22} {leg.utilization:>3}%"
+                               f"{'  ALL TRUNKS BUSY' if leg.blocked else ''}")
+            return output
+
+        return (f"routing: Unknown option '{args[0]}'\n"
+                "Available commands: status, trace <from> <to>, chain <office>")
 
     def cmd_capacity(self, args: List[str]) -> str:
         """Network capacity planning and utilization"""
