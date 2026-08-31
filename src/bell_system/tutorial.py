@@ -435,7 +435,7 @@ REMEMBER:
 
         certificate = f"""
 ╔════════════════════════════════════════════════════════════════╗
-║                    BELL SYSTEM LABORATORIES                    ║
+║                    BELL TELEPHONE LABORATORIES                    ║
 ║                        TRAINING DIVISION                       ║
 ║                                                                ║
 ║                     CERTIFICATE OF COMPLETION                  ║

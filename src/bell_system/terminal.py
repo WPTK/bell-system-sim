@@ -137,7 +137,6 @@ class BellSystemTerminal:
         'q': 'quit',
         'exit': 'quit',
         'logout': 'quit',
-        'cls': 'clear',
         'clear': 'clear',
 
         # Bell System operation aliases
@@ -169,7 +168,6 @@ class BellSystemTerminal:
         'dir': 'ls',
 
         # System monitoring aliases
-        'top': 'ps',
         'proc': 'ps',
         'users': 'who',
         'w': 'who',
@@ -237,7 +235,7 @@ class BellSystemTerminal:
         # System environment
         self.current_directory: str = "/usr/users/sysop"
         self.username: str = "sysop"
-        self.hostname: str = "bell-unix"
+        self.hostname: str = "mhuxco"
         self.shell: str = "/bin/sh"
         self.role: Optional[str] = None
         self.role_name: Optional[str] = None
@@ -665,20 +663,15 @@ class BellSystemTerminal:
                 "mode": "drwxrwxrwx", "size": 2048,
                 "files": ["open", "pending", "closed"]
             },
-            "/var": {
-                "type": "dir", "owner": "root", "group": "bell",
-                "mode": "drwxr-xr-x", "size": 512,
-                "files": ["log", "msg", "run"]
-            },
-            "/var/log": {
+            "/usr/adm": {
                 "type": "dir", "owner": "root", "group": "bell",
                 "mode": "drwxr-xr-x", "size": 1024,
-                "files": ["system", "switch", "uucp", "mail"]
+                "files": ["wtmp", "messages", "sulog", "acct", "uucplog"]
             },
             "/etc/passwd": {
                 "type": "file", "owner": "root", "group": "bell",
                 "mode": "-rw-r--r--", "size": 245,
-                "content": ("root::0:1:System Administrator:/root:/bin/sh\n"
+                "content": ("root::0:1:System Administrator:/:/bin/sh\n"
                            "sysop::100:10:UNIX Systems Operator:/usr/users/sysop:/bin/sh\n"
                            "switch::101:10:Switching Technician:/usr/users/switch:/bin/sh\n"
                            "field::102:10:Field Support Liaison:/usr/users/field:/bin/sh\n"
@@ -709,10 +702,10 @@ class BellSystemTerminal:
             {"pid": 23, "command": "update", "tty": "?", "time": "0:01", "user": "root"},
             {"pid": 45, "command": "sh", "tty": "co", "time": "0:00", "user": "root"},
             {"pid": 67, "command": "getty", "tty": "01", "time": "0:00", "user": "root"},
-            {"pid": 89, "command": "uucpd", "tty": "?", "time": "0:00", "user": "uucp"},
+            {"pid": 89, "command": "uucico", "tty": "?", "time": "0:00", "user": "uucp"},
             {"pid": 102, "command": "cron", "tty": "?", "time": "0:00", "user": "root"},
             {"pid": 115, "command": "switchd", "tty": "?", "time": "0:03", "user": "switch"},
-            {"pid": 127, "command": "mailq", "tty": "?", "time": "0:00", "user": "root"},
+            {"pid": 127, "command": "uuxqt", "tty": "?", "time": "0:00", "user": "root"},
             {"pid": 138, "command": "tnds", "tty": "?", "time": "0:01", "user": "tnds"},
             {"pid": 145, "command": "sartsd", "tty": "?", "time": "0:00", "user": "sarts"},
             {"pid": 152, "command": "radiod", "tty": "?", "time": "0:02", "user": "radio"}
@@ -2309,10 +2302,9 @@ For Bell System Practices: bsp search <topic>
 
     def cmd_df(self, args: Optional[List[str]] = None) -> str:
         """Display filesystem disk space usage."""
-        return """Filesystem    1024-blocks  Used Available Capacity  Mounted on
-/dev/hp0a           7943  5129      1814    74%    /
-/dev/hp0g          42277 13387     24661    35%    /usr
-/dev/hp0h          20895  6234     12572    33%    /att"""
+        return """/dev/hp0a   1814   431
+/dev/hp0g  24661  3902
+/dev/hp0h  12572  2317"""
 
     # Bell System specific commands (implementations would continue...)
     def cmd_trunk(self, args: List[str]) -> str:
@@ -5780,7 +5772,8 @@ Service Type:             {current_request}
 Please hold while we connect your call.
 An operator will be with you shortly to assist with your request.
 
-For immediate assistance with emergencies, dial 0-911."""
+For immediate assistance, dial 0 for the operator, or report to
+the Switching Control Center on the emergency order wire."""
 
     def _setup_conference_call(self) -> str:
         """Set up conference call with realistic procedures."""

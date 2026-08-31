@@ -20,9 +20,9 @@ class SimpleTerminal:
     def __init__(self):
         self.settings = Settings(settings_path(state_dir()))
         self.clock = SimClock(self.settings)
-        self.current_directory = "/usr/users/sysop"
+        self.current_directory = "/usr/sysop"
         self.username = "sysop"
-        self.hostname = "bell-unix"
+        self.hostname = "mhuxco"
         self.shell = "/bin/sh"
         self.command_history = []
         self.role = None
@@ -38,24 +38,24 @@ class SimpleTerminal:
 
         # Simulate authentic Bell System UNIX file system
         self.filesystem = {
-            "/": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 512, "files": ["bin", "dev", "etc", "lib", "tmp", "usr", "home", "root"]},
-            "/bin": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 1024, "files": ["sh", "ls", "cat", "cp", "mv", "rm", "mkdir", "rmdir", "ps", "who", "date", "grep", "ed", "cc", "as", "ld"]},
-            "/dev": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 256, "files": ["console", "tty00", "tty01", "rp0", "mt0"]},
-            "/etc": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 512, "files": ["passwd", "group", "motd", "rc"]},
-            "/lib": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 256, "files": ["libc.a", "crt0.o"]},
-            "/tmp": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxrwxrwx", "size": 64, "files": []},
-            "/usr": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 1024, "files": ["bin", "lib", "include", "src", "doc", "man"]},
-            "/usr/bin": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 2048, "files": ["awk", "sed", "sort", "uniq", "wc", "find", "tr", "od", "file", "make", "yacc", "lex", "ratfor", "f77", "adb"]},
-            "/usr/lib": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 512, "files": ["libm.a", "liby.a", "libl.a"]},
-            "/usr/include": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 256, "files": ["stdio.h", "signal.h", "sys"]},
-            "/usr/src": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 128, "files": ["cmd", "lib", "games"]},
-            "/home": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwxr-xr-x", "size": 64, "files": []},
-            "/root": {"type": "dir", "owner": "root", "group": "wheel", "mode": "drwx------", "size": 128, "files": ["hello.c", ".profile"]},
-            "/etc/passwd": {"type": "file", "owner": "root", "group": "wheel", "mode": "-rw-r--r--", "size": 156, "content": "root::0:1::/root:/bin/sh\ndaemon::1:1::/:/bin/sh\nbin::2:2::/bin:\nsys::3:3::/usr/src:\nadm::4:4::/usr/adm:\nuucp::5:5::/usr/spool/uucp:/usr/lib/uucp/uucico\n"},
-            "/etc/group": {"type": "file", "owner": "root", "group": "wheel", "mode": "-rw-r--r--", "size": 87, "content": "wheel::0:root\ndaemon::1:daemon\nbin::2:bin\nsys::3:sys\nadm::4:adm\nuucp::5:uucp\n"},
-            "/etc/motd": {"type": "file", "owner": "root", "group": "wheel", "mode": "-rw-r--r--", "size": 243, "content": "UNIX Version 7\nBell Telephone Laboratories\nMurray Hill, New Jersey\n\nCopyright (c) 1976 Bell Telephone Laboratories, Incorporated.\nAll rights reserved.\n\nWelcome to the UNIX time-sharing system.\nFor assistance, contact your system administrator.\n\nCurrent system load: light\nUsers currently logged in: 3\n"},
-            "/root/hello.c": {"type": "file", "owner": "root", "group": "wheel", "mode": "-rw-r--r--", "size": 78, "content": "#include <stdio.h>\n\nmain()\n{\n    printf(\"hello, world\\n\");\n}\n"},
-            "/root/.profile": {"type": "file", "owner": "root", "group": "wheel", "mode": "-rw-r--r--", "size": 112, "content": "# User profile for root\nPATH=/bin:/usr/bin\nexport PATH\nHOME=/root\nexport HOME\nSHELL=/bin/sh\nexport SHELL\n"}
+            "/": {"type": "dir", "owner": "root", "group": "other", "mode": "drwxr-xr-x", "size": 512, "files": ["bin", "dev", "etc", "lib", "tmp", "usr", "unix"]},
+            "/bin": {"type": "dir", "owner": "root", "group": "other", "mode": "drwxr-xr-x", "size": 1024, "files": ["sh", "ls", "cat", "cp", "mv", "rm", "mkdir", "rmdir", "ps", "who", "date", "grep", "ed", "cc", "as", "ld"]},
+            "/dev": {"type": "dir", "owner": "root", "group": "other", "mode": "drwxr-xr-x", "size": 256, "files": ["console", "tty00", "tty01", "rp0", "mt0"]},
+            "/etc": {"type": "dir", "owner": "root", "group": "other", "mode": "drwxr-xr-x", "size": 512, "files": ["passwd", "group", "motd", "rc"]},
+            "/lib": {"type": "dir", "owner": "root", "group": "other", "mode": "drwxr-xr-x", "size": 256, "files": ["libc.a", "crt0.o"]},
+            "/tmp": {"type": "dir", "owner": "root", "group": "other", "mode": "drwxrwxrwx", "size": 64, "files": []},
+            "/usr": {"type": "dir", "owner": "root", "group": "other", "mode": "drwxr-xr-x", "size": 1024, "files": ["adm", "bin", "lib", "include", "src", "doc", "man", "spool", "sysop"]},
+            "/usr/bin": {"type": "dir", "owner": "root", "group": "other", "mode": "drwxr-xr-x", "size": 2048, "files": ["awk", "sed", "sort", "uniq", "wc", "find", "tr", "od", "file", "make", "yacc", "lex", "ratfor", "f77", "adb"]},
+            "/usr/lib": {"type": "dir", "owner": "root", "group": "other", "mode": "drwxr-xr-x", "size": 512, "files": ["libm.a", "liby.a", "libl.a"]},
+            "/usr/include": {"type": "dir", "owner": "root", "group": "other", "mode": "drwxr-xr-x", "size": 256, "files": ["stdio.h", "signal.h", "sys"]},
+            "/usr/src": {"type": "dir", "owner": "root", "group": "other", "mode": "drwxr-xr-x", "size": 128, "files": ["cmd", "lib", "games"]},
+            "/usr/sysop": {"type": "dir", "owner": "sysop", "group": "other", "mode": "drwxr-xr-x", "size": 128, "files": ["hello.c", ".profile"]},
+
+            "/etc/passwd": {"type": "file", "owner": "root", "group": "other", "mode": "-rw-r--r--", "size": 156, "content": "root::0:1::/:/bin/sh\ndaemon::1:1::/:\nbin::3:3::/bin:\nsys::4:4::/usr/src:\nadm::5:5::/usr/adm:\nuucp::6:6::/usr/spool/uucp:/usr/lib/uucp/uucico\nsysop::17:1::/usr/sysop:/bin/sh\n"},
+            "/etc/group": {"type": "file", "owner": "root", "group": "other", "mode": "-rw-r--r--", "size": 87, "content": "other::1:\ndaemon::1:daemon\nbin::3:bin\nsys::4:sys\nadm::5:adm\nuucp::6:uucp\n"},
+            "/etc/motd": {"type": "file", "owner": "root", "group": "other", "mode": "-rw-r--r--", "size": 243, "content": "UNIX Version 7\nBell Telephone Laboratories\nMurray Hill, New Jersey\n\nCopyright (c) 1979 Bell Telephone Laboratories, Incorporated.\nAll rights reserved.\n\nWelcome to the UNIX time-sharing system.\nFor assistance, contact your system administrator.\n\nCurrent system load: light\nUsers currently logged in: 3\n"},
+            "/usr/sysop/hello.c": {"type": "file", "owner": "root", "group": "other", "mode": "-rw-r--r--", "size": 78, "content": "#include <stdio.h>\n\nmain()\n{\n    printf(\"hello, world\\n\");\n}\n"},
+            "/usr/sysop/.profile": {"type": "file", "owner": "root", "group": "other", "mode": "-rw-r--r--", "size": 112, "content": "# User profile for sysop\nPATH=/bin:/usr/bin\nexport PATH\nHOME=/usr/sysop\nexport HOME\nSHELL=/bin/sh\nexport SHELL\n"}
         }
 
         # Simulate running processes (authentic V7 system processes)
@@ -76,9 +76,9 @@ class SimpleTerminal:
             {"user": "ken", "tty": "02", "login": "Mar 10 07:45"},  # Ken Thompson
         ]
 
-    def emit(self, text: str = '') -> None:
+    def emit(self, text: str = '', end: str = '\n') -> None:
         """Write output under the active character-set setting."""
-        print(render(text, self.settings.get('display.charset')))
+        print(render(text, self.settings.get('display.charset')), end=end)
 
     def show_banner(self):
         """Display authentic UNIX V7 login banner"""
@@ -87,7 +87,7 @@ class SimpleTerminal:
         self.emit("Bell Telephone Laboratories")
         self.emit("Murray Hill, New Jersey")
         self.emit("="*60)
-        self.emit("\nCopyright (c) 1976 Bell Telephone Laboratories, Incorporated.")
+        self.emit("\nCopyright (c) 1979 Bell Telephone Laboratories, Incorporated.")
         self.emit("All rights reserved.")
         self.emit("\nlogin: ", end="")
 
@@ -554,7 +554,7 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
         self.emit("Bell Telephone Laboratories")
         self.emit("Murray Hill, New Jersey")
         self.emit("="*60)
-        self.emit("\nCopyright (c) 1976 Bell Telephone Laboratories, Incorporated.")
+        self.emit("\nCopyright (c) 1979 Bell Telephone Laboratories, Incorporated.")
         self.emit("All rights reserved.")
         self.emit("\nlogin: root")
         self.emit("Password: ")
