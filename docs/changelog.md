@@ -85,6 +85,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`help` leads with the work.** It now opens with the board and how many
+  reports are on it, groups commands by what they are for, marks anything the
+  craftsperson is not signed off on, and lists what is still locked. `help
+  <command>` gives the one-line summary from that command's manual page and
+  says if it is gated.
+- **The shift briefing shows the board.** Whatever position was selected,
+  the briefing states what is pending, the nearest commitment, the difficulty,
+  the service index and how many qualifications are held - and on a first
+  shift, that the harder setting exists.
+- **The tutorial teaches the job.** A new step walks the report loop, how to
+  read a loop measurement, and why closing a faulty line as code 8 costs more
+  than leaving it open.
 - `testboard` is a working board rather than a fixed screen: it measures loops,
   reaches test lines and reads supervision.
 - `who` lists the craft roster with job titles, and everyone it lists can
@@ -102,6 +114,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that could not have produced one. Offices now render as a place and a CLLI.
 - `TroubleTicket.affected_office` was declared as `str` while every producer
   and consumer treated it as a record. The declaration now matches the code.
+- The SARTS role's help listed `testing` and `circuits`, neither of which has
+  ever been a command. Every name in the role help is now checked against the
+  dispatch table by the test suite.
 - The module integrity guard no longer flags ordinary prose that begins with
   the word "from" as an import stranded in a docstring.
 

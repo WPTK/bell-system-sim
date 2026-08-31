@@ -290,3 +290,109 @@ class TestQualificationGating:
         result = raw_terminal.execute_command('qual index')
         assert 'of 100' in result
         assert 'Worth to the office' in result
+
+
+class TestHelpAndBriefing:
+    """The on-ramp: what a new craftsperson is told there is to do."""
+
+    def test_every_role_command_actually_exists(self, terminal):
+        """
+        This list once named two commands that had never been implemented.
+        """
+        from bell_system.terminal import BellSystemTerminal
+        for role, commands in BellSystemTerminal.ROLE_COMMANDS.items():
+            for command in commands:
+                assert command in terminal._command_handlers, \
+                    f'{role} help lists {command}, which does not exist'
+
+    def test_every_help_command_has_a_manual_page(self, terminal):
+        from bell_system.terminal import BellSystemTerminal
+        listed = set()
+        for commands in BellSystemTerminal.ROLE_COMMANDS.values():
+            listed.update(commands)
+        for name, _ in BellSystemTerminal.BUREAU_COMMANDS:
+            listed.add(name)
+        for name, _ in BellSystemTerminal.PEOPLE_COMMANDS:
+            listed.add(name)
+        undocumented = sorted(listed - set(terminal.man_pages))
+        assert not undocumented, f'no manual page for {undocumented}'
+
+    def test_help_leads_with_the_work(self, raw_terminal):
+        result = raw_terminal.execute_command('help')
+        assert 'THE WORK' in result
+        assert 'report' in result
+        assert 'trouble report(s) on your board' in result
+
+    def test_help_marks_what_is_not_signed_off(self, raw_terminal):
+        result = raw_terminal.execute_command('help')
+        assert '*testcall' in result
+        assert 'not signed off on' in result.lower()
+
+    def test_help_stops_marking_once_qualified(self, terminal):
+        result = terminal.execute_command('help')
+        assert '*' not in result.split('THE SYSTEM')[0]
+
+    def test_help_on_one_command_summarises_it(self, terminal):
+        result = terminal.execute_command('help mlt')
+        assert 'mechanised loop testing' in result
+        assert 'man mlt' in result
+
+    def test_help_on_a_locked_command_says_so(self, raw_terminal):
+        result = raw_terminal.execute_command('help tnds')
+        assert 'not signed off' in result
+        assert 'Toll Network' in result
+
+    def test_help_resolves_an_alias(self, terminal):
+        assert 'No help available' not in terminal.execute_command('help board')
+
+    def test_help_on_a_stranger_says_so(self, terminal):
+        assert 'No help available' in terminal.execute_command('help frobnicate')
+
+    def test_the_briefing_shows_the_board(self, raw_terminal, capsys):
+        raw_terminal._apply_role('field', 'Field Support Liaison')
+        raw_terminal.show_shift_briefing()
+        printed = capsys.readouterr().out
+        assert 'Repair Service Bureau' in printed
+        assert 'Reports on your board' in printed
+        assert 'Service index' in printed
+        assert 'Fun Simulation' in printed
+
+    def test_the_briefing_offers_the_harder_setting_on_a_first_shift(
+            self, raw_terminal, capsys):
+        raw_terminal._apply_role('field', 'Field Support Liaison')
+        raw_terminal.show_shift_briefing()
+        assert 'game.difficulty craft' in capsys.readouterr().out
+
+    def test_the_briefing_stops_offering_it_once_you_have_worked(
+            self, raw_terminal, capsys):
+        raw_terminal.career.reports_closed = 5
+        raw_terminal._apply_role('field', 'Field Support Liaison')
+        raw_terminal.show_shift_briefing()
+        assert 'game.difficulty craft' not in capsys.readouterr().out
+
+
+class TestTutorial:
+    """The tutorial teaches the work, not only the commands."""
+
+    def test_the_work_is_a_tutorial_step(self):
+        from bell_system.tutorial import BellSystemTutorial
+        tutorial = BellSystemTutorial()
+        assert 'trouble_reports' in tutorial.tutorial_steps
+        assert hasattr(tutorial, 'step_trouble_reports')
+
+    def test_every_declared_step_is_implemented(self):
+        from bell_system.tutorial import BellSystemTutorial
+        tutorial = BellSystemTutorial()
+        for step in tutorial.tutorial_steps:
+            assert hasattr(tutorial, f'step_{step}'), f'{step} has no method'
+
+    def test_the_steps_are_numbered_in_order(self):
+        import re
+        from pathlib import Path
+        source = Path(__file__).parent.parent / 'src' / 'bell_system' / \
+            'tutorial.py'
+        numbers = [int(match) for match in
+                   re.findall(r'^STEP (\d+):', source.read_text(),
+                              re.MULTILINE)]
+        assert numbers == sorted(numbers)
+        assert len(numbers) == len(set(numbers)), 'a step number is repeated'

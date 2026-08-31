@@ -1179,8 +1179,46 @@ class BellSystemTerminal:
         self.emit("  TNDS Collection: ACTIVE")
         self.emit("  Emergency Services: OPERATIONAL")
 
+        self._emit_board_briefing()
+
         self.emit("\nType 'help' for available commands or 'man <command>' for detailed help.")
         self.emit(f"{'='*60}")
+
+    def _emit_board_briefing(self) -> None:
+        """
+        Show the board the shift starts with, and what to do about it.
+
+        Whatever position a craftsperson holds, there is a board of customer
+        trouble waiting. Saying so at the start of the shift is the
+        difference between a terminal with commands and a terminal with a
+        job.
+        """
+        pending = self.desk.pending()
+        difficulty = self._difficulty()
+
+        self.emit("\nRepair Service Bureau:")
+        self.emit(f"  Reports on your board: {len(pending)}")
+        if pending:
+            oldest = pending[0]
+            self.emit(f"  Nearest commitment:    {oldest.number} "
+                      f"({oldest.record.telephone_number}) in "
+                      f"{oldest.age_label()}")
+        self.emit(f"  Difficulty:            {difficulty.name}")
+        self.emit(f"  Service index:         "
+                  f"{self.career.service_index():.1f} of 100 "
+                  f"({self.career.index_band()})")
+        self.emit(f"  Shift:                 {self.career.shift}")
+
+        held = len(self.career.qualifications)
+        self.emit(f"  Qualifications:        {held} of "
+                  f"{len(QUALIFICATIONS)} held")
+
+        self.emit("\n  'report' for the board, 'mlt <report>' to measure a "
+                  "loop,")
+        self.emit("  'qual' for your craft record.")
+        if self.career.shift == 1 and not self.career.reports_closed:
+            self.emit("  'set game.difficulty craft' if you want the shift "
+                      "worked the hard way.")
 
     def _get_sysop_briefing(self) -> str:
         """Get UNIX Systems Operator briefing."""
@@ -2645,12 +2683,53 @@ Subsystems available in this release:
 
         return impact
 
+    # Commands each position works day to day. Every name here is checked
+    # against the dispatch table by the test suite: this list once carried
+    # two commands that had never existed.
+    ROLE_COMMANDS = {
+        "sysop": ["ps", "df", "who", "uucp", "pwb", "rje", "date", "ls"],
+        "switch": ["trunk", "switch", "toll", "crossbar", "alarm", "5ess",
+                   "3a"],
+        "field": ["trace", "dialtone", "emergency", "ticket", "provision",
+                  "sarts"],
+        "noc": ["trunk", "emergency", "switch", "ticket", "traffic", "tnds",
+                "satellite"],
+        "tsps": ["tsps", "operator", "directory", "collect", "billing"],
+        "dba": ["dbquery", "custdb", "billing", "service"],
+        "netplan": ["netplan", "traffic", "routing", "capacity", "billing",
+                    "tnds"],
+        "custserv": ["service", "provision", "billing", "custdb",
+                     "directory"],
+        "radio": ["radio", "microwave", "satellite", "alarm"],
+        "tnds": ["tnds", "netdata", "analysis", "traffic"],
+        "sarts": ["sarts", "testline", "testcall", "provision", "trunk"],
+        "docprep": ["nroff", "troff", "tbl", "eqn", "pic", "refer", "pwb"],
+    }
+
+    # The work itself, which every position has a board of.
+    BUREAU_COMMANDS = (
+        ('report', 'The pending trouble reports on your board'),
+        ('mlt', 'Measure a subscriber loop'),
+        ('testboard', 'The test board: loops, test lines, supervision'),
+        ('testline', 'Far-end test lines and responders'),
+        ('testcall', 'Place a test call through the network'),
+        ('qual', 'Your craft record and service index'),
+    )
+
+    PEOPLE_COMMANDS = (
+        ('who', 'Who is on the system'),
+        ('write', 'Write to another terminal'),
+        ('mail', 'Read your mail'),
+        ('orderwire', 'The maintenance order wire'),
+        ('handoff', 'Shift turnover; handoff relieve to sign off'),
+    )
+
     def cmd_help(self, args: Optional[List[str]] = None) -> str:
         """
-        Show available commands based on role with enhanced documentation.
+        Show available commands, marking what this craftsperson may work.
 
-        Provides role-specific command listings and basic usage information.
-        For detailed information, users should use the man command.
+        Qualification governs what may be used, so the listing says so rather
+        than offering a command that will be refused.
 
         Args:
             args: Optional command name for specific help
@@ -2659,57 +2738,85 @@ Subsystems available in this release:
             Help information formatted for terminal display
         """
         if args and args[0]:
-            # Show help for specific command
             command = args[0].lower()
-            if command in self.man_pages:
-                return f"Brief help for {command}:\nUse 'man {command}' for complete documentation."
-            else:
-                return f"No help available for '{command}'. Use 'help' to see available commands."
+            command = self.COMMAND_ALIASES.get(command, command)
+            if command not in self.man_pages:
+                return (f"No help available for '{args[0]}'. "
+                        f"Use 'help' to see available commands.")
+            needed = self.career.qualification_for_command(command)
+            note = ''
+            if needed and not self.career.is_qualified(needed):
+                note = (f"\n\nYou are not signed off on "
+                        f"{QUALIFICATIONS_BY_KEY[needed].name}. "
+                        f"Type 'qual'.")
+            first = self.man_pages[command].strip().splitlines()
+            summary = first[1].strip() if len(first) > 1 else command
+            return (f"{summary}\n\n"
+                    f"Use 'man {command}' for complete documentation.{note}")
 
-        # Show role-based command listing
-        role_commands = {
-            "sysop": ["ps", "df", "who", "uucp", "mail", "pwb", "rje", "date", "ls"],
-            "switch": ["trunk", "switch", "testboard", "toll", "crossbar", "alarm", "5ess", "3a"],
-            "field": ["trace", "dialtone", "emergency", "ticket", "provision", "sarts"],
-            "noc": ["trunk", "emergency", "switch", "ticket", "traffic", "tnds", "satellite"],
-            "tsps": ["tsps", "operator", "directory", "collect", "billing"],
-            "dba": ["dbquery", "custdb", "billing", "service"],
-            "netplan": ["netplan", "traffic", "routing", "capacity", "billing", "tnds"],
-            "custserv": ["service", "provision", "billing", "custdb", "directory"],
-            "radio": ["radio", "microwave", "satellite", "alarm"],
-            "tnds": ["tnds", "netdata", "analysis", "traffic"],
-            "sarts": ["sarts", "testing", "circuits", "provision"],
-            "docprep": ["nroff", "troff", "tbl", "eqn", "pic", "refer", "pwb"]
-        }
+        pending = len(self.desk.pending())
+        lines = [
+            f"Bell System UNIX V7 Commands - Role: "
+            f"{self.role_name or 'unassigned'}",
+            '=' * 66,
+            '',
+            f"THE WORK   {pending} trouble report(s) on your board, "
+            f"{self.shift_time()} into the shift",
+            '-' * 66,
+        ]
+        lines.extend(self._help_rows(self.BUREAU_COMMANDS))
 
-        commands = role_commands.get(self.role, ["help", "man", "ps", "who", "date"])
+        role_commands = self.ROLE_COMMANDS.get(self.role)
+        if role_commands:
+            lines.extend(['', f"THIS POSITION   {self.role_name}", '-' * 66])
+            lines.extend(self._help_rows(
+                (name, self._help_summary(name))
+                for name in sorted(role_commands)
+            ))
 
-        help_text = f"""Bell System UNIX V7 Commands - Role: {self.role}
+        lines.extend(['', 'THE OTHER CRAFT', '-' * 66])
+        lines.extend(self._help_rows(self.PEOPLE_COMMANDS))
 
-Available Commands:
-"""
+        lines.extend([
+            '',
+            'THE SYSTEM',
+            '-' * 66,
+            "  man <command>     Complete documentation for any command",
+            "  set               Settings, including difficulty and ambience",
+            "  bsp search <topic>  Bell System Practices",
+            "  help <command>    One line on a single command",
+            "  ps, df, ls, date, pwd, who    The usual UNIX commands",
+            "  exit              Log out",
+            '',
+        ])
 
-        # Group commands by category
-        for i, cmd in enumerate(sorted(commands)):
-            if i % 4 == 0:
-                help_text += "\n  "
-            help_text += f"{cmd:<15}"
+        locked = sorted(
+            name for name in self._command_handlers
+            if not self.career.may_use(name)
+        )
+        if locked:
+            lines.append("* marks a command you are not signed off on.")
+            lines.append(f"Not signed off: {', '.join(locked)}. Type 'qual'.")
+        return '\n'.join(lines)
 
-        help_text += """
+    def _help_rows(self, entries) -> List[str]:
+        """Render command rows, marking anything not signed off."""
+        rows = []
+        for name, summary in entries:
+            mark = ' ' if self.career.may_use(name) else '*'
+            rows.append(f" {mark}{name:<12} {summary}")
+        return rows
 
-Common Commands:
-  help              Show this help message
-  man <command>     Display manual page for command
-  ps                Show running processes
-  who               Show logged-in users
-  date              Display current date and time
-  ls                List directory contents
-  exit              Logout from terminal
-
-For detailed command information: man <command>
-For Bell System Practices: bsp search <topic>
-"""
-        return help_text
+    def _help_summary(self, command: str) -> str:
+        """Return the one-line description from a command's manual page."""
+        page = self.man_pages.get(command)
+        if not page:
+            return command
+        parts = page.strip().splitlines()
+        if len(parts) < 2:
+            return command
+        line = parts[1].strip()
+        return line.split(' - ', 1)[1] if ' - ' in line else line
 
     def cmd_man(self, args: List[str]) -> str:
         """

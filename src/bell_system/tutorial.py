@@ -35,6 +35,7 @@ class BellSystemTutorial:
             'help_system',
             'event_system',
             'ticket_system',
+            'trouble_reports',
             'specialized_commands',
             'graduation'
         ]
@@ -336,12 +337,92 @@ Essential ticket commands:
 
         self.emit("\n📋 Tickets ensure nothing gets lost and problems are tracked!")
 
+    def step_trouble_reports(self):
+        """Learn the work itself: the repair service bureau loop."""
+        self.clear_screen()
+
+        self.type_effect("""
+STEP 6: THE WORK
+================
+
+Tickets track the network. Trouble reports are the customers, and they
+are what you actually spend a shift on.
+
+A report arrives on your board with nothing but the customer's own
+words. What is actually wrong with the pair is not known until you
+measure it. Engineering and Operations in the Bell System gives the
+sequence as detect, notify, verify, locate, repair, verify - and says
+plainly that locating the trouble is the most difficult and time
+consuming step. That is the part that is yours.
+
+The loop:
+
+  report                    The pending list, nearest commitment first
+  report show TR-04471      The line record and what the customer said
+  mlt TR-04471              Measure the loop
+  report dispatch TR-04471 outside plant
+  report close TR-04471 5 GROUND
+""")
+
+        self.emit("\nREADING A MEASUREMENT:")
+        self.emit("")
+        self.emit("  Infinite tip to ring, no station termination   open")
+        self.emit("  Near zero tip to ring                          short")
+        self.emit("  One conductor low to ground, tip-ring normal   ground")
+        self.emit("  Voltage present with no battery applied        foreign EMF")
+        self.emit("  Everything in limits, loop closed, current     receiver off hook")
+        self.emit("")
+        self.emit("Capacitance is the useful one. Local cable runs 0.083")
+        self.emit("microfarads to the mile, so a capacitance reading on an open")
+        self.emit("pair is a distance to the break.")
+
+        questions = [
+            ("A line reads infinite tip to ring and no station termination. "
+             "What is it?", ['open'], 'OPEN'),
+            ("One conductor reads low to ground and tip to ring is normal. "
+             "What is it?", ['ground'], 'GROUND'),
+            ("You found and cleared a fault. Which disposition code?",
+             ['5', 'five'], '5 - trouble found'),
+            ("You could not find anything. Which disposition code?",
+             ['8', 'eight'], '8 - no trouble found'),
+        ]
+
+        for question, accepted, answer in questions:
+            user_input = self.wait_for_user(question + ' ')
+            if self.validate_input(user_input, accepted):
+                self.emit(f"✅ Correct. {answer}.")
+            else:
+                self.emit(f"❌ The answer was {answer}.")
+
+        self.type_effect("""
+
+WHY IT MATTERS
+
+Closing a faulty line as code 8 does not fail loudly. It closes, and
+then the customer calls back - and that repeat is on your service
+index. Codes 5 and 8 were counted separately in the network switching
+performance measurement plan for exactly this reason.
+
+TWO WAYS TO WORK IT
+
+  set game.difficulty fun      Loop testing names the fault, you may
+                               close without measuring, mistakes cost
+                               little
+  set game.difficulty craft    Loop testing gives you numbers and
+                               nothing else, nothing closes unmeasured,
+                               and wrong calls come back
+
+Type 'qual' at any time for your craft record. What you are allowed to
+work on is governed by qualification, and you earn it a correctly
+closed report at a time.
+""")
+
     def step_specialized_commands(self):
         """Learn role-specific commands"""
         self.clear_screen()
 
         self.type_effect("""
-STEP 6: SPECIALIZED TECHNICAL COMMANDS
+STEP 7: SPECIALIZED TECHNICAL COMMANDS
 =====================================
 
 Each role has specialized commands for their equipment and responsibilities.
@@ -403,6 +484,8 @@ WHAT YOU'VE LEARNED:
 ✅ Help system navigation (help, man commands)
 ✅ Shift event monitoring and response
 ✅ Trouble ticket creation and management
+✅ Working customer trouble reports: measure, dispatch, close out
+✅ Reading a loop measurement and choosing a disposition code
 ✅ Specialized technical commands for your role
 
 NEXT STEPS:
