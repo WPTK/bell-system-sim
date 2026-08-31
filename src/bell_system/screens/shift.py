@@ -716,13 +716,20 @@ this shift and the next one starts on a fresh board."""
                 report.record.telephone_number, report.symptom, committed,
             ), self._stamp()))
 
+        # Anything at(1) queued for this minute runs now. A job the operator
+        # asked for is not ambience and is not suppressed by turning ambience
+        # off: they asked for it, so they get it.
+        fired = self.at_due()
+
         # Somebody says something, at the difficulty's rate.
         if random.random() < difficulty.interruption_rate:
             message = self._craft_interruption(difficulty)
             if message is not None:
                 pieces.append(render_message(message, self._stamp()))
 
-        return '' if quiet else '\n'.join(pieces)
+        if quiet:
+            return '\n'.join(fired)
+        return '\n'.join(fired + pieces)
     def _craft_interruption(self, difficulty):
         """
         Return whatever one of the other craft would say right now.

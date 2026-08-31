@@ -1757,127 +1757,9 @@ ENHANCED TERMINAL FEATURES
 
 
 
-    "pic": """
-NAME
-     pic - Picture drawing language and graphics
 
-SYNOPSIS
-     pic [files...] | nroff
-     pic [files...] | troff
 
-DESCRIPTION
-     Create technical diagrams and illustrations for Bell System
-     documentation including network diagrams, equipment layouts,
-     circuit schematics, and organizational charts.
 
-GRAPHICS FEATURES
-     GEOMETRIC SHAPES:       Boxes, circles, lines, arrows
-     NETWORK DIAGRAMS:       Switching and transmission layouts
-     FLOWCHARTS:            Process and procedure diagrams
-     SCALING:              Automatic sizing and positioning
-
-EXAMPLES
-     pic network_diagram.pic | troff    Create network diagram
-     pic circuit_layout.pic | nroff     Format circuit diagram
-     pic organizational.pic             Process org chart
-
-SEE ALSO
-     nroff(1), troff(1), tbl(1), eqn(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     pic(1) - January 1979
-""",
-
-    "refer": """
-NAME
-     refer - Bibliography and reference management
-
-SYNOPSIS
-     refer [files...] | nroff
-     refer [files...] | troff
-
-DESCRIPTION
-     Manage bibliographic references and citations for Bell System
-     technical documentation including references to Bell System
-     Practices, technical journals, and engineering specifications.
-
-REFERENCE FEATURES
-     CITATION FORMATTING:    Automatic citation numbering
-     BIBLIOGRAPHY:          Reference list generation
-     DATABASE:              Reference database management
-     CROSS-REFERENCING:     Internal document references
-
-EXAMPLES
-     refer technical_paper.ref | troff  Process technical paper
-     refer manual.ref | nroff           Format reference manual
-     refer bibliography.ref             Process bibliography
-
-SEE ALSO
-     nroff(1), troff(1), lookbib(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     refer(1) - January 1979
-""",
-
-    "pwb": """
-NAME
-     pwb - Programmer's Workbench operations
-
-SYNOPSIS
-     pwb [command] [options]
-
-DESCRIPTION
-     Access Programmer's Workbench (PWB) system for Bell System
-     software development and maintenance including system programming,
-     application development, and software version control.
-
-PWB FEATURES
-     VERSION CONTROL:        Source code management and tracking
-     DEVELOPMENT TOOLS:      Compilers, debuggers, utilities
-     PROJECT MANAGEMENT:     Software project coordination
-     DOCUMENTATION:         Technical documentation tools
-
-EXAMPLES
-     pwb checkout source.c           Check out source file
-     pwb delta modifications         Record code changes
-     pwb make project               Build software project
-
-SEE ALSO
-     cc(1), make(1), sccs(1)
-
-PROGRAMMER'S WORKBENCH
-     PWB/UNIX - Bell Laboratories
-""",
-
-    "rje": """
-NAME
-     rje - Remote Job Entry system
-
-SYNOPSIS
-     rje [submit|status|output] [job-parameters]
-
-DESCRIPTION
-     Submit and manage batch processing jobs through the Remote Job Entry
-     system for Bell System data processing including billing calculations,
-     traffic analysis, and network planning computations.
-
-RJE FEATURES
-     JOB SUBMISSION:         Batch job scheduling and execution
-     STATUS MONITORING:      Job progress and completion tracking
-     OUTPUT RETRIEVAL:       Job results and report generation
-     PRIORITY SCHEDULING:    Job priority and resource allocation
-
-EXAMPLES
-     rje submit billing_run.jcl      Submit billing job
-     rje status JOB-19830315-001     Check job status
-     rje output traffic_analysis     Retrieve job output
-
-SEE ALSO
-     batch(1), at(1), cron(1)
-
-BELL SYSTEM DATA PROCESSING
-     RJE System - Bell System Computing
-""",
 
     "uucp": """
 NAME
@@ -3741,5 +3623,525 @@ DESCRIPTION
 
 SEE ALSO
      troff(1), tbl(1)
+""",
+    "pr": """
+NAME
+     pr - paginate a file for printing
+
+SYNOPSIS
+     pr [-t] [-h header] [-ln] [-n] [file ...]
+
+DESCRIPTION
+     Print a file in pages of 66 lines, five of heading and five of foot,
+     which is a letter sheet at six lines to the inch.
+
+OPTIONS
+     -t          No heading and no foot: just the text
+     -h header   Put this in the heading instead of the file name
+     -ln         Set the page length to n lines
+     -n          Lay the text out in n columns
+
+EXAMPLES
+     pr /usr/lmos/board          The board, with a heading and page numbers
+     pr -t -2 /usr/dict/words    The dictionary in two columns, no heading
+
+SEE ALSO
+     cat(1), more(1), nroff(1)
+""",
+    "comm": """
+NAME
+     comm - select or reject lines common to two sorted files
+
+SYNOPSIS
+     comm [-123] file1 file2
+
+DESCRIPTION
+     Read two sorted files and print three columns: the lines only in the
+     first, the lines only in the second, and the lines in both.
+
+     Both files must be sorted or the answer is nonsense. sort(1) first.
+
+OPTIONS
+     -1  Leave out the lines only in file1
+     -2  Leave out the lines only in file2
+     -3  Leave out the lines in both
+
+EXAMPLES
+     comm -12 yesterday today    Only what is in both
+     comm -23 yesterday today    Only what has gone away
+
+SEE ALSO
+     sort(1), uniq(1), join(1), diff(1)
+""",
+    "join": """
+NAME
+     join - join two sorted files on a common field
+
+SYNOPSIS
+     join file1 file2
+
+DESCRIPTION
+     For every line in file1 whose first field matches the first field of a
+     line in file2, print the field followed by the rest of both lines.
+     Both files must be sorted on that field.
+
+     This is how two lists were put beside each other before there was a
+     database on anybody's desk.
+
+SEE ALSO
+     sort(1), comm(1), awk(1)
+""",
+    "look": """
+NAME
+     look - find lines in a sorted list
+
+SYNOPSIS
+     look prefix [file]
+
+DESCRIPTION
+     Print the words in /usr/dict/words that begin with the given prefix,
+     or the lines of another file if one is named.
+
+     The dictionary here is a few hundred words against the real one's
+     twenty-five thousand. It is an ordinary file, so cat(1) and wc(1)
+     will tell you exactly what is in it.
+
+EXAMPLES
+     look tel        telephone, tell
+     look sw         switch, switches, switching
+
+SEE ALSO
+     spell(1), grep(1), sort(1)
+""",
+    "split": """
+NAME
+     split - split a file into pieces
+
+SYNOPSIS
+     split [-n] file [name]
+
+DESCRIPTION
+     Break a file into pieces of 1000 lines, or n lines with -n. The pieces
+     are called xaa, xab and so on, which is where the x in the name comes
+     from; give a name to use something else.
+
+EXAMPLES
+     split -50 /usr/dict/words part    part-aa, part-ab, ...
+
+SEE ALSO
+     cat(1), wc(1), head(1), tail(1)
+""",
+    "sum": """
+NAME
+     sum - print a checksum and block count
+
+SYNOPSIS
+     sum file ...
+
+DESCRIPTION
+     Add the bytes of a file into a sixteen-bit total, rotating the
+     accumulator right one bit before each addition so that two bytes
+     swapped over do not go unnoticed, and print the total with the number
+     of 512-byte blocks.
+
+     This is how you checked a file had crossed a phone line intact: run
+     sum at both ends and compare the two numbers.
+
+SEE ALSO
+     wc(1), cmp(1), uucp(1)
+""",
+    "dd": """
+NAME
+     dd - convert and copy a file
+
+SYNOPSIS
+     dd if=file [of=file] [bs=n] [count=n] [skip=n] [conv=ucase|lcase]
+
+DESCRIPTION
+     Copy a file, converting it on the way. Arguments are keyword=value
+     rather than flags, which is dd's own convention and nobody else's.
+
+OPTIONS
+     if=     Input file
+     of=     Output file; standard output if left off
+     bs=     Block size in bytes, 512 by default
+     count=  Copy only this many blocks
+     skip=   Skip this many blocks of input first
+     conv=   ucase or lcase
+
+EXAMPLES
+     dd if=/etc/motd conv=ucase
+     dd if=/usr/dict/words of=/tmp/part count=1
+
+SEE ALSO
+     cp(1), tr(1), sum(1)
+""",
+    "expr": """
+NAME
+     expr - evaluate an expression
+
+SYNOPSIS
+     expr arg operator arg
+
+DESCRIPTION
+     Evaluate an expression and print the result. The shell has no
+     arithmetic of its own, so this is how a shell loop counted:
+
+          i=`expr $i + 1`
+
+     Handles + - \\* / % and the comparisons = != < <= > >=, which prints
+     1 for true and 0 for false.
+
+EXAMPLES
+     expr 6 + 7
+     expr 100 / 7
+     expr 5 '>' 3
+
+SEE ALSO
+     bc(1), sh(1), test(1)
+""",
+    "basename": """
+NAME
+     basename - strip directories from a path
+
+SYNOPSIS
+     basename string [suffix]
+
+DESCRIPTION
+     Print the last part of a path, with an optional suffix removed as
+     well. Used inside shell scripts to turn a file name into the name of
+     the thing it builds.
+
+EXAMPLES
+     basename /usr/src/cmd/hello.c .c        hello
+
+SEE ALSO
+     sh(1), make(1)
+""",
+    "true": """
+NAME
+     true - do nothing, successfully
+
+SYNOPSIS
+     true
+
+DESCRIPTION
+     Return a successful exit status and print nothing. Half of every
+     shell loop ever written begins "while true".
+
+SEE ALSO
+     false(1), sh(1)
+""",
+    "false": """
+NAME
+     false - do nothing, unsuccessfully
+
+SYNOPSIS
+     false
+
+DESCRIPTION
+     Return an unsuccessful exit status and print nothing.
+
+SEE ALSO
+     true(1), sh(1)
+""",
+    "at": """
+NAME
+     at - run a command at a given time
+
+SYNOPSIS
+     at hhmm command
+     at -l
+     at -r job ...
+
+DESCRIPTION
+     Queue a command to run later in the shift. The time is four digits on
+     the twenty-four hour clock. The job fires when the shift clock reaches
+     it and its output arrives on the terminal, the same way a message from
+     anyone else in the building does.
+
+     Queued jobs are files under /usr/spool/at, so ls(1) finds them.
+
+OPTIONS
+     -l          List the queue
+     -r job      Take a job back out of it
+
+EXAMPLES
+     at 1030 report board       Look at the board at half past ten
+     at 1145 lmos reports       Pull the reports before the tour ends
+     at -l                      What is queued
+
+     A job may not queue another job.
+
+SEE ALSO
+     sleep(1), date(1), ps(1)
+""",
+    "make": """
+NAME
+     make - maintain programs
+
+SYNOPSIS
+     make [-f makefile] [target ...]
+
+DESCRIPTION
+     Read a makefile and bring a target up to date. A rule is a target, a
+     colon, what it depends on, and then the commands to build it, each
+     indented with a tab.
+
+     Anything already built is left alone. That is the whole point of the
+     program: it does the least work that leaves you with a current
+     program.
+
+     There is a makefile under /usr/src/cmd for the two programs there.
+
+EXAMPLES
+     cd /usr/src/cmd
+     make                  Build whatever is out of date
+     make hello            Build just that one
+
+SEE ALSO
+     cc(1), sh(1)
+""",
+    "su": """
+NAME
+     su - become another user
+
+SYNOPSIS
+     su [user]
+
+DESCRIPTION
+     Ask for another user's password and become them if you have it. Root
+     if no user is named.
+
+     Every attempt is written to /usr/adm/sulog whether it succeeds or not.
+     Nobody at a craft position has the root password, and the log is how
+     the wire chief knows who tried.
+
+SEE ALSO
+     passwd(1), who(1), logname(1)
+""",
+    "logname": """
+NAME
+     logname - print your login name
+
+SYNOPSIS
+     logname
+
+DESCRIPTION
+     Print the name you logged in under. A script uses this to find out
+     who is running it, which is not always who owns it.
+
+SEE ALSO
+     who(1), su(1), passwd(1)
+""",
+    "uuname": """
+NAME
+     uuname - list the machines this one can call
+
+SYNOPSIS
+     uuname [-l]
+
+DESCRIPTION
+     Print the names of the systems this machine has a uucp connection to.
+     With -l, print the name of this machine instead.
+
+     The netnews under /usr/spool/news arrives over these links, one call
+     a night.
+
+SEE ALSO
+     uucp(1), uulog(1), uux(1), readnews(1)
+""",
+    "uulog": """
+NAME
+     uulog - print the uucp log
+
+SYNOPSIS
+     uulog [-ssite]
+
+DESCRIPTION
+     Print /usr/adm/uucplog, the record of what this machine has called and
+     what it sent. With -s, only the traffic with one site.
+
+     A call that FAILED is worth reading. It usually means the far end did
+     not answer, and it means whatever was queued for them is still queued.
+
+EXAMPLES
+     uulog -sihnp4
+
+SEE ALSO
+     uucp(1), uuname(1), uux(1)
+""",
+    "uux": """
+NAME
+     uux - run a command on another machine
+
+SYNOPSIS
+     uux site!command
+
+DESCRIPTION
+     Queue a command to be run on another system and the answer sent back.
+     Nothing comes back inside a shift: the job waits until the two
+     machines are next talking, which on this one is four in the morning.
+
+EXAMPLES
+     uux research!date
+
+SEE ALSO
+     uucp(1), uuname(1), uulog(1)
+""",
+    "kill": """
+NAME
+     kill - send a signal to a process
+
+SYNOPSIS
+     kill [-signal] pid ...
+
+DESCRIPTION
+     Send a signal to a running process, by default a terminate. Only the
+     owner of a process, or root, may signal it.
+
+     Everything in the process table on this machine belongs to root. You
+     will be told you are not the owner, which is the correct answer and
+     not a fault.
+
+SEE ALSO
+     ps(1), who(1)
+""",
+    "nice": """
+NAME
+     nice - run a command at low priority
+
+SYNOPSIS
+     nice [-number] command
+
+DESCRIPTION
+     Run a command at lower priority so that it gives way to everything
+     else. On a machine with this much work on it the courtesy is real; on
+     this one the command runs at once regardless.
+
+SEE ALSO
+     ps(1), time(1), nohup(1)
+""",
+    "time": """
+NAME
+     time - time a command
+
+SYNOPSIS
+     time command
+
+DESCRIPTION
+     Run a command and print how long it took: elapsed, then the time spent
+     in the program, then the time spent in the system on its behalf.
+
+EXAMPLES
+     time wc /usr/dict/words
+
+SEE ALSO
+     date(1), nice(1), ps(1)
+""",
+    "nohup": """
+NAME
+     nohup - run a command immune to hangups
+
+SYNOPSIS
+     nohup command
+
+DESCRIPTION
+     Run a command so that it survives the line dropping, with its output
+     going to nohup.out in the working directory rather than to the
+     terminal.
+
+     This is what you ran before going home when the dial-up would not
+     stay up all night.
+
+SEE ALSO
+     at(1), nice(1), sh(1)
+""",
+    "pic": """
+NAME
+     pic - set diagrams for troff
+
+SYNOPSIS
+     pic [file]
+
+DESCRIPTION
+     Read the .PS/.PE blocks in a file and draw what they describe.
+     Everything outside a block passes through unchanged, which is how pic
+     sat in front of troff in a pipeline.
+
+     Statements are box, circle, ellipse, arrow, line and move, each with
+     an optional quoted label, chained left to right. A "down" statement
+     turns the chain vertical and "right" turns it back.
+
+     The real pic is a language with variables, named positions and
+     splines, described in Kernighan's paper. This one draws in characters
+     because a terminal is what is here.
+
+EXAMPLES
+     pic /usr/doc/loop.pic
+     pic diagram | nroff
+
+SEE ALSO
+     troff(1), nroff(1), tbl(1), refer(1)
+""",
+    "refer": """
+NAME
+     refer - fill in citations from a bibliography
+
+SYNOPSIS
+     refer [file]
+
+DESCRIPTION
+     Text between .[ and .] names a paper. refer finds it in
+     /usr/dict/papers, puts a bracketed number in its place, and prints a
+     numbered reference list at the end.
+
+     A citation is just words that appear in the record, so
+
+          .[
+          ritchie thompson 1974
+          .]
+
+     finds the CACM paper. The real refer searched an index built by
+     indxbib; this one reads the file, which on a bibliography this size
+     is the same answer.
+
+SEE ALSO
+     troff(1), nroff(1), pic(1), look(1)
+""",
+    "send": """
+NAME
+     send - submit a batch job to the host
+
+SYNOPSIS
+     send [-h host] file
+
+DESCRIPTION
+     Submit a file to the revenue accounting office over the remote job
+     entry link. This machine does not do its own billing: message detail
+     goes up the line to a mainframe and the listing comes back on the
+     overnight run.
+
+     There is one host from this position, RAO1.
+
+SEE ALSO
+     rjestat(1), uux(1), billing(1)
+""",
+    "rjestat": """
+NAME
+     rjestat - report on the remote job entry link
+
+SYNOPSIS
+     rjestat
+
+DESCRIPTION
+     Print the state of the link to the revenue accounting office and the
+     jobs queued on it from this position.
+
+     Worth running before you spend a morning building a job: if the line
+     is down, nothing you submit goes anywhere.
+
+SEE ALSO
+     send(1), uucp(1)
 """,
 }

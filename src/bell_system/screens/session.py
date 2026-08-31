@@ -139,6 +139,15 @@ class SessionState:
     _editor: Any
     _compiled: Dict[str, str]
     processes: List[Dict[str, Any]]
+    # Commands queued by at(1), the next job number, and how many uux
+    # requests have been spooled this session.
+    _at_jobs: List[Dict[str, Any]]
+    _at_number: int
+    _uux_jobs: int
+    # Batch jobs submitted to the revenue accounting office over the RJE
+    # link, and the number given out so far.
+    _rje_queue: List[Dict[str, Any]]
+    _rje_jobs: int
     users: List[Dict[str, str]]
     project_numbers: Dict[str, Any]
     rate_structures: Dict[str, Any]
@@ -202,6 +211,14 @@ class SessionState:
     def write_file(self, path: str, text: str,
                    append: bool = False) -> Optional[str]:
         """Create or replace a file; returns an error string or None."""
+        raise NotImplementedError
+
+    def execute_command(self, command_line: str) -> str:
+        """Run one command line, as if it had been typed."""
+        raise NotImplementedError
+
+    def at_due(self) -> List[str]:
+        """Run every at(1) job now due and return what they printed."""
         raise NotImplementedError
 
     def _queue_message(self, message: Any, after: int) -> None:

@@ -35,7 +35,8 @@ def test_all_twelve_roles_start(isolated_state):
     'ps', 'who', 'ls', 'pwd', 'date', 'df', 'help', 'status',
     'trunk', 'switch', 'testboard', 'toll', 'trace', 'dialtone',
     'ticket', 'trouble', 'uucp', 'traffic', 'routing', 'crossbar',
-    'lmos', 'tnds', 'sarts', 'radio', 'microwave', 'alarm', 'pwb',
+    'lmos', 'tnds', 'sarts', 'radio', 'microwave', 'alarm',
+    'at', 'make', 'expr', 'pr', 'look', 'uuname', 'rjestat',
     'report', 'testline', 'testcall', 'qual', 'write', 'mail', 'orderwire',
 ])
 def test_core_commands_produce_output(terminal, command):

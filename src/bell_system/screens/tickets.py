@@ -345,6 +345,11 @@ Commands:
 
         old_team = ticket['assigned_team']
         ticket['assigned_team'] = team
+        # The switching control centre hands out unassigned tickets as the
+        # shift runs. A ticket the operator has just dispatched is not
+        # unassigned, so record it here or the SCC takes it straight back
+        # and the dispatch you made silently disappears.
+        self._assigned_tickets.add(ticket_id)
         current_time = self.clock.now().strftime("%H:%M:%S EST")
 
         # Add resolution step

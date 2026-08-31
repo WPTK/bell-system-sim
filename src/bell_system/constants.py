@@ -13,8 +13,8 @@ from typing import Dict, FrozenSet, Tuple  # noqa: F401
 # what is and is not available, and so a test can hold the list accountable.
 UNIMPLEMENTED_COMMANDS = frozenset({
     '5ess', 'analysis', 'capacity', 'coer', 'collect', 'custdb', 'dbquery',
-    'microwave', 'netdata', 'pic', 'refer', 'provision',
-    'pwb', 'rje', 'satellite', 'trace',
+    'microwave', 'netdata', 'provision',
+    'satellite', 'trace',
     'training', 'western',
 })
 # Bell System Constants

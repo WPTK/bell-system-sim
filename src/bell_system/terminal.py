@@ -66,6 +66,8 @@ from .screens.dispatch import CommandDispatch
 from .screens.docprep import DocumentCommands as DocPrepCommands
 from .screens.documents import DocumentCommands
 from .screens.editor import EditorCommands
+from .screens.filters import FilterCommands
+from .screens.jobs import JobCommands
 from .screens.shift import ShiftCommands
 from .screens.shell import ShellCommands
 from .screens.switching import SwitchingCommands
@@ -132,6 +134,8 @@ class BellSystemTerminal(
     UnixCommands,
     ShellCommands,
     ToolCommands,
+    FilterCommands,
+    JobCommands,
     GameCommands,
     DocPrepCommands,
     EditorCommands,
@@ -212,6 +216,13 @@ class BellSystemTerminal(
         self._initialize_project_numbers()
         self._initialize_rate_structures()
         self._initialize_filesystem()
+        # at(1) keeps a queue, uux(1) a job counter. Both live for the
+        # session; the shift is one shift and nothing outlives it.
+        self._at_jobs: List[Dict[str, Any]] = []
+        self._at_number = 0
+        self._uux_jobs = 0
+        self._rje_queue: List[Dict[str, Any]] = []
+        self._rje_jobs = 0
         self._initialize_processes()
         self._initialize_users()
         self._initialize_shift_handoff()
@@ -586,7 +597,7 @@ Current Priorities:
 - Coordinate with development teams on PWB tools
 - Review system logs for anomalies
 
-Key Commands: ps, df, who, uucp, mail, pwb, rje
+Key Commands: ps, df, who, uucp, uulog, mail, at, make
 """
 
     def _get_switch_briefing(self) -> str:
@@ -768,7 +779,7 @@ Current Priorities:
 - Format training materials for TSPS operators
 - Support engineering teams with documentation
 
-Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
+Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
 """
 
     def cmd_set(self, args: Optional[List[str]] = None) -> str:
@@ -1052,13 +1063,14 @@ Subsystems available in this release:
         if self._editor is not None:
             return self.editor_input(command_line)
 
-        if '|' in command_line and not command_line.strip().startswith('|'):
+        if (self._unquoted(command_line, '|') is not None
+                and not command_line.strip().startswith('|')):
             return self._run_pipeline(command_line)
 
         # Redirection. The shell takes the file off the end of the line,
         # runs what is left, and puts the output there instead of on the
         # terminal.
-        if '>' in command_line:
+        if self._unquoted(command_line, '>') is not None:
             return self._run_redirect(command_line)
 
         try:
@@ -1138,6 +1150,28 @@ Subsystems available in this release:
             return self._handle_command_error(command, error_msg)
 
     @staticmethod
+    def _unquoted(command_line: str, character: str) -> Optional[int]:
+        """
+        Return where a character appears outside quotes, or None.
+
+        A shell decides what is punctuation and what is an argument before
+        it decides anything else, which is why expr 5 '>' 3 compares two
+        numbers rather than writing a file called 3, and why grep '|' finds
+        a bar rather than starting a pipeline. Searching the raw line for
+        the character got both of those wrong.
+        """
+        quote = ''
+        for index, letter in enumerate(command_line):
+            if quote:
+                if letter == quote:
+                    quote = ''
+            elif letter in '"\'':
+                quote = letter
+            elif letter == character:
+                return index
+        return None
+
+    @staticmethod
     def _tokenise(command_line: str) -> List[str]:
         """
         Split a command line the way a shell does, honouring quotes.
@@ -1193,8 +1227,12 @@ Subsystems available in this release:
         Returns:
             Whatever the shell has to say, which on success is nothing
         """
-        append = '>>' in command_line
-        head, _, tail = command_line.partition('>>' if append else '>')
+        at = self._unquoted(command_line, '>')
+        if at is None:
+            return "sh: syntax error"
+        append = command_line[at:at + 2] == '>>'
+        head = command_line[:at]
+        tail = command_line[at + (2 if append else 1):]
         command, target = head.strip(), tail.strip()
         if not command:
             return "sh: syntax error"
@@ -1393,7 +1431,7 @@ Subsystems available in this release:
     # against the dispatch table by the test suite: this list once carried
     # two commands that had never existed.
     ROLE_COMMANDS = {
-        "sysop": ["ps", "df", "who", "uucp", "pwb", "rje", "date", "ls"],
+        "sysop": ["ps", "df", "who", "uucp", "uulog", "at", "date", "ls"],
         "switch": ["trunk", "switch", "toll", "crossbar", "alarm", "5ess",
                    "3a"],
         "field": ["trace", "dialtone", "emergency", "ticket", "provision",
@@ -1409,7 +1447,7 @@ Subsystems available in this release:
         "radio": ["radio", "microwave", "satellite", "alarm"],
         "tnds": ["tnds", "netdata", "analysis", "traffic"],
         "sarts": ["sarts", "testline", "testcall", "provision", "trunk"],
-        "docprep": ["nroff", "troff", "tbl", "eqn", "pic", "refer", "pwb"],
+        "docprep": ["nroff", "troff", "tbl", "eqn", "pic", "refer", "spell"],
     }
 
     # The work itself, which every position has a board of.

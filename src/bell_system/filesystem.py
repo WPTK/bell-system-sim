@@ -280,9 +280,806 @@ Nov 14 07:58 mhuxco: init: tour 1 logins enabled
 UUCPLOG = """uucico mhuxco (11/13-22:31) SUCCEEDED (call to pwba)
 uucico mhuxco (11/13-22:33) OK (startup)
 uucico pwba   (11/13-22:41) REQUEST (S bsp.660 /usr/bsp/ sysop)
+uucico mhuxco (11/14-02:14) SUCCEEDED (call to mhuxt)
+uucico mhuxt  (11/14-02:19) REQUEST (S news 14 files /usr/spool/news/ uucp)
 uucico mhuxco (11/14-04:00) SUCCEEDED (call to research)
 uucico mhuxco (11/14-04:02) OK (conversation complete)
 uucico mhuxco (11/14-06:44) FAILED (call to ihnp4, no answer)
+"""
+
+
+# /usr/dict/words. The real one held about 25,000 entries and was what
+# spell(1) checked against and look(1) searched. This one is short enough to
+# ship and long enough to be useful: the common English words a memo on this
+# machine would be built from, plus the vocabulary of the job, which the real
+# /usr/dict/words did not have and which every Bell site added locally.
+WORDS = """a
+about
+above
+actually
+administers
+after
+again
+against
+aisle
+all
+almost
+along
+already
+also
+always
+am
+an
+and
+another
+answer
+answering
+antitrust
+any
+anybody
+anyone
+anything
+appear
+april
+are
+around
+as
+ask
+asks
+assignments
+at
+audited
+august
+automated
+available
+away
+back
+bad
+be
+because
+been
+before
+being
+belongs
+below
+beside
+best
+better
+between
+board
+both
+box
+boxes
+bridge
+budget
+build
+building
+built
+bulletin
+business
+but
+cable
+call
+called
+came
+can
+cannot
+capability
+cares
+carried
+carrier
+carries
+carry
+central
+centre
+change
+characters
+check
+chief
+circuit
+class
+clear
+cleared
+clearing
+clears
+close
+closed
+closing
+code
+codes
+coffee
+column
+come
+comes
+command
+commands
+commitment
+companies
+company
+complete
+computer
+condition
+confidential
+connect
+consent
+continues
+control
+copies
+copy
+copyright
+could
+count
+counts
+covers
+craft
+crew
+crews
+cross
+crossbar
+current
+customer
+cut
+date
+day
+days
+dead
+december
+decree
+deep
+department
+depth
+dial
+did
+different
+digit
+digits
+dispatch
+disposition
+dissolved
+distribution
+divested
+divestiture
+do
+does
+done
+door
+down
+drop
+during
+each
+early
+echo
+editor
+effective
+either
+else
+employment
+end
+enough
+enter
+entry
+equipment
+error
+errors
+even
+ever
+every
+everything
+except
+exceptions
+exchange
+expect
+expected
+facilities
+failed
+fall
+faster
+fault
+faulty
+february
+feed
+field
+figure
+file
+files
+fills
+find
+finding
+finish
+first
+five
+fix
+fixed
+fixes
+following
+for
+found
+four
+frame
+friday
+from
+gave
+get
+gets
+getting
+give
+given
+go
+going
+gone
+good
+got
+great
+ground
+group
+guaranteed
+guess
+had
+half
+hand
+handed
+handle
+handled
+happens
+has
+have
+having
+he
+heavy
+help
+her
+here
+high
+hill
+him
+his
+history
+hit
+hold
+holds
+honestly
+hour
+house
+how
+however
+hundred
+i
+if
+in
+incorporated
+index
+input
+inside
+instead
+instructions
+interexchange
+is
+it
+its
+january
+jersey
+job
+july
+june
+just
+justice
+keep
+keeps
+kept
+know
+known
+laboratories
+largest
+last
+late
+later
+leave
+leaves
+left
+less
+let
+letter
+level
+life
+like
+limited
+line
+lines
+list
+little
+local
+login
+long
+look
+looks
+loop
+loops
+loss
+lower
+machine
+made
+main
+maintenance
+make
+makes
+man
+management
+manual
+many
+march
+mark
+marker
+matter
+may
+me
+mean
+means
+measure
+mechanised
+meter
+method
+might
+mile
+mode
+month
+more
+morning
+most
+moved
+moves
+moving
+much
+must
+name
+near
+nearest
+need
+needs
+network
+never
+new
+newline
+news
+next
+night
+nightly
+no
+nobody
+noise
+not
+note
+notes
+nothing
+notice
+november
+now
+number
+objective
+october
+of
+off
+office
+offices
+often
+ok
+old
+oldest
+on
+once
+one
+only
+open
+operating
+operation
+operations
+optional
+or
+order
+other
+our
+out
+outside
+over
+own
+pair
+pairs
+paper
+part
+pass
+past
+pay
+pending
+people
+per
+person
+pick
+picked
+place
+placed
+plan
+plant
+point
+poor
+position
+positions
+possible
+power
+practice
+practices
+present
+president
+primary
+print
+printed
+printing
+prints
+problem
+programs
+put
+puts
+qualifications
+question
+questions
+quiet
+rain
+rainfall
+range
+reach
+reached
+read
+reading
+reads
+ready
+reason
+receive
+record
+recorded
+records
+remain
+remove
+repair
+repeat
+reply
+report
+reports
+request
+research
+result
+retained
+retention
+returns
+right
+ring
+rise
+route
+routines
+routing
+run
+running
+runs
+said
+same
+saturday
+saw
+say
+says
+second
+section
+see
+seem
+seen
+sends
+sent
+separate
+september
+service
+set
+sets
+settling
+seven
+several
+shall
+she
+sheet
+shell
+shift
+short
+should
+show
+shows
+side
+signal
+simply
+since
+sites
+sitting
+size
+sleep
+slow
+small
+so
+software
+some
+somebody
+something
+sound
+south
+spare
+speak
+special
+spend
+spent
+splicer
+spool
+station
+status
+stay
+stays
+steps
+still
+stop
+stops
+street
+subscriber
+succeeded
+such
+suit
+sunday
+switch
+switches
+switching
+system
+take
+taken
+takes
+taking
+tape
+telephone
+teletype
+tell
+tells
+ten
+terminal
+test
+tested
+testing
+tests
+than
+that
+the
+their
+them
+then
+there
+these
+they
+thing
+things
+think
+thinking
+third
+thirty
+this
+those
+though
+three
+through
+thursday
+ticket
+tickets
+time
+to
+today
+told
+toll
+tone
+too
+took
+tour
+toward
+transfer
+transfers
+transmission
+travel
+trial
+trip
+trouble
+trunk
+trunks
+try
+tuesday
+turn
+turned
+turns
+twenty
+twice
+two
+under
+unix
+until
+up
+upon
+upstairs
+us
+use
+used
+uses
+using
+usual
+value
+verification
+verifier
+version
+very
+vice
+voice
+wait
+waiting
+walk
+want
+wanted
+was
+watching
+water
+way
+we
+weather
+wednesday
+week
+well
+went
+were
+wet
+what
+when
+where
+whether
+which
+while
+who
+whoever
+whole
+whose
+why
+will
+wire
+wires
+with
+within
+without
+word
+work
+worked
+working
+works
+worse
+worth
+would
+write
+written
+wrong
+wrote
+year
+years
+yesterday
+yet
+you
+your
+yours
+"""
+
+
+# A makefile for the two programs under /usr/src/cmd, so make(1) has
+# something real to build.
+MAKEFILE = """# Two small programs. make(1) builds what is out of date,
+# and nothing else. Run it twice and see.
+all:	hello testlog
+
+hello:	hello.c
+\tcc -o hello hello.c
+
+testlog:	testlog.c
+\tcc -o testlog testlog.c
+"""
+
+
+# /usr/dict/papers, the bibliography refer(1) looks citations up in. The
+# %-keyed record format is refer's own: %A author, %T title, %J journal,
+# %V volume, %D date, %P pages.
+#
+# Every entry is a real paper and the citations are externally sourced and
+# checked: Ritchie and Thompson in CACM 17(7), July 1974, 365-375; Thompson
+# and Bourne in the July/August 1978 UNIX issue of the Bell System Technical
+# Journal, 57(6) part 2, at 1931-1946 and 1971-1990; Feldman on make in
+# Software: Practice and Experience 9(4), April 1979, 255-265; Kernighan on
+# pic in the same journal, 12(1), January 1982, 1-21. A machine in a Bell
+# building in 1983 would have had these to hand, most of them written down
+# the corridor.
+PAPERS = """%A D. M. Ritchie
+%A K. Thompson
+%T The UNIX Time-Sharing System
+%J Communications of the ACM
+%V 17(7)
+%D July 1974
+%P 365-375
+
+%A K. Thompson
+%T UNIX Implementation
+%J Bell System Technical Journal
+%V 57(6) part 2
+%D July-August 1978
+%P 1931-1946
+
+%A S. R. Bourne
+%T The UNIX Shell
+%J Bell System Technical Journal
+%V 57(6) part 2
+%D July-August 1978
+%P 1971-1990
+
+%A S. I. Feldman
+%T Make - A Program for Maintaining Computer Programs
+%J Software: Practice and Experience
+%V 9(4)
+%D April 1979
+%P 255-265
+
+%A B. W. Kernighan
+%T PIC - A Language for Typesetting Graphics
+%J Software: Practice and Experience
+%V 12(1)
+%D January 1982
+%P 1-21
+"""
+
+
+# A diagram in pic(1), left in /usr/doc for anybody who wants to see what
+# the preprocessor does. A loop is a pair of wires from a subscriber's
+# station to the frame in the central office and then to the switch.
+LOOP_PIC = """.PS
+box "station"
+arrow
+box "drop"
+arrow
+box "frame"
+arrow
+box "switch"
+.PE
+That is a loop. Everything in a trouble report is somewhere on it, and
+the whole job is working out which box the fault is between.
+"""
+
+
+# A short piece with citations in it, so refer(1) has something to fill in
+# and nroff(1) has something to format. The claims in it are the ones the
+# papers it cites actually make.
+WHY_UNIX = """.TL
+Why there is a UNIX machine in a wire centre
+.PP
+Nobody bought this machine. The operating system on it was written at
+Murray Hill for a PDP-7 that was going spare, and it spread through the
+company the way a useful tool does: somebody carried a tape.
+.PP
+The system was described publicly in 1974
+.[
+ritchie thompson unix time-sharing
+.]
+and the whole of it was written up four years later in an issue of the
+company journal given over to it, including the shell
+.[
+bourne shell
+.]
+and how the kernel is actually built
+.[
+thompson unix implementation
+.]
+.PP
+That is why the manual for a program on a repair position cites a
+research journal. There was no product to write a product manual for.
+The 1956 decree kept the company out of the computer business, so what
+it had instead was papers, and the papers are the documentation.
+.PP
+As of January that changes, and the system on this machine has a price.
 """
 
 
@@ -647,15 +1444,23 @@ FILESYSTEM: Dict[str, Node] = {
     '/usr/spool': _dir(mode='drwxrwxrwx'),
     '/usr/spool/uucp': _dir(owner='uucp', group='uucp'),
     '/usr/spool/mail': _dir(mode='drwxrwxrwx'),
+    '/usr/spool/at': _dir(mode='drwxrwxrwx'),
 
     '/usr/doc': _dir(),
     '/usr/doc/divestiture': _file(DIVESTITURE_MEMO),
     '/usr/doc/bulletin': _file(BULLETIN),
+    '/usr/doc/loop.pic': _file(LOOP_PIC),
+    '/usr/doc/why.unix': _file(WHY_UNIX),
 
     '/usr/src': _dir(owner='sys', group='sys'),
     '/usr/src/cmd': _dir(owner='sys', group='sys'),
     '/usr/src/cmd/hello.c': _file(HELLO_C, owner='sys', group='sys'),
     '/usr/src/cmd/testlog.c': _file(TESTLOG_C, owner='sys', group='sys'),
+    '/usr/src/cmd/makefile': _file(MAKEFILE, owner='sys', group='sys'),
+
+    '/usr/dict': _dir(),
+    '/usr/dict/words': _file(WORDS),
+    '/usr/dict/papers': _file(PAPERS),
 
     '/usr/games': _dir(),
     '/usr/games/lib': _dir(),

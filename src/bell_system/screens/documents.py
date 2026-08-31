@@ -115,6 +115,16 @@ SD-1C900-01: 3A Central Control Circuit Description
 BSP 200-000: Electronic Switching Fundamentals"""
 
         return f"bsp: unknown option '{args[0]}'"
+    # pic(1) and refer(1) used to be declared here as unavailable, and
+    # nroff, troff, tbl and eqn before them. Every one of them now has a
+    # real implementation in docprep.py, and a stub left here would win the
+    # method resolution order and shadow it - which is exactly what happened
+    # to nroff once already. There is nothing to put in their place.
+    #
+    # pwb and rje have gone too, for a different reason: PWB was a system,
+    # not a program, and there was no pwb(1) to run. Its remote job entry
+    # was reached through send(1) and rjestat(1), which is what this machine
+    # now has.
     def cmd_uucp(self, args: List[str]) -> str:
         """UUCP network mail and file transfer"""
         return """UNIX-to-UNIX Copy Protocol (UUCP)
@@ -131,15 +141,4 @@ Network Links:
   btl:                 STANDBY
 
 Use 'uucp status' for detailed queue information"""
-    def cmd_pwb(self, args: List[str]) -> str:
-        """Programmer's Workbench operations"""
-        return self._subsystem_unavailable("pwb", "PWB operations")
-    def cmd_rje(self, args: List[str]) -> str:
-        """Remote Job Entry system"""
-        return self._subsystem_unavailable("rje", "RJE operations")
-    def cmd_pic(self, args: List[str]) -> str:
-        """Picture drawing language"""
-        return self._subsystem_unavailable("pic", "Picture drawing")
-    def cmd_refer(self, args: List[str]) -> str:
-        """Bibliography and reference management"""
-        return self._subsystem_unavailable("refer", "Reference management")
+

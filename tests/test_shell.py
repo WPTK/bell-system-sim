@@ -211,8 +211,10 @@ class TestPipes:
         assert result.strip() == '1'
 
     def test_ls_prints_one_per_line_into_a_pipe(self, terminal):
+        listing = terminal.execute_command('ls /usr/doc').split()
         piped = terminal.execute_command('ls /usr/doc | wc -l')
-        assert piped.strip() == '2'
+        assert piped.strip() == str(len(listing))
+        assert len(listing) > 1, 'the test needs a directory with several files'
 
     def test_a_pipeline_counts_as_one_command(self, terminal):
         before = terminal.shift_minutes

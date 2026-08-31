@@ -247,20 +247,19 @@ class ToolCommands(SessionState):
         """
         Print words that are not in the dictionary.
 
-        The dictionary here is small and Bell-flavoured, so spell(1) is a
-        toy. It says so rather than implying otherwise.
+        Checks against /usr/dict/words, which is the same file look(1)
+        searches, so the two agree. The real one held some twenty-five
+        thousand entries against this one's few hundred: spell(1) here will
+        call a word wrong that a real V7 machine knew, and the dictionary is
+        readable so you can see exactly which words it does know.
         """
         text, error = self._gather(args or [], 'spell')
         if error:
             return error
-        known = {
-            'the', 'and', 'for', 'that', 'this', 'with', 'from', 'have', 'not',
-            'are', 'was', 'you', 'all', 'can', 'has', 'but', 'one', 'out',
-            'system', 'bell', 'telephone', 'unix', 'line', 'trouble', 'report',
-            'office', 'switch', 'trunk', 'cable', 'pair', 'loop', 'test',
-            'craft', 'shift', 'index', 'service', 'commitment', 'dispatch',
-            'divestiture', 'operating', 'company', 'network', 'records',
-        }
+        dictionary = self._read('/usr/dict/words')
+        if dictionary is None:
+            return "spell: cannot open /usr/dict/words"
+        known = set(dictionary.split())
         odd = sorted({
             word.strip('.,:;()"\'').lower()
             for word in text.split()
