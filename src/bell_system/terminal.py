@@ -70,6 +70,7 @@ from .loop_testing import (
     measure_loop,
     tone_header,
 )
+from .lmos import LmosConsole
 from .npc import CRAFT, Message, Switchroom, render as render_message
 from .progression import (
     DIFFICULTIES,
@@ -90,6 +91,7 @@ from .reports import (
     valid_force,
 )
 from .routing import MAX_TRUNKS_IN_CONNECTION, build_default_network
+from .special_services import SartsConsole, SartsInventory
 from .data.signaling import (
     MF_FREQUENCIES,
     PROGRESS_TONES,
@@ -136,8 +138,8 @@ except ImportError:  # pragma: no cover - readline is absent on stock Windows
 # what is and is not available, and so a test can hold the list accountable.
 UNIMPLEMENTED_COMMANDS = frozenset({
     '5ess', 'analysis', 'capacity', 'coer', 'collect', 'custdb', 'dbquery',
-    'eqn', 'lmos', 'microwave', 'netdata', 'nroff', 'pic', 'provision',
-    'pwb', 'refer', 'rje', 'sarts', 'satellite', 'tbl', 'toll', 'trace',
+    'eqn', 'microwave', 'netdata', 'nroff', 'pic', 'provision',
+    'pwb', 'refer', 'rje', 'satellite', 'tbl', 'trace',
     'training', 'troff', 'western',
 })
 
@@ -6205,9 +6207,103 @@ Training Impact:          {random.uniform(5, 15):.0f}% improvement"""
             return f"tsps: Report type '{report_type}' not implemented\nUse 'tsps reports' for available options"
 
     # Implement remaining critical commands with similar patterns
-    def cmd_toll(self, args: List[str]) -> str:
-        """Toll switching and billing operations"""
-        return self._subsystem_unavailable("toll", "Toll switching operations")
+    def cmd_toll(self, args: Optional[List[str]] = None) -> str:
+        """
+        The toll network: the class 4 and higher offices and what crosses them.
+
+        Engineering and Operations draws the boundary plainly - "the toll
+        network consists of the class 4 and higher offices" - so that is what
+        this shows, against the routing engine's own picture of it.
+        """
+        args = args or []
+        network = self.toll_network
+        toll_offices = [office for office in network.offices.values()
+                        if office.switch_class <= 4]
+
+        if args and args[0].lower() == 'hierarchy':
+            lines = [
+                "Toll Network Hierarchy",
+                '=' * 74,
+                "Each office homes on one of higher class by a final group. A",
+                "call is completed at the lowest level of the hierarchy that",
+                "can carry it, using the fewest trunks in tandem.",
+                '',
+            ]
+            for switch_class in range(1, 5):
+                members = sorted(office for office in toll_offices
+                                 if office.switch_class == switch_class)
+                if not members:
+                    continue
+                lines.append(f"CLASS {switch_class} - "
+                             f"{members[0].class_name().upper()}")
+                for office in members:
+                    lines.append(f"  {office.code:<13}{office.name:<34}"
+                                 f"homes on {office.homes_on or '-'}")
+                lines.append('')
+            return '\n'.join(lines).rstrip()
+
+        if args and args[0].lower() == 'load':
+            lines = [
+                "Toll Trunk Group Occupancy",
+                f"{self.clock.timestamp()}",
+                '=' * 74,
+                f"{'GROUP':<16}{'ROUTE':<12}{'CAPACITY':>10}{'IN USE':>9}"
+                f"{'OCC':>7}  STATUS",
+                '-' * 74,
+            ]
+            for name, group in sorted(self.trunk_groups.items()):
+                in_use = group['capacity'] * group['utilization'] // 100
+                lines.append(
+                    f"{name:<16}{group['route']:<12}{group['capacity']:>10}"
+                    f"{in_use:>9}{group['utilization']:>6}%  {group['status']}")
+            lines.append('-' * 74)
+            lines.append("Final groups are engineered to P.01, high-usage "
+                         "groups to P.10.")
+            return '\n'.join(lines)
+
+        by_class: Dict[int, int] = {}
+        for office in toll_offices:
+            by_class[office.switch_class] = by_class.get(office.switch_class, 0) + 1
+
+        lines = [
+            "Toll Network",
+            f"{self.clock.timestamp()}",
+            '=' * 74,
+            '',
+            "The toll network consists of the class 4 and higher offices. "
+            "Class 5 is",
+            "the end office, where subscriber loops terminate, and is not "
+            "part of it.",
+            '',
+            'OFFICES IN THE ROUTING TABLE',
+            '-' * 74,
+        ]
+        for switch_class in sorted(by_class):
+            sample = next(office for office in toll_offices
+                          if office.switch_class == switch_class)
+            lines.append(f"  Class {switch_class}  "
+                         f"{sample.class_name():<24}{by_class[switch_class]:>4}")
+        lines.append(f"  {'End offices (class 5)':<32}"
+                     f"{len(network.offices) - len(toll_offices):>4}")
+
+        active = [group for group in self.trunk_groups.values()
+                  if group['status'] == 'ACTIVE']
+        occupancy = (sum(group['utilization'] for group in active) // len(active)
+                     if active else 0)
+        lines.extend([
+            '',
+            'TRUNKING',
+            '-' * 74,
+            f"  Trunk groups in service      {len(active):>4}",
+            f"  Mean occupancy               {occupancy:>4}%",
+            f"  Maximum trunks in tandem     {MAX_TRUNKS_IN_CONNECTION:>4}",
+            '',
+            "  toll hierarchy    The homing chain, class by class",
+            "  toll load         Trunk group occupancy",
+            "  routing trace <from> <to>   Offer a call and follow it",
+            "  testcall <from> <to>        Prove a trunk end to end",
+        ])
+        return '\n'.join(lines)
 
     def cmd_trace(self, args: List[str]) -> str:
         """Call tracing and routing analysis"""
@@ -8422,13 +8518,13 @@ Reference: FCC Tariff No. 263 (Interstate)
         """Central Office Equipment Reports"""
         return self._subsystem_unavailable("coer", "COER reporting")
 
-    def cmd_lmos(self, args: List[str]) -> str:
-        """Loop Maintenance Operations System"""
-        return self._subsystem_unavailable("lmos", "LMOS operations")
+    def cmd_lmos(self, args: Optional[List[str]] = None) -> str:
+        """Loop Maintenance Operations System: line records and reports."""
+        return self.lmos_console.command(args)
 
-    def cmd_sarts(self, args: List[str]) -> str:
-        """Special service remote testing"""
-        return self._subsystem_unavailable("sarts", "SARTS testing")
+    def cmd_sarts(self, args: Optional[List[str]] = None) -> str:
+        """Switched Access Remote Test System: special services circuits."""
+        return self.sarts_console.command(args)
 
     def cmd_radio(self, args: List[str]) -> str:
         """TH-3 microwave radio system monitoring and maintenance"""
@@ -9926,6 +10022,9 @@ Antenna alignment completed successfully.
 
         self.desk = ReportDesk(npa, nxx, self.home_office['clli'])
         self.switchroom = Switchroom()
+        self.special_services = SartsInventory(self.home_office['clli'])
+        self.lmos_console = LmosConsole(self)
+        self.sarts_console = SartsConsole(self)
         self._queued_messages: deque = deque()
         self._assigned_tickets: set = set()
 

@@ -680,41 +680,6 @@ BELL SYSTEM DOCUMENTATION
      BSP Master Index - Updated Quarterly
 """,
 
-    "sarts": """
-NAME
-     sarts - Special service remote testing system
-
-SYNOPSIS
-     sarts [test|schedule|status] [circuit-id|service-type]
-
-DESCRIPTION
-     Special service Automatic Remote Testing System (SARTS) for testing
-     special service circuits including data lines, private lines, and
-     custom telecommunications services requiring specific performance
-     parameters.
-
-OPTIONS
-     test            Execute remote test on special service circuit
-     schedule        Schedule routine testing procedures
-     status          Display test results and circuit status
-
-SERVICE TYPES
-     DATA LINES      Digital data transmission circuits
-     PRIVATE LINES   Dedicated voice and data circuits
-     FOREIGN EXCHANGE Circuits extending local service areas
-     TIE LINES       Inter-office private connections
-
-EXAMPLES
-     sarts test DS-NYC-001           Test data service circuit
-     sarts schedule weekly           Schedule routine tests
-     sarts status FL-BOS-045         Check private line status
-
-SEE ALSO
-     testboard(1), ticket(1), provision(1)
-
-BELL SYSTEM PRACTICES
-     BSP 103-200-001 - SARTS Operations Procedures
-""",
 
     "antenna": """
 NAME
@@ -1003,41 +968,6 @@ BELL SYSTEM PRACTICES
      BSP 100-270-001 - Collect Call Procedures
 """,
 
-    "toll": """
-NAME
-     toll - Toll switching and billing operations
-
-SYNOPSIS
-     toll [routing|billing|statistics|international] [parameters]
-
-DESCRIPTION
-     Manage toll call routing, billing calculation, and revenue collection
-     for long-distance calls including domestic toll and international
-     services through Bell System toll switching centers.
-
-OPTIONS
-     routing         Toll call routing and path selection
-     billing         Toll charge calculation and billing
-     statistics      Traffic volume and revenue analysis
-     international   International toll call processing
-
-TOLL SERVICES
-     DIRECT DISTANCE DIALING (DDD):     Customer-dialed long distance
-     OPERATOR TOLL:                     Operator-assisted toll calls
-     INTERNATIONAL:                     Overseas call processing
-     WIDE AREA TELEPHONE SERVICE (WATS): Volume discount service
-
-EXAMPLES
-     toll routing NYC-LAX               Route transcontinental call
-     toll billing 212-555-1234          Calculate toll charges
-     toll statistics weekly             Weekly revenue report
-
-SEE ALSO
-     billing(1), routing(1), operator(1), traffic(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-400-001 - Toll Service Procedures
-""",
 
         "capacity": """
 NAME
@@ -1576,41 +1506,6 @@ BELL SYSTEM PRACTICES
      BSP 069-200-001 - Central Office Equipment Reporting
 """,
 
-    "lmos": """
-NAME
-     lmos - Loop Maintenance Operations System
-
-SYNOPSIS
-     lmos [test|repair|status|schedule] [facility-id]
-
-DESCRIPTION
-     Loop Maintenance Operations System (LMOS) for automated testing
-     and maintenance of subscriber loops and special service circuits.
-     Provides remote testing capabilities and maintenance scheduling.
-
-OPTIONS
-     test            Execute remote loop testing procedures
-     repair          Coordinate repair activities and dispatching
-     status          Display loop and circuit status information
-     schedule        Schedule routine maintenance activities
-
-TESTING CAPABILITIES
-     METALLIC TESTS:         DC resistance, capacitance, insulation
-     TRANSMISSION TESTS:     Loss, noise, distortion measurements
-     SIGNALING TESTS:        Dial tone, ringing, supervision
-     DATA CIRCUIT TESTS:     Digital circuit performance verification
-
-EXAMPLES
-     lmos test 212-555-1234          Test subscriber loop
-     lmos repair TKT-4789            Coordinate repair dispatch
-     lmos status LOOP-NYC-14         Check loop status
-
-SEE ALSO
-     testboard(1), sarts(1), ticket(1)
-
-BELL SYSTEM PRACTICES
-     BSP 103-300-001 - LMOS Operations Procedures
-""",
 
         "trace": """
 NAME
@@ -2969,5 +2864,156 @@ QUALIFICATION
 
 SEE ALSO
      testline(1), testboard(1), routing(1), dialtone(1), trunk(1)
+""",
+    "lmos": """
+NAME
+     lmos - Loop Maintenance Operations System
+
+SYNOPSIS
+     lmos [status]
+     lmos line <telephone number>
+     lmos reports | chronic | utilisation
+     lmos treat [coin|force]
+
+DESCRIPTION
+     LMOS is a component of an Automated Repair Service Bureau. It
+     mechanises the bureau's customer line card records by holding them in
+     computer memory, and produces management reports from them. Its
+     functions are customer trouble report processing, control of mechanised
+     testing, analysis of past trouble reports through TREAT, and equipment
+     utilisation reporting. One installation held up to five million
+     customer line records.
+
+     The bureau it belongs to has three stated objectives: improve efficiency
+     and reduce the cost of repair operations, reduce the time required to
+     detect, locate and repair troubles, and improve the handling of customer
+     contacts by repair service attendants.
+
+OPTIONS
+     status            Line records held, reports in process, testing
+     line <number>     One customer line card record and its trouble history
+     reports           Trouble reports the bureau has in process
+     chronic           Lines carrying three or more reports
+     treat             Trouble report evaluation and analysis
+     treat coin        Coin telephone operation
+     treat force       Repair force administration
+     utilisation       Equipment utilisation report
+
+TESTING
+     Three test systems worked with the bureau. The line status verifier and
+     automated line verification equipment both had limited capability.
+     Mechanised loop testing "provides mechanization of essentially all ARSB
+     test functions", which is why mlt(1) is the command you will actually
+     spend the shift in.
+
+NOTES
+     The chronic-line threshold of three reports is this simulation's own. No
+     source available to it states the Bell System's own figure.
+
+QUALIFICATION
+     Requires the Main Distributing Frame sign-off.
+
+SEE ALSO
+     report(1), mlt(1), cosmos(1), qual(1)
+""",
+    "sarts": """
+NAME
+     sarts - Switched Access Remote Test System
+
+SYNOPSIS
+     sarts [status]
+     sarts list | trouble | access | categories
+     sarts circuit <circuit id>
+     sarts test <circuit id>
+
+DESCRIPTION
+     Special services are everything that is not ordinary service. Ordinary
+     service is residence, public telephone, mobile and basic
+     individual-line business service; all the rest require special
+     treatment as to transmission, signalling, switching, billing or
+     customer use, and are used mostly by business customers. There were
+     about twenty-five major categories.
+
+     SARTS reaches those circuits without anybody driving anywhere. The
+     Switched Maintenance Access System, through the use of relays, provides
+     concentrated metallic access to individual circuits to permit that
+     remote access and testing. In the digital environment, digital access
+     and cross-connect test access serves the same purpose as jack or SMAS
+     arrangements.
+
+     A circuit on manual jack access cannot be reached from this position.
+     That is the whole point of the distinction, and the command will say so
+     rather than pretending otherwise.
+
+OPTIONS
+     status            Inventory, troubles, and what is reachable
+     list              Every circuit on this position
+     trouble           Circuits reported in trouble
+     circuit <id>      One circuit's record
+     test <id>         Reach a circuit and measure it
+     access            The access arrangements and what each means
+     categories        What counts as a special service
+
+MEASUREMENT
+     A four-wire circuit is measured on a 105-type responder, which returns
+     two-way loss, noise, noise with tone and gain slope. A two-wire circuit
+     gets the 100-type far-end test line: one-way loss and noise. Both are
+     read at 1004 Hz.
+
+     A circuit that measures clean is returned to service. One outside its
+     working limits is held, because a special service out of limits should
+     not go back to the customer.
+
+NOTES
+     Circuit identifiers here follow a plausible shape rather than the
+     COMMON LANGUAGE circuit identification format, which no document
+     available to this project sets out in full. Per-category circuit counts
+     and trouble rates are this simulation's own. Seven of the nine service
+     categories are attested by name in the bundled documents; 'sarts
+     categories' marks which.
+
+QUALIFICATION
+     Requires the Switching Control Center sign-off.
+
+SEE ALSO
+     testline(1), testboard(1), testcall(1), trunk(1)
+""",
+    "toll": """
+NAME
+     toll - the toll network
+
+SYNOPSIS
+     toll
+     toll hierarchy
+     toll load
+
+DESCRIPTION
+     The toll network consists of the class 4 and higher offices. Class 5 is
+     the end office, where subscriber loops terminate, and is not part of
+     it. This command shows the network as the routing engine holds it: how
+     many offices sit at each class, what homes on what, and how the trunk
+     groups between them are loaded.
+
+     Each office is joined to one of higher class by a final group and is
+     said to home on it. A call is completed at the lowest level of the
+     hierarchy that can carry it, using the fewest trunks in tandem, which
+     is why a typical toll connection takes three: up a toll connecting
+     trunk, across one intertoll group, and back down.
+
+OPTIONS
+     (none)            Offices by class, and trunking summary
+     hierarchy         The homing chain, class by class
+     load              Trunk group occupancy
+
+GRADE OF SERVICE
+     Final trunk groups are engineered to P.01 - one call in a hundred finds
+     all trunks busy. High-usage groups are engineered to P.10, because
+     overflowing is what they are for.
+
+QUALIFICATION
+     Requires the Toll Network sign-off.
+
+SEE ALSO
+     routing(1), testcall(1), trunk(1), traffic(1), tnds(1)
 """,
 }

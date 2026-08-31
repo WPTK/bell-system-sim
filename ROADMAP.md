@@ -104,27 +104,27 @@ Two specifics make it worse than a flat 31%:
 Ordered by what is most broken for a real user, not by what is most
 interesting to build.
 
-### R1 — Make the installed product the product · days · **do this first**
+### R1 — Make the installed product the product · **done**
 
-- [ ] Distil `full_dataset_csv.csv` to the fields the simulation reads and
+- [x] Distil `full_dataset_csv.csv` to the fields the simulation reads and
       ship it inside `bell_system/data/` (489 KB, 279 NPAs)
-- [ ] Load it with `importlib.resources`, not a relative path
-- [ ] Fail loudly, not silently: if the data is missing, say so
-- [ ] Add a test that constructs a terminal from a temporary working
+- [x] Load it with `importlib.resources`, not a relative path
+- [x] Fail loudly, not silently: if the data is missing, say so
+- [x] Add a test that constructs a terminal from a temporary working
       directory and asserts full coverage — the guard that was missing
-- [ ] Remove `attached_assets/` from the working tree and history; publish it
+- [x] Removed from the working tree; history rewrite still outstanding; publish it
       as a release asset or a documented separate download
-- [ ] Keep a short `SOURCES.md` mapping every historical claim to its
+- [x] Keep a short `SOURCES.md` mapping every historical claim to its
       document, so the provenance survives the files leaving the repo
 
 Fixes a silent 533× degradation, *raises* coverage from 80 NPAs to 279, and
 takes the clone from 126 MiB to roughly 1 MiB. One change, three wins.
 
-### R2 — Nothing gates progression behind a stub · days
+### R2 — Nothing gates progression behind a stub · **done**
 
-- [ ] Build `lmos`, `sarts` and `toll`, or move them out of the
-      qualification unlock lists
-- [ ] Add a test asserting that no `QUALIFICATIONS` entry unlocks a command
+- [x] Build `lmos`, `sarts` and `toll`, or move them out of the
+      qualification unlock lists — all three built
+- [x] Add a test asserting that no `QUALIFICATIONS` entry unlocks a command
       in `UNIMPLEMENTED_COMMANDS`
 
 `lmos` is the natural one to build first: the Loop Maintenance Operations

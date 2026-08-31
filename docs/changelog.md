@@ -184,6 +184,50 @@ from the documented "1300 ohms, typically about three miles" rather than quoted.
   searchable text that the code actually cites stays, so every claim remains
   checkable with `grep`.
 
+## [Unreleased] - Roadmap R2
+
+### Fixed
+
+- **Three qualifications paid out in placeholders.** Main Distributing Frame
+  unlocked `lmos`, Switching Control Center unlocked `sarts`, and Toll
+  Network - which costs 108 correct closures on the hard difficulty -
+  unlocked `toll`. All three answered "subsystem not available in this
+  release". All three are now real, and a test asserts that no qualification
+  can ever unlock a command in `UNIMPLEMENTED_COMMANDS` again.
+
+### Added
+
+- **`lmos` - the Loop Maintenance Operations System.** A view onto the report
+  desk rather than a second copy of it: customer line card records with their
+  trouble history, reports in process, chronic lines, the trouble report
+  evaluation and analysis tool with its coin telephone and repair force
+  analyses, and an equipment utilisation report. Telecommunications
+  Transmission Engineering vol. 2 supplies the whole shape - the system
+  "mechanizes RSB customer line card records", its listed functions, the five
+  million record capacity, the bureau's three objectives, and the three test
+  systems, of which mechanised loop testing "provides mechanization of
+  essentially all ARSB test functions".
+- **`sarts` - the Switched Access Remote Test System.** A special services
+  circuit inventory reached through its access arrangement and measured on
+  the existing test line series: a four-wire circuit on the 105-type
+  responder, a two-wire on the 100-type, both at 1004 Hz. A circuit on manual
+  jack access cannot be reached and says so, because that is the point of the
+  distinction. Engineering and Operations supplies the definition of a
+  special service, the named categories, and SMAS providing "concentrated
+  metallic access to individual circuits to permit remote access and testing
+  by the Switched Access Remote Test System".
+- **`toll` - the toll network.** Offices by class, the homing chain, and
+  trunk group occupancy, against the routing engine's own picture. "The toll
+  network consists of the class 4 and higher offices" is the boundary the
+  document draws, and the one the command draws.
+
+### Changed
+
+- The stub count drops from 25 of 81 commands to 22 of 81.
+- `lmos.py` and `special_services.py` carry their own screens rather than
+  adding to `terminal.py`, which is the shape the monolith is being broken
+  into.
+
 ## [3.0.0] - 2025-05-27
 
 ### MAJOR RELEASE: COMPREHENSIVE COMMAND VALIDATION & CRITICAL ERROR RESOLUTION
