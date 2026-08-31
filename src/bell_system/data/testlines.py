@@ -147,3 +147,147 @@ CHANNEL_STATES: Dict[str, str] = {
     'LOCKED OUT': 'Out of service and permanently unavailable to call '
                   'processing without manual intervention.',
 }
+
+
+class PlantTest(NamedTuple):
+    """A test number a craftsperson dials from a station to check a line."""
+
+    key: str
+    name: str
+    # What you do with it, in one line.
+    purpose: str
+    # What happens when the line is good.
+    good: str
+    attested: bool
+
+
+# Plant test numbers: what a craftsperson dials to check a subscriber line
+# rather than a trunk. Every one of these is attested.
+#
+# The automatic number announcement circuit reads back the number of the
+# line you are calling from, which is what an installer uses to find out
+# which pair they are on. A 102-type line is a milliwatt supply and returns
+# 1004 Hz at 0 dBm; a 100-type line is a quiet termination and returns
+# silence, which is what you measure noise against. A loop around is a pair
+# of numbers: one end returns the milliwatt tone and the other is silent,
+# and calling both connects them, which is how one person tested a circuit
+# end to end on their own. Ringback rings the line you are calling from
+# after you hang up.
+#
+# What is NOT claimed: the dialable codes. Those were carried in each
+# office's records rather than in a national list, and the access strings
+# below are the simulation's own, as the trunk test lines above already say.
+PLANT_TESTS: Dict[str, PlantTest] = {
+    'ANAC': PlantTest(
+        'ANAC', 'Automatic number announcement',
+        'Reads back the number of the line you are calling from.',
+        'A recorded voice gives the ten digits, twice.',
+        attested=True),
+    'MW': PlantTest(
+        'MW', 'Milliwatt supply (102 type)',
+        'Returns 1004 Hz at 0 dBm so a loss measurement has something to '
+        'measure.',
+        'A steady tone at reference level.',
+        attested=True),
+    'QUIET': PlantTest(
+        'QUIET', 'Quiet termination (100 type)',
+        'Terminates the line in its characteristic impedance and sends '
+        'nothing, so noise can be measured against silence.',
+        'Silence, and a noise reading well under the objective.',
+        attested=True),
+    'LOOP': PlantTest(
+        'LOOP', 'Loop around',
+        'Two numbers: one returns the tone, the other is silent, and '
+        'calling both connects them end to end.',
+        'Tone on the first, and it drops when the second is answered.',
+        attested=True),
+    'RING': PlantTest(
+        'RING', 'Ringback',
+        'Rings the line you are calling from after you hang up, so ringing '
+        'and the ringer can be checked from the station.',
+        'The line rings back within a few seconds.',
+        attested=True),
+}
+
+PLANT_TEST_ORDER: Tuple[str, ...] = ('ANAC', 'MW', 'QUIET', 'LOOP', 'RING')
+
+# What each plant test does on a line with a given fault. The mapping is the
+# simulation's own reasoning from the electrical condition: an open pair
+# cannot carry a call at all, a ground puts noise on everything, and a
+# receiver off hook means the line is busy to the test as well.
+#
+# A value of None means the test tells you nothing useful on that fault,
+# which is itself worth knowing: no single test finds everything.
+PLANT_TEST_RESULTS: Dict[str, Dict[str, str]] = {
+    'OPEN': {
+        'ANAC': 'No answer. The call does not complete: nothing on the pair.',
+        'MW': 'No answer. Nothing is getting through.',
+        'QUIET': 'No answer.',
+        'LOOP': 'No answer at either end.',
+        'RING': 'No ringback. The pair will not carry the current.',
+    },
+    'SHORT': {
+        'ANAC': 'Busy. The office sees this line permanently off hook.',
+        'MW': 'Busy.',
+        'QUIET': 'Busy.',
+        'LOOP': 'Busy.',
+        'RING': 'No ringback: the line never goes on hook to be rung.',
+    },
+    'GROUND': {
+        'ANAC': 'Reads back, under a hum you can hear over the announcement.',
+        'MW': 'Tone present, and a hum with it.',
+        'QUIET': 'Not quiet. Noise well over the objective on a line that '
+                 'should be silent.',
+        'LOOP': 'Tone present, noisy both ways.',
+        'RING': 'Rings back, and the ringer sounds tinny.',
+    },
+    'CROSS': {
+        'ANAC': 'Reads back, and somebody else is audible on the pair.',
+        'MW': 'Tone present with a second conversation under it.',
+        'QUIET': 'Not quiet. Speech audible on a line terminated in silence.',
+        'LOOP': 'Tone present, and a third party on the circuit.',
+        'RING': 'Rings back, and so does something else.',
+    },
+    'WET': {
+        'ANAC': 'Reads back, weak and cutting.',
+        'MW': 'Tone present but down on level, and it wanders.',
+        'QUIET': 'Noise over the objective, rising and falling.',
+        'LOOP': 'Tone down at both ends.',
+        'RING': 'Rings back weakly.',
+    },
+    'FEMF': {
+        'ANAC': 'Reads back under a loud hum at power frequency.',
+        'MW': 'Tone present, buried in hum.',
+        'QUIET': 'Loud hum on a line that should be silent. Foreign voltage.',
+        'LOOP': 'Hum at both ends.',
+        'RING': 'Rings back. The hum is there through the ring.',
+    },
+    'ROH': {
+        'ANAC': 'Busy.',
+        'MW': 'Busy.',
+        'QUIET': 'Busy.',
+        'LOOP': 'Busy.',
+        'RING': 'No ringback: the receiver is off the hook.',
+    },
+    'FCG': {
+        'ANAC': 'No answer, and the loop measures clean to the frame.',
+        'MW': 'No answer.',
+        'QUIET': 'No answer.',
+        'LOOP': 'No answer.',
+        'RING': 'No ringback.',
+    },
+    'CO_EQUIP': {
+        'ANAC': 'No answer. Whatever is wrong is on the office side.',
+        'MW': 'No answer.',
+        'QUIET': 'No answer.',
+        'LOOP': 'No answer.',
+        'RING': 'No ringback.',
+    },
+    'NONE': {
+        'ANAC': 'Reads the number back cleanly, twice.',
+        'MW': 'Steady tone at reference level.',
+        'QUIET': 'Silence. Noise well under the objective.',
+        'LOOP': 'Tone on the first, dropping when the second answers.',
+        'RING': 'Rings back within a few seconds.',
+    },
+}

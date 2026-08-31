@@ -62,7 +62,15 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         require_test_before_close=False,
         repeat_report_chance=0.25,
         reports_per_qualification=3,
-        index_penalty=0.4,
+        # Was 0.4, which turned out to be uninformative rather than
+        # forgiving: tools/index_calibration.py plays a few hundred shifts
+        # per setting and at 0.4 an ordinary player - one who measures every
+        # line and names the fault right about six times in seven - scored
+        # EXCELLENT in 89 shifts out of 100. A band nearly everybody is in
+        # is not a band. At 0.7 the same player has a median of 94.9 and
+        # sits on the SATISFACTORY/EXCELLENT line, a careful player is still
+        # EXCELLENT 99 times in 100, and a careless one still never is.
+        index_penalty=0.7,
         count_missed_commitments=False,
         interruption_rate=0.06,
         commitment_slack_minutes=90,
@@ -270,6 +278,23 @@ class Career:
         wrong disposition, a report that came back, and a commitment missed.
         A wrong close weighs heaviest because it is the one that leaves a
         customer out of service believing they have been dealt with.
+
+        The 55/35/20 apportionment was the simulation's own and, for a long
+        time, untested. It has now been played: tools/index_calibration.py
+        works a few hundred shifts per setting with players who fail in one
+        way each, and the ordering holds. A player who measures every line
+        and then names the wrong fault scores worse than one who is merely
+        ordinary, and one who never measures at all scores worse again.
+
+        The same exercise found what this number does NOT measure, which is
+        worth saying here rather than leaving to be discovered. It is a
+        rate, not a volume. A tour that closes five reports perfectly scores
+        100, better than a tour that closes thirty-two with two mistakes.
+        That is correct for what it is - the performance plan scored offices
+        on rates, and a repair index has never been a productivity measure -
+        but it means the index alone does not tell you whether the board
+        moved. The handoff record prints closed and carried beside it for
+        exactly that reason.
         """
         if not self.reports_closed:
             return 100.0

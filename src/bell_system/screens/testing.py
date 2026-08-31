@@ -8,12 +8,16 @@ from typing import (
     Optional,
 )
 from ..data.testlines import (
+    PLANT_TESTS,
+    PLANT_TEST_ORDER,
+    PLANT_TEST_RESULTS,
     TEST_LINES,
     TEST_LINE_ORDER,
 )
 from ..data.trouble import (
     FAULTS,
 )
+from ..reports import COST_PLANT_TEST
 from ..loop_testing import (
     COIN_STATION_CURRENT_MA,
     SUPERVISION_STATES,
@@ -319,8 +323,20 @@ All switching functions normal.
             lines.extend([
                 '-' * 74,
                 '',
-                "Usage: testline <code> <circuit>",
+                "Plant test numbers - dialled at a line, not a trunk",
+                '-' * 74,
+            ])
+            for key in PLANT_TEST_ORDER:
+                test = PLANT_TESTS[key]
+                lines.append(f"{key:<6} {'':<8} {test.name:<34} "
+                             f"{test.purpose.split('.')[0][:28]}")
+            lines.extend([
+                '-' * 74,
+                '',
+                "Usage: testline <code> <circuit>       a trunk",
+                "       testline <code> <number>        a subscriber line",
                 "       testline 105 TG-001-NYC",
+                "       testline anac 201-555-0100",
                 '',
                 "Access codes are the simulation's own: real ones were local "
                 "to each office.",
@@ -328,9 +344,12 @@ All switching functions normal.
             return '\n'.join(lines)
 
         code = args[0].upper()
+        if code in PLANT_TESTS:
+            return self._plant_test(code, args[1:])
         if code not in TEST_LINES:
             return (f"testline: no {args[0]} test line.\n"
-                    f"Codes: {', '.join(TEST_LINE_ORDER)}")
+                    f"Trunks:  {', '.join(TEST_LINE_ORDER)}\n"
+                    f"Lines:   {', '.join(PLANT_TEST_ORDER)}")
         if len(args) < 2:
             test_line = TEST_LINES[code]
             return (f"{test_line.name}\n"
@@ -586,3 +605,62 @@ All switching functions normal.
         )
         return arrangements[sum(ord(character) for character in origin)
                             % len(arrangements)]
+
+    def _plant_test(self, code: str, rest: List[str]) -> str:
+        """
+        Dial a plant test number at a subscriber line.
+
+        These are what a craftsperson used on a line rather than a trunk:
+        the number announcement circuit that reads back which pair you are
+        on, the milliwatt supply that gives you something to measure, the
+        quiet termination you measure noise against, the loop around that
+        lets one person test a circuit end to end, and ringback.
+
+        They are aural rather than electrical - what you hear rather than
+        what the meter says - and that makes them a genuinely different
+        kind of evidence from mechanised loop testing. No one of them finds
+        everything, which is the point: a quiet termination hears a ground
+        that a loss measurement passes.
+        """
+        test = PLANT_TESTS[code]
+        if not rest:
+            return (f"{test.name}\n{'=' * 50}\n"
+                    f"{test.purpose}\n\n"
+                    f"On a good line: {test.good}\n\n"
+                    f"Usage: testline {code.lower()} <telephone number>")
+
+        card = self.lmos_console.lmos.find_card(rest[0])
+        if card is None:
+            return (f"testline: {rest[0]}: no line record here.\n"
+                    f"A plant test is dialled at a line this centre serves.")
+
+        record = card.record
+        report = next((held for held in self.desk.pending()
+                       if held.record is record), None)
+        answer = PLANT_TEST_RESULTS[record.fault][code]
+
+        if report is not None:
+            # Dialling a test number costs less than a mechanised test and
+            # tells you less. That trade is the whole reason to have both.
+            self.desk.record_test(report, f"{code}: {answer}",
+                                  minutes=COST_PLANT_TEST)
+
+        rows = [f"PLANT TEST {code} - {test.name}",
+                self.clock.timestamp(),
+                '=' * 62, '',
+                f"  Line            {record.telephone_number}",
+                f"  Cable and pair  {record.cable_pair()}",
+                f"  Wire centre     {record.clli}",
+                '',
+                "WHAT CAME BACK",
+                f"  {answer}",
+                '']
+        if answer == PLANT_TEST_RESULTS['NONE'][code]:
+            rows.append("That is what a good line does. It does not mean "
+                        "the line is good:")
+            rows.append("this test does not reach everything, and something "
+                        "else may.")
+        rows.append('')
+        rows.append(f"mlt {record.telephone_number} measures it instead of "
+                    f"listening to it.")
+        return '\n'.join(rows)

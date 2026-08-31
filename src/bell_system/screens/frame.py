@@ -4,7 +4,7 @@ The main distributing frame, COSMOS assignment and CLLI coding.
 from ..data.clli import build as build_clli
 from ..data.clli import parse as parse_clli
 import random
-from datetime import timedelta
+import textwrap
 from typing import (
     Any,
     Dict,
@@ -19,6 +19,8 @@ from ..data.clli import (
 )
 
 
+from ..data.trouble import FRAME_DEFECTS
+from ..reports import COST_FRAME_LOOKUP
 from .session import SessionState
 
 
@@ -208,23 +210,7 @@ A frame work order has been printed for the frame technician.
 Load balance after assignment: {frame['balance_index'] + random.uniform(-0.004, 0.004):.3f}"""
 
         if action == 'jumper' and len(args) > 1:
-            number = args[1]
-            return f"""COSMOS Cross-Connect Record
-{'=' * 55}
-Telephone number:     {number}
-Wire centre:          {self.frame_state['clli']}
-
-CROSS-CONNECT
-{'=' * 45}
-Vertical (cable):     {random.randint(1, 9999):05d}  tip and ring
-Protector unit:       {random.choice(['Carbon block', 'Gas tube'])}, in service
-Horizontal (equip):   {random.randint(1, 9999):05d}
-Jumper length:        {random.uniform(6, 55):.1f} feet
-Jumper run:           Shelf {random.randint(1, 14)}, trough {random.randint(1, 9)}
-Placed:               {(self.clock.now() - timedelta(days=random.randint(30, 2400))).strftime('%B %Y')}
-
-Setting the protector unit to its inactive position disconnects the
-customer temporarily without disturbing the cross-connection."""
+            return self._cross_connect(args[1])
 
         if action == 'balance':
             frame = self.frame_state
@@ -252,20 +238,7 @@ Groups outside the objective are rearranged by reassigning line
 equipment at the next convenient frame visit."""
 
         if action == 'pending':
-            frame = self.frame_state
-            output = f"""COSMOS Frame Work Orders
-{'=' * 62}
-Wire centre:          {frame['clli']}
-Orders pending:       {frame['pending_orders']}
-
-ORDER      TYPE          NUMBER        ACTION
-{'-' * 62}"""
-            for index in range(frame['pending_orders']):
-                order_type = random.choice(['CONNECT', 'DISCONNECT', 'CHANGE', 'TRANSFER'])
-                output += (f"\nFWO-{random.randint(1000, 9999)}   {order_type:<13} "
-                           f"{random.randint(200, 999)}-{random.randint(1000, 9999)}   "
-                           f"{'Run jumper' if order_type == 'CONNECT' else 'Remove jumper' if order_type == 'DISCONNECT' else 'Rearrange'}")
-            return output + "\n\nOrders are worked in sequence by the frame technician."
+            return self._frame_orders()
 
         return (f"cosmos: Unknown option '{args[0]}'\n"
                 "Available commands: status, assign, jumper, balance, pending")
@@ -305,3 +278,121 @@ ORDER      TYPE          NUMBER        ACTION
         code = build_clli(city, STATE_CODES.get(state, state), 'CO',
                           entity_for_switch(switch_type, is_toll, ordinal))
         return str(code) if code is not None else ''
+
+    def _cross_connect(self, token: str) -> str:
+        """
+        Show the cross-connect record for a line, from the line's own record.
+
+        This used to invent a vertical, a horizontal and a jumper length
+        every time it was asked, so the answer changed between two looks at
+        the same line and told you nothing. It reads the assignment record
+        now - the same one LMOS and custdb read - which is what makes it
+        worth looking at.
+
+        And on a line whose trouble is central office equipment, the record
+        shows what is wrong with it. That is the point of a records system:
+        a frame trouble is visible in the records, and finding it there
+        costs a look rather than a measurement and a trip.
+        """
+        card = self.lmos_console.lmos.find_card(token)
+        if card is None:
+            return (f"cosmos: {token}: no assignment record\n"
+                    f"cosmos jumper wants a line this centre serves.")
+        record = card.record
+        report = next((held for held in self.desk.pending()
+                       if held.record is record), None)
+        defect = (FRAME_DEFECTS.get(record.frame_defect or '')
+                  if record.frame_defect else None)
+
+        # A frame lookup is desk time like any other. It is cheaper than a
+        # measurement, which is the whole reason to think of it first.
+        if report is not None:
+            report.spend(COST_FRAME_LOOKUP)
+
+        rows = ["COSMOS Cross-Connect Record",
+                '=' * 55,
+                f"Telephone number:     {record.telephone_number}",
+                f"Wire centre:          {record.clli}",
+                '',
+                "CROSS-CONNECT",
+                '=' * 45,
+                f"Cable and pair:       {record.cable_pair()}",
+                f"Vertical (cable):     {record.vertical} tip and ring",
+                f"Protector unit:       Carbon block, "
+                f"{'INACTIVE' if defect and defect.code == 'OPERATED_PROTECTOR' else 'in service'}",
+                f"Horizontal (equip):   {record.horizontal}",
+                f"Office equipment:     LEN {record.line_equipment}",
+                f"Class of service:     {record.class_of_service}",
+                '']
+
+        if defect is None:
+            rows.append("The record is in order. Whatever is wrong with this "
+                        "line is not on")
+            rows.append("the frame.")
+        else:
+            rows.append("RECORD DOES NOT AGREE WITH THE PLANT")
+            rows.append('=' * 45)
+            rows.extend(textwrap.wrap(
+                f"{defect.name}: {defect.record_note}.", 70))
+            rows.append('')
+            rows.append(defect.remedy)
+            rows.append('')
+            rows.append("That is a central office trouble. It wants the "
+                        "frame, not a truck.")
+            if report is not None and not report.tested:
+                report.tested = True
+                report.test_notes.append(
+                    f"frame record: {defect.name.lower()}")
+                if report.status == 'PEND':
+                    report.status = 'TESTED'
+        rows.append('')
+        rows.append("Setting the protector unit to its inactive position "
+                    "disconnects the")
+        rows.append("customer temporarily without disturbing the "
+                    "cross-connection.")
+        return '\n'.join(rows)
+
+    def _frame_orders(self) -> str:
+        """
+        The frame's work list, including the orders this position raised.
+
+        provision(1) puts a service order on the frame's list. It used to
+        print a number and go nowhere; the orders are here now, at the top
+        of the list, above the ones the shift inherited.
+        """
+        frame = self.frame_state
+        mine = list(self._service_orders)
+        inherited = frame['pending_orders']
+
+        rows = ["COSMOS Frame Work Orders", '=' * 62,
+                f"Wire centre:          {frame['clli']}",
+                f"Orders pending:       {inherited + len(mine)}",
+                '',
+                f"{'ORDER':<12}{'TYPE':<14}{'NUMBER':<14}ACTION",
+                '-' * 62]
+        actions = {'new': 'Run jumper', 'restore': 'Run jumper',
+                   'out': 'Remove jumper', 'change': 'Rearrange',
+                   'move': 'Rearrange'}
+        for order in mine:
+            rows.append(f"{order['number']:<12}{order['type'].upper():<14}"
+                        f"{order['line']:<14}"
+                        f"{actions.get(order['type'], 'Rearrange')}")
+        for _ in range(inherited):
+            order_type = random.choice(
+                ['CONNECT', 'DISCONNECT', 'CHANGE', 'TRANSFER'])
+            rows.append(
+                f"{'FWO-' + str(random.randint(1000, 9999)):<12}"
+                f"{order_type:<14}"
+                f"{str(random.randint(200, 999)) + '-' + str(random.randint(1000, 9999)):<14}"
+                f"{'Run jumper' if order_type == 'CONNECT' else 'Remove jumper' if order_type == 'DISCONNECT' else 'Rearrange'}")
+        rows.append('')
+        if mine:
+            rows.append(f"The top {len(mine)} came from this position "
+                        f"today. They are worked in sequence")
+            rows.append("with the rest, which is why the due date on a "
+                        "service order is the next")
+            rows.append("working day and not this afternoon.")
+        else:
+            rows.append("Orders are worked in sequence by the frame "
+                        "technician.")
+        return '\n'.join(rows)

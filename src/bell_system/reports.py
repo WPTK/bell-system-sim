@@ -38,6 +38,7 @@ from .field import FieldForce
 from .weather import Weather
 from .data.trouble import (
     DISPATCH_FORCES,
+    FRAME_DEFECT_CODES,
     DISPOSITIONS,
     FAULTS,
     REAL_FAULTS,
@@ -65,6 +66,12 @@ OUT_OF_SERVICE_FAULTS = frozenset({'OPEN', 'SHORT', 'CO_EQUIP', 'FCG'})
 # repair interval is charged to the commitment and not to you.
 COST_MLT = 4
 COST_CLOSE = 2
+# Reading the frame's assignment record. Cheaper than a measurement, which
+# is what makes checking the records before testing worth doing.
+COST_FRAME_LOOKUP = 2
+# Dialling a plant test number. Less than a mechanised test, and it tells
+# you less: that trade is the reason to have both.
+COST_PLANT_TEST = 2
 COST_CALLBACK = 8
 # Raising a force and writing the dispatch up.
 COST_DISPATCH = 12
@@ -134,7 +141,8 @@ class LineRecord:
     def __init__(self, npa: str, nxx: str, line: str, name: str, address: str,
                  cable: int, pair: int, class_of_service: str,
                  horizontal: str, vertical: str, line_equipment: str,
-                 clli: str, fault: str = 'NONE'):
+                 clli: str, fault: str = 'NONE',
+                 frame_defect: Optional[str] = None):
         self.npa = npa
         self.nxx = nxx
         self.line = line
@@ -148,6 +156,9 @@ class LineRecord:
         self.line_equipment = line_equipment
         self.clli = clli
         self.fault = fault
+        # Set only on a central office equipment fault: what is actually
+        # wrong on the frame, which the cross-connect record shows.
+        self.frame_defect = frame_defect
 
     @property
     def telephone_number(self) -> str:
@@ -308,6 +319,8 @@ class ReportDesk:
                            f"{self.rng.randint(0, 9):02d}",
             clli=self.clli,
             fault=fault,
+            frame_defect=(self.rng.choice(FRAME_DEFECT_CODES)
+                          if fault == 'CO_EQUIP' else None),
         )
 
     def _choose_fault(self) -> str:

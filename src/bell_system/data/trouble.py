@@ -134,6 +134,48 @@ FAULTS: Dict[str, Fault] = {
     ),
 }
 
+class FrameDefect(NamedTuple):
+    """Something wrong on the main distributing frame rather than the loop."""
+
+    code: str
+    name: str
+    # What the cross-connect record shows when this is the trouble.
+    record_note: str
+    # What the frame technician does about it.
+    remedy: str
+
+
+# Central office equipment trouble, as it appears on the frame.
+#
+# The main distributing frame is the field of terminations where outside
+# plant cable meets office equipment: verticals carry the cable side through
+# a protector, horizontals carry the equipment side, and a jumper of two
+# wires runs between them. Everything that can be wrong with that
+# arrangement is here, and all three are ordinary frame troubles rather than
+# anything exotic.
+#
+# Which one a line has is the simulation's own; that these are the three
+# things that go wrong on a frame is what the frame is.
+FRAME_DEFECTS: Dict[str, FrameDefect] = {
+    'WRONG_HORIZONTAL': FrameDefect(
+        'WRONG_HORIZONTAL', 'Jumper run to the wrong horizontal',
+        'the jumper terminates on a horizontal that is not this line\'s '
+        'office equipment',
+        'Take the jumper down and run it to the assigned horizontal.'),
+    'OPERATED_PROTECTOR': FrameDefect(
+        'OPERATED_PROTECTOR', 'Protector unit left operated',
+        'the protector unit is in its inactive position, which disconnects '
+        'the customer without disturbing the cross-connect',
+        'Restore the protector unit. Somebody left it out and forgot.'),
+    'OFF_THE_BLOCK': FrameDefect(
+        'OFF_THE_BLOCK', 'Jumper off the terminal',
+        'one leg of the jumper is not making at the vertical',
+        'Re-terminate the jumper. Usually the tip.'),
+}
+
+FRAME_DEFECT_CODES: Tuple[str, ...] = tuple(FRAME_DEFECTS)
+
+
 # Faults a craftsperson would find on a report that turns out to be real.
 REAL_FAULTS: List[str] = [
     'OPEN', 'SHORT', 'GROUND', 'CROSS', 'WET', 'FCG', 'FEMF', 'CO_EQUIP',

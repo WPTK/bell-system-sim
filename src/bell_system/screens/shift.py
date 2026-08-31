@@ -409,8 +409,14 @@ Reports Pending:          {len(pending_reports)}
   Past Commitment:        {len(overdue_reports)}
   Not Yet Measured:       {len(untested_reports)}
 Closed This Session:      {len(self.desk.closed())}
+Board Moved:              {len(self.desk.closed()) - len(pending_reports):+d} \
+reports
 Service Index:            {self.career.service_index():.1f} \
 ({self.career.index_band()})
+                          Scores how you closed them, not how many. A tour
+                          that closes five perfectly reads the same as one
+                          that closes thirty. The two numbers above are the
+                          ones that say whether the board moved.
 Qualifications Held:      {len(self.career.qualifications)} of \
 {len(QUALIFICATIONS)}
 """
