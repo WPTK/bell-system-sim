@@ -1,20 +1,5 @@
 #!/usr/bin/env python3
 """
-import functools
-import json
-import logging
-import logging.handlers
-import os
-import random
-import sys
-import time
-import uuid
-
-from collections import defaultdict, deque
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Union, Callable
-
 Bell System UNIX V7 Terminal Simulation
 ========================================
 
@@ -40,26 +25,67 @@ Version: 2.0
 Date: November 2024
 """
 
-import functools
-import json
 import logging
 import logging.handlers
 import os
 import random
-import readline
 import sys
 import time
-import uuid
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Union, Callable
+from typing import Dict, List, Optional, Any
+
+from .console import clear_screen
+from .data.man_pages import MAN_PAGES
+from .types import (
+    Alarm,
+    CentralOffice,
+    CrossbarSystem,
+    SystemHealth,
+    TndsData,
+    TroubleTicket,
+    TrunkGroup,
+    TspsData,
+)
 
 try:
     import readline  # For command history and line editing
     READLINE_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover - readline is absent on stock Windows
+    readline = None
     READLINE_AVAILABLE = False
+
+
+# Commands that are dispatched and documented but whose operational screens
+# are not built yet. Kept here so the terminal can tell the operator honestly
+# what is and is not available, and so a test can hold the list accountable.
+UNIMPLEMENTED_COMMANDS = frozenset({
+    '5ess', 'analysis', 'capacity', 'coer', 'collect', 'custdb', 'dbquery',
+    'dialtone', 'eqn', 'lmos', 'microwave', 'netdata', 'nroff', 'pic', 'provision',
+    'pwb', 'refer', 'rje', 'routing', 'sarts', 'satellite', 'tbl', 'toll', 'trace',
+    'training', 'troff', 'western',
+})
+
+
+def state_dir() -> str:
+    """
+    Return the per-user directory for logs and command history.
+
+    Honours ``BELL_SYSTEM_HOME`` when set, otherwise follows the XDG state
+    convention. Writing here rather than the current working directory keeps
+    an installed ``bell-system`` from littering whatever directory it is run
+    from. The directory is created if it does not exist.
+    """
+    override = os.environ.get('BELL_SYSTEM_HOME')
+    if override:
+        path = override
+    else:
+        base = os.environ.get('XDG_STATE_HOME') or os.path.join(
+            os.path.expanduser('~'), '.local', 'state'
+        )
+        path = os.path.join(base, 'bell-system')
+    os.makedirs(path, exist_ok=True)
+    return path
 
 
 # Bell System Constants
@@ -128,10 +154,6 @@ class BellSystemTerminal:
         'chk': 'test',
         'alm': 'alarm',
         'alert': 'alarm',
-        'mnt': 'maintenance',
-        'maint': 'maintenance',
-        'perf': 'performance',
-        'monitor': 'performance',
 
         # Technical system aliases
         'rad': 'radio',
@@ -146,10 +168,9 @@ class BellSystemTerminal:
         'reg': 'regenerator',
 
         # Directory and file aliases
-        'ls': 'list',
-        'll': 'list',
-        'la': 'list',
-        'dir': 'list',
+        'll': 'ls',
+        'la': 'ls',
+        'dir': 'ls',
 
         # System monitoring aliases
         'top': 'ps',
@@ -193,17 +214,20 @@ class BellSystemTerminal:
         self.logger = logging.getLogger('BellSystem')
 
         # Performance monitoring
-        self._performance_log = {}
+        self._performance_log: Dict[str, Any] = {}
         self.session_start_time = time.time()
         self.session_id = f"BELL-{int(time.time())}-{os.getpid()}"
         self.failed_command_attempts = 0
 
         # Enhanced UX features - command history and error tracking
-        self.command_history = deque(maxlen=1000)
-        self.command_counts = defaultdict(int)
-        self.error_counts = defaultdict(int)
-        self.recent_errors = deque(maxlen=50)
+        self.command_history: deque = deque(maxlen=1000)
+        self.command_counts: Dict[str, int] = defaultdict(int)
+        self.error_counts: Dict[str, int] = defaultdict(int)
+        self.recent_errors: deque = deque(maxlen=50)
         self.log_verbosity = 'INFO'
+
+        # Build the command dispatch table once, rather than per command.
+        self._command_handlers = self._build_command_handlers()
 
         # Setup command history for readline if available
         if READLINE_AVAILABLE:
@@ -214,10 +238,9 @@ class BellSystemTerminal:
         self.username: str = "sysop"
         self.hostname: str = "bell-unix"
         self.shell: str = "/bin/sh"
-        self.command_history: List[str] = []
         self.role: Optional[str] = None
+        self.role_name: Optional[str] = None
         self.shift_events: List[Dict[str, Any]] = []
-        self.tickets: List[Dict[str, Any]] = []
         self.current_shift: int = 1
 
         # Initialize Bell System environment
@@ -248,7 +271,7 @@ class BellSystemTerminal:
         """Initialize dynamic network state for realistic simulation behavior."""
 
         # Trunk group states with realistic utilization patterns
-        self.trunk_groups = {
+        self.trunk_groups: Dict[str, TrunkGroup] = {
             "TG-001-NYC": {"capacity": 24, "utilization": random.randint(45, 85), "status": "ACTIVE", "route": "NYC-WAS", "quality": random.uniform(0.995, 0.999)},
             "TG-023-BOS": {"capacity": 96, "utilization": random.randint(60, 90), "status": "ACTIVE", "route": "NYC-BOS", "quality": random.uniform(0.992, 0.998)},
             "TG-045-PHL": {"capacity": 48, "utilization": random.randint(35, 75), "status": "ACTIVE", "route": "NYC-PHL", "quality": random.uniform(0.994, 0.999)},
@@ -283,7 +306,7 @@ class BellSystemTerminal:
         }
 
         # Crossbar systems (legacy equipment)
-        self.crossbar_systems = {
+        self.crossbar_systems: Dict[str, CrossbarSystem] = {
             "XB-NYC-003": {"status": "ACTIVE", "load": random.randint(40, 70), "maintenance_due": random.choice([True, False])},
             "XB-PHL-001": {"status": random.choice(["ACTIVE", "MAINT"]), "load": random.randint(0, 85), "maintenance_due": False},
             "XB-BOS-002": {"status": "ACTIVE", "load": random.randint(35, 65), "maintenance_due": random.choice([True, False])}
@@ -339,7 +362,7 @@ class BellSystemTerminal:
         ]
 
         # Randomly select active alarms based on time and conditions
-        self.active_alarms = []
+        self.active_alarms: List[Alarm] = []
         for alarm in possible_alarms:
             if random.random() < 0.3:  # 30% chance each alarm is active
                 alarm["timestamp"] = datetime.now() - timedelta(minutes=random.randint(5, 480))
@@ -347,7 +370,7 @@ class BellSystemTerminal:
                 self.active_alarms.append(alarm)
 
         # System health metrics
-        self.system_health = {
+        self.system_health: SystemHealth = {
             "overall_status": "OPERATIONAL" if len(self.active_alarms) < 3 else "DEGRADED",
             "critical_alarms": len([a for a in self.active_alarms if a["severity"] == "CRITICAL"]),
             "major_alarms": len([a for a in self.active_alarms if a["severity"] == "MAJOR"]),
@@ -361,8 +384,7 @@ class BellSystemTerminal:
 
     def _setup_logging(self) -> None:
         """Setup comprehensive logging system with rotation."""
-        # Create logs directory if it doesn't exist
-        os.makedirs('logs', exist_ok=True)
+        log_dir = state_dir()
 
         # Setup main logger
         logger = logging.getLogger('BellSystem')
@@ -374,7 +396,7 @@ class BellSystemTerminal:
 
         # File handler with rotation
         file_handler = logging.handlers.RotatingFileHandler(
-            'logs/bell_system.log',
+            os.path.join(log_dir, 'bell_system.log'),
             maxBytes=10*1024*1024,  # 10MB
             backupCount=5
         )
@@ -398,14 +420,16 @@ class BellSystemTerminal:
         """Setup readline for command history and editing."""
         try:
             # Load command history if it exists
-            history_file = 'logs/bell_system_history.txt'
+            history_file = os.path.join(state_dir(), 'bell_system_history.txt')
             if os.path.exists(history_file):
                 readline.read_history_file(history_file)
 
             # Set history length
             readline.set_history_length(1000)
 
-            # Enable tab completion (basic)
+            # Complete Bell System commands, not host filesystem paths.
+            readline.set_completer(self._complete_command)
+            readline.set_completer_delims(' \t\n')
             readline.parse_and_bind('tab: complete')
 
             self.history_file = history_file
@@ -433,7 +457,7 @@ class BellSystemTerminal:
         # Add suggestions based on command
         suggestions = self._get_command_suggestions(command)
         if suggestions:
-            response += f"\nDid you mean:\n"
+            response += "\nDid you mean:\n"
             for suggestion in suggestions[:3]:  # Limit to 3 suggestions
                 response += f"  • {suggestion}\n"
 
@@ -711,7 +735,6 @@ class BellSystemTerminal:
         """
         current_hour = datetime.now().hour
         current_month = datetime.now().month
-        is_weekend = datetime.now().weekday() >= 5
 
         # Base events that occur during any shift with ticket numbers
         base_events = [
@@ -885,9 +908,6 @@ class BellSystemTerminal:
                 }
             ]
 
-        # Combine all events and select appropriate ones for the shift
-        all_events = base_events + time_events + equipment_events + seasonal_events
-
         # Always include base events, then add others based on current conditions
         selected_events = base_events.copy()
 
@@ -905,13 +925,22 @@ class BellSystemTerminal:
         selected_events.sort(key=lambda x: x["time"])
         self.shift_events = selected_events[:8]  # Limit to 8 events per shift
 
-    def select_role(self) -> None:
+    def select_role(self, preselected: Optional[int] = None) -> None:
         """
         Allow user to select their Bell System operational role.
 
         Displays authentic Bell System roles and sets up role-specific
         environment and command access.
+
+        Args:
+            preselected: Role number 1-12 to apply without prompting. Used by
+                the ``--role`` command-line option.
         """
+        if preselected is not None and preselected in BELL_SYSTEM_ROLES:
+            role_key, role_name = BELL_SYSTEM_ROLES[preselected]
+            self._apply_role(role_key, role_name)
+            return
+
         print("\n" + "="*60)
         print("BELL SYSTEM UNIX V7 INTERNAL OPERATIONS TERMINAL")
         print("AT&T Bell Laboratories - Murray Hill, New Jersey")
@@ -931,19 +960,25 @@ class BellSystemTerminal:
 
                 if 1 <= role_num <= 12:
                     role_key, role_name = BELL_SYSTEM_ROLES[role_num]
-                    self.role = role_key
-                    print(f"\nRole selected: {role_name}")
-                    print(f"User ID: {role_key}")
-                    print("Initializing workstation...")
-                    time.sleep(2)
+                    self._apply_role(role_key, role_name)
                     break
                 else:
                     print("Invalid selection. Please enter a number between 1 and 12.")
-            except (ValueError, KeyboardInterrupt):
-                print("\nInvalid input. Please enter a number between 1 and 12.")
-            except EOFError:
+            except ValueError:
+                print("Invalid input. Please enter a number between 1 and 12.")
+            except (EOFError, KeyboardInterrupt):
                 print("\nExiting...")
-                sys.exit(0)
+                raise SystemExit(0)
+
+    def _apply_role(self, role_key: str, role_name: str) -> None:
+        """Activate a Bell System role and configure the session for it."""
+        self.role = role_key
+        self.role_name = role_name
+        self.username = role_key
+        self.current_directory = f"/usr/users/{role_key}"
+        print(f"\nRole selected: {role_name}")
+        print(f"User ID: {role_key}")
+        print("Initializing workstation...")
 
     def show_shift_briefing(self) -> None:
         """
@@ -986,7 +1021,7 @@ class BellSystemTerminal:
         briefing = role_briefings.get(self.role, "Generic Bell System briefing")
         print(briefing)
 
-        print(f"\nShift Events:")
+        print("\nShift Events:")
         for i, event in enumerate(self.shift_events[:5], 1):
             priority_marker = "*** " if event["priority"] == "CRITICAL" else "** " if event["priority"] == "HIGH" else "* " if event["priority"] == "MEDIUM" else ""
             print(f"  {i}. {event['time']} [{event['type']}] {priority_marker}{event['status']}")
@@ -994,13 +1029,13 @@ class BellSystemTerminal:
             print(f"     ID: {event['id']}")
             print()
 
-        print(f"\nCurrent System Status:")
-        print(f"  Network Operations: NORMAL")
-        print(f"  Switch Centers: 47/48 operational")
-        print(f"  TNDS Collection: ACTIVE")
-        print(f"  Emergency Services: OPERATIONAL")
+        print("\nCurrent System Status:")
+        print("  Network Operations: NORMAL")
+        print("  Switch Centers: 47/48 operational")
+        print("  TNDS Collection: ACTIVE")
+        print("  Emergency Services: OPERATIONAL")
 
-        print(f"\nType 'help' for available commands or 'man <command>' for detailed help.")
+        print("\nType 'help' for available commands or 'man <command>' for detailed help.")
         print(f"{'='*60}")
 
     def _get_sysop_briefing(self) -> str:
@@ -1243,15 +1278,158 @@ Current Priorities:
 Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
 """
 
-    def run(self) -> None:
+    def _build_command_handlers(self) -> Dict[str, Any]:
+        """
+        Build the command name to handler-method dispatch table.
+
+        Called once during initialisation; the resulting table is reused for
+        every command rather than being rebuilt on each keystroke.
+
+        Returns:
+            Mapping of command name to the bound method implementing it
+        """
+        return {
+        # Core Bell System commands
+        'trunk': self.cmd_trunk,
+        'switch': self.cmd_switch,
+        'testboard': self.cmd_testboard,
+        'toll': self.cmd_toll,
+        'trace': self.cmd_trace,
+        'dialtone': self.cmd_dialtone,
+        'emergency': self.cmd_emergency,
+        'ticket': self.cmd_ticket,
+        'trouble': self.cmd_trouble,
+        'uucp': self.cmd_uucp,
+        'traffic': self.cmd_traffic,
+        'routing': self.cmd_routing,
+        'capacity': self.cmd_capacity,
+        'billing': self.cmd_billing,
+        'service': self.cmd_service,
+        'operator': self.cmd_operator,
+        'directory': self.cmd_directory,
+        'crossbar': self.cmd_crossbar,
+        'netplan': self.cmd_netplan,
+        'dbquery': self.cmd_dbquery,
+        'custdb': self.cmd_custdb,
+        'provision': self.cmd_provision,
+        'collect': self.cmd_collect,
+        'tsps': self.cmd_tsps,
+        'handoff': self.cmd_handoff,
+        'tariff': self.cmd_tariff,
+        'events': self.cmd_events,
+        'training': self.cmd_training,
+
+        # Enhanced Bell System commands
+        '3a': self.cmd_3a,
+        '5ess': self.cmd_5ess,
+        'bsp': self.cmd_bsp,
+        'western': self.cmd_western,
+        'coer': self.cmd_coer,
+        'lmos': self.cmd_lmos,
+        'tnds': self.cmd_tnds,
+        'sarts': self.cmd_sarts,
+        'radio': self.cmd_radio,
+        'microwave': self.cmd_microwave,
+        'satellite': self.cmd_satellite,
+        'alarm': self.cmd_alarm,
+        'pwb': self.cmd_pwb,
+        'rje': self.cmd_rje,
+        'nroff': self.cmd_nroff,
+        'troff': self.cmd_troff,
+        'tbl': self.cmd_tbl,
+        'eqn': self.cmd_eqn,
+        'pic': self.cmd_pic,
+        'refer': self.cmd_refer,
+        'netdata': self.cmd_netdata,
+        'analysis': self.cmd_analysis,
+        't1carrier': self.cmd_t1carrier,
+        'lcarrier': self.cmd_lcarrier,
+        'multiplex': self.cmd_multiplex,
+        'regenerator': self.cmd_regenerator,
+        'antenna': self.cmd_antenna,
+
+        # Enhanced UX commands
+        'errors': self.cmd_errors,
+        'verbosity': self.cmd_verbosity,
+        'history': self.cmd_history,
+
+        # Standard UNIX commands
+        'ps': self.cmd_ps,
+        'who': self.cmd_who,
+        'ls': self.cmd_ls,
+        'pwd': self.cmd_pwd,
+        'date': self.cmd_date,
+        'df': self.cmd_df,
+        'help': self.cmd_help,
+        'man': self.cmd_man,
+        'status': self.cmd_status,
+        'test': self.cmd_test,
+        'quit': self.cmd_quit,
+        'clear': self.cmd_clear
+        }
+    def _subsystem_unavailable(self, command: str, summary: str) -> str:
+        """
+        Report a command whose interactive subsystem is not in this release.
+
+        These commands are dispatched and documented, but their operational
+        screens are not built yet. Saying so plainly is better than emitting a
+        placeholder string that reads like real output.
+
+        Args:
+            command: The command name, used to point at its manual page
+            summary: Short description of what the subsystem does
+
+        Returns:
+            A consistent operator-facing notice
+        """
+        available = sorted(set(self._command_handlers) - UNIMPLEMENTED_COMMANDS)
+        wrapped = []
+        line = '  '
+        for name in available:
+            if len(line) + len(name) + 2 > 72:
+                wrapped.append(line.rstrip())
+                line = '  '
+            line += name + ', '
+        wrapped.append(line.rstrip().rstrip(','))
+
+        return f"""{summary}
+{'=' * 50}
+
+{command}: subsystem not available in this release.
+
+This command is recognised and documented, but its operational screens
+have not been implemented. The manual page describes the intended
+interface:
+
+  man {command}
+
+Subsystems available in this release:
+""" + '\n'.join(wrapped)
+
+    def _complete_command(self, text: str, state: int):
+        """
+        Readline completer offering Bell System command names.
+
+        Replaces readline's default filename completion, which would otherwise
+        expose the host filesystem inside the simulated terminal.
+        """
+        names = sorted(set(self._command_handlers) | set(self.COMMAND_ALIASES))
+        matches = [n for n in names if n.startswith(text)]
+        return matches[state] if state < len(matches) else None
+
+    def run(self, role: Optional[int] = None) -> None:
         """
         Main Bell System terminal session loop.
 
         Handles user interaction, command processing, and maintains
         the authentic Bell System terminal experience.
+
+        Args:
+            role: Optional role number 1-12 to start with, bypassing the
+                interactive role-selection menu.
         """
         try:
-            self.select_role()
+            self.select_role(role)
             self.show_shift_briefing()
 
             while True:
@@ -1263,10 +1441,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                     if not command_line:
                         continue
 
-                    # Add to command history
-                    self.command_history.append(command_line)
-
-                    # Process the command
+                    # History is recorded once, inside execute_command().
                     if command_line.lower() in ['exit', 'quit', 'logout']:
                         print("Logging out of Bell System terminal...")
                         print("Session terminated.")
@@ -1332,89 +1507,12 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
                 self.logger.debug(f"Command alias expanded: {original_command} -> {command} {' '.join(args)}")
 
             # Map commands to their handler methods
-            command_handlers = {
-                # Core Bell System commands
-                'trunk': self.cmd_trunk,
-                'switch': self.cmd_switch,
-                'testboard': self.cmd_testboard,
-                'toll': self.cmd_toll,
-                'trace': self.cmd_trace,
-                'dialtone': self.cmd_dialtone,
-                'emergency': self.cmd_emergency,
-                'ticket': self.cmd_ticket,
-                'uucp': self.cmd_uucp,
-                'traffic': self.cmd_traffic,
-                'routing': self.cmd_routing,
-                'capacity': self.cmd_capacity,
-                'billing': self.cmd_billing,
-                'service': self.cmd_service,
-                'operator': self.cmd_operator,
-                'directory': self.cmd_directory,
-                'crossbar': self.cmd_crossbar,
-                'netplan': self.cmd_netplan,
-                'dbquery': self.cmd_dbquery,
-                'custdb': self.cmd_custdb,
-                'provision': self.cmd_provision,
-                'collect': self.cmd_collect,
-                'tsps': self.cmd_tsps,
-                'handoff': self.cmd_handoff,
-                'tariff': self.cmd_tariff,
-                'events': self.cmd_events,
-                'training': self.cmd_training,
-
-                # Enhanced Bell System commands
-                '3a': self.cmd_3a,
-                '5ess': self.cmd_5ess,
-                'bsp': self.cmd_bsp,
-                'western': self.cmd_western,
-                'coer': self.cmd_coer,
-                'lmos': self.cmd_lmos,
-                'tnds': self.cmd_tnds,
-                'sarts': self.cmd_sarts,
-                'radio': self.cmd_radio,
-                'microwave': self.cmd_microwave,
-                'satellite': self.cmd_satellite,
-                'alarm': self.cmd_alarm,
-                'pwb': self.cmd_pwb,
-                'rje': self.cmd_rje,
-                'nroff': self.cmd_nroff,
-                'troff': self.cmd_troff,
-                'tbl': self.cmd_tbl,
-                'eqn': self.cmd_eqn,
-                'pic': self.cmd_pic,
-                'refer': self.cmd_refer,
-                'netdata': self.cmd_netdata,
-                'analysis': self.cmd_analysis,
-                't1carrier': self.cmd_t1carrier,
-                'lcarrier': self.cmd_lcarrier,
-                'multiplex': self.cmd_multiplex,
-                'regenerator': self.cmd_regenerator,
-                'antenna': self.cmd_antenna,
-
-                # Enhanced UX commands
-                'errors': self.cmd_errors,
-                'verbosity': self.cmd_verbosity,
-                'history': self.cmd_history,
-
-                # Standard UNIX commands
-                'ps': self.cmd_ps,
-                'who': self.cmd_who,
-                'ls': self.cmd_ls,
-                'pwd': self.cmd_pwd,
-                'date': self.cmd_date,
-                'df': self.cmd_df,
-                'help': self.cmd_help,
-                'man': self.cmd_man,
-                'status': self.cmd_status,
-                'test': self.cmd_test,
-                'quit': self.cmd_quit,
-                'clear': self.cmd_clear
-            }
+            handlers = self._command_handlers
 
             # Execute command if it exists
             # Execute command
-            if command in command_handlers:
-                result = command_handlers[command](args)
+            if command in handlers:
+                result = handlers[command](args)
 
                 # Log performance metrics
                 execution_time = time.time() - start_time
@@ -1436,2326 +1534,19 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
 
     def _initialize_man_pages(self) -> Dict[str, str]:
         """
-        Initialize comprehensive manual pages for all Bell System commands.
+        Load the manual pages for all Bell System commands.
 
-        Creates detailed documentation for every command and sub-command with
-        authentic Bell System terminology, usage examples, and cross-references.
-        Includes project numbering system for complex operations.
+        The page text lives in :mod:`bell_system.data.man_pages`; a copy is
+        returned so a session cannot mutate the shared table.
 
         Returns:
             dict: Complete man page documentation system
         """
-        return {
-            "trunk": """
-NAME
-     trunk - Bell System trunk group monitoring and management
-
-SYNOPSIS
-     trunk [status|detail|traffic|history|route|capacity|billing] [trunk-group]
-
-DESCRIPTION
-     Monitor and manage Bell System inter-office trunk groups including
-     traffic analysis, capacity utilization, and billing coordination.
-
-     Trunk groups connect switching centers and carry inter-office traffic.
-     Each trunk group (TG-xxx) has specific capacity and routing characteristics.
-
-OPTIONS
-     status          Display summary of all trunk groups
-     detail TG-xxx   Detailed analysis of specific trunk group
-     traffic TG-xxx  Real-time traffic monitoring
-     history TG-xxx  Historical utilization patterns
-     route TG-xxx    Routing table and path analysis
-     capacity        System-wide capacity analysis
-     billing         Trunk usage billing summary
-
-EXAMPLES
-     trunk status                    Show all trunk groups
-     trunk detail TG-001            Analyze trunk group TG-001
-     trunk traffic TG-045           Monitor TG-045 traffic
-
-SEE ALSO
-     switch(1), traffic(1), routing(1), capacity(1)
-
-BELL SYSTEM PRACTICES
-     BSP 400-200-001 - Trunk Group Administration
-     BSP 400-200-100 - Traffic Analysis Procedures
-""",
-
-            "5ess": """
-NAME
-     5ess - 5ESS Electronic Switching System operations
-
-SYNOPSIS
-     5ess [status|diagnostics|traffic|translations|maintenance] [switch-id]
-
-DESCRIPTION
-     Monitor and manage 5ESS Electronic Switching Systems. The 5ESS provides
-     digital switching capabilities with stored program control, featuring
-     dual processor architecture and distributed switching modules.
-
-OPTIONS
-     status          Display 5ESS system configuration and status
-     diagnostics     Execute comprehensive diagnostic routines
-     traffic         Analyze call processing load and capacity
-     translations    Translation table management and updates
-     maintenance     Scheduled maintenance procedures
-
-TECHNICAL SPECIFICATIONS
-     Administrative Module (AM):     Dual processor control
-     Switching Modules (SM):         Up to 192 remote/local modules
-     Communications Module (CM):     Message switching interface
-     Call Processing Capacity:       750,000 BHCA per system
-
-EXAMPLES
-     5ess status                     Display all 5ESS systems
-     5ess diagnostics NYC-5ESS-01    Run diagnostics on specific switch
-     5ess traffic CHI-5ESS-02        Monitor traffic load
-
-SEE ALSO
-     3a(1), switch(1), western(1), crossbar(1)
-
-BELL SYSTEM PRACTICES
-     BSP 200-100-001 - 5ESS System Description
-     BSP 200-100-100 - 5ESS Operations and Maintenance
-""",
-
-            "alarm": """
-NAME
-     alarm - Central office alarm monitoring and management
-
-SYNOPSIS
-     alarm [status|history|acknowledge|test] [alarm-id]
-
-DESCRIPTION
-     Monitor and manage central office alarm systems including major, minor,
-     and critical alarms. Provides real-time status monitoring and alarm
-     acknowledgment capabilities for Bell System equipment.
-
-OPTIONS
-     status          Display current active alarms
-     history         Show alarm history log
-     acknowledge     Acknowledge specific alarm condition
-     test            Test alarm system functionality
-
-ALARM CATEGORIES
-     CRITICAL        Power failure, system down conditions
-     MAJOR           Equipment failure affecting service
-     MINOR           Warning conditions, maintenance required
-
-EXAMPLES
-     alarm status                    Show all active alarms
-     alarm acknowledge ALM-1247      Acknowledge alarm ALM-1247
-     alarm history 24                Show 24-hour alarm history
-
-SEE ALSO
-     emergency(1), switch(1), testboard(1)
-
-BELL SYSTEM PRACTICES
-     BSP 069-100-001 - Central Office Alarm Systems
-""",
-
-            "billing": """
-NAME
-     billing - Customer billing and toll charge management
-
-SYNOPSIS
-     billing [summary|customer|dispute|tariff] [parameters]
-
-DESCRIPTION
-     Manage customer billing operations including toll charge calculation,
-     billing dispute resolution, and tariff rate application. Interfaces
-     with Automatic Message Accounting (AMA) and Customer Records Information
-     System (CRIS).
-
-OPTIONS
-     summary         Daily billing operations summary
-     customer NUM    Customer account billing details
-     dispute ID      Billing dispute investigation
-     tariff          Current tariff rate structures
-
-EXAMPLES
-     billing summary                 Daily operations report
-     billing customer 2125551234     Account details for customer
-     billing dispute BD-4789         Investigate billing dispute
-
-SEE ALSO
-     toll(1), collect(1), custdb(1), tariff(1)
-
-BELL SYSTEM PRACTICES
-     BSP 230-190-001 - Billing System Operations
-     BSP 230-190-100 - AMA Tape Processing
-""",
-
-            "crossbar": """
-NAME
-     crossbar - Crossbar switching system controls
-
-SYNOPSIS
-     crossbar [status|test|maintenance|config] [office-code]
-
-DESCRIPTION
-     Monitor and control electromechanical crossbar switching systems.
-     Crossbar switches use coordinate switching with horizontal and vertical
-     bars to establish talking paths through crosspoint contacts.
-
-OPTIONS
-     status          Display crossbar office status
-     test            Execute crossbar test routines
-     maintenance     Crossbar maintenance procedures
-     config          System configuration display
-
-TECHNICAL SPECIFICATIONS
-     Switching Matrix:       10x20 crosspoint array
-     Holding Time:          Average 180 seconds per call
-     Traffic Capacity:      36 CCS per crossbar switch
-     Seizure Rate:          1200 attempts per hour maximum
-
-EXAMPLES
-     crossbar status                 Show all crossbar offices
-     crossbar test NYC-XB-01         Test specific crossbar office
-     crossbar maintenance            Schedule maintenance window
-
-SEE ALSO
-     switch(1), 3a(1), 5ess(1), testboard(1)
-
-BELL SYSTEM PRACTICES
-     BSP 200-210-001 - Crossbar System Description
-     BSP 200-210-100 - Crossbar Maintenance Procedures
-""",
-
-            "emergency": """
-NAME
-     emergency - Emergency dispatch and escalation system
-
-SYNOPSIS
-     emergency [dispatch|escalate|status] [priority] [description]
-
-DESCRIPTION
-     Handle emergency situations affecting Bell System operations including
-     service outages, equipment failures, and priority restoration procedures.
-     Coordinates with field forces and management escalation.
-
-OPTIONS
-     dispatch        Create emergency dispatch ticket
-     escalate        Escalate existing emergency to management
-     status          Show current emergency status
-
-PRIORITY LEVELS
-     P1-CRITICAL     Complete service outage affecting >10,000 customers
-     P2-MAJOR        Significant service degradation, equipment failure
-     P3-MINOR        Localized issues, preventive maintenance
-
-EXAMPLES
-     emergency dispatch P1 "Power failure CO-Manhattan-14th"
-     emergency escalate EMG-4721 "Escalating trunk failure"
-     emergency status                Show all active emergencies
-
-SEE ALSO
-     alarm(1), ticket(1), switch(1)
-
-BELL SYSTEM PRACTICES
-     BSP 024-100-001 - Emergency Procedures
-     BSP 024-100-100 - Service Restoration Priorities
-""",
-
-            "tsps": """
-NAME
-     tsps - Traffic Service Position System operations
-
-SYNOPSIS
-     tsps [status|operator|traffic|billing] [position]
-
-DESCRIPTION
-     Monitor and manage Traffic Service Position System (TSPS) for operator
-     services including person-to-person, collect calls, third-party billing,
-     and directory assistance. TSPS provides centralized operator services.
-
-OPTIONS
-     status          TSPS system operational status
-     operator        Individual operator position monitoring
-     traffic         Operator traffic load analysis
-     billing         Operator-assisted call billing
-
-PERFORMANCE METRICS
-     Answer Time:            95% within 20 seconds
-     Average Handle Time:    45 seconds per call
-     Positions Active:       Variable based on traffic load
-     Peak Traffic:           Mother's Day, Christmas Eve
-
-EXAMPLES
-     tsps status                     System operational overview
-     tsps operator POS-12            Monitor position 12
-     tsps traffic                    Current traffic load
-
-SEE ALSO
-     operator(1), directory(1), collect(1), billing(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-255-001 - TSPS System Description
-     BSP 100-255-100 - Operator Performance Standards
-""",
-
-            "testboard": """
-NAME
-     testboard - Line testing equipment operations
-
-SYNOPSIS
-     testboard [test|status|schedule] [line-number|test-type]
-
-DESCRIPTION
-     Operate central office test equipment for subscriber line testing,
-     trunk testing, and circuit analysis. Provides automated and manual
-     testing capabilities for fault isolation and service verification.
-
-OPTIONS
-     test            Execute specific line or trunk test
-     status          Display testboard equipment status
-     schedule        Schedule routine testing procedures
-
-TEST TYPES
-     SUBSCRIPTION    Basic service verification test
-     METALLIC        DC resistance and insulation testing
-     TRANSMISSION    Loss, noise, and distortion measurements
-     SIGNALING       Dial tone, ringing, and supervision tests
-
-EXAMPLES
-     testboard test 212-555-1234     Test customer line
-     testboard status TB-01          Check testboard status
-     testboard schedule weekly       Schedule routine tests
-
-SEE ALSO
-     sarts(1), alarm(1), maintenance(1)
-
-BELL SYSTEM PRACTICES
-     BSP 103-101-001 - Testboard Operations
-     BSP 103-101-100 - Line Testing Procedures
-""",
-
-            "tnds": """
-NAME
-     tnds - Total Network Data System operations
-
-SYNOPSIS
-     tnds [collect|analyze|report] [network-element]
-
-DESCRIPTION
-     Total Network Data System (TNDS) provides comprehensive network
-     performance monitoring and analysis. Collects traffic data from
-     switching systems and transmission facilities for network planning.
-
-OPTIONS
-     collect         Initiate data collection from network elements
-     analyze         Perform network performance analysis
-     report          Generate network utilization reports
-
-DATA SOURCES
-     Switching Systems:      Traffic measurements from ESS and crossbar
-     Transmission:          Facility utilization and performance data
-     Trunking:              Inter-office traffic patterns
-     Customer:              Service usage patterns
-
-EXAMPLES
-     tnds collect all                Collect from all elements
-     tnds analyze NYC-REGION         Analyze regional performance
-     tnds report monthly             Generate monthly report
-
-SEE ALSO
-     netplan(1), traffic(1), analysis(1), capacity(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-905-001 - TNDS System Description
-     BSP 100-905-100 - Data Collection Procedures
-""",
-
-            "radio": """
-NAME
-     radio - TH-3 microwave radio system monitoring
-
-SYNOPSIS
-     radio [status|alignment|test|maintenance] [radio-route]
-
-DESCRIPTION
-     Monitor and maintain TH-3 microwave radio systems for long-haul
-     transmission. TH-3 systems provide 1800 voice channels over microwave
-     frequencies in the 4 and 6 GHz bands with digital multiplexing.
-
-OPTIONS
-     status          Display radio route operational status
-     alignment       Antenna alignment and optimization procedures
-     test            RF performance testing and measurements
-     maintenance     Scheduled maintenance and inspections
-
-TECHNICAL SPECIFICATIONS
-     Frequency Bands:        4 GHz (3700-4200 MHz), 6 GHz (5925-6425 MHz)
-     Channel Capacity:       1800 voice channels per radio bearer
-     Hop Distance:           25-30 miles typical
-     Modulation:            8-PSK digital modulation
-
-EXAMPLES
-     radio status                    Show all radio routes
-     radio alignment NYC-BOS-R1      Align antennas on route
-     radio test CHI-DET-R2           Test RF performance
-
-SEE ALSO
-     microwave(1), antenna(1), satellite(1), t1carrier(1)
-
-BELL SYSTEM PRACTICES
-     BSP 365-100-001 - TH-3 Radio System Description
-     BSP 365-100-100 - Microwave Alignment Procedures
-""",
-
-            "t1carrier": """
-NAME
-     t1carrier - T1 Digital Carrier System operations
-
-SYNOPSIS
-     t1carrier [status|test|provision|alarm] [t1-facility]
-
-DESCRIPTION
-     Monitor and manage T1 digital carrier systems providing 1.544 Mbps
-     digital transmission. T1 systems multiplex 24 voice channels using
-     pulse code modulation (PCM) with 8-bit encoding at 8 kHz sampling.
-
-OPTIONS
-     status          Display T1 facility operational status
-     test            Execute T1 performance testing
-     provision       Provision new T1 circuits
-     alarm           Monitor T1 alarm conditions
-
-TECHNICAL SPECIFICATIONS
-     Bit Rate:               1.544 Mbps (DS1 rate)
-     Channel Capacity:       24 voice channels
-     Frame Structure:        193 bits per frame (24 channels + framing)
-     Encoding:              Bipolar AMI (Alternate Mark Inversion)
-     Regenerator Spacing:    6000 feet maximum
-
-EXAMPLES
-     t1carrier status                Show all T1 facilities
-     t1carrier test T1-NYC-BOS-01    Test specific T1 span
-     t1carrier provision CKT-12345   Provision new circuit
-
-SEE ALSO
-     multiplex(1), regenerator(1), lcarrier(1), radio(1)
-
-BELL SYSTEM PRACTICES
-     BSP 362-100-001 - T1 Carrier System Description
-     BSP 362-100-100 - T1 Testing and Maintenance
-""",
-
-            "lcarrier": """
-NAME
-     lcarrier - L-Carrier coaxial cable system operations
-
-SYNOPSIS
-     lcarrier [status|test|maintenance|amplifier] [l-system]
-
-DESCRIPTION
-     Monitor and manage L-Carrier coaxial cable transmission systems.
-     L1, L3, L4, and L5 systems provide high-capacity analog transmission
-     over coaxial cable with intermediate amplifiers.
-
-OPTIONS
-     status          Display L-Carrier system operational status
-     test            Execute system performance testing
-     maintenance     Amplifier and repeater maintenance
-     amplifier       Individual amplifier monitoring
-
-SYSTEM TYPES
-     L1 System:             600 voice channels, 3 MHz bandwidth
-     L3 System:             1860 voice channels, 8 MHz bandwidth
-     L4 System:             3600 voice channels, 17 MHz bandwidth
-     L5 System:             10,800 voice channels, 57 MHz bandwidth
-
-EXAMPLES
-     lcarrier status                 Show all L-Carrier systems
-     lcarrier test L4-NYC-CHI        Test L4 system performance
-     lcarrier amplifier AMP-147      Monitor specific amplifier
-
-SEE ALSO
-     t1carrier(1), multiplex(1), radio(1)
-
-BELL SYSTEM PRACTICES
-     BSP 361-100-001 - L-Carrier System Description
-     BSP 361-100-100 - Coaxial Cable Maintenance
-""",
-
-            "ps": """
-NAME
-     ps - display process status
-
-SYNOPSIS
-     ps [options]
-
-DESCRIPTION
-     Display information about currently running processes on the Bell System
-     UNIX workstation including system daemons, switching processes, and
-     user sessions.
-
-OPTIONS
-     (no options)    Display processes for current terminal
-     -a              Display processes for all terminals
-     -u              Display user-oriented format
-     -x              Display processes without controlling terminal
-
-EXAMPLES
-     ps                              Show current terminal processes
-     ps -aux                         Show all processes with details
-
-PROCESS TYPES
-     System Daemons:                 init, cron, switching monitors
-     Bell System Processes:          TSPS, AMA, billing systems
-     User Sessions:                  Terminal sessions and applications
-
-SEE ALSO
-     who(1), jobs(1), kill(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     ps(1) - January 1979
-""",
-
-            "who": """
-NAME
-     who - display logged-in users
-
-SYNOPSIS
-     who [options] [file]
-
-DESCRIPTION
-     Display information about users currently logged into the Bell System
-     UNIX workstation including login time, terminal, and location.
-
-OPTIONS
-     (no options)    Display current users
-     am i            Display information about current user only
-
-EXAMPLES
-     who                             Show all logged-in users
-     who am i                        Show current user information
-
-OUTPUT FORMAT
-     username    terminal    login-time    location
-
-SEE ALSO
-     ps(1), users(1), last(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     who(1) - January 1979
-""",
-
-            "man": """
-NAME
-     man - display manual pages
-
-SYNOPSIS
-     man [section] command
-     man -k keyword
-
-DESCRIPTION
-     Display manual pages for Bell System commands and UNIX utilities.
-     Manual pages provide comprehensive documentation including syntax,
-     options, examples, and cross-references.
-
-OPTIONS
-     command         Display manual page for specified command
-     -k keyword      Search manual pages for keyword
-     section command Display page from specific manual section
-
-MANUAL SECTIONS
-     1               User commands and Bell System operations
-     2               System calls and kernel interfaces
-     3               Library functions and subroutines
-
-EXAMPLES
-     man trunk                       Display trunk command manual
-     man 1 ps                        Display ps command from section 1
-     man -k traffic                  Search for traffic-related commands
-
-SEE ALSO
-     help(1), bsp(1), apropos(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     man(1) - January 1979
-""",
-
-            "ticket": """
-NAME
-     ticket - Bell System trouble ticket management
-
-SYNOPSIS
-     ticket [create|status|update|close] [ticket-id] [description]
-
-DESCRIPTION
-     Manage Bell System trouble tickets for customer complaints, equipment
-     failures, and service issues. Provides complete ticket lifecycle
-     management with priority assignment and resolution tracking.
-
-OPTIONS
-     create          Create new trouble ticket
-     status          Display ticket status and details
-     update          Update existing ticket with progress notes
-     close           Close resolved ticket with resolution code
-
-PRIORITY CODES
-     P1-EMERGENCY    Service affecting, immediate response required
-     P2-URGENT       Service degraded, respond within 4 hours
-     P3-ROUTINE      Non-service affecting, respond within 24 hours
-
-EXAMPLES
-     ticket create P1 "No dial tone 212-555-1234"
-     ticket status TKT-19830315-001
-     ticket update TKT-19830315-001 "Dispatched technician"
-     ticket close TKT-19830315-001 "Cable pair replaced"
-
-SEE ALSO
-     emergency(1), testboard(1), sarts(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-105-001 - Trouble Ticket Procedures
-""",
-
-            "traffic": """
-NAME
-     traffic - Network traffic analysis and monitoring
-
-SYNOPSIS
-     traffic [current|forecast|report] [region|timeframe]
-
-DESCRIPTION
-     Analyze and monitor Bell System network traffic patterns including
-     call volumes, busy hour traffic, and capacity utilization. Provides
-     data for network planning and capacity management.
-
-OPTIONS
-     current         Display real-time traffic status
-     forecast        Traffic projections and growth analysis
-     report          Generate traffic utilization reports
-
-TRAFFIC MEASUREMENTS
-     CCS (Centi-Call-Seconds):      Traffic intensity measurement
-     BHCA (Busy Hour Call Attempts): Peak hour call volume
-     Peg Count:                     Call attempt measurements
-     Overflow:                      Blocked call statistics
-
-EXAMPLES
-     traffic current                 Real-time network status
-     traffic forecast monthly        Monthly growth projections
-     traffic report NYC-REGION       Regional traffic analysis
-
-SEE ALSO
-     capacity(1), routing(1), tnds(1), netplan(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-701-001 - Traffic Engineering Procedures
-""",
-
-            "status": """
-NAME
-     status - Bell System operational status overview
-
-SYNOPSIS
-     status [system|network|alarms|performance]
-
-DESCRIPTION
-     Display comprehensive operational status of Bell System equipment,
-     network facilities, and service performance. Provides real-time
-     monitoring dashboard for operations personnel.
-
-OPTIONS
-     system          System-wide equipment status
-     network         Network facility status
-     alarms          Active alarm summary
-     performance     Service performance metrics
-
-STATUS INDICATORS
-     NORMAL          All systems operational
-     WARNING         Minor issues, monitoring required
-     CRITICAL        Service affecting conditions
-
-EXAMPLES
-     status                          Full operational overview
-     status alarms                   Active alarm summary
-     status performance              Service quality metrics
-
-SEE ALSO
-     alarm(1), test(1), emergency(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-000-001 - Operations Procedures
-""",
-
-            "test": """
-NAME
-     test - Bell System equipment testing interface
-
-SYNOPSIS
-     test [equipment-type] [test-type] [parameters]
-
-DESCRIPTION
-     Execute comprehensive testing procedures for Bell System equipment
-     including switching systems, transmission facilities, and customer
-     services. Provides automated and manual testing capabilities.
-
-OPTIONS
-     switching       Test switching equipment and call processing
-     transmission    Test transmission facilities and circuits
-     customer        Test customer services and line conditions
-
-TEST CATEGORIES
-     ROUTINE         Scheduled preventive testing
-     DIAGNOSTIC      Fault isolation and troubleshooting
-     ACCEPTANCE      New equipment acceptance testing
-     PERFORMANCE     Service quality verification
-
-EXAMPLES
-     test switching NYC-5ESS-01      Test 5ESS switch
-     test transmission T1-NYC-BOS    Test T1 facility
-     test customer 212-555-1234      Test customer line
-
-SEE ALSO
-     testboard(1), sarts(1), alarm(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-200-001 - Testing Procedures
-""",
-
-            "bsp": """
-NAME
-     bsp - Bell System Practices reference system
-
-SYNOPSIS
-     bsp [search|view|index] [topic|bsp-number]
-
-DESCRIPTION
-     Access Bell System Practices (BSP) documentation providing standard
-     operating procedures, technical specifications, and maintenance
-     instructions for all Bell System equipment and operations.
-
-OPTIONS
-     search          Search BSP database by keyword
-     view            Display specific BSP document
-     index           Browse BSP index by category
-
-BSP CATEGORIES
-     000-099         General Information and Procedures
-     100-199         Switching Systems and Operations
-     200-299         Electronic Switching Systems
-     300-399         Transmission Systems
-     400-499         Outside Plant and Cable Systems
-
-EXAMPLES
-     bsp search "trunk testing"      Search for trunk procedures
-     bsp view BSP-200-100-001        View specific BSP document
-     bsp index switching             Browse switching procedures
-
-SEE ALSO
-     man(1), help(1), training(1)
-
-BELL SYSTEM DOCUMENTATION
-     BSP Master Index - Updated Quarterly
-""",
-
-            "sarts": """
-NAME
-     sarts - Special service remote testing system
-
-SYNOPSIS
-     sarts [test|schedule|status] [circuit-id|service-type]
-
-DESCRIPTION
-     Special service Automatic Remote Testing System (SARTS) for testing
-     special service circuits including data lines, private lines, and
-     custom telecommunications services requiring specific performance
-     parameters.
-
-OPTIONS
-     test            Execute remote test on special service circuit
-     schedule        Schedule routine testing procedures
-     status          Display test results and circuit status
-
-SERVICE TYPES
-     DATA LINES      Digital data transmission circuits
-     PRIVATE LINES   Dedicated voice and data circuits
-     FOREIGN EXCHANGE Circuits extending local service areas
-     TIE LINES       Inter-office private connections
-
-EXAMPLES
-     sarts test DS-NYC-001           Test data service circuit
-     sarts schedule weekly           Schedule routine tests
-     sarts status FL-BOS-045         Check private line status
-
-SEE ALSO
-     testboard(1), ticket(1), provision(1)
-
-BELL SYSTEM PRACTICES
-     BSP 103-200-001 - SARTS Operations Procedures
-""",
-
-            "antenna": """
-NAME
-     antenna - Microwave antenna and tower equipment management
-
-SYNOPSIS
-     antenna [alignment|status|maintenance|weather] [tower-id]
-
-DESCRIPTION
-     Monitor and maintain microwave antenna systems and tower equipment
-     for Bell System radio transmission facilities. Includes antenna
-     alignment, weather monitoring, and obstruction analysis.
-
-OPTIONS
-     alignment       Execute antenna alignment procedures
-     status          Display antenna and tower status
-     maintenance     Tower and antenna maintenance scheduling
-     weather         Weather impact monitoring and alerts
-
-TECHNICAL SPECIFICATIONS
-     Antenna Types:          Parabolic reflectors, horn antennas
-     Frequency Bands:        4 GHz, 6 GHz, 11 GHz, 18 GHz
-     Beam Width:            1-3 degrees typical
-     Gain:                  35-45 dB typical
-
-EXAMPLES
-     antenna status TWR-NYC-001      Check tower status
-     antenna alignment NYC-BOS-R1    Align radio path antennas
-     antenna weather                 Check weather conditions
-
-SEE ALSO
-     radio(1), microwave(1), satellite(1)
-
-BELL SYSTEM PRACTICES
-     BSP 365-200-001 - Antenna Systems Maintenance
-""",
-
-            "microwave": """
-NAME
-     microwave - Microwave transmission system analysis
-
-SYNOPSIS
-     microwave [path|fade|interference|performance] [route-id]
-
-DESCRIPTION
-     Analyze microwave transmission paths including path loss calculations,
-     fade margin analysis, interference assessment, and performance
-     monitoring for Bell System microwave radio systems.
-
-OPTIONS
-     path            Radio path analysis and calculations
-     fade            Fade margin and reliability analysis
-     interference    Interference analysis and mitigation
-     performance     System performance monitoring
-
-PATH ANALYSIS
-     Free Space Loss:        Basic transmission loss calculation
-     Obstruction Analysis:   Fresnel zone clearance verification
-     Refractivity:          Atmospheric propagation effects
-     Multipath:             Signal reflection and fading
-
-EXAMPLES
-     microwave path NYC-BOS          Analyze radio path
-     microwave fade TH3-ROUTE-14     Check fade margins
-     microwave performance all       Monitor all routes
-
-SEE ALSO
-     radio(1), antenna(1), satellite(1)
-
-BELL SYSTEM PRACTICES
-     BSP 365-300-001 - Microwave Path Engineering
-""",
-
-            "satellite": """
-NAME
-     satellite - Satellite communication link monitoring
-
-SYNOPSIS
-     satellite [status|earth-station|orbit|performance] [station-id]
-
-DESCRIPTION
-     Monitor Bell System satellite communication facilities including
-     earth stations, satellite tracking, and communication link
-     performance for long-distance and international services.
-
-OPTIONS
-     status          Satellite system operational status
-     earth-station   Earth station equipment monitoring
-     orbit           Satellite tracking and positioning
-     performance     Link performance and quality monitoring
-
-SATELLITE SYSTEMS
-     COMSTAR:        Domestic satellite communication system
-     INTELSAT:       International satellite services
-     Earth Stations: Large aperture antenna facilities
-     Transponders:   Satellite repeater channels
-
-EXAMPLES
-     satellite status                Show all satellite links
-     satellite earth-station ES-NY   Monitor earth station
-     satellite orbit COMSTAR-D1      Track satellite position
-
-SEE ALSO
-     radio(1), microwave(1), antenna(1)
-
-BELL SYSTEM PRACTICES
-     BSP 365-400-001 - Satellite Communications
-""",
-
-            "multiplex": """
-NAME
-     multiplex - Digital multiplexing operations and hierarchy
-
-SYNOPSIS
-     multiplex [hierarchy|combine|separate|monitor] [level|signal]
-
-DESCRIPTION
-     Manage digital multiplexing hierarchy for combining multiple voice
-     and data channels into higher-capacity transmission facilities.
-     Supports Bell System digital hierarchy from DS0 to DS4 levels.
-
-OPTIONS
-     hierarchy       Display digital signal hierarchy
-     combine         Multiplex lower-level signals
-     separate        Demultiplex higher-level signals
-     monitor         Monitor multiplexer performance
-
-DIGITAL HIERARCHY
-     DS0:            64 kbps - Single voice channel
-     DS1:            1.544 Mbps - 24 voice channels (T1)
-     DS2:            6.312 Mbps - 96 voice channels
-     DS3:            44.736 Mbps - 672 voice channels (T3)
-     DS4:            274.176 Mbps - 4032 voice channels
-
-EXAMPLES
-     multiplex hierarchy             Show signal levels
-     multiplex combine DS1-TO-DS2    Combine T1 signals
-     multiplex monitor MUX-NYC-001   Monitor multiplexer
-
-SEE ALSO
-     t1carrier(1), regenerator(1), lcarrier(1)
-
-BELL SYSTEM PRACTICES
-     BSP 362-200-001 - Digital Multiplexing Systems
-""",
-
-            "regenerator": """
-NAME
-     regenerator - Digital signal regenerator management
-
-SYNOPSIS
-     regenerator [status|test|alignment|performance] [regen-id]
-
-DESCRIPTION
-     Monitor and maintain digital signal regenerators for T1 carrier
-     systems. Regenerators restore digital pulse timing and amplitude
-     at regular intervals along transmission facilities.
-
-OPTIONS
-     status          Display regenerator operational status
-     test            Execute regenerator performance tests
-     alignment       Timing and threshold adjustments
-     performance     Monitor regenerator performance metrics
-
-TECHNICAL PARAMETERS
-     Span Length:            6000 feet maximum (T1)
-     Input Sensitivity:      -36 dBm minimum
-     Jitter Tolerance:       ±132 nanoseconds
-     Bit Error Rate:         <10^-6 operational limit
-
-EXAMPLES
-     regenerator status              Show all regenerators
-     regenerator test REG-001        Test specific regenerator
-     regenerator alignment T1-SPAN-5 Align regenerator timing
-
-SEE ALSO
-     t1carrier(1), multiplex(1), testboard(1)
-
-BELL SYSTEM PRACTICES
-     BSP 362-150-001 - T1 Regenerator Maintenance
-""",
-
-            "operator": """
-NAME
-     operator - TSPS operator services and performance monitoring
-
-SYNOPSIS
-     operator [performance|training|assistance|billing] [position-id]
-
-DESCRIPTION
-     Monitor Traffic Service Position System (TSPS) operator performance
-     including call handling statistics, training programs, and service
-     quality metrics for person-to-person and operator-assisted calls.
-
-OPTIONS
-     performance     Operator performance statistics and metrics
-     training        Training program status and schedules
-     assistance      Directory assistance call monitoring
-     billing         Operator-assisted billing verification
-
-PERFORMANCE STANDARDS
-     Answer Time:            95% answered within 20 seconds
-     Average Work Time:      45 seconds per call maximum
-     Abandonment Rate:       <5% target
-     Service Observing:      Regular quality monitoring
-
-EXAMPLES
-     operator performance            Show performance summary
-     operator training POS-012       Check training status
-     operator assistance             Directory assistance stats
-
-SEE ALSO
-     tsps(1), directory(1), collect(1), billing(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-255-200 - Operator Performance Standards
-""",
-
-            "directory": """
-NAME
-     directory - Directory assistance services and number lookup
-
-SYNOPSIS
-     directory [lookup|statistics|database] [name|number|city]
-
-DESCRIPTION
-     Provide directory assistance services including telephone number
-     lookup, customer information verification, and directory database
-     maintenance for Bell System customer records.
-
-OPTIONS
-     lookup          Search directory for customer information
-     statistics      Directory assistance call statistics
-     database        Directory database maintenance operations
-
-DIRECTORY TYPES
-     LOCAL           Local telephone directory information
-     NATIONAL        National directory assistance network
-     BUSINESS        Business and commercial listings
-     GOVERNMENT      Government and emergency services
-
-EXAMPLES
-     directory lookup "John Smith" NYC    Find customer number
-     directory statistics                 Call volume statistics
-     directory database update            Update directory records
-
-SEE ALSO
-     operator(1), tsps(1), custdb(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-260-001 - Directory Assistance Procedures
-""",
-
-            "collect": """
-NAME
-     collect - Collect call services and billing verification
-
-SYNOPSIS
-     collect [process|verify|statistics] [call-record]
-
-DESCRIPTION
-     Process collect call requests including call setup, billing party
-     verification, and charge collection for operator-assisted collect
-     calls through the Traffic Service Position System.
-
-OPTIONS
-     process         Process incoming collect call requests
-     verify          Verify billing party acceptance
-     statistics      Collect call volume and revenue statistics
-
-CALL PROCESSING
-     Setup:              Establish connection to called party
-     Verification:       Confirm billing party acceptance
-     Billing:           Apply collect call charges
-     Completion:        Complete call or return deposit
-
-EXAMPLES
-     collect process CCR-19830315-001    Process collect call
-     collect verify 212-555-1234         Verify billing party
-     collect statistics monthly          Monthly statistics
-
-SEE ALSO
-     operator(1), tsps(1), billing(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-270-001 - Collect Call Procedures
-""",
-
-            "toll": """
-NAME
-     toll - Toll switching and billing operations
-
-SYNOPSIS
-     toll [routing|billing|statistics|international] [parameters]
-
-DESCRIPTION
-     Manage toll call routing, billing calculation, and revenue collection
-     for long-distance calls including domestic toll and international
-     services through Bell System toll switching centers.
-
-OPTIONS
-     routing         Toll call routing and path selection
-     billing         Toll charge calculation and billing
-     statistics      Traffic volume and revenue analysis
-     international   International toll call processing
-
-TOLL SERVICES
-     DIRECT DISTANCE DIALING (DDD):     Customer-dialed long distance
-     OPERATOR TOLL:                     Operator-assisted toll calls
-     INTERNATIONAL:                     Overseas call processing
-     WIDE AREA TELEPHONE SERVICE (WATS): Volume discount service
-
-EXAMPLES
-     toll routing NYC-LAX               Route transcontinental call
-     toll billing 212-555-1234          Calculate toll charges
-     toll statistics weekly             Weekly revenue report
-
-SEE ALSO
-     billing(1), routing(1), operator(1), traffic(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-400-001 - Toll Service Procedures
-""",
-
-            "routing": """
-NAME
-     routing - Call routing and path analysis
-
-SYNOPSIS
-     routing [analyze|optimize|tables|alternate] [origin-destination]
-
-DESCRIPTION
-     Analyze and optimize call routing paths through the Bell System
-     network including route selection algorithms, alternate routing,
-     and traffic engineering for efficient network utilization.
-
-OPTIONS
-     analyze         Analyze current routing patterns
-     optimize        Optimize routing for efficiency
-     tables          Display routing table information
-     alternate       Configure alternate routing paths
-
-ROUTING METHODS
-     HIERARCHICAL:           Traditional Bell System hierarchy
-     DYNAMIC:               Traffic-responsive routing
-     ECONOMIC:              Cost-optimized path selection
-     LOAD BALANCING:        Traffic distribution algorithms
-
-EXAMPLES
-     routing analyze NYC-CHI            Analyze route efficiency
-     routing optimize NORTHEAST         Optimize regional routing
-     routing tables display             Show routing tables
-
-SEE ALSO
-     traffic(1), capacity(1), toll(1), netplan(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-700-001 - Network Routing Procedures
-""",
-
-            "capacity": """
-NAME
-     capacity - Network capacity planning and utilization
-
-SYNOPSIS
-     capacity [utilization|forecast|planning|analysis] [network-element]
-
-DESCRIPTION
-     Monitor network capacity utilization and perform capacity planning
-     for Bell System facilities including trunks, switches, and transmission
-     systems to ensure adequate service levels and growth accommodation.
-
-OPTIONS
-     utilization     Current capacity utilization monitoring
-     forecast        Capacity demand forecasting and projections
-     planning        Long-term capacity planning analysis
-     analysis        Detailed capacity analysis and recommendations
-
-CAPACITY METRICS
-     BUSY HOUR:              Peak traffic measurement period
-     ERLANG B:              Blocking probability calculations
-     GRADE OF SERVICE:       Acceptable blocking probability
-     GROWTH FACTORS:        Traffic growth projections
-
-EXAMPLES
-     capacity utilization            Current network utilization
-     capacity forecast annual        Annual growth projections
-     capacity planning NYC-REGION    Regional capacity planning
-
-SEE ALSO
-     traffic(1), routing(1), tnds(1), netplan(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-800-001 - Capacity Planning Procedures
-""",
-
-            "netplan": """
-NAME
-     netplan - Network planning and infrastructure development
-
-SYNOPSIS
-     netplan [design|analysis|forecast|implementation] [project-id]
-
-DESCRIPTION
-     Comprehensive network planning for Bell System infrastructure including
-     switching center placement, transmission facility routing, and capacity
-     expansion to meet projected demand and service requirements.
-
-OPTIONS
-     design          Network design and topology planning
-     analysis        Network performance and efficiency analysis
-     forecast        Long-term demand and growth forecasting
-     implementation  Implementation planning and scheduling
-
-PLANNING PHASES
-     DEMAND FORECASTING:     Traffic growth and service projections
-     NETWORK DESIGN:         Topology and facility planning
-     ECONOMIC ANALYSIS:      Cost-benefit and investment analysis
-     IMPLEMENTATION:         Deployment planning and scheduling
-
-EXAMPLES
-     netplan design NYC-EXPANSION       Design network expansion
-     netplan analysis NORTHEAST         Analyze regional network
-     netplan forecast 5-year            Long-term planning
-
-SEE ALSO
-     capacity(1), traffic(1), tnds(1), routing(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-900-001 - Network Planning Procedures
-""",
-
-            "dbquery": """
-NAME
-     dbquery - Database query and management operations
-
-SYNOPSIS
-     dbquery [select|update|report|maintenance] [table|query]
-
-DESCRIPTION
-     Access and manage Bell System databases including customer records,
-     equipment inventories, billing data, and operational information
-     through structured query interfaces and reporting systems.
-
-OPTIONS
-     select          Execute database queries and data retrieval
-     update          Update database records and information
-     report          Generate standard and custom reports
-     maintenance     Database maintenance and optimization
-
-DATABASE SYSTEMS
-     CUSTOMER RECORDS:       Customer information and service data
-     EQUIPMENT INVENTORY:    Hardware and facility databases
-     BILLING DATA:          Call records and billing information
-     OPERATIONAL DATA:      Traffic, performance, and status data
-
-EXAMPLES
-     dbquery select customer 2125551234  Query customer record
-     dbquery report monthly-traffic      Generate traffic report
-     dbquery maintenance optimize        Database optimization
-
-SEE ALSO
-     custdb(1), billing(1), service(1)
-
-BELL SYSTEM PRACTICES
-     BSP 230-100-001 - Database Management Procedures
-""",
-
-            "custdb": """
-NAME
-     custdb - Customer database operations and analytics
-
-SYNOPSIS
-     custdb [lookup|update|service|billing] [customer-number]
-
-DESCRIPTION
-     Manage customer database operations including account information,
-     service records, billing history, and customer service interactions
-     for Bell System residential and business customers.
-
-OPTIONS
-     lookup          Search and retrieve customer information
-     update          Update customer records and service data
-     service         Customer service history and interactions
-     billing         Customer billing and payment information
-
-CUSTOMER DATA
-     ACCOUNT INFORMATION:    Name, address, service location
-     SERVICE RECORDS:        Telephone numbers, service types
-     BILLING HISTORY:        Payment records, service charges
-     SERVICE HISTORY:        Installation, repairs, modifications
-
-EXAMPLES
-     custdb lookup 2125551234            Search customer record
-     custdb update service-address       Update service location
-     custdb billing payment-history      Review billing history
-
-SEE ALSO
-     dbquery(1), billing(1), service(1), directory(1)
-
-BELL SYSTEM PRACTICES
-     BSP 230-200-001 - Customer Records Management
-""",
-
-            "service": """
-NAME
-     service - Service order management and provisioning
-
-SYNOPSIS
-     service [order|install|repair|disconnect] [service-order]
-
-DESCRIPTION
-     Manage Bell System service orders including new service installation,
-     service changes, repair coordination, and service disconnection
-     through centralized service order processing systems.
-
-OPTIONS
-     order           Create and process new service orders
-     install         Coordinate service installation activities
-     repair          Schedule and track repair activities
-     disconnect      Process service disconnection orders
-
-SERVICE TYPES
-     NEW SERVICE:            Initial telephone service installation
-     SERVICE CHANGES:        Moves, additions, modifications
-     REPAIR SERVICES:        Trouble resolution and maintenance
-     DISCONNECTION:          Service termination processing
-
-EXAMPLES
-     service order new 212-555-1234      Create new service order
-     service install SO-19830315-001     Track installation
-     service repair TKT-4789             Coordinate repair
-
-SEE ALSO
-     provision(1), custdb(1), ticket(1), billing(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-600-001 - Service Order Procedures
-""",
-
-            "provision": """
-NAME
-     provision - Service provisioning and installation management
-
-SYNOPSIS
-     provision [circuit|equipment|testing|activation] [order-id]
-
-DESCRIPTION
-     Coordinate service provisioning activities including circuit assignment,
-     equipment installation, testing procedures, and service activation
-     for Bell System customer services and special circuits.
-
-OPTIONS
-     circuit         Circuit assignment and path provisioning
-     equipment       Equipment installation and configuration
-     testing         Pre-service testing and verification
-     activation      Service activation and customer notification
-
-PROVISIONING PHASES
-     DESIGN:                 Circuit design and facility assignment
-     INSTALLATION:           Physical installation and connection
-     TESTING:               Pre-service testing and verification
-     ACTIVATION:            Service turn-up and customer notification
-
-EXAMPLES
-     provision circuit DS-NYC-001        Provision data circuit
-     provision equipment PBX-INSTALL     Equipment installation
-     provision testing verify-service    Pre-service testing
-
-SEE ALSO
-     service(1), sarts(1), testboard(1), custdb(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-650-001 - Service Provisioning Procedures
-""",
-
-            "analysis": """
-NAME
-     analysis - Advanced network analysis and modeling
-
-SYNOPSIS
-     analysis [performance|traffic|economic|reliability] [scope]
-
-DESCRIPTION
-     Perform advanced analysis of Bell System network performance including
-     traffic modeling, economic analysis, reliability studies, and
-     optimization recommendations for network operations and planning.
-
-OPTIONS
-     performance     Network performance analysis and optimization
-     traffic         Traffic pattern analysis and modeling
-     economic        Economic analysis and cost optimization
-     reliability     Reliability analysis and improvement studies
-
-ANALYSIS TYPES
-     QUEUING THEORY:         Traffic flow and blocking analysis
-     ECONOMIC MODELING:      Cost-benefit and investment analysis
-     RELIABILITY STUDIES:    System availability and redundancy
-     OPTIMIZATION:          Performance and efficiency improvement
-
-EXAMPLES
-     analysis performance NYC-REGION     Regional performance study
-     analysis traffic busy-hour          Peak hour analysis
-     analysis economic cost-benefit      Investment analysis
-
-SEE ALSO
-     tnds(1), capacity(1), netplan(1), traffic(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-950-001 - Network Analysis Procedures
-""",
-
-            "netdata": """
-NAME
-     netdata - Network data collection and processing
-
-SYNOPSIS
-     netdata [collect|process|archive|export] [data-type]
-
-DESCRIPTION
-     Collect and process network operational data including traffic
-     measurements, performance statistics, equipment status, and
-     billing records for analysis, reporting, and archive purposes.
-
-OPTIONS
-     collect         Initiate data collection from network elements
-     process         Process and validate collected data
-     archive         Archive data for long-term storage
-     export          Export data for external analysis
-
-DATA TYPES
-     TRAFFIC DATA:           Call volume and usage measurements
-     PERFORMANCE DATA:       System performance and quality metrics
-     BILLING DATA:          Call records and revenue information
-     STATUS DATA:           Equipment and facility status information
-
-EXAMPLES
-     netdata collect traffic-daily       Collect daily traffic data
-     netdata process billing-records     Process billing information
-     netdata export performance-monthly  Export performance data
-
-SEE ALSO
-     tnds(1), analysis(1), dbquery(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-905-200 - Data Collection and Processing
-""",
-
-            "ls": """
-NAME
-     ls - list directory contents
-
-SYNOPSIS
-     ls [-acdilrstu] [name...]
-
-DESCRIPTION
-     List contents of directories on the Bell System UNIX workstation.
-     For each directory argument, ls lists the contents; for each file
-     argument, ls repeats its name and any other information requested.
-
-OPTIONS
-     -a              List all entries including those beginning with '.'
-     -c              Use time of last modification of the inode
-     -d              List directories themselves, not their contents
-     -i              Print inode number for each file
-     -l              List in long format with permissions and details
-     -r              Reverse the order of sort
-     -s              Give size in blocks for each entry
-     -t              Sort by time modified instead of name
-     -u              Use time of last access instead of modification
-
-EXAMPLES
-     ls                              List current directory
-     ls -la /usr/bell                List Bell System directory with details
-     ls -t *.log                     List log files by modification time
-
-SEE ALSO
-     pwd(1), cd(1), file(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     ls(1) - January 1979
-""",
-
-            "date": """
-NAME
-     date - display or set system date
-
-SYNOPSIS
-     date [yymmddhhmm[.ss]]
-
-DESCRIPTION
-     Display current date and time on the Bell System UNIX workstation.
-     With argument, set system date and time (requires superuser privileges).
-     Used for timestamping Bell System operational logs and records.
-
-FORMAT
-     Day Mon dd hh:mm:ss TimeZone yyyy
-
-EXAMPLES
-     date                            Display current date and time
-     date 8303151430                 Set date to Mar 15, 1983 2:30 PM
-
-BELL SYSTEM USAGE
-     System time synchronization across Bell System facilities is critical
-     for accurate billing records, traffic measurements, and operational logs.
-
-SEE ALSO
-     who(1), ps(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     date(1) - January 1979
-""",
-
-            "pwd": """
-NAME
-     pwd - print working directory
-
-SYNOPSIS
-     pwd
-
-DESCRIPTION
-     Print the pathname of the current working directory on the Bell System
-     UNIX workstation. Essential for navigation within Bell System file
-     structures and operational directories.
-
-EXAMPLES
-     pwd                             Show current directory path
-
-BELL SYSTEM DIRECTORIES
-     /usr/bell                       Bell System operations files
-     /usr/bell/logs                  Operational logs and records
-     /usr/bell/data                  Network data and statistics
-
-SEE ALSO
-     ls(1), cd(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     pwd(1) - January 1979
-""",
-
-            "df": """
-NAME
-     df - display filesystem disk space usage
-
-SYNOPSIS
-     df [filesystem...]
-
-DESCRIPTION
-     Display disk space usage for Bell System UNIX filesystems including
-     available space, used space, and capacity information critical for
-     maintaining operational logs and data storage.
-
-OUTPUT FORMAT
-     Filesystem      Blocks    Used    Available   Capacity   Mounted on
-
-EXAMPLES
-     df                              Show all filesystem usage
-     df /usr                         Show /usr filesystem usage
-
-BELL SYSTEM USAGE
-     Monitor disk usage for operational logs, billing records, traffic data,
-     and customer databases to ensure adequate storage for operations.
-
-SEE ALSO
-     du(1), ls(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     df(1) - January 1979
-""",
-
-            "clear": """
-NAME
-     clear - clear terminal screen
-
-SYNOPSIS
-     clear
-
-DESCRIPTION
-     Clear the terminal screen on Bell System UNIX workstation, providing
-     a clean display for operational activities. Commonly used during
-     shift changes and when switching between different operational tasks.
-
-EXAMPLES
-     clear                           Clear the terminal screen
-
-BELL SYSTEM USAGE
-     Used frequently during Bell System operations to maintain clean
-     terminal displays for monitoring activities and operational procedures.
-
-SEE ALSO
-     reset(1), tput(1)
-
-TERMINAL CONTROL
-     Sends clear screen escape sequence to terminal
-""",
-
-            "quit": """
-NAME
-     quit - exit Bell System terminal session
-
-SYNOPSIS
-     quit
-
-DESCRIPTION
-     Properly terminate Bell System UNIX terminal session with session
-     cleanup, command history saving, and operational log finalization.
-     Ensures proper logout procedures for Bell System operations.
-
-EXAMPLES
-     quit                            Exit terminal session
-     exit                            Alternative exit command
-
-BELL SYSTEM PROCEDURES
-     Session termination includes:
-     - Command history preservation
-     - Operational log finalization
-     - Session activity recording
-     - Proper logout authentication
-
-SEE ALSO
-     login(1), logout(1)
-
-BELL SYSTEM OPERATIONS
-     Always use proper logout procedures for security and audit compliance
-""",
-
-            "western": """
-NAME
-     western - Western Electric equipment specifications
-
-SYNOPSIS
-     western [equipment|specs|manual] [model-number]
-
-DESCRIPTION
-     Access Western Electric equipment specifications, installation manuals,
-     and technical documentation for Bell System equipment manufactured
-     by Western Electric Company, the manufacturing arm of Bell System.
-
-OPTIONS
-     equipment       List available Western Electric equipment
-     specs           Display technical specifications
-     manual          Access installation and maintenance manuals
-
-EQUIPMENT CATEGORIES
-     SWITCHING:              Electronic and electromechanical switches
-     TRANSMISSION:           Carrier systems and transmission equipment
-     STATION APPARATUS:      Telephone sets and customer equipment
-     PROTECTION:            Power and environmental protection systems
-
-EXAMPLES
-     western equipment switching     List switching equipment
-     western specs 5ESS              5ESS switch specifications
-     western manual T1-CARRIER       T1 carrier manual
-
-SEE ALSO
-     5ess(1), 3a(1), t1carrier(1), equipment(1)
-
-BELL SYSTEM PRACTICES
-     BSP 000-100-001 - Western Electric Equipment Catalog
-""",
-
-            "coer": """
-NAME
-     coer - Central Office Equipment Reports
-
-SYNOPSIS
-     coer [inventory|status|maintenance|reports] [equipment-type]
-
-DESCRIPTION
-     Generate and manage Central Office Equipment Reports (COER) for
-     tracking Bell System equipment inventory, status, maintenance
-     schedules, and operational reports for central office facilities.
-
-OPTIONS
-     inventory       Equipment inventory reports
-     status          Current equipment status reports
-     maintenance     Maintenance scheduling and tracking
-     reports         Generate standard COER reports
-
-REPORT TYPES
-     EQUIPMENT INVENTORY:    Complete equipment lists and specifications
-     STATUS REPORTS:         Operational status and performance
-     MAINTENANCE LOGS:       Scheduled and emergency maintenance records
-     UTILIZATION REPORTS:    Equipment usage and capacity analysis
-
-EXAMPLES
-     coer inventory switching        Switching equipment inventory
-     coer status NYC-CO-14           Central office status report
-     coer maintenance weekly         Weekly maintenance schedule
-
-SEE ALSO
-     western(1), lmos(1), alarm(1)
-
-BELL SYSTEM PRACTICES
-     BSP 069-200-001 - Central Office Equipment Reporting
-""",
-
-            "lmos": """
-NAME
-     lmos - Loop Maintenance Operations System
-
-SYNOPSIS
-     lmos [test|repair|status|schedule] [facility-id]
-
-DESCRIPTION
-     Loop Maintenance Operations System (LMOS) for automated testing
-     and maintenance of subscriber loops and special service circuits.
-     Provides remote testing capabilities and maintenance scheduling.
-
-OPTIONS
-     test            Execute remote loop testing procedures
-     repair          Coordinate repair activities and dispatching
-     status          Display loop and circuit status information
-     schedule        Schedule routine maintenance activities
-
-TESTING CAPABILITIES
-     METALLIC TESTS:         DC resistance, capacitance, insulation
-     TRANSMISSION TESTS:     Loss, noise, distortion measurements
-     SIGNALING TESTS:        Dial tone, ringing, supervision
-     DATA CIRCUIT TESTS:     Digital circuit performance verification
-
-EXAMPLES
-     lmos test 212-555-1234          Test subscriber loop
-     lmos repair TKT-4789            Coordinate repair dispatch
-     lmos status LOOP-NYC-14         Check loop status
-
-SEE ALSO
-     testboard(1), sarts(1), ticket(1)
-
-BELL SYSTEM PRACTICES
-     BSP 103-300-001 - LMOS Operations Procedures
-""",
-
-            "dialtone": """
-NAME
-     dialtone - Dial tone testing and verification
-
-SYNOPSIS
-     dialtone [test|verify|troubleshoot] [line-number|office]
-
-DESCRIPTION
-     Test and verify dial tone presence, quality, and timing for
-     subscriber lines and Bell System equipment. Essential for
-     service verification and trouble isolation procedures.
-
-OPTIONS
-     test            Execute dial tone testing procedures
-     verify          Verify dial tone quality and timing
-     troubleshoot    Diagnose dial tone problems
-
-DIAL TONE SPECIFICATIONS
-     Frequency:              350 Hz + 440 Hz composite tone
-     Level:                  -13 dBm ±3 dB at subscriber telephone
-     Timing:                 Present within 3 seconds of off-hook
-     Interruption:           Removed upon first digit reception
-
-EXAMPLES
-     dialtone test 212-555-1234      Test line dial tone
-     dialtone verify NYC-CO-14       Verify central office dial tone
-     dialtone troubleshoot problems  Diagnose dial tone issues
-
-SEE ALSO
-     testboard(1), lmos(1), ticket(1)
-
-BELL SYSTEM PRACTICES
-     BSP 103-400-001 - Dial Tone Testing Procedures
-""",
-
-            "trace": """
-NAME
-     trace - Call tracing and routing analysis
-
-SYNOPSIS
-     trace [call|route|path|billing] [call-identifier]
-
-DESCRIPTION
-     Trace call routing paths through the Bell System network for
-     billing verification, network analysis, and trouble resolution.
-     Provides detailed call path information and routing decisions.
-
-OPTIONS
-     call            Trace specific call routing and path
-     route           Analyze routing decisions and alternatives
-     path            Display complete network path information
-     billing         Verify billing accuracy for traced calls
-
-TRACE INFORMATION
-     ORIGINATING OFFICE:     Call origination point and equipment
-     ROUTING DECISIONS:      Switching and routing choices made
-     TRANSMISSION PATH:      Facilities used for call completion
-     TERMINATING OFFICE:     Call destination and completion details
-
-EXAMPLES
-     trace call CALL-19830315-001    Trace specific call
-     trace route NYC-LAX             Analyze routing path
-     trace billing disputed-call     Verify billing accuracy
-
-SEE ALSO
-     routing(1), billing(1), toll(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-500-001 - Call Tracing Procedures
-""",
-
-            "events": """
-NAME
-     events - Bell System operational events and shift activity
-
-SYNOPSIS
-     events [current|history|generate|summary] [timeframe]
-
-DESCRIPTION
-     Monitor and manage Bell System operational events including
-     equipment status changes, maintenance activities, service
-     impacts, and shift handoff information for operational awareness.
-
-OPTIONS
-     current         Display current active events
-     history         Show historical events and activities
-     generate        Generate shift briefing events
-     summary         Provide event summary and statistics
-
-EVENT CATEGORIES
-     EQUIPMENT EVENTS:       Status changes and equipment alerts
-     MAINTENANCE EVENTS:     Scheduled and emergency maintenance
-     SERVICE EVENTS:         Service impacts and customer issues
-     OPERATIONAL EVENTS:     Shift activities and procedures
-
-EXAMPLES
-     events current                  Show current events
-     events history 24               Show 24-hour event history
-     events summary shift            Shift event summary
-
-SEE ALSO
-     handoff(1), alarm(1), status(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-050-001 - Event Management Procedures
-""",
-
-            "handoff": """
-NAME
-     handoff - Authentic Bell System shift handoff procedures
-
-SYNOPSIS
-     handoff [briefing|status|issues|turnover] [shift]
-
-DESCRIPTION
-     Manage Bell System shift handoff procedures including status
-     briefings, outstanding issues, equipment conditions, and
-     operational continuity between shifts for 24/7 operations.
-
-OPTIONS
-     briefing        Generate shift briefing information
-     status          Current operational status summary
-     issues          Outstanding issues and problem reports
-     turnover        Complete shift turnover documentation
-
-HANDOFF ELEMENTS
-     EQUIPMENT STATUS:       All systems operational status
-     OUTSTANDING ISSUES:     Active tickets and problem reports
-     MAINTENANCE ACTIVITIES: Scheduled and ongoing maintenance
-     SERVICE IMPACTS:        Customer affecting conditions
-
-EXAMPLES
-     handoff briefing incoming       Generate incoming shift briefing
-     handoff status all-systems      Complete operational status
-     handoff issues priority         Priority issue summary
-
-SEE ALSO
-     events(1), status(1), ticket(1)
-
-BELL SYSTEM PRACTICES
-     BSP 100-025-001 - Shift Handoff Procedures
-""",
-
-            "tariff": """
-NAME
-     tariff - Bell System tariff and rate structure information
-
-SYNOPSIS
-     tariff [rates|schedule|calculate|verify] [service-type]
-
-DESCRIPTION
-     Access Bell System tariff information including rate schedules,
-     service charges, billing calculations, and regulatory rate
-     structures for various telecommunications services.
-
-OPTIONS
-     rates           Display current rate schedules
-     schedule        Show tariff filing schedules
-     calculate       Calculate service charges
-     verify          Verify billing rate applications
-
-TARIFF CATEGORIES
-     LOCAL SERVICE:          Basic exchange service rates
-     TOLL SERVICE:           Long distance service charges
-     SPECIAL SERVICES:       Private line and data service rates
-     EQUIPMENT RENTAL:       Terminal equipment charges
-
-EXAMPLES
-     tariff rates local              Local service rate schedule
-     tariff calculate toll-call      Calculate toll charges
-     tariff verify billing-dispute   Verify rate application
-
-SEE ALSO
-     billing(1), toll(1), service(1)
-
-BELL SYSTEM PRACTICES
-     BSP 230-300-001 - Tariff Administration
-""",
-
-            "training": """
-NAME
-     training - Bell System training programs and procedures
-
-SYNOPSIS
-     training [programs|schedule|progress|certification] [employee-id]
-
-DESCRIPTION
-     Manage Bell System training programs including technical training,
-     operational procedures, safety programs, and certification
-     requirements for Bell System operations personnel.
-
-OPTIONS
-     programs        List available training programs
-     schedule        Training schedules and availability
-     progress        Individual training progress tracking
-     certification   Certification requirements and status
-
-TRAINING CATEGORIES
-     TECHNICAL TRAINING:     Equipment and system operation
-     OPERATIONAL PROCEDURES: Bell System Practices and procedures
-     SAFETY TRAINING:        Workplace safety and emergency procedures
-     MANAGEMENT TRAINING:    Supervisory and management development
-
-EXAMPLES
-     training programs switching     Switching system training
-     training schedule quarterly     Quarterly training schedule
-     training progress EMP-1234      Employee training status
-
-SEE ALSO
-     bsp(1), operator(1), procedures(1)
-
-BELL SYSTEM PRACTICES
-     BSP 000-200-001 - Training Program Administration
-""",
-
-            "errors": """
-NAME
-     errors - Display recent error summary and troubleshooting
-
-SYNOPSIS
-     errors [summary|detail|clear] [count]
-
-DESCRIPTION
-     Display recent command errors with troubleshooting suggestions
-     and resolution guidance. Part of the enhanced Bell System
-     terminal user experience for improved operational efficiency.
-
-OPTIONS
-     summary         Show error summary with counts
-     detail          Display detailed error information
-     clear           Clear error history
-
-ERROR CATEGORIES
-     COMMAND ERRORS:         Invalid commands or syntax
-     SYSTEM ERRORS:          System or equipment failures
-     ACCESS ERRORS:          Permission or authentication issues
-     DATA ERRORS:           Data format or validation problems
-
-EXAMPLES
-     errors                          Show recent error summary
-     errors detail 10                Show last 10 errors in detail
-     errors clear                    Clear error history
-
-SEE ALSO
-     help(1), verbosity(1), history(1)
-
-ENHANCED TERMINAL FEATURES
-     Part of Bell System UX enhancement package
-""",
-
-            "verbosity": """
-NAME
-     verbosity - Control logging detail level
-
-SYNOPSIS
-     verbosity [DEBUG|INFO|WARNING|ERROR|CRITICAL]
-
-DESCRIPTION
-     Dynamically control the logging verbosity level for Bell System
-     terminal operations. Higher levels provide more detailed
-     information for troubleshooting and system analysis.
-
-LOGGING LEVELS
-     DEBUG:                  Detailed diagnostic information
-     INFO:                   General operational information
-     WARNING:               Warning conditions and alerts
-     ERROR:                 Error conditions requiring attention
-     CRITICAL:              Critical system conditions
-
-EXAMPLES
-     verbosity                       Show current logging level
-     verbosity DEBUG                 Enable debug logging
-     verbosity ERROR                 Show only errors and critical
-
-SEE ALSO
-     errors(1), help(1), history(1)
-
-ENHANCED TERMINAL FEATURES
-     Part of Bell System UX enhancement package
-""",
-
-            "history": """
-NAME
-     history - Display command history with filtering
-
-SYNOPSIS
-     history [count] [pattern]
-
-DESCRIPTION
-     Display Bell System terminal command history with optional
-     filtering and count limits. Provides command usage statistics
-     and session activity tracking for operational review.
-
-OPTIONS
-     count           Number of recent commands to display
-     pattern         Filter commands matching pattern
-
-HISTORY FEATURES
-     COMMAND TRACKING:       Complete command execution history
-     USAGE STATISTICS:       Command frequency and patterns
-     SESSION ANALYSIS:       Activity tracking and review
-     NAVIGATION:            Up/down arrow command recall
-
-EXAMPLES
-     history                         Show recent command history
-     history 50                      Show last 50 commands
-     history trunk                   Show commands containing 'trunk'
-
-SEE ALSO
-     errors(1), verbosity(1), help(1)
-
-ENHANCED TERMINAL FEATURES
-     Part of Bell System UX enhancement package with readline support
-""",
-
-            "nroff": """
-NAME
-     nroff - Text formatting and document preparation
-
-SYNOPSIS
-     nroff [-options] [files...]
-
-DESCRIPTION
-     Format text documents for Bell System documentation including
-     technical manuals, operational procedures, and administrative
-     reports. Part of the Bell System document preparation system.
-
-OPTIONS
-     -ms             Use manuscript macro package
-     -mm             Use memorandum macro package
-     -man            Use manual page macro package
-
-DOCUMENT TYPES
-     TECHNICAL MANUALS:      Equipment specifications and procedures
-     OPERATIONAL PROCEDURES: Bell System Practices documentation
-     ADMINISTRATIVE REPORTS: Management and statistical reports
-     CORRESPONDENCE:         Business letters and memoranda
-
-EXAMPLES
-     nroff -ms technical_spec.ms     Format technical specification
-     nroff -man command.1            Format manual page
-     nroff procedure.txt             Format procedure document
-
-SEE ALSO
-     troff(1), tbl(1), eqn(1), pic(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     nroff(1) - January 1979
-""",
-
-            "troff": """
-NAME
-     troff - Typesetting and document formatting
-
-SYNOPSIS
-     troff [-options] [files...]
-
-DESCRIPTION
-     Typeset high-quality documents for Bell System publications
-     including technical documentation, engineering reports, and
-     formal correspondence requiring professional presentation.
-
-OPTIONS
-     -ms             Use manuscript macro package
-     -mm             Use memorandum macro package
-     -Tdevice        Specify output device type
-
-TYPESETTING FEATURES
-     PROPORTIONAL FONTS:     Multiple typefaces and sizes
-     MATHEMATICAL NOTATION:  Equations and technical symbols
-     GRAPHICS INTEGRATION:   Diagrams and illustrations
-     PAGE LAYOUT:           Professional document formatting
-
-EXAMPLES
-     troff -ms -Tcat report.ms       Typeset technical report
-     troff -mm memo.mm               Format memorandum
-     troff engineering_spec.tr       Typeset specification
-
-SEE ALSO
-     nroff(1), tbl(1), eqn(1), pic(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     troff(1) - January 1979
-""",
-
-            "tbl": """
-NAME
-     tbl - Table formatting preprocessor
-
-SYNOPSIS
-     tbl [files...] | nroff
-     tbl [files...] | troff
-
-DESCRIPTION
-     Format tables for Bell System documentation including technical
-     specifications, performance data, equipment lists, and statistical
-     reports requiring structured tabular presentation.
-
-TABLE FEATURES
-     COLUMN ALIGNMENT:       Left, right, center, numeric alignment
-     SPANNING:              Column and row spanning capabilities
-     BOXING:                Table borders and grid lines
-     FORMATTING:            Text formatting within table cells
-
-EXAMPLES
-     tbl equipment_list.tbl | nroff  Format equipment table
-     tbl performance.tbl | troff     Typeset performance data
-     tbl specifications.tbl          Process specification table
-
-SEE ALSO
-     nroff(1), troff(1), eqn(1), pic(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     tbl(1) - January 1979
-""",
-
-            "eqn": """
-NAME
-     eqn - Mathematical equation formatting
-
-SYNOPSIS
-     eqn [files...] | nroff
-     eqn [files...] | troff
-
-DESCRIPTION
-     Format mathematical equations and technical formulas for Bell System
-     engineering documentation including transmission calculations,
-     traffic engineering formulas, and technical specifications.
-
-EQUATION FEATURES
-     MATHEMATICAL NOTATION:  Fractions, exponents, subscripts
-     SPECIAL SYMBOLS:       Greek letters, mathematical operators
-     ALIGNMENT:             Multi-line equation alignment
-     SIZING:               Automatic size adjustment
-
-EXAMPLES
-     eqn formulas.eqn | troff        Format engineering formulas
-     eqn calculations.eqn | nroff    Process traffic calculations
-     eqn specifications.eqn          Format technical equations
-
-SEE ALSO
-     nroff(1), troff(1), tbl(1), pic(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     eqn(1) - January 1979
-""",
-
-            "pic": """
-NAME
-     pic - Picture drawing language and graphics
-
-SYNOPSIS
-     pic [files...] | nroff
-     pic [files...] | troff
-
-DESCRIPTION
-     Create technical diagrams and illustrations for Bell System
-     documentation including network diagrams, equipment layouts,
-     circuit schematics, and organizational charts.
-
-GRAPHICS FEATURES
-     GEOMETRIC SHAPES:       Boxes, circles, lines, arrows
-     NETWORK DIAGRAMS:       Switching and transmission layouts
-     FLOWCHARTS:            Process and procedure diagrams
-     SCALING:              Automatic sizing and positioning
-
-EXAMPLES
-     pic network_diagram.pic | troff    Create network diagram
-     pic circuit_layout.pic | nroff     Format circuit diagram
-     pic organizational.pic             Process org chart
-
-SEE ALSO
-     nroff(1), troff(1), tbl(1), eqn(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     pic(1) - January 1979
-""",
-
-            "refer": """
-NAME
-     refer - Bibliography and reference management
-
-SYNOPSIS
-     refer [files...] | nroff
-     refer [files...] | troff
-
-DESCRIPTION
-     Manage bibliographic references and citations for Bell System
-     technical documentation including references to Bell System
-     Practices, technical journals, and engineering specifications.
-
-REFERENCE FEATURES
-     CITATION FORMATTING:    Automatic citation numbering
-     BIBLIOGRAPHY:          Reference list generation
-     DATABASE:              Reference database management
-     CROSS-REFERENCING:     Internal document references
-
-EXAMPLES
-     refer technical_paper.ref | troff  Process technical paper
-     refer manual.ref | nroff           Format reference manual
-     refer bibliography.ref             Process bibliography
-
-SEE ALSO
-     nroff(1), troff(1), lookbib(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     refer(1) - January 1979
-""",
-
-            "pwb": """
-NAME
-     pwb - Programmer's Workbench operations
-
-SYNOPSIS
-     pwb [command] [options]
-
-DESCRIPTION
-     Access Programmer's Workbench (PWB) system for Bell System
-     software development and maintenance including system programming,
-     application development, and software version control.
-
-PWB FEATURES
-     VERSION CONTROL:        Source code management and tracking
-     DEVELOPMENT TOOLS:      Compilers, debuggers, utilities
-     PROJECT MANAGEMENT:     Software project coordination
-     DOCUMENTATION:         Technical documentation tools
-
-EXAMPLES
-     pwb checkout source.c           Check out source file
-     pwb delta modifications         Record code changes
-     pwb make project               Build software project
-
-SEE ALSO
-     cc(1), make(1), sccs(1)
-
-PROGRAMMER'S WORKBENCH
-     PWB/UNIX - Bell Laboratories
-""",
-
-            "rje": """
-NAME
-     rje - Remote Job Entry system
-
-SYNOPSIS
-     rje [submit|status|output] [job-parameters]
-
-DESCRIPTION
-     Submit and manage batch processing jobs through the Remote Job Entry
-     system for Bell System data processing including billing calculations,
-     traffic analysis, and network planning computations.
-
-RJE FEATURES
-     JOB SUBMISSION:         Batch job scheduling and execution
-     STATUS MONITORING:      Job progress and completion tracking
-     OUTPUT RETRIEVAL:       Job results and report generation
-     PRIORITY SCHEDULING:    Job priority and resource allocation
-
-EXAMPLES
-     rje submit billing_run.jcl      Submit billing job
-     rje status JOB-19830315-001     Check job status
-     rje output traffic_analysis     Retrieve job output
-
-SEE ALSO
-     batch(1), at(1), cron(1)
-
-BELL SYSTEM DATA PROCESSING
-     RJE System - Bell System Computing
-""",
-
-            "uucp": """
-NAME
-     uucp - UNIX to UNIX copy and communication
-
-SYNOPSIS
-     uucp [options] source destination
-
-DESCRIPTION
-     Transfer files and execute commands between Bell System UNIX
-     workstations over dial-up or dedicated communication lines.
-     Essential for Bell System inter-office data exchange.
-
-COMMUNICATION FEATURES
-     FILE TRANSFER:          Reliable file copying between systems
-     REMOTE EXECUTION:       Execute commands on remote systems
-     MAIL DELIVERY:          Electronic mail between Bell offices
-     NEWS DISTRIBUTION:      Technical bulletins and announcements
-
-EXAMPLES
-     uucp report.txt chicago!~/reports/  Copy file to Chicago office
-     uucp chicago!status.log local_file  Copy from remote system
-     uumail user@boston "Meeting tomorrow" Send mail to Boston
-
-SEE ALSO
-     mail(1), cu(1), tip(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     uucp(1) - January 1979
-"""
-        }
-
-    def cmd_ps(self, args: List[str] = None) -> str:
-        """
-        Display Bell System processes in authentic UNIX V7 format.
-
-        Shows currently running processes on the Bell System workstation
-        including system daemons, switching processes, and user sessions.
-
-        Returns:
-            Process listing formatted in traditional ps output style
-        """
-        current_time = datetime.now().strftime("%a %b %d %H:%M:%S EST %Y")
-        processes = [
-            "    1  ?        0:01 init",
-            "   23  ?        0:00 cron",
-            "   45  ?        0:02 switching_monitor",
-            "   67  ?        0:01 ama_collector",
-            "   89  ?        0:00 billing_daemon",
-            "  112  ?        0:03 tnds_agent",
-            "  134  ?        0:01 tsps_monitor",
-            "  156  tty01    0:00 -sh (bell)",
-            "  178  tty02    0:00 -sh (sysop)",
-            "  201  tty03    0:00 -sh (netplan)"
-        ]
-
-        header = f"Bell System UNIX V7 - Process Status - {current_time}\n"
-        header += "   PID TTY      TIME CMD\n"
-
-        return header + "\n".join(processes)
+        return dict(MAN_PAGES)
 
     def _initialize_nanpa_data(self) -> None:
         """Initialize authentic NANPA geographic data for Bell System infrastructure."""
         import csv
-        import random
 
         # Load and process NANPA data for authentic Bell System operations
         self.nanpa_data = {}
@@ -3809,7 +1600,7 @@ UNIX V7 PROGRAMMER'S MANUAL
         """Initialize authentic Bell System infrastructure based on NANPA data."""
 
         # Create realistic Bell System central offices and switching centers
-        self.central_offices = {}
+        self.central_offices: Dict[str, CentralOffice] = {}
         self.switching_centers = {}
         self.microwave_sites = {}
 
@@ -3860,7 +1651,6 @@ UNIX V7 PROGRAMMER'S MANUAL
 
     def _initialize_enhanced_ticket_system(self) -> None:
         """Initialize comprehensive ticket management system with realistic scenarios."""
-        import random
 
         # Enhanced ticket categories with Bell System authenticity
         self.ticket_categories = {
@@ -3892,7 +1682,7 @@ UNIX V7 PROGRAMMER'S MANUAL
         }
 
         # Initialize dynamic ticket generation
-        self.active_tickets = []
+        self.active_tickets: List[TroubleTicket] = []
         self.ticket_counter = 4500  # Start from realistic Bell System ticket numbers
         self.completed_tickets = []
 
@@ -4006,7 +1796,7 @@ UNIX V7 PROGRAMMER'S MANUAL
                         'title': f"Inter-office trunk failure - {city} to major hubs",
                         'description': f"Loss of all long-distance connectivity from {city} affecting interstate traffic",
                         'assigned_team': 'Network Operations Emergency',
-                        'technical_details': f"Fiber optic cable cut on Route 80 corridor. Microwave backup circuits at capacity.",
+                        'technical_details': "Fiber optic cable cut on Route 80 corridor. Microwave backup circuits at capacity.",
                         'actions': ['Locate cable fault', 'Deploy emergency repair crew', 'Reroute traffic via alternate paths', 'Customer notifications'],
                         'equipment': ['FIBER-MAIN', 'MICROWAVE-BACKUP', 'ROUTING-SYSTEMS'],
                         'scope': 'INTERSTATE'
@@ -4028,7 +1818,7 @@ UNIX V7 PROGRAMMER'S MANUAL
                         'title': f"Intermittent service issues - {city} area",
                         'description': f"Sporadic call setup failures reported in {npa} area code",
                         'assigned_team': 'Local Maintenance',
-                        'technical_details': f"Line interface circuit experiencing intermittent failures. Error rate: 0.3%",
+                        'technical_details': "Line interface circuit experiencing intermittent failures. Error rate: 0.3%",
                         'actions': ['Test line interface circuits', 'Monitor error patterns', 'Schedule preventive maintenance'],
                         'equipment': ['LINE-INTERFACE', 'DIAGNOSTIC-SYSTEMS'],
                         'scope': 'LOCAL'
@@ -4052,7 +1842,7 @@ UNIX V7 PROGRAMMER'S MANUAL
                         'title': f"Crossbar switch mechanical failure - {city}",
                         'description': f"Crossbar switching matrix experiencing mechanical binding in {city} office",
                         'assigned_team': 'Electromechanical Repair',
-                        'technical_details': f"Contact spring tension loss causing call setup failures. Estimated 25% capacity reduction.",
+                        'technical_details': "Contact spring tension loss causing call setup failures. Estimated 25% capacity reduction.",
                         'actions': ['Spring tension adjustment', 'Contact cleaning', 'Lubrication service', 'Performance testing'],
                         'equipment': ['CROSSBAR-MATRIX', 'CONTACT-SPRINGS', 'MECHANICAL-SYSTEMS'],
                         'scope': 'LOCAL'
@@ -4061,9 +1851,9 @@ UNIX V7 PROGRAMMER'S MANUAL
                 'MINOR': [
                     {
                         'title': f"Trunk interface card failure - {city}",
-                        'description': f"Single trunk interface card malfunction affecting 24 circuits",
+                        'description': "Single trunk interface card malfunction affecting 24 circuits",
                         'assigned_team': 'Circuit Maintenance',
-                        'technical_details': f"T1 interface card showing signal level degradation. BER: 10^-4",
+                        'technical_details': "T1 interface card showing signal level degradation. BER: 10^-4",
                         'actions': ['Replace interface card', 'Test circuit performance', 'Update maintenance records'],
                         'equipment': ['T1-INTERFACE', 'TRUNK-CIRCUITS'],
                         'scope': 'LOCAL'
@@ -4076,7 +1866,7 @@ UNIX V7 PROGRAMMER'S MANUAL
                         'title': f"Emergency services circuit down - {city}",
                         'description': f"911 emergency services losing connectivity in {city} area",
                         'assigned_team': 'Emergency Services Team',
-                        'technical_details': f"Dedicated emergency trunk group failure. Backup circuits activated but limited capacity.",
+                        'technical_details': "Dedicated emergency trunk group failure. Backup circuits activated but limited capacity.",
                         'actions': ['Immediate circuit repair', 'Verify backup operations', 'Notify emergency dispatch', 'Monitor call overflow'],
                         'equipment': ['EMERGENCY-TRUNKS', 'BACKUP-CIRCUITS', 'DISPATCH-SYSTEMS'],
                         'scope': 'REGIONAL'
@@ -4087,7 +1877,7 @@ UNIX V7 PROGRAMMER'S MANUAL
                         'title': f"Business customer group outage - {city}",
                         'description': f"Major business district losing phone service in {city}",
                         'assigned_team': 'Business Services',
-                        'technical_details': f"Serving area interface failure affecting 500+ business lines. PBX connections down.",
+                        'technical_details': "Serving area interface failure affecting 500+ business lines. PBX connections down.",
                         'actions': ['Repair serving area interface', 'Test PBX connections', 'Customer notifications', 'Service verification'],
                         'equipment': ['SAI-EQUIPMENT', 'PBX-INTERFACES', 'BUSINESS-LINES'],
                         'scope': 'LOCAL'
@@ -4098,7 +1888,7 @@ UNIX V7 PROGRAMMER'S MANUAL
                         'title': f"Residential area intermittent service - {city}",
                         'description': f"Sporadic dial tone issues in residential area of {city}",
                         'assigned_team': 'Residential Services',
-                        'technical_details': f"Line concentrator showing intermittent failures. Affects approximately 50 customers.",
+                        'technical_details': "Line concentrator showing intermittent failures. Affects approximately 50 customers.",
                         'actions': ['Test line concentrator', 'Check subscriber loops', 'Monitor service quality'],
                         'equipment': ['LINE-CONCENTRATOR', 'SUBSCRIBER-LOOPS'],
                         'scope': 'LOCAL'
@@ -4115,7 +1905,7 @@ UNIX V7 PROGRAMMER'S MANUAL
                 'title': f"System issue - {city} area",
                 'description': f"Technical issue affecting service in {city}, {state}",
                 'assigned_team': 'General Maintenance',
-                'technical_details': f"System requiring investigation and repair",
+                'technical_details': "System requiring investigation and repair",
                 'actions': ['Investigate issue', 'Implement repair', 'Test service'],
                 'equipment': ['SYSTEM-COMPONENTS'],
                 'scope': 'LOCAL'
@@ -4142,7 +1932,7 @@ UNIX V7 PROGRAMMER'S MANUAL
 
         return impact
 
-    def cmd_help(self, args: List[str] = None) -> str:
+    def cmd_help(self, args: Optional[List[str]] = None) -> str:
         """
         Show available commands based on role with enhanced documentation.
 
@@ -4192,7 +1982,7 @@ Available Commands:
                 help_text += "\n  "
             help_text += f"{cmd:<15}"
 
-        help_text += f"""
+        help_text += """
 
 Common Commands:
   help              Show this help message
@@ -4244,7 +2034,7 @@ For Bell System Practices: bsp search <topic>
             return f"No manual entry for {command}"
 
     # Basic UNIX commands
-    def cmd_ps(self, args: List[str] = None) -> str:
+    def cmd_ps(self, args: Optional[List[str]] = None) -> str:
         """
         Display Bell System processes in authentic UNIX V7 format.
 
@@ -4259,7 +2049,7 @@ For Bell System Practices: bsp search <topic>
             output += f"{proc['pid']:5d} {proc['tty']:>3} {proc['time']:>5} {proc['command']}\n"
         return output
 
-    def cmd_who(self, args: List[str] = None) -> str:
+    def cmd_who(self, args: Optional[List[str]] = None) -> str:
         """
         Display currently logged-in Bell System users.
 
@@ -4293,15 +2083,15 @@ For Bell System Practices: bsp search <topic>
             return "  ".join(files)
         return "ls: cannot access directory"
 
-    def cmd_pwd(self, args: List[str] = None) -> str:
+    def cmd_pwd(self, args: Optional[List[str]] = None) -> str:
         """Print current working directory."""
         return self.current_directory
 
-    def cmd_date(self, args: List[str] = None) -> str:
+    def cmd_date(self, args: Optional[List[str]] = None) -> str:
         """Display current system date and time."""
         return datetime.now().strftime("%a %b %d %H:%M:%S EST %Y")
 
-    def cmd_df(self, args: List[str] = None) -> str:
+    def cmd_df(self, args: Optional[List[str]] = None) -> str:
         """Display filesystem disk space usage."""
         return """Filesystem    1024-blocks  Used Available Capacity  Mounted on
 /dev/hp0a           7943  5129      1814    74%    /
@@ -4315,7 +2105,7 @@ For Bell System Practices: bsp search <topic>
         # Update trunk states based on time and network conditions
         self._update_trunk_states()
 
-        if not args:
+        if not args or args[0] == "status":
             # Dynamic trunk status with real-time variability
             current_time = datetime.now().strftime("%B %d, %Y %H:%M:%S EST")
             active_count = len([tg for tg in self.trunk_groups.values() if tg["status"] == "ACTIVE"])
@@ -4425,7 +2215,7 @@ Recommendations:"""
                 detail_output += f"\n  • Monitor during peak hours - current utilization {tg['utilization']}%"
 
             if tg["quality"] < 0.995:
-                detail_output += f"\n  • Quality below standard - investigate circuit issues"
+                detail_output += "\n  • Quality below standard - investigate circuit issues"
                 detail_output += "\n  • Schedule comprehensive testing"
 
             if tg["status"] == "MAINT":
@@ -4510,7 +2300,7 @@ Results Summary:
                 tg["quality"] = min(0.999, tg["quality"] + 0.001)
             else:
                 test_output += f"  Recommendation: Schedule maintenance for {tg_name}"
-                test_output += f"\n  Action Required: Investigate failed test phases"
+                test_output += "\n  Action Required: Investigate failed test phases"
                 # Degrade quality on failed test
                 tg["quality"] = max(0.980, tg["quality"] - 0.005)
 
@@ -4533,7 +2323,7 @@ Next test due: {(datetime.now() + timedelta(days=30)).strftime('%B %d, %Y')}"""
             return self._show_trunk_maintenance_schedule()
 
         else:
-            available_commands = ["detail", "test", "traffic", "maintenance"]
+            available_commands = ["status", "detail", "test", "traffic", "maintenance"]
             return f"trunk: Unknown option '{args[0]}'\nAvailable commands: {', '.join(available_commands)}"
 
     def _update_trunk_states(self) -> None:
@@ -4647,12 +2437,12 @@ Date           Time        Trunk Group    Type              Duration
         # Show current maintenance
         maint_trunks = [tg for tg, data in self.trunk_groups.items() if data["status"] == "MAINT"]
         if maint_trunks:
-            schedule_output += f"\n\nCurrently in Maintenance:"
+            schedule_output += "\n\nCurrently in Maintenance:"
             for tg_name in maint_trunks:
                 schedule_output += f"\n  {tg_name}: Scheduled maintenance in progress"
                 schedule_output += f"\n           Expected completion: {(datetime.now() + timedelta(hours=random.randint(1, 4))).strftime('%H:%M')}"
 
-        schedule_output += f"""
+        schedule_output += """
 
 Maintenance Procedures:
   • All maintenance during low-traffic periods (01:00-05:00)
@@ -4699,7 +2489,7 @@ Electronic Switching Systems:"""
                 status_output += f"\n  {switch_id:<15} {system['status']:<8} {load_indicator:<5} {status_detail}"
 
             # Add crossbar systems
-            status_output += f"\n\nCrossbar Systems:"
+            status_output += "\n\nCrossbar Systems:"
             for xb_id, xb_system in self.crossbar_systems.items():
                 load_indicator = f"{xb_system['load']}%" if xb_system["status"] == "ACTIVE" else "OFF"
                 maint_note = " - PM due" if xb_system["maintenance_due"] else " - Normal operation"
@@ -4865,10 +2655,10 @@ Results Summary:
             if overall_pass:
                 diag_output += f"  Recommendation: {switch_id} certified for continued operation"
                 if is_electronic and system["load"] < 85:
-                    diag_output += f"\n  Performance: Excellent - ready for increased traffic load"
+                    diag_output += "\n  Performance: Excellent - ready for increased traffic load"
             else:
                 diag_output += f"  Recommendation: Schedule maintenance for {switch_id}"
-                diag_output += f"\n  Action Required: Investigate failed diagnostic phases"
+                diag_output += "\n  Action Required: Investigate failed diagnostic phases"
                 if not is_electronic and not system["maintenance_due"]:
                     # Mark crossbar for maintenance
                     system["maintenance_due"] = True
@@ -4902,11 +2692,11 @@ Bell System Practice: BSP-100-300-001 (Electronic Switching Diagnostics)"""
             switch_id = args[1].upper()
 
             if switch_id not in self.switching_systems:
-                return f"switch: ERROR - Cutover operations only available for electronic switching systems"
+                return "switch: ERROR - Cutover operations only available for electronic switching systems"
 
             system = self.switching_systems[switch_id]
             if "5ESS" not in system["type"]:
-                return f"switch: ERROR - Cutover operations only supported on 5ESS systems"
+                return "switch: ERROR - Cutover operations only supported on 5ESS systems"
 
             return self._perform_switch_cutover(switch_id, system)
 
@@ -5077,7 +2867,7 @@ Scheduled Maintenance Tasks:"""
   • Lubrication schedule (quarterly)
   • Timing adjustment check (semi-annual)"""
 
-        maint_output += f"""
+        maint_output += """
 
 Contact: Central Office Maintenance - ext 4300
 Work Order System: Use 'service' command for maintenance requests"""
@@ -5524,7 +3314,7 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
             hour = datetime.now().hour
             base_records = 2800000  # Base daily record count
 
-            self.tnds_data = {
+            self.tnds_data: TndsData = {
                 'records_today': int(base_records * (hour / 24) * random.uniform(0.95, 1.05)),
                 'processing_status': random.choice(['Normal operation', 'High volume processing', 'Backlog processing']),
                 'storage_used': random.randint(65, 85),
@@ -5667,7 +3457,7 @@ Active Alerts:"""
         else:
             status_output += "\n  ✓ All systems operating within normal parameters"
 
-        status_output += f"""
+        status_output += """
 
 Contact Information:
   TNDS Operations Center:      ext 4800
@@ -5853,6 +3643,470 @@ Report Distribution:
 Next Analysis Report: {(datetime.now() + timedelta(days=7)).strftime('%B %d, %Y')}"""
 
         return analysis_output
+
+    def _handle_tnds_collection_command(self, args: List[str]) -> str:
+        """Handle TNDS data collection subcommands (start, stop, verify, poll)."""
+        action = args[0].lower()
+        timestamp = datetime.now().strftime("%B %d, %Y %H:%M EST")
+
+        if action == "start":
+            self.tnds_data['processing_status'] = 'Normal operation'
+            return f"""TNDS Data Collection - Start Request
+{'=' * 50}
+Requested: {timestamp}
+
+EADAS collection scheduler ACKNOWLEDGED
+Collection points activated:  {self.tnds_data['collection_points']} of 1,255
+Active data streams:          {self.tnds_data['active_streams']} trunk groups
+Polling interval:             300 seconds (5 minute registers)
+
+Status: COLLECTION ACTIVE
+Authorization: WO-83054"""
+
+        if action == "stop":
+            self.tnds_data['processing_status'] = 'Collection suspended'
+            return f"""TNDS Data Collection - Stop Request
+{'=' * 50}
+Requested: {timestamp}
+
+WARNING: Halting collection creates gaps in the traffic record.
+Peak-hour data cannot be reconstructed once the interval closes.
+
+Collection points quiesced:   {self.tnds_data['collection_points']}
+Records buffered for flush:   {random.randint(400, 2200):,}
+
+Status: COLLECTION SUSPENDED
+Resume with: tnds collect start"""
+
+        if action == "verify":
+            error_rate = 1 - self.tnds_data['data_quality']
+            return f"""TNDS Collection Verification
+{'=' * 50}
+Verification Run: {timestamp}
+
+REGISTER INTEGRITY
+{'=' * 35}
+Collection Points Polled:     {self.tnds_data['collection_points']}
+Points Responding:            {self.tnds_data['collection_points'] - random.randint(0, 4)}
+Success Rate:                 {self.tnds_data['collection_success']:.3%}
+Validation Error Rate:        {error_rate:.3%}
+
+DATA QUALITY
+{'=' * 35}
+Completeness Index:           {self.tnds_data['data_quality']:.3%}
+Records Accepted Today:       {self.tnds_data['records_today']:,}
+Records Rejected:             {int(self.tnds_data['records_today'] * error_rate):,}
+
+Verification Result: {'PASS' if self.tnds_data['data_quality'] > 0.995 else 'REVIEW REQUIRED'}"""
+
+        if action == "poll":
+            target = args[1].upper() if len(args) > 1 else "ALL"
+            polled = [t for t in self.trunk_groups if target in ("ALL", t)] or list(self.trunk_groups)
+            output = f"""TNDS On-Demand Poll
+{'=' * 50}
+Poll Initiated: {timestamp}
+Target: {target}
+
+TRUNK GROUP REGISTERS
+{'=' * 35}"""
+            for tg_name in polled:
+                tg = self.trunk_groups[tg_name]
+                ccs = int(tg['capacity'] * tg['utilization'] * 0.36)
+                output += f"""
+{tg_name}:
+  Route:              {tg['route']}
+  Usage:              {ccs} CCS
+  Utilization:        {tg['utilization']}%
+  Register Status:    {'READ OK' if tg['status'] == 'ACTIVE' else 'OUT OF SERVICE'}"""
+            output += f"\n\nPoll complete. {len(polled)} register set(s) read."
+            return output
+
+        return (f"tnds collect: Unknown action '{args[0]}'\n"
+                "Available actions: start, stop, verify, poll [trunk-group]")
+
+    def _generate_tnds_forecast(self, period: str) -> str:
+        """Generate a TNDS traffic growth forecast for the requested period."""
+        horizons = {
+            "monthly": ("Monthly", 1, 30),
+            "quarterly": ("Quarterly", 3, 90),
+            "annual": ("Annual", 12, 365),
+        }
+        label, months, days = horizons.get(period.lower(), ("Monthly", 1, 30))
+        growth = random.uniform(0.9, 1.8) * months
+        current_ccs = sum(
+            int(tg['capacity'] * tg['utilization'] * 0.36)
+            for tg in self.trunk_groups.values()
+        )
+        projected_ccs = int(current_ccs * (1 + growth / 100))
+        target = (datetime.now() + timedelta(days=days)).strftime('%B %Y')
+
+        output = f"""TNDS Traffic Forecast - {label} Model
+Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+Forecast Horizon: {target}
+{'=' * 55}
+
+MODEL PARAMETERS
+{'=' * 40}
+Forecast Method:              Exponential smoothing with seasonal index
+Historical Base:              36 months of EADAS register data
+Model Accuracy (backtest):    {self.tnds_data['forecast_accuracy']:.1%}
+Confidence Interval:          {random.uniform(90, 95):.0f}%
+
+AGGREGATE PROJECTION
+{'=' * 40}
+Current Measured Load:        {current_ccs:,} CCS
+Projected Load ({label}):     {projected_ccs:,} CCS
+Growth Rate:                  {growth:+.1f}%
+Busy Hour Shift:              {random.choice(['None', '+30 min later', '-15 min earlier'])}
+
+PER-ROUTE FORECAST
+{'=' * 40}"""
+
+        for tg_name, tg in self.trunk_groups.items():
+            if tg['status'] != 'ACTIVE':
+                continue
+            route_growth = growth * random.uniform(0.6, 1.5)
+            projected_util = min(100, tg['utilization'] * (1 + route_growth / 100))
+            flag = 'BLOCKING RISK' if projected_util > 85 else 'WITHIN CAPACITY'
+            output += f"""
+{tg_name} ({tg['route']}):
+  Current Utilization:  {tg['utilization']}%
+  Projected:            {projected_util:.0f}%
+  Growth:               {route_growth:+.1f}%
+  Assessment:           {flag}"""
+
+        at_risk = [
+            n for n, t in self.trunk_groups.items()
+            if t['status'] == 'ACTIVE' and t['utilization'] * (1 + growth / 100) > 85
+        ]
+        output += f"""
+
+CAPACITY RECOMMENDATIONS
+{'=' * 40}"""
+        if at_risk:
+            for i, name in enumerate(at_risk, 1):
+                output += f"\n{i}. Augment {name} before {target} - projected blocking above P.01 grade of service"
+            output += f"\n{len(at_risk) + 1}. Submit trunk order via TIRKS for affected routes"
+        else:
+            output += "\n1. No augmentation required within forecast horizon"
+            output += "\n2. Continue routine quarterly capacity review"
+
+        output += f"""
+
+Distribution: Network Planning, Traffic Engineering
+Project Reference: NP-8306 (TNDS Phase III)
+Next Forecast Run: {(datetime.now() + timedelta(days=days)).strftime('%B %d, %Y')}"""
+        return output
+
+    def _show_network_hierarchy_analysis(self) -> str:
+        """Show Bell System switching hierarchy analysis (Class 1 through Class 5)."""
+        hierarchy = [
+            ("Class 1", "Regional Center", 10, random.uniform(0.72, 0.84)),
+            ("Class 2", "Sectional Center", 52, random.uniform(0.68, 0.80)),
+            ("Class 3", "Primary Center", 168, random.uniform(0.64, 0.78)),
+            ("Class 4", "Toll Center", 933, random.uniform(0.58, 0.74)),
+            ("Class 5", "End Office", 19000, random.uniform(0.52, 0.70)),
+        ]
+
+        output = f"""TNDS Network Hierarchy Analysis
+Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+{'=' * 55}
+
+SWITCHING HIERARCHY UTILIZATION
+{'=' * 45}
+Class    Office Type          Offices    Avg Util
+{'-' * 45}"""
+        for cls, name, count, util in hierarchy:
+            output += f"\n{cls:<8} {name:<20} {count:>7,}    {util:>6.1%}"
+
+        output += f"""
+
+FINAL AND HIGH-USAGE GROUPS
+{'=' * 45}
+Final Trunk Groups:           {random.randint(2400, 2900):,} (hierarchical backbone)
+High-Usage Groups:            {random.randint(5200, 6400):,} (direct routes)
+Overflow Discipline:          Hierarchical alternate routing
+Grade of Service Objective:   P.01 final groups / P.10 high-usage
+
+TANDEM ROUTING ANALYSIS
+{'=' * 45}"""
+
+        for tg_name, tg in self.trunk_groups.items():
+            if tg['status'] != 'ACTIVE':
+                continue
+            route_kind = 'High-usage direct' if tg['utilization'] > 65 else 'Final group'
+            output += f"""
+{tg_name} ({tg['route']}):
+  Group Type:           {route_kind}
+  Overflow Path:        {random.choice(['Via Class 3 tandem', 'Via Class 2 sectional', 'Direct final'])}
+  Tandem Switches:      {random.randint(1, 3)} in path"""
+
+        output += f"""
+
+HIERARCHY OBSERVATIONS
+{'=' * 45}
+Offices Homing Correctly:     {random.uniform(0.985, 0.998):.1%}
+Misrouted Homing Records:     {random.randint(3, 18)} (referred to Network Planning)
+Alternate Route Depth:        {random.randint(2, 4)} levels average
+
+Reference: Notes on the Network, Section 4 (Switching Hierarchy)
+Distribution: Network Planning, Traffic Engineering"""
+        return output
+
+    def _show_dynamic_routing_analysis(self) -> str:
+        """Show dynamic routing performance analysis for the trunk network."""
+        active = {n: t for n, t in self.trunk_groups.items() if t['status'] == 'ACTIVE'}
+        overflow_total = sum(
+            int(t['capacity'] * max(0, t['utilization'] - 70) * 0.12) for t in active.values()
+        )
+
+        output = f"""TNDS Dynamic Routing Analysis
+Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+{'=' * 55}
+
+ROUTING PERFORMANCE SUMMARY
+{'=' * 45}
+Routes Under Analysis:        {len(active)}
+Total Overflow Attempts:      {overflow_total:,} (last measurement hour)
+First-Route Completion:       {random.uniform(0.88, 0.96):.1%}
+Alternate Route Completion:   {random.uniform(0.96, 0.995):.1%}
+Network Blocking:             {random.uniform(0.002, 0.012):.3%}
+
+PER-ROUTE ROUTING BEHAVIOR
+{'=' * 45}"""
+
+        for tg_name, tg in active.items():
+            overflow = int(tg['capacity'] * max(0, tg['utilization'] - 70) * 0.12)
+            output += f"""
+{tg_name} ({tg['route']}):
+  Offered Load:         {int(tg['capacity'] * tg['utilization'] * 0.36)} CCS
+  Overflow to Alternate:{overflow:>6,} attempts
+  Transmission Quality: {tg['quality']:.3%}
+  Routing Decision:     {'Overflow active' if overflow else 'Direct route sufficient'}"""
+
+        output += f"""
+
+TIME-OF-DAY ROUTING
+{'=' * 45}
+Morning Business Peak:        10:00-11:00 EST ({random.randint(88, 97)}% of capacity)
+Afternoon Business Peak:      14:00-15:00 EST ({random.randint(85, 95)}% of capacity)
+Evening Residential Peak:     19:00-20:00 EST ({random.randint(70, 85)}% of capacity)
+Time-Zone Load Shifting:      {random.uniform(12, 22):.0f}% capacity recovered east-to-west
+
+ROUTING RECOMMENDATIONS
+{'=' * 45}
+1. Continue load-shifting studies against measured busy hour
+2. Review alternate route depth on routes exceeding 85% utilization
+3. Coordinate routing pattern changes with Network Planning (NP-8306)
+
+Distribution: Network Operations, Traffic Engineering"""
+        return output
+
+    def _show_available_tnds_reports(self) -> str:
+        """Show the catalog of standard TNDS reports available for generation."""
+        return f"""TNDS Standard Report Catalog
+{'=' * 55}
+
+AVAILABLE REPORTS
+{'=' * 45}
+  tnds reports traffic        Traffic Usage Summary (TUS-1)
+  tnds reports blocking       Blocking and Overflow Report (BOR-3)
+  tnds reports quality        Data Quality Assurance Report (DQA-2)
+  tnds reports capacity       Capacity Exhaust Projection (CEP-4)
+  tnds reports monthly        Monthly Network Summary (MNS-1)
+
+REPORT CHARACTERISTICS
+{'=' * 45}
+Source Data:                  EADAS collection registers
+Retention Period:             36 months on-line, 7 years archived
+Standard Distribution:        Network Planning, Traffic Engineering,
+                              Revenue Accounting, Bell Laboratories
+Generation Time:              2-6 minutes depending on period
+
+SCHEDULING
+{'=' * 45}
+Daily Reports:                Generated 02:00 EST
+Weekly Reports:               Generated Monday 03:00 EST
+Monthly Reports:              Generated first business day 04:00 EST
+Last Generation Run:          {(datetime.now() - timedelta(hours=random.randint(2, 20))).strftime('%B %d, %Y %H:%M EST')}
+
+Usage: tnds reports <report-name>"""
+
+    def _generate_tnds_report(self, report_name: str) -> str:
+        """Generate a named standard TNDS report."""
+        name = report_name.lower()
+        stamp = datetime.now().strftime('%B %d, %Y %H:%M EST')
+        active = {n: t for n, t in self.trunk_groups.items() if t['status'] == 'ACTIVE'}
+
+        if name == "traffic":
+            total_ccs = sum(int(t['capacity'] * t['utilization'] * 0.36) for t in active.values())
+            output = f"""Traffic Usage Summary (TUS-1)
+Generated: {stamp}
+{'=' * 55}
+
+NETWORK TOTALS
+{'=' * 45}
+Measured Trunk Groups:        {len(active)}
+Total Offered Load:           {total_ccs:,} CCS
+Average Utilization:          {sum(t['utilization'] for t in active.values()) / max(1, len(active)):.1f}%
+Records Processed:            {self.tnds_data['records_today']:,}
+
+PER-GROUP USAGE
+{'=' * 45}"""
+            for tg_name, tg in active.items():
+                output += (f"\n{tg_name:<12} {tg['route']:<10} "
+                           f"{int(tg['capacity'] * tg['utilization'] * 0.36):>6,} CCS  "
+                           f"{tg['utilization']:>3}%")
+            return output + "\n\nDistribution: Traffic Engineering, Network Planning"
+
+        if name == "blocking":
+            output = f"""Blocking and Overflow Report (BOR-3)
+Generated: {stamp}
+{'=' * 55}
+
+GRADE OF SERVICE OBJECTIVE: P.01 (final groups)
+{'=' * 45}"""
+            for tg_name, tg in active.items():
+                blocking = max(0.0001, (tg['utilization'] - 60) / 4000)
+                status = 'OBJECTIVE MET' if blocking <= 0.01 else 'OBJECTIVE EXCEEDED'
+                output += f"""
+{tg_name} ({tg['route']}):
+  Utilization:          {tg['utilization']}%
+  Measured Blocking:    {blocking:.3%}
+  Assessment:           {status}"""
+            return output + "\n\nDistribution: Network Operations, Traffic Engineering"
+
+        if name == "quality":
+            error_rate = 1 - self.tnds_data['data_quality']
+            return f"""Data Quality Assurance Report (DQA-2)
+Generated: {stamp}
+{'=' * 55}
+
+COLLECTION INTEGRITY
+{'=' * 45}
+Collection Success Rate:      {self.tnds_data['collection_success']:.3%}
+Data Completeness:            {self.tnds_data['data_quality']:.3%}
+Validation Error Rate:        {error_rate:.3%}
+Processing Efficiency:        {self.tnds_data['processing_efficiency']:.1%}
+
+EXCEPTION SUMMARY
+{'=' * 45}
+Records Rejected:             {int(self.tnds_data['records_today'] * error_rate):,}
+Missing Register Reads:       {random.randint(0, 12)}
+Out-of-Range Values:          {random.randint(2, 30)}
+Duplicate Records Purged:     {random.randint(0, 8)}
+
+Assessment: {'WITHIN STANDARD' if error_rate < 0.005 else 'REVIEW REQUIRED'}
+Distribution: Data Administration, Bell Laboratories"""
+
+        if name == "capacity":
+            output = f"""Capacity Exhaust Projection (CEP-4)
+Generated: {stamp}
+{'=' * 55}
+
+PROJECTED EXHAUST BY ROUTE
+{'=' * 45}"""
+            for tg_name, tg in active.items():
+                months = max(1, int((90 - tg['utilization']) / random.uniform(0.8, 2.2)))
+                exhaust = (datetime.now() + timedelta(days=months * 30)).strftime('%B %Y')
+                output += f"""
+{tg_name} ({tg['route']}):
+  Current Utilization:  {tg['utilization']}%
+  Months to Exhaust:    {months}
+  Projected Exhaust:    {exhaust}
+  Action:               {'Trunk order required' if months <= 6 else 'Monitor'}"""
+            return output + "\n\nDistribution: Network Planning, Capital Planning"
+
+        if name == "monthly":
+            return f"""Monthly Network Summary (MNS-1)
+Generated: {stamp}
+Reporting Period: {datetime.now().strftime('%B %Y')}
+{'=' * 55}
+
+VOLUME SUMMARY
+{'=' * 45}
+Total Records Collected:      {self.tnds_data['records_today'] * 30:,}
+Collection Points:            {self.tnds_data['collection_points']} of 1,255
+Active Data Streams:          {self.tnds_data['active_streams']}
+Storage Utilization:          {self.tnds_data['storage_used']}% of {self.tnds_data['storage_capacity']}GB
+
+SERVICE SUMMARY
+{'=' * 45}
+Average Network Utilization:  {sum(t['utilization'] for t in active.values()) / max(1, len(active)):.1f}%
+Trunk Groups In Service:      {len(active)} of {len(self.trunk_groups)}
+Groups Under Maintenance:     {len(self.trunk_groups) - len(active)}
+Forecast Model Accuracy:      {self.tnds_data['forecast_accuracy']:.1%}
+
+Distribution: Network Planning, Traffic Engineering, Revenue Accounting"""
+
+        return (f"tnds reports: Unknown report '{report_name}'\n"
+                "Use 'tnds reports' to list the available reports.")
+
+    def _show_tnds_export_options(self) -> str:
+        """Show available TNDS data export formats and destinations."""
+        return f"""TNDS Data Export Options
+{'=' * 55}
+
+EXPORT FORMATS
+{'=' * 45}
+  tnds export tape            9-track tape, 1600 BPI, EBCDIC
+  tnds export cards           80-column card image deck
+  tnds export rje             Remote Job Entry to Bell Labs
+  tnds export print           Line printer listing (132 column)
+
+DESTINATIONS
+{'=' * 45}
+Network Planning:             Murray Hill, NJ
+Traffic Engineering:          Holmdel, NJ
+Bell Laboratories:            Whippany, NJ (research studies)
+Revenue Accounting:           Regional accounting centers
+
+DATA SETS AVAILABLE
+{'=' * 45}
+Trunk Group Usage:            {len(self.trunk_groups)} groups, 36 months history
+Collection Registers:         {self.tnds_data['collection_points']} points
+Records Available Today:      {self.tnds_data['records_today']:,}
+
+Note: Exports require authorization under WO-83054.
+Usage: tnds export <format> [destination]"""
+
+    def _handle_tnds_export(self, args: List[str]) -> str:
+        """Handle a TNDS data export request."""
+        fmt = args[0].lower()
+        destination = " ".join(args[1:]) if len(args) > 1 else "Network Planning"
+        formats = {
+            "tape": ("9-track tape, 1600 BPI, EBCDIC", "TAPE-" + str(random.randint(1000, 9999))),
+            "cards": ("80-column card image deck", "DECK-" + str(random.randint(100, 999))),
+            "rje": ("Remote Job Entry stream", "RJE-" + str(random.randint(1000, 9999))),
+            "print": ("132-column line printer listing", "LP-" + str(random.randint(100, 999))),
+        }
+
+        if fmt not in formats:
+            return (f"tnds export: Unknown format '{args[0]}'\n"
+                    "Available formats: tape, cards, rje, print")
+
+        description, volume_id = formats[fmt]
+        records = self.tnds_data['records_today']
+        return f"""TNDS Data Export - Request Accepted
+{'=' * 55}
+Submitted: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+
+EXPORT PARAMETERS
+{'=' * 45}
+Format:                       {description}
+Volume Identifier:            {volume_id}
+Destination:                  {destination}
+Records Selected:             {records:,}
+Estimated Volume:             {records * 80 / 1_000_000:.1f} MB
+
+PROCESSING
+{'=' * 45}
+Queue Position:               {random.randint(1, 5)}
+Estimated Completion:         {(datetime.now() + timedelta(minutes=random.randint(15, 90))).strftime('%H:%M EST')}
+Operator Notification:        Console message on completion
+
+Authorization: WO-83054
+Status: QUEUED FOR PROCESSING"""
 
     def cmd_bsp(self, args: List[str]) -> str:
         """Bell System Practices - Standard Operating Procedures"""
@@ -6059,7 +4313,6 @@ Commands:
             multiplier = random.uniform(0.8, 1.0)
 
         # Update regional traffic with realistic variations
-        base_total = sum(data['calls'] for data in self.regional_traffic.values())
         for region, data in self.regional_traffic.items():
             variation = random.uniform(0.95, 1.05) * multiplier
             data['calls'] = int(data['calls'] * variation)
@@ -6216,7 +4469,7 @@ SPECIAL CONSIDERATIONS
         if random.random() < 0.3:
             special_events.append("Weather system may affect rural areas")
         if random.random() < 0.2:
-            special_events.append(f"Major sporting event: +25% regional traffic expected")
+            special_events.append("Major sporting event: +25% regional traffic expected")
 
         if special_events:
             for event in special_events:
@@ -6612,7 +4865,7 @@ Commands:
                 base_positions = random.randint(8, 15)
                 base_occupancy = random.uniform(40, 65)
 
-            self.tsps_data = {
+            self.tsps_data: TspsData = {
                 'total_positions': 52,
                 'active_positions': base_positions,
                 'occupancy': base_occupancy,
@@ -7048,23 +5301,23 @@ Training Impact:          {random.uniform(5, 15):.0f}% improvement"""
     # Implement remaining critical commands with similar patterns
     def cmd_toll(self, args: List[str]) -> str:
         """Toll switching and billing operations"""
-        return "Toll switching operations - implementation follows pattern"
+        return self._subsystem_unavailable("toll", "Toll switching operations")
 
     def cmd_trace(self, args: List[str]) -> str:
         """Call tracing and routing analysis"""
-        return "Call trace operations - implementation follows pattern"
+        return self._subsystem_unavailable("trace", "Call trace operations")
 
     def cmd_dialtone(self, args: List[str]) -> str:
         """Dial tone testing and verification"""
-        return "Dial tone testing - implementation follows pattern"
+        return self._subsystem_unavailable("dialtone", "Dial tone testing")
 
     def cmd_routing(self, args: List[str]) -> str:
         """Call routing and path analysis"""
-        return "Routing analysis - implementation follows pattern"
+        return self._subsystem_unavailable("routing", "Routing analysis")
 
     def cmd_capacity(self, args: List[str]) -> str:
         """Network capacity planning and utilization"""
-        return "Capacity planning - implementation follows pattern"
+        return self._subsystem_unavailable("capacity", "Capacity planning")
 
     def cmd_service(self, args: List[str]) -> str:
         """Service order management and provisioning"""
@@ -7209,7 +5462,7 @@ SERVICE CHANGES:
   SC-2136: Line additions - Installation ready"""
 
         else:
-            return f"""Bell System Service Management
+            return """Bell System Service Management
 ============================================================
 Available Commands:
 
@@ -7584,7 +5837,7 @@ All government directory assistance is provided free of charge."""
         import random
 
         if not args:
-            return f"""Bell System Crossbar Switching Systems
+            crossbar_output = f"""Bell System Crossbar Switching Systems
 Electromechanical Central Office Equipment
 {'=' * 50}
 
@@ -7592,9 +5845,8 @@ CROSSBAR SYSTEMS STATUS
 {'=' * 30}"""
 
             # Show crossbar systems from our initialized state
-            crossbar_output = ""
             for xb_id, xb_data in self.crossbar_systems.items():
-                status_detail = f"Normal operation"
+                status_detail = "Normal operation"
                 if xb_data["maintenance_due"]:
                     status_detail = "Preventive maintenance due"
                 elif xb_data["status"] == "MAINT":
@@ -7628,6 +5880,8 @@ Commands:
   crossbar test <system>      Run mechanical tests
   crossbar maintenance        Maintenance schedule
   crossbar performance        Performance analysis"""
+
+            return crossbar_output
 
         elif args[0] == "status" and len(args) > 1:
             system_id = args[1].upper()
@@ -7723,7 +5977,7 @@ Use 'crossbar maintenance' for service scheduling."""
     def _show_crossbar_maintenance(self) -> str:
         """Show crossbar maintenance requirements and schedule."""
 
-        return f"""Crossbar System Maintenance Schedule
+        maintenance_output = f"""Crossbar System Maintenance Schedule
 {'=' * 45}
 
 MAINTENANCE REQUIREMENTS
@@ -7736,7 +5990,6 @@ Complete Inspection:         Every 18 months
 CURRENT MAINTENANCE STATUS
 {'=' * 35}"""
 
-        maintenance_output = ""
         for xb_id, xb_data in self.crossbar_systems.items():
             next_maint = "OVERDUE" if xb_data["maintenance_due"] else f"{random.randint(15, 90)} days"
             maintenance_output += f"""
@@ -7765,15 +6018,12 @@ Contact: Electromechanical Maintenance Team ext 4380"""
 
     def _show_crossbar_performance(self) -> str:
         """Show crossbar performance analysis."""
-        import random
-
-        return f"""Crossbar System Performance Analysis
+        performance_output = f"""Crossbar System Performance Analysis
 Generated: {datetime.now().strftime('%B %d, %Y %H:%M EST')}
 
 PERFORMANCE COMPARISON
 {'=' * 35}"""
 
-        performance_output = ""
         for xb_id, xb_data in self.crossbar_systems.items():
             efficiency = random.uniform(0.88, 0.95)
             setup_time = random.uniform(0.9, 2.5)
@@ -8037,11 +6287,8 @@ Regulatory Approval:       Required for major projects
 Environmental Impact:      Assessments in progress
 Public Service Benefits:   Universal service expansion"""
 
-        return investment_output
-
     def cmd_trouble(self, args: List[str]) -> str:
         """Enhanced trouble ticket management with authentic Bell System operations."""
-        import random
 
         if not args:
             return self._show_trouble_ticket_dashboard()
@@ -8163,7 +6410,7 @@ Commands:
 
         return dashboard
 
-    def _list_trouble_tickets(self, priority_filter: str = None) -> str:
+    def _list_trouble_tickets(self, priority_filter: Optional[str] = None) -> str:
         """List trouble tickets with optional priority filtering."""
         current_time = datetime.now().strftime("%H:%M:%S EST")
 
@@ -8438,6 +6685,89 @@ Resolution Details:
 Ticket closed and archived in Bell System Trouble Management Database.
 Service restoration confirmed for affected customers."""
 
+    def _create_manual_ticket(self, args: List[str]) -> str:
+        """Create a trouble ticket manually from craft-entered parameters."""
+        valid_categories = list(self.ticket_categories.keys())
+        valid_priorities = ['CRITICAL', 'MAJOR', 'MINOR']
+
+        if not args:
+            return f"""Trouble Ticket - Manual Entry
+{'=' * 50}
+
+Usage: trouble create <category> <priority> <description>
+
+Valid categories:  {', '.join(valid_categories)}
+Valid priorities:  {', '.join(valid_priorities)}
+
+Example:
+  trouble create {valid_categories[0]} MAJOR Water in cable at Elm St manhole"""
+
+        category = args[0].upper()
+        if category not in self.ticket_categories:
+            return (f"trouble create: Unknown category '{args[0]}'\n"
+                    f"Valid categories: {', '.join(valid_categories)}")
+
+        priority = args[1].upper() if len(args) > 1 else 'MINOR'
+        if priority not in valid_priorities:
+            return (f"trouble create: Unknown priority '{args[1]}'\n"
+                    f"Valid priorities: {', '.join(valid_priorities)}")
+
+        description = " ".join(args[2:]) if len(args) > 2 else "Craft-reported trouble, details pending"
+
+        category_data = self.ticket_categories[category]
+        self.ticket_counter += random.randint(1, 5)
+        ticket_id = f"TK-{self.ticket_counter}"
+
+        affected_office = random.choice(list(self.central_offices.keys())) if self.central_offices else "LOCAL CO"
+        customer_impact = random.randint(*category_data['customer_impact'][priority])
+        estimated_duration = random.randint(*category_data['typical_duration'][priority])
+
+        ticket = {
+            'id': ticket_id,
+            'category': category,
+            'priority': priority,
+            'title': description[:60],
+            'description': description,
+            'affected_office': affected_office,
+            'customer_impact': customer_impact,
+            'estimated_duration': estimated_duration,
+            'status': 'OPEN',
+            'assigned_team': 'UNASSIGNED',
+            'created_time': datetime.now(),
+            'escalation_level': 1,
+            'technical_details': 'Manually entered by craft; awaiting test board verification',
+            'required_actions': ['Dispatch test board', 'Verify trouble condition', 'Assign repair force'],
+            'equipment_involved': [],
+            'geographic_scope': 'LOCAL',
+            'business_impact': self._calculate_business_impact(priority, customer_impact),
+            'resolution_steps': []
+        }
+        self.active_tickets.append(ticket)
+
+        return f"""Trouble Ticket Created
+{'=' * 50}
+Ticket ID:                {ticket_id}
+Created:                  {ticket['created_time'].strftime('%B %d, %Y %H:%M EST')}
+Entered By:               {self.username}
+
+TICKET DETAILS
+{'=' * 40}
+Category:                 {category}
+Priority:                 {priority}
+Description:              {description}
+Affected Office:          {affected_office}
+Customers Affected:       {customer_impact:,}
+Estimated Duration:       {estimated_duration} minutes
+Status:                   OPEN (unassigned)
+
+NEXT STEPS
+{'=' * 40}
+  trouble detail {ticket_id}          Review full ticket record
+  trouble assign {ticket_id} <team>   Assign to a repair team
+  trouble escalate {ticket_id}        Escalate priority
+
+Total Active Tickets: {len(self.active_tickets)}"""
+
     def _show_geographic_trouble_overview(self) -> str:
         """Show geographic distribution and analysis of trouble tickets."""
         current_time = datetime.now().strftime("%B %d, %Y %H:%M EST")
@@ -8565,7 +6895,7 @@ ESCALATION ANALYSIS
 
         # Show escalated tickets
         if escalated_tickets:
-            analysis += f"\n\nEscalated Ticket Details:"
+            analysis += "\n\nEscalated Ticket Details:"
             for ticket in escalated_tickets:
                 age = datetime.now() - ticket['created_time']
                 age_str = f"{int(age.total_seconds() // 3600)}h{int((age.total_seconds() % 3600) // 60)}m"
@@ -8615,27 +6945,140 @@ RECOMMENDATIONS
 
     def cmd_dbquery(self, args: List[str]) -> str:
         """Database query and management tools"""
-        return "Database operations - implementation follows pattern"
+        return self._subsystem_unavailable("dbquery", "Database operations")
 
     def cmd_custdb(self, args: List[str]) -> str:
         """Customer database operations"""
-        return "Customer database - implementation follows pattern"
+        return self._subsystem_unavailable("custdb", "Customer database")
 
     def cmd_provision(self, args: List[str]) -> str:
         """Service provisioning and installation"""
-        return "Service provisioning - implementation follows pattern"
+        return self._subsystem_unavailable("provision", "Service provisioning")
 
     def cmd_collect(self, args: List[str]) -> str:
         """Toll collection and billing verification"""
-        return "Collect call operations - implementation follows pattern"
+        return self._subsystem_unavailable("collect", "Collect call operations")
 
     def cmd_handoff(self, args: List[str]) -> str:
-        """Authentic Bell System shift handoff procedures"""
-        return "Shift handoff procedures - implementation follows pattern"
+        """Bell System shift handoff briefing and turnover record."""
+        previous = self.shift_handoff["previous_shift"]
+        open_now = [t for t in self.active_tickets if t['status'] != 'RESOLVED']
+        critical = [t for t in open_now if t['priority'] == 'CRITICAL']
+        unacknowledged = [a for a in self.active_alarms if not a['acknowledged']]
+
+        output = f"""Bell System Shift Handoff Record
+{datetime.now().strftime('%B %d, %Y %H:%M EST')}
+{'=' * 50}
+
+INCOMING FROM PREVIOUS SHIFT
+{'=' * 40}
+Operator:                 {previous['operator']}
+Shift Ended:              {previous['end_time']}
+Summary:                  {previous['summary']}
+System Status:            {previous['system_status']}
+
+Key Issues Carried Forward:"""
+        for issue in previous['key_issues']:
+            output += f"\n  - {issue}"
+
+        output += f"""
+
+Tickets Transferred:      {', '.join(previous['open_tickets'])}
+
+Special Instructions:
+  {previous['special_instructions']}
+
+CURRENT SHIFT POSITION
+{'=' * 40}
+Operator On Duty:         {self.username}
+Role:                     {self.role_name or 'Unassigned'}
+Shift Number:             {self.current_shift}
+Commands This Session:    {len(self.command_history)}
+
+Open Trouble Tickets:     {len(open_now)}
+  Critical:               {len(critical)}
+Unacknowledged Alarms:    {len(unacknowledged)}
+Overall Health:           {self.system_health['overall_status']}
+"""
+
+        if critical:
+            output += "\nCRITICAL TICKETS REQUIRING HANDOFF\n" + "=" * 40
+            for ticket in critical:
+                output += f"""
+{ticket['id']}: {ticket['title']}
+  Office:             {ticket['affected_office']}
+  Assigned:           {ticket['assigned_team']}
+  Customers Affected: {ticket['customer_impact']:,}"""
+
+        output += f"""
+
+TURNOVER CHECKLIST
+{'=' * 40}
+  [ ] Review all open trouble tickets with relieving operator
+  [ ] Transfer unacknowledged alarms
+  [ ] Confirm maintenance windows in progress
+  [ ] Record special instructions in the shift log
+  [ ] Verify emergency contact roster is current
+
+Reference: BSP 010-100-000 (Shift Turnover Procedures)"""
+        return output
 
     def cmd_tariff(self, args: List[str]) -> str:
-        """Bell System tariff and rate structure information"""
-        return "Tariff information - implementation follows pattern"
+        """Bell System tariff and rate structure information."""
+        rates = self.rate_structures
+
+        if args:
+            category = args[0].lower()
+            if category not in rates:
+                return (f"tariff: Unknown category '{args[0]}'\n"
+                        f"Available categories: {', '.join(rates)}")
+
+            output = f"""Bell System Tariff Schedule - {category.title()}
+Effective: {datetime.now().strftime('%B %Y')}
+{'=' * 50}
+
+RATE SCHEDULE (per call, station-to-station)
+{'=' * 45}
+Period/Destination        First Minute    Each Additional
+{'-' * 45}"""
+            for period, amounts in rates[category].items():
+                output += (f"\n{period.title():<24}      ${amounts['first_minute']:>5.2f}"
+                           f"          ${amounts['additional']:>5.2f}")
+            output += """
+
+Rates shown are for direct-dialed station-to-station calls.
+Operator-assisted calls carry an additional service charge.
+
+Reference: FCC Tariff No. 263 (Interstate)"""
+            return output
+
+        output = f"""Bell System Tariff and Rate Structures
+Effective: {datetime.now().strftime('%B %Y')}
+{'=' * 50}
+
+RATE CATEGORIES
+{'=' * 45}"""
+        for category, periods in rates.items():
+            output += f"\n\n{category.upper()}"
+            for period, amounts in periods.items():
+                output += (f"\n  {period.title():<14} "
+                           f"${amounts['first_minute']:.2f} first minute, "
+                           f"${amounts['additional']:.2f} additional")
+
+        output += """
+
+RATE PERIODS
+=============================================
+Day:              8:00 AM - 5:00 PM weekdays
+Evening:          5:00 PM - 11:00 PM daily
+Night/Weekend:    11:00 PM - 8:00 AM, all day Saturday,
+                  Sunday until 5:00 PM
+
+Usage: tariff <category>   Detailed schedule for one category
+
+Reference: FCC Tariff No. 263 (Interstate)
+           State commission tariffs (Intrastate)"""
+        return output
 
     def cmd_events(self, args: List[str]) -> str:
         """Bell System operational events and shift activity"""
@@ -8675,13 +7118,13 @@ RECOMMENDATIONS
             output.append(f"Status:      {event['status']}")
             output.append(f"Title:       {event['title']}")
             output.append("")
-            output.append(f"Description:")
+            output.append("Description:")
             output.append(f"  {event['description']}")
             output.append("")
-            output.append(f"Details:")
+            output.append("Details:")
             output.append(f"  {event['details']}")
             output.append("")
-            output.append(f"Recommended Actions:")
+            output.append("Recommended Actions:")
             for i, action in enumerate(event['actions'], 1):
                 output.append(f"  {i}. {action}")
             output.append("")
@@ -8724,7 +7167,7 @@ RECOMMENDATIONS
             }
 
             if self.role in role_guidance:
-                output.append(f"Role-Specific Guidance:")
+                output.append("Role-Specific Guidance:")
                 output.append(f"  {role_guidance[self.role]}")
                 output.append("")
 
@@ -8774,28 +7217,28 @@ RECOMMENDATIONS
 
     def cmd_training(self, args: List[str]) -> str:
         """Bell System training programs and procedures"""
-        return "Training programs - implementation follows pattern"
+        return self._subsystem_unavailable("training", "Training programs")
 
     # Enhanced commands
     def cmd_5ess(self, args: List[str]) -> str:
         """5ESS Electronic Switching System operations"""
-        return "5ESS operations - implementation follows pattern"
+        return self._subsystem_unavailable("5ess", "5ESS operations")
 
     def cmd_western(self, args: List[str]) -> str:
         """Western Electric equipment specifications"""
-        return "Western Electric equipment - implementation follows pattern"
+        return self._subsystem_unavailable("western", "Western Electric equipment")
 
     def cmd_coer(self, args: List[str]) -> str:
         """Central Office Equipment Reports"""
-        return "COER reporting - implementation follows pattern"
+        return self._subsystem_unavailable("coer", "COER reporting")
 
     def cmd_lmos(self, args: List[str]) -> str:
         """Loop Maintenance Operations System"""
-        return "LMOS operations - implementation follows pattern"
+        return self._subsystem_unavailable("lmos", "LMOS operations")
 
     def cmd_sarts(self, args: List[str]) -> str:
         """Special service remote testing"""
-        return "SARTS testing - implementation follows pattern"
+        return self._subsystem_unavailable("sarts", "SARTS testing")
 
     def cmd_radio(self, args: List[str]) -> str:
         """TH-3 microwave radio system monitoring and maintenance"""
@@ -9186,56 +7629,126 @@ Use 'radio alignment' for antenna optimization"""
 
     def cmd_microwave(self, args: List[str]) -> str:
         """Microwave system analysis"""
-        return "Microwave analysis - implementation follows pattern"
+        return self._subsystem_unavailable("microwave", "Microwave analysis")
 
     def cmd_satellite(self, args: List[str]) -> str:
         """Satellite communication links"""
-        return "Satellite operations - implementation follows pattern"
+        return self._subsystem_unavailable("satellite", "Satellite operations")
 
     def cmd_alarm(self, args: List[str]) -> str:
-        """Central office alarm monitoring"""
-        return "Alarm monitoring - implementation follows pattern"
+        """Central office alarm monitoring and acknowledgement."""
+        health = self.system_health
+
+        if args and args[0] == "ack" and len(args) > 1:
+            alarm_id = args[1].upper()
+            for alarm in self.active_alarms:
+                if alarm["id"] == alarm_id:
+                    if alarm["acknowledged"]:
+                        return f"alarm: {alarm_id} was already acknowledged."
+                    alarm["acknowledged"] = True
+                    return f"""Alarm Acknowledged
+{'=' * 45}
+Alarm:            {alarm_id}
+Type:             {alarm['type']}
+Severity:         {alarm['severity']}
+System:           {alarm['system']}
+Acknowledged By:  {self.username}
+Time:             {datetime.now().strftime('%B %d, %Y %H:%M EST')}
+
+The alarm remains active until the condition clears."""
+            return f"alarm: No active alarm with identifier '{alarm_id}'"
+
+        if args and args[0] not in ("status", "list"):
+            return ("alarm: Unknown option '%s'\n"
+                    "Available commands: status, list, ack <alarm-id>" % args[0])
+
+        output = f"""Bell System Central Office Alarm Monitor
+{datetime.now().strftime('%B %d, %Y %H:%M EST')}
+{'=' * 50}
+
+SYSTEM HEALTH
+{'=' * 40}
+Overall Status:           {health['overall_status']}
+Critical Alarms:          {health['critical_alarms']}
+Major Alarms:             {health['major_alarms']}
+Minor Alarms:             {health['minor_alarms']}
+Continuous Uptime:        {health['uptime_days']} days
+Last Service Outage:      {health['last_outage'].strftime('%B %d, %Y')}
+
+ACTIVE ALARMS
+{'=' * 40}"""
+
+        if not self.active_alarms:
+            output += "\nNo active alarms. All monitored systems normal."
+        else:
+            for alarm in sorted(
+                self.active_alarms,
+                key=lambda a: {'CRITICAL': 0, 'MAJOR': 1, 'MINOR': 2}[a['severity']]
+            ):
+                age = int((datetime.now() - alarm['timestamp']).total_seconds() / 60)
+                output += f"""
+{alarm['id']} [{alarm['severity']}]
+  Type:               {alarm['type']}
+  System:             {alarm['system']}
+  Condition:          {alarm['description']}
+  Raised:             {alarm['timestamp'].strftime('%H:%M EST')} ({age} minutes ago)
+  Acknowledged:       {'YES' if alarm['acknowledged'] else 'NO - REQUIRES ATTENTION'}"""
+
+        unacknowledged = [a for a in self.active_alarms if not a['acknowledged']]
+        output += f"""
+
+SUMMARY
+{'=' * 40}
+Total Active:             {len(self.active_alarms)}
+Awaiting Acknowledgement: {len(unacknowledged)}
+
+Commands:
+  alarm status              Show this display
+  alarm ack <alarm-id>      Acknowledge an alarm
+
+Reference: BSP 660-100-000 (Alarm Surveillance)"""
+        return output
 
     def cmd_pwb(self, args: List[str]) -> str:
         """Programmer's Workbench operations"""
-        return "PWB operations - implementation follows pattern"
+        return self._subsystem_unavailable("pwb", "PWB operations")
 
     def cmd_rje(self, args: List[str]) -> str:
         """Remote Job Entry system"""
-        return "RJE operations - implementation follows pattern"
+        return self._subsystem_unavailable("rje", "RJE operations")
 
     # Document preparation commands
     def cmd_nroff(self, args: List[str]) -> str:
         """Document formatting with nroff"""
-        return "nroff text processing - implementation follows pattern"
+        return self._subsystem_unavailable("nroff", "nroff text processing")
 
     def cmd_troff(self, args: List[str]) -> str:
         """Typesetting with troff"""
-        return "troff typesetting - implementation follows pattern"
+        return self._subsystem_unavailable("troff", "troff typesetting")
 
     def cmd_tbl(self, args: List[str]) -> str:
         """Table formatting preprocessor"""
-        return "Table formatting - implementation follows pattern"
+        return self._subsystem_unavailable("tbl", "Table formatting")
 
     def cmd_eqn(self, args: List[str]) -> str:
         """Mathematical equation formatting"""
-        return "Equation formatting - implementation follows pattern"
+        return self._subsystem_unavailable("eqn", "Equation formatting")
 
     def cmd_pic(self, args: List[str]) -> str:
         """Picture drawing language"""
-        return "Picture drawing - implementation follows pattern"
+        return self._subsystem_unavailable("pic", "Picture drawing")
 
     def cmd_refer(self, args: List[str]) -> str:
         """Bibliography and reference management"""
-        return "Reference management - implementation follows pattern"
+        return self._subsystem_unavailable("refer", "Reference management")
 
     def cmd_netdata(self, args: List[str]) -> str:
         """Network data collection tools"""
-        return "Network data tools - implementation follows pattern"
+        return self._subsystem_unavailable("netdata", "Network data tools")
 
     def cmd_analysis(self, args: List[str]) -> str:
         """Advanced network analysis and modeling"""
-        return "Network analysis - implementation follows pattern"
+        return self._subsystem_unavailable("analysis", "Network analysis")
 
     def cmd_t1carrier(self, args: List[str]) -> str:
         """T1 Digital Carrier System Operations"""
@@ -9961,7 +8474,7 @@ Regenerator Spacing:
         else:
             return f"regenerator: unknown option '{args[0]}'\nUse 'regenerator' for available commands"
 
-    def cmd_errors(self, args: List[str] = None) -> str:
+    def cmd_errors(self, args: Optional[List[str]] = None) -> str:
         """Display recent command errors and troubleshooting information."""
         if not self.recent_errors:
             return "No recent errors recorded.\n"
@@ -10009,7 +8522,7 @@ Regenerator Spacing:
         else:
             return f"Invalid level '{args[0]}'. Use: debug, info, warning, error\n"
 
-    def cmd_history(self, args: List[str] = None) -> str:
+    def cmd_history(self, args: Optional[List[str]] = None) -> str:
         """Display command history with optional filtering."""
         if not self.command_history:
             return "No command history available.\n"
@@ -10018,7 +8531,7 @@ Regenerator Spacing:
         result += "=" * 40 + "\n\n"
 
         # Show last 20 commands by default
-        history_slice = self.command_history[-20:]
+        history_slice = list(self.command_history)[-20:]
 
         for i, cmd in enumerate(history_slice, 1):
             result += f"{i:2d}. {cmd}\n"
@@ -10028,7 +8541,7 @@ Regenerator Spacing:
 
         # Add usage statistics
         if hasattr(self, 'command_counts'):
-            result += f"\nMOST USED COMMANDS:\n"
+            result += "\nMOST USED COMMANDS:\n"
             sorted_commands = sorted(self.command_counts.items(),
                                    key=lambda x: x[1], reverse=True)
             for cmd, count in sorted_commands[:5]:
@@ -10036,7 +8549,7 @@ Regenerator Spacing:
 
         return result
 
-    def cmd_status(self, args: List[str] = None) -> str:
+    def cmd_status(self, args: Optional[List[str]] = None) -> str:
         """Display Bell System operational status overview."""
         return """BELL SYSTEM STATUS OVERVIEW
 =============================
@@ -10059,7 +8572,7 @@ Recent Activity:
 Type 'help' for available commands.
 """
 
-    def cmd_test(self, args: List[str] = None) -> str:
+    def cmd_test(self, args: Optional[List[str]] = None) -> str:
         """Bell System equipment testing interface."""
         if not args:
             return """BELL SYSTEM TEST INTERFACE
@@ -10108,7 +8621,7 @@ All switching functions normal.
         else:
             return f"test: unknown test type '{test_type}'\nUse 'test' for available options"
 
-    def cmd_antenna(self, args: List[str] = None) -> str:
+    def cmd_antenna(self, args: Optional[List[str]] = None) -> str:
         """Bell System antenna and microwave equipment management."""
         if not args:
             return """ANTENNA SYSTEM STATUS
@@ -10187,24 +8700,23 @@ Antenna alignment completed successfully.
         else:
             return f"antenna: unknown option '{option}'\nUse 'antenna' for available commands"
 
-    def cmd_quit(self, args: List[str] = None) -> str:
+    def cmd_quit(self, args: Optional[List[str]] = None) -> str:
         """Exit the Bell System terminal session."""
         # Save command history if readline is available
-        if hasattr(self, 'history_file') and self.history_file:
+        if READLINE_AVAILABLE and getattr(self, 'history_file', None):
             try:
-                import readline
                 readline.write_history_file(self.history_file)
-            except:
-                pass
+            except OSError as exc:
+                self.logger.warning(f"Could not save command history: {exc}")
 
         self.logger.info(f"Session {self.session_id} terminated by user")
         print("\nBell System session terminated.")
         print("Thank you for using Bell System UNIX V7 Operations Terminal.")
         sys.exit(0)
 
-    def cmd_clear(self, args: List[str] = None) -> str:
+    def cmd_clear(self, args: Optional[List[str]] = None) -> str:
         """Clear the terminal screen."""
-        os.system('clear' if os.name == 'posix' else 'cls')
+        clear_screen()
         return ""
 
 

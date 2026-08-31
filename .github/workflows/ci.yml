@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ruff
+        run: python -m pip install --upgrade pip ruff
+
+      # F821 is the check that would have caught the imports-inside-docstrings
+      # defect that left seven modules unrunnable. It is a hard gate.
+      - name: Fatal checks (undefined names, syntax)
+        run: ruff check src tests --select E9,F63,F7,F82,F821 --output-format full
+
+      - name: Full lint
+        run: ruff check src tests
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run test suite
+        run: python -m pytest tests -v
+
+      - name: Verify console script is installed and runnable
+        run: |
+          bell-system --version
+          bell-system --help
+
+      - name: Verify the simulation runs end to end
+        run: printf 'ps\nwho\ntrouble\nexit\n' | bell-system --role 1

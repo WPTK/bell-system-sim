@@ -3,13 +3,13 @@
 ## Installation and Setup
 
 ### Q: What are the system requirements?
-**A:** Python 3.6 or higher. No external dependencies required - the simulation uses only Python standard library modules.
+**A:** Python 3.9 or higher. No runtime dependencies required - the simulation uses only Python standard library modules.
 
 ### Q: How do I install the Bell System simulation?
 **A:** Clone the repository and install in development mode:
 ```bash
-git clone https://github.com/your-username/bell-system-unix-v7.git
-cd bell-system-unix-v7
+git clone https://github.com/WPTK/bell-system-sim.git
+cd bell-system-sim
 pip install -e .
 ```
 
@@ -26,8 +26,12 @@ source ~/.bashrc
 **A:** Use the `bell-system` command:
 - `bell-system` - Interactive role selection
 - `bell-system --tutorial` - Guided learning mode  
-- `bell-system --role 1` - Start as specific role
-- `bell-system --simple` - Simplified interface
+- `bell-system --role 1` - Start as a specific role (1-12), skipping the menu
+- `bell-system --simple` - Simplified four-role interface
+- `bell-system --version` - Print the version and exit
+
+`python -m bell_system` accepts the same options and is equivalent to
+`bell-system`; it is useful when the console script is not on your `PATH`.
 
 ### Q: What are the 12 operational roles?
 **A:** The simulation includes authentic Bell System positions from 1978-1983:
@@ -46,10 +50,10 @@ source ~/.bashrc
 
 ### Q: How do I get help within the simulation?
 **A:** Use these commands:
-- `help` - General command overview
+- `help` - Overview of the commands available to your role
+- `help <command>` - Summary for a single command
 - `man <command>` - Detailed manual page
-- `?` - Quick help
-- `commands` - List available commands for your role
+- `?` or `h` - Aliases for `help`
 
 ## Historical Accuracy
 
@@ -60,8 +64,8 @@ source ~/.bashrc
 - UNIX V7 system documentation
 - Bell System Practices (BSP) documents
 
-### Q: Why can't I access certain commands?
-**A:** Commands are restricted by role-based access control, just like in actual Bell System operations. Each operational role has specific responsibilities and corresponding command access.
+### Q: Why doesn't `help` list every command?
+**A:** `help` shows the command set belonging to your operational role, just as an actual Bell System position would have had its own responsibilities and tools. The listing is role-specific; commands outside it are not blocked, so `man <command>` will document any command and you can still run it if you want to explore another role's work.
 
 ### Q: Are the error messages authentic?
 **A:** Yes, error messages and system responses are modeled after actual Bell System and UNIX V7 patterns from the period.
@@ -69,29 +73,37 @@ source ~/.bashrc
 ## Technical Issues
 
 ### Q: The simulation crashes or shows import errors
-**A:** Verify your Python installation and try:
+**A:** Verify your Python installation and the package install, then try:
 ```bash
 python3 -c "import sys; print(sys.version)"
+python3 -c "import bell_system; print(bell_system.__version__)"
 bell-system --version
-bell-system --test
 ```
 
-### Q: Commands seem slow to respond
-**A:** For performance analysis:
+### Q: Where are the log and command history files?
+**A:** In a per-user state directory, not in the directory you ran from. The
+location is `$BELL_SYSTEM_HOME` if set, otherwise `$XDG_STATE_HOME/bell-system`,
+otherwise `~/.local/state/bell-system`:
 ```bash
-# Enable performance profiling
-export BELL_SYSTEM_PROFILE=1
-bell-system
-
-# Or run performance tests
-python3 src/performance_profiling.py
+ls "${BELL_SYSTEM_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/bell-system}"
+# bell_system.log            Rotating application log (10 MB, 5 backups)
+# bell_system_history.txt    Command history
 ```
 
-### Q: How do I enable debug logging?
-**A:** Set the logging level:
+### Q: Can I keep the simulation's files somewhere else?
+**A:** Yes. Set `BELL_SYSTEM_HOME` to any directory you like; it is created if it
+does not exist:
 ```bash
-export BELL_SYSTEM_LOG_LEVEL=DEBUG
+export BELL_SYSTEM_HOME=~/bell-system-state
 bell-system
+```
+
+### Q: How do I see the debug log?
+**A:** Everything at DEBUG level and above, including per-command execution
+times, is already written to `bell_system.log` in the state directory. Only
+warnings and errors are echoed to the terminal.
+```bash
+tail -f "${BELL_SYSTEM_HOME:-$HOME/.local/state/bell-system}/bell_system.log"
 ```
 
 ## Platform-Specific Notes
@@ -113,12 +125,14 @@ bell-system
 ## Development and Contributing
 
 ### Q: How do I run the test suite?
-**A:** Multiple options available:
+**A:** Install the development extras and run pytest:
 ```bash
-bell-system --test              # Built-in CLI test
-python -m pytest tests/        # Full pytest suite
-python tests/comprehensive_test_suite.py  # Direct execution
+pip install -e ".[dev]"
+python -m pytest tests              # Full suite
+python -m pytest tests/test_cli.py  # A single file
 ```
+The suite redirects logs and history to a temporary directory, so it will not
+write to your real state directory.
 
 ### Q: How do I contribute new Bell System commands?
 **A:** 
@@ -142,13 +156,13 @@ pip install -e .
 python3 -c "import sys; print(sys.path)"
 ```
 
-### Common Error: "Permission denied"
+### Common Error: "Permission denied" writing logs
 ```bash
-# Make CLI executable
-chmod +x bin/bell-system
+# Check that the state directory is writable
+ls -ld "${BELL_SYSTEM_HOME:-$HOME/.local/state/bell-system}"
 
-# Check file permissions
-ls -la bin/bell-system
+# Or point it somewhere you can write
+export BELL_SYSTEM_HOME=/tmp/bell-system
 ```
 
 ### Common Error: "Command not found: bell-system"
@@ -159,12 +173,15 @@ pip show bell-system-unix-v7
 # Check PATH
 echo $PATH
 which bell-system
+
+# Works without the console script on PATH
+python -m bell_system --version
 ```
 
 ### Performance Issues
-- Disable logging: `export BELL_SYSTEM_LOG_LEVEL=ERROR`
-- Use simplified interface: `bell-system --simple`
+- Use the simplified interface: `bell-system --simple`
 - Check available memory and disk space
+- Per-command execution times are recorded in `bell_system.log`
 
 ## Getting More Help
 

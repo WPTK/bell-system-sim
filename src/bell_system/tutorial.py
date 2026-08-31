@@ -10,11 +10,11 @@ simulation and provides step-by-step guided learning.
 Run this tutorial BEFORE using the main Bell System simulation.
 """
 
-import os
-import random
 import sys
 import time
-from typing import List, Dict
+
+from .console import clear_screen
+from typing import List
 
 
 class BellSystemTutorial:
@@ -39,7 +39,7 @@ class BellSystemTutorial:
 
     def clear_screen(self):
         """Clear terminal screen"""
-        os.system('cls' if os.name == 'nt' else 'clear')
+        clear_screen()
 
     def type_effect(self, text: str, delay: float = 0.03):
         """Display text with typewriter effect"""
@@ -416,7 +416,7 @@ REMEMBER:
         final_score = len(self.user_progress['commands_practiced'])
         role_selected = self.user_progress.get('role_selected', 'Not selected')
 
-        print(f"\nYOUR TUTORIAL RESULTS:")
+        print("\nYOUR TUTORIAL RESULTS:")
         print(f"Commands Practiced: {final_score}")
         print(f"Preferred Role: {role_selected}")
         print(f"Steps Completed: {self.user_progress['steps_completed']}")

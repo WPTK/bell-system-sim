@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 """
-import random
+Bell System UNIX V7 Terminal Simulation - Simplified Interface
+=============================================================
 
-from datetime import datetime
-from pathlib import Path
+Authentic AT&T Internal Operations Workstation (1978-1983).
 
-Bell System UNIX V7 Terminal Simulation
-Authentic AT&T Internal Operations Workstation (1978-1983)
-Four Role Simulation: Systems Operator, Switching Technician, Field Liaison, NOC Analyst
+A compact four-role terminal offering genuine filesystem exploration
+(``cat``, ``cd``, ``grep``, ``find``) alongside the core V7 command set.
+Four roles: Systems Operator, Switching Technician, Field Liaison, NOC Analyst.
 """
 
-import os
-import sys
-import time
+from datetime import datetime
 
-class BellSystemTerminal:
+from .console import clear_screen
+
+
+class SimpleTerminal:
     def __init__(self):
         self.current_directory = "/usr/users/sysop"
         self.username = "sysop"
@@ -88,8 +89,8 @@ class BellSystemTerminal:
         username = input().strip()
         if username.lower() == 'root':
             print("Password: ", end="")
-            # In real V7, password wouldn't echo
-            password = input()
+            # V7 suppressed the echo here; the value itself is not checked.
+            input()
             print()
 
             # Show message of the day
@@ -254,7 +255,6 @@ class BellSystemTerminal:
     def cmd_ps(self, args):
         """Implement ps command"""
         show_all = 'a' in ''.join(args) or '-a' in args
-        long_format = 'l' in ''.join(args) or '-l' in args
 
         output = []
         header = "  PID TTY      TIME CMD"
@@ -506,7 +506,7 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
         if cmd == 'exit' or cmd == 'logout':
             return "LOGOUT"
         elif cmd == 'clear':
-            os.system('clear' if os.name == 'posix' else 'cls')
+            clear_screen()
             return ""
         elif cmd == 'history':
             return '\n'.join(f"{i+1:4d}  {cmd}" for i, cmd in enumerate(self.command_history[-20:]))
@@ -590,5 +590,4 @@ Bell Telephone Laboratories        March 1976                           PS(1)"""
             print("logout")
 
 if __name__ == "__main__":
-    terminal = UnixV7Terminal()
-    terminal.run()
+    SimpleTerminal().run()
