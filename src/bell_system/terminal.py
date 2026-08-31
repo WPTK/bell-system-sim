@@ -37,6 +37,7 @@ from typing import Dict, List, Optional, Any
 
 from .constants import (
     BELL_SYSTEM_ROLES,
+    SHIFT_LENGTH_MINUTES,
     UNIMPLEMENTED_COMMANDS,
 )
 from .clock import SimClock
@@ -60,6 +61,7 @@ from .screens.bureau import BureauCommands
 from .screens.carrier import CarrierCommands
 from .screens.documents import DocumentCommands
 from .screens.shift import ShiftCommands
+from .screens.shell import ShellCommands
 from .screens.switching import SwitchingCommands
 from .screens.testing import TestingCommands
 from .screens.tickets import TicketCommands
@@ -120,6 +122,7 @@ class BellSystemTerminal(
     CustomerCommands,
     FrameCommands,
     UnixCommands,
+    ShellCommands,
 ):
     """
     Main Bell System UNIX V7 Terminal Simulation Class.
@@ -239,6 +242,11 @@ class BellSystemTerminal(
         self.session_start_time = time.time()
         self.session_id = f"BELL-{int(time.time())}-{os.getpid()}"
         self.failed_command_attempts = 0
+        # What the previous stage of a pipeline produced.
+        self._pipe_input = ''
+        # True while a pipeline is running, so its stages do not each count
+        # as a separate command against the shift.
+        self._in_pipeline = False
 
         # Enhanced UX features - command history and error tracking
         self.command_history: deque = deque(maxlen=1000)
@@ -919,6 +927,20 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, pwb
         'orderwire': self.cmd_orderwire,
         'testcall': self.cmd_testcall,
 
+        # The shell: moving around, reading, text handling
+        'cd': self.cmd_cd,
+        'cat': self.cmd_cat,
+        'more': self.cmd_more,
+        'head': self.cmd_head,
+        'tail': self.cmd_tail,
+        'grep': self.cmd_grep,
+        'wc': self.cmd_wc,
+        'sort': self.cmd_sort,
+        'uniq': self.cmd_uniq,
+        'echo': self.cmd_echo,
+        'file': self.cmd_file,
+        'cal': self.cmd_cal,
+
         # Standard UNIX commands
         'ps': self.cmd_ps,
         'who': self.cmd_who,
@@ -1206,6 +1228,12 @@ Subsystems available in this release:
         if command_line.strip():
             self.command_history.append(command_line)
 
+        # A pipeline runs each stage in turn, feeding one stage's output to
+        # the next. Joining commands together is most of what a shell is for,
+        # so who | wc -l should work here the way it did on the real thing.
+        if '|' in command_line and not command_line.strip().startswith('|'):
+            return self._run_pipeline(command_line)
+
         try:
             parts = command_line.split()
             if not parts:
@@ -1268,6 +1296,74 @@ Subsystems available in this release:
             error_msg = f"Command execution error: {e}"
             self.logger.error(f"Exception in command '{command}': {e}")
             return self._handle_command_error(command, error_msg)
+
+    def _run_pipeline(self, command_line: str) -> str:
+        """
+        Run a pipeline, feeding each stage's output into the next.
+
+        Args:
+            command_line: The whole line, stages separated by ``|``
+
+        Returns:
+            What the last stage produced
+        """
+        stages = [stage.strip() for stage in command_line.split('|')]
+        carried = ''
+        # A pipeline is one command, not several. Without this each stage
+        # advanced the shift clock and could pull a new report onto the
+        # board, so the board changed between cat and grep.
+        self._in_pipeline = True
+        try:
+            for stage in stages:
+                if not stage:
+                    return "sh: syntax error"
+                self._pipe_input = carried
+                carried = self.execute_command(stage) or ''
+        finally:
+            self._in_pipeline = False
+            self._pipe_input = ''
+
+        interruption = self._interrupt()
+        if interruption:
+            carried = f"{carried}\n{interruption}" if carried else interruption
+        return carried
+
+    def _render_board_file(self) -> str:
+        """
+        Render the trouble report board as a file.
+
+        One report to a line, fixed columns, so grep(1) and sort(1) and
+        wc(1) are genuinely useful on it. This is the same board report(1)
+        shows; reading it with cat(1) is meant to be a real alternative.
+        """
+        rows = ['# report  telephone       cls   cable/pair  status  due     symptom']
+        for report in self.desk.pending():
+            record = report.record
+            rows.append(
+                f"{report.number:<9}{record.telephone_number:<16}"
+                f"{record.class_of_service:<6}{record.cable_pair():<12}"
+                f"{report.status:<8}{report.age_label():<8}{report.symptom}")
+        return '\n'.join(rows) + '\n'
+
+    def _render_shift_log(self) -> str:
+        """Render this position's shift log as a file."""
+        career = self.career
+        rows = [
+            f"shift {career.shift} position {self.username} "
+            f"difficulty {career.difficulty.name}",
+            f"worked {self.shift_time()} of "
+            f"{SHIFT_LENGTH_MINUTES // 60}:00",
+            f"closed {career.reports_closed} correct {career.reports_correct} "
+            f"wrong {career.reports_wrong} repeats {career.repeat_reports}",
+            f"index {career.service_index():.1f} band {career.index_band()}",
+            '',
+        ]
+        for report in self.desk.closed():
+            rows.append(
+                f"{report.number} {report.record.telephone_number} "
+                f"code {report.disposition} found {report.found or '-'} "
+                f"{'correct' if report.correct else 'WRONG'}")
+        return '\n'.join(rows) + '\n'
 
     def _initialize_man_pages(self) -> Dict[str, str]:
         """
@@ -1446,6 +1542,15 @@ Subsystems available in this release:
         ('qual', 'Your craft record and service index'),
     )
 
+    SHELL_COMMANDS = (
+        ('cd', 'Change directory'),
+        ('ls', 'List a directory (-l for the long form)'),
+        ('cat', 'Read a file'),
+        ('grep', 'Search a file for a pattern'),
+        ('wc', 'Count lines, words and characters'),
+        ('man', 'The manual page for any command'),
+    )
+
     PEOPLE_COMMANDS = (
         ('who', 'Who is on the system'),
         ('write', 'Write to another terminal'),
@@ -1504,6 +1609,12 @@ Subsystems available in this release:
                 for name in sorted(role_commands)
             ))
 
+        lines.extend(['', 'THE MACHINE', '-' * 66])
+        lines.extend(self._help_rows(self.SHELL_COMMANDS))
+        lines.append("   Commands join with a pipe: who | wc -l")
+        lines.append("   Worth reading: /etc/motd, /usr/doc/divestiture,")
+        lines.append("                  /usr/users/sysop/notes, /usr/lmos/board")
+
         lines.extend(['', 'THE OTHER CRAFT', '-' * 66])
         lines.extend(self._help_rows(self.PEOPLE_COMMANDS))
 
@@ -1511,11 +1622,10 @@ Subsystems available in this release:
             '',
             'THE SYSTEM',
             '-' * 66,
-            "  man <command>     Complete documentation for any command",
             "  set               Settings, including difficulty and ambience",
             "  bsp search <topic>  Bell System Practices",
             "  help <command>    One line on a single command",
-            "  ps, df, ls, date, pwd, who    The usual UNIX commands",
+            "  ps, df, date, pwd, more, head, tail, sort, echo, file, cal",
             "  exit              Log out",
             '',
         ])

@@ -36,7 +36,7 @@ class TestPostEraReferences:
             assert 'BELLCORE' not in terminal.execute_command(command).upper()
 
     def test_motd_names_a_period_entity(self, terminal):
-        motd = terminal.filesystem['/etc/motd']['content']
+        motd = terminal.filesystem['/etc/motd'].content
         assert 'BELLCORE' not in motd.upper()
 
     def test_npa_718_is_absent(self, terminal):

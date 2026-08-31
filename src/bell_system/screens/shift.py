@@ -342,6 +342,9 @@ class ShiftCommands(SessionState):
         self.emit("\n  'report' for the board, 'mlt <report>' to measure a "
                   "loop,")
         self.emit("  'qual' for your craft record.")
+        self.emit("\n  This is a UNIX machine. Look around: 'cd /usr/doc', "
+                  "'ls', 'cat divestiture'.")
+        self.emit("  Commands join with a pipe: 'who | wc -l'.")
         if self.career.shift == 1 and not self.career.reports_closed:
             self.emit("  'set game.difficulty craft' if you want the shift "
                       "worked the hard way.")
@@ -666,6 +669,11 @@ this shift and the next one starts on a fresh board."""
         them. Interruption rate is the difficulty's: a shift on the forgiving
         setting is quiet, a shift on the other one is not.
         """
+        if getattr(self, '_in_pipeline', False):
+            # A pipeline's stages are one command; the pipeline charges for
+            # itself once it finishes.
+            return ''
+
         quiet = not self.settings.is_on('game.ambience')
         difficulty = self._difficulty()
         pieces = self._advance_shift()

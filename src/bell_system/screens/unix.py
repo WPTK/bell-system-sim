@@ -1,22 +1,25 @@
 """
 The Seventh Edition commands the terminal presents around the plant.
+
+The filesystem these read is built in :mod:`bell_system.filesystem`, with the
+files whose contents come from the running simulation added here.
 """
 
 import logging
 import logging.handlers
-from typing import (
-    List,
-    Optional,
-)
-from ..console import (
-    clear_screen,
-)
-from ..npc import (
-    CRAFT,
-)
+from typing import Any, List, Optional
 
-
+from ..console import clear_screen
+from ..constants import BSP_CATEGORIES
+from ..filesystem import FILESYSTEM, Node
+from ..npc import CRAFT
 from .session import SessionState
+
+
+def _generated(content: Any, owner: str = 'root', group: str = 'other',
+               mode: str = '-rw-r--r--') -> Node:
+    """Build a file node whose content is produced on demand."""
+    return Node('file', owner, group, mode, content)
 
 
 class UnixCommands(SessionState):
@@ -78,93 +81,6 @@ class UnixCommands(SessionState):
                 "uk": {"first_minute": 2.50, "additional": 1.80},
                 "canada": {"first_minute": 0.65, "additional": 0.45},
                 "mexico": {"first_minute": 1.20, "additional": 0.85}
-            }
-        }
-    def _initialize_filesystem(self) -> None:
-        """Initialize Bell System UNIX V7 filesystem structure."""
-        self.filesystem = {
-            "/": {
-                "type": "dir", "owner": "root", "group": "bell",
-                "mode": "drwxr-xr-x", "size": 512,
-                "files": ["bin", "dev", "etc", "lib", "tmp", "usr", "var", "att"]
-            },
-            "/bin": {
-                "type": "dir", "owner": "root", "group": "bell",
-                "mode": "drwxr-xr-x", "size": 1024,
-                "files": ["sh", "ls", "cat", "ps", "who", "uucp", "mail",
-                         "wall", "write"]
-            },
-            "/usr": {
-                "type": "dir", "owner": "root", "group": "bell",
-                "mode": "drwxr-xr-x", "size": 2048,
-                "files": ["bin", "lib", "users", "spool", "att"]
-            },
-            "/usr/bin": {
-                "type": "dir", "owner": "root", "group": "bell",
-                "mode": "drwxr-xr-x", "size": 2048,
-                "files": ["trunk", "switch", "testboard", "toll", "trace",
-                         "dialtone", "emergency", "ticket", "traffic", "routing",
-                         "capacity", "billing", "service", "operator", "directory",
-                         "crossbar", "netplan", "dbquery", "custdb", "provision",
-                         "collect", "tsps", "3a", "5ess", "bsp", "western",
-                         "coer", "lmos", "tnds", "sarts", "radio", "satellite",
-                         "alarm", "pwb", "rje", "nroff", "troff", "tbl", "eqn",
-                         "pic", "refer"]
-            },
-            "/usr/users": {
-                "type": "dir", "owner": "root", "group": "bell",
-                "mode": "drwxr-xr-x", "size": 1024,
-                "files": ["sysop", "switch", "field", "noc", "tsps", "dba",
-                         "netplan", "custserv", "radio", "tnds", "sarts", "docprep"]
-            },
-            "/usr/users/sysop": {
-                "type": "dir", "owner": "sysop", "group": "bell",
-                "mode": "drwx------", "size": 512,
-                "files": ["mail", "tickets", "logs", ".profile"]
-            },
-            "/usr/spool": {
-                "type": "dir", "owner": "root", "group": "bell",
-                "mode": "drwxrwxrwx", "size": 1024,
-                "files": ["uucp", "mail", "tickets"]
-            },
-            "/att": {
-                "type": "dir", "owner": "root", "group": "bell",
-                "mode": "drwxr-xr-x", "size": 1024,
-                "files": ["switch", "network", "maintenance", "tickets"]
-            },
-            "/att/tickets": {
-                "type": "dir", "owner": "root", "group": "bell",
-                "mode": "drwxrwxrwx", "size": 2048,
-                "files": ["open", "pending", "closed"]
-            },
-            "/usr/adm": {
-                "type": "dir", "owner": "root", "group": "bell",
-                "mode": "drwxr-xr-x", "size": 1024,
-                "files": ["wtmp", "messages", "sulog", "acct", "uucplog"]
-            },
-            "/etc/passwd": {
-                "type": "file", "owner": "root", "group": "bell",
-                "mode": "-rw-r--r--", "size": 245,
-                "content": ("root::0:1:System Administrator:/:/bin/sh\n"
-                           "sysop::100:10:UNIX Systems Operator:/usr/users/sysop:/bin/sh\n"
-                           "switch::101:10:Switching Technician:/usr/users/switch:/bin/sh\n"
-                           "field::102:10:Field Support Liaison:/usr/users/field:/bin/sh\n"
-                           "noc::103:10:NOC Analyst:/usr/users/noc:/bin/sh\n"
-                           "uucp::5:5:UUCP Network:/usr/spool/uucp:/usr/lib/uucp/uucico\n")
-            },
-            "/etc/motd": {
-                "type": "file", "owner": "root", "group": "bell",
-                "mode": "-rw-r--r--", "size": 387,
-                "content": ("AT&T Bell System UNIX V7\n"
-                           "Internal Operations Terminal\n\n"
-                           "Restricted to authorized Bell System personnel only.\n"
-                           "All activities are logged and monitored.\n\n"
-                           "Current system load: moderate\n"
-                           "Network status: operational\n"
-                           "Switch centers online: 47/48\n\n"
-                           "For technical support contact: BTL-MH TECH ASSISTANCE\n"
-                           "For emergency escalation use: emergency command\n\n"
-                           "Shift briefings available in /att/tickets/briefing\n")
             }
         }
     def _initialize_processes(self) -> None:
@@ -234,6 +150,51 @@ class UnixCommands(SessionState):
             return self.man_pages[command]
         else:
             return f"No manual entry for {command}"
+    def _initialize_filesystem(self) -> None:
+        """
+        Build the simulated Seventh Edition filesystem.
+
+        A copy, so a session cannot mutate the shared tree, plus the parts
+        that are generated from live state.
+        """
+        self.filesystem = dict(FILESYSTEM)
+        self._add_generated_files()
+
+    def _add_generated_files(self) -> None:
+        """
+        Add the files whose contents come from the running simulation.
+
+        A line record is a file because that is what it was. Reading the
+        board with cat(1) and grep(1) is meant to be a real alternative to
+        the report(1) screens, not a decoration.
+        """
+        # /bin and /usr/bin hold what this machine can actually run, taken
+        # from the dispatch table rather than a hand-kept list, so a listing
+        # can never name a command that does not exist.
+        shell_tools = {
+            'sh', 'cd', 'ls', 'cat', 'pwd', 'echo', 'grep', 'wc', 'sort',
+            'uniq', 'head', 'tail', 'more', 'file', 'cal', 'date', 'who',
+            'ps', 'df', 'mail', 'write', 'man', 'history',
+        }
+        for name in self._command_handlers:
+            where = '/bin' if name in shell_tools else '/usr/bin'
+            self.filesystem[f'{where}/{name}'] = Node(
+                'file', 'bin', 'bin', '-rwxr-xr-x', '')
+
+        self.filesystem['/usr/lmos/board'] = _generated(
+            lambda terminal: terminal._render_board_file(),
+            owner='sysop', group='craft')
+        self.filesystem['/usr/adm/shiftlog'] = _generated(
+            lambda terminal: terminal._render_shift_log(),
+            owner='adm', group='adm')
+        for code, title in sorted(BSP_CATEGORIES.items()):
+            self.filesystem[f'/usr/bsp/{code}'] = _generated(
+                f"BELL SYSTEM PRACTICE\nDivision {code} - {title}\n"
+                f"{'=' * 60}\n\n"
+                f"This division covers {title.lower()}.\n\n"
+                f"Practices in this division are indexed by section. Use\n"
+                f"bsp(1) to search the index by topic.\n")
+
     def cmd_ps(self, args: Optional[List[str]] = None) -> str:
         """
         Display Bell System processes in authentic UNIX V7 format.
@@ -265,27 +226,6 @@ class UnixCommands(SessionState):
             output += (f"{user['user']:<10} tty{user['tty']:<4} "
                        f"{user['login']:<8} ({user['location']}){title}\n")
         return output
-    def cmd_ls(self, args: List[str]) -> str:
-        """
-        List directory contents in the Bell System filesystem.
-
-        Provides basic directory listing functionality for navigating
-        the authentic Bell System file structure and operational directories.
-
-        Args:
-            args: Command arguments (currently unused, basic implementation)
-
-        Returns:
-            Directory contents or error message
-        """
-        path = self.current_directory
-        if path in self.filesystem and "files" in self.filesystem[path]:
-            files = self.filesystem[path]["files"]
-            return "  ".join(files)
-        return "ls: cannot access directory"
-    def cmd_pwd(self, args: Optional[List[str]] = None) -> str:
-        """Print current working directory."""
-        return self.current_directory
     def cmd_date(self, args: Optional[List[str]] = None) -> str:
         """Display current system date and time in the configured layout."""
         return self.clock.date_command()

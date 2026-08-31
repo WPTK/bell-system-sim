@@ -1257,40 +1257,6 @@ BELL SYSTEM PRACTICES
      BSP 100-905-200 - Data Collection and Processing
 """,
 
-    "ls": """
-NAME
-     ls - list directory contents
-
-SYNOPSIS
-     ls [-acdilrstu] [name...]
-
-DESCRIPTION
-     List contents of directories on the Bell System UNIX workstation.
-     For each directory argument, ls lists the contents; for each file
-     argument, ls repeats its name and any other information requested.
-
-OPTIONS
-     -a              List all entries including those beginning with '.'
-     -c              Use time of last modification of the inode
-     -d              List directories themselves, not their contents
-     -i              Print inode number for each file
-     -l              List in long format with permissions and details
-     -r              Reverse the order of sort
-     -s              Give size in blocks for each entry
-     -t              Sort by time modified instead of name
-     -u              Use time of last access instead of modification
-
-EXAMPLES
-     ls                              List current directory
-     ls -la /usr/bell                List Bell System directory with details
-     ls -t *.log                     List log files by modification time
-
-SEE ALSO
-     pwd(1), cd(1), file(1)
-
-UNIX V7 PROGRAMMER'S MANUAL
-     ls(1) - January 1979
-""",
 
     "date": """
 NAME
@@ -3015,5 +2981,236 @@ QUALIFICATION
 
 SEE ALSO
      routing(1), testcall(1), trunk(1), traffic(1), tnds(1)
+""",
+    "cd": """
+NAME
+     cd - change working directory
+
+SYNOPSIS
+     cd [directory]
+
+DESCRIPTION
+     Change the working directory. With no argument, change to the home
+     directory of the position you are logged in as.
+
+     Relative paths, "." and ".." all work, and "~" means your home
+     directory.
+
+SEE ALSO
+     ls(1), pwd(1)
+""",
+    "ls": """
+NAME
+     ls - list contents of directory
+
+SYNOPSIS
+     ls [-la] [name ...]
+
+DESCRIPTION
+     List the contents of each directory named. With no argument, list the
+     working directory.
+
+OPTIONS
+     -l   Long form: mode, links, owner, group, size, date and name
+     -a   Include entries beginning with a dot
+
+SEE ALSO
+     cd(1), cat(1), file(1)
+""",
+    "cat": """
+NAME
+     cat - concatenate and print
+
+SYNOPSIS
+     cat file ...
+
+DESCRIPTION
+     Read each file in turn and write it out. With no file, read standard
+     input, so cat is useful at the head of a pipeline.
+
+     Worth reading on this machine:
+
+     /etc/motd                 What the company wants you to know
+     /usr/doc/divestiture      What happens on 1 January 1984
+     /usr/doc/bulletin         This week's operations bulletin
+     /usr/users/sysop/notes    Left by whoever had the position before you
+     /usr/lmos/board           The trouble reports, one to a line
+     /usr/adm/shiftlog         What you have closed this shift
+     /usr/adm/messages         What the machine has been doing
+
+SEE ALSO
+     more(1), head(1), tail(1), grep(1)
+""",
+    "more": """
+NAME
+     more - print a file a screenful at a time
+
+SYNOPSIS
+     more file ...
+
+DESCRIPTION
+     Print a file, stopping after a screenful. The terminal this runs in
+     scrolls on its own, so more(1) here prints one screen and says how much
+     is left rather than waiting for a keystroke.
+
+SEE ALSO
+     cat(1), head(1)
+""",
+    "head": """
+NAME
+     head - print the first few lines
+
+SYNOPSIS
+     head [-count] [file ...]
+
+DESCRIPTION
+     Print the first lines of each file, ten by default. With no file, read
+     standard input.
+
+SEE ALSO
+     tail(1), cat(1)
+""",
+    "tail": """
+NAME
+     tail - print the last few lines
+
+SYNOPSIS
+     tail [-count] [file ...]
+
+DESCRIPTION
+     Print the last lines of each file, ten by default. With no file, read
+     standard input.
+
+     Useful on /usr/adm/messages and /usr/adm/shiftlog, which both grow.
+
+SEE ALSO
+     head(1), cat(1)
+""",
+    "grep": """
+NAME
+     grep - search a file for a pattern
+
+SYNOPSIS
+     grep [-cinv] pattern [file ...]
+
+DESCRIPTION
+     Print the lines of each file that contain the pattern. With no file,
+     read standard input, which is how grep is most often used.
+
+OPTIONS
+     -i   Ignore case
+     -n   Number the lines
+     -v   Print the lines that do NOT match
+     -c   Print a count instead of the lines
+
+EXAMPLES
+     grep 1FR /usr/lmos/board            Residence lines on the board
+     cat /usr/lmos/board | grep PEND     Reports not yet worked
+     grep -c . /usr/lmos/board           How many lines that is
+     who | grep -v carot                 Everybody who is a person
+
+SEE ALSO
+     cat(1), wc(1), sort(1)
+""",
+    "wc": """
+NAME
+     wc - count lines, words and characters
+
+SYNOPSIS
+     wc [-lwc] [file ...]
+
+DESCRIPTION
+     Count lines, words and characters in each file, printing them in that
+     order. With no file, read standard input.
+
+OPTIONS
+     -l   Lines only
+     -w   Words only
+     -c   Characters only
+
+EXAMPLES
+     who | wc -l                     How many people are logged on
+     cat /usr/lmos/board | wc -l     How deep the board is
+
+SEE ALSO
+     grep(1), sort(1)
+""",
+    "sort": """
+NAME
+     sort - sort lines
+
+SYNOPSIS
+     sort [-ru] [file ...]
+
+DESCRIPTION
+     Sort the lines of each file. With no file, read standard input.
+
+OPTIONS
+     -r   Reverse the order
+     -u   Discard duplicate lines
+
+SEE ALSO
+     uniq(1), grep(1), wc(1)
+""",
+    "uniq": """
+NAME
+     uniq - report repeated lines
+
+SYNOPSIS
+     uniq [-c] [file ...]
+
+DESCRIPTION
+     Drop adjacent repeated lines. Usually used after sort(1), because it
+     only looks at neighbours.
+
+OPTIONS
+     -c   Prefix each line with the number of times it occurred
+
+SEE ALSO
+     sort(1)
+""",
+    "echo": """
+NAME
+     echo - write its arguments
+
+SYNOPSIS
+     echo [argument ...]
+
+DESCRIPTION
+     Write the arguments, separated by blanks. Chiefly useful at the head of
+     a pipeline or for seeing what the shell did with a line.
+
+SEE ALSO
+     cat(1)
+""",
+    "file": """
+NAME
+     file - determine file type
+
+SYNOPSIS
+     file name ...
+
+DESCRIPTION
+     Say what kind of thing each argument is: a directory, ascii text, C
+     program text, or a special file.
+
+SEE ALSO
+     ls(1), cat(1)
+""",
+    "cal": """
+NAME
+     cal - print a calendar
+
+SYNOPSIS
+     cal [month [year]]
+
+DESCRIPTION
+     Print a calendar for the month, defaulting to the month the shift is
+     in. With a year as well, print that month of that year.
+
+     cal 12 1983 is worth a look.
+
+SEE ALSO
+     date(1)
 """,
 }

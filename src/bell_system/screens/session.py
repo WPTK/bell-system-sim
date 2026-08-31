@@ -24,6 +24,7 @@ from collections import deque
 from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Optional, Set
 
 from ..clock import SimClock
+from ..filesystem import Node
 from ..progression import Career, Difficulty
 from ..reports import ReportDesk
 from ..routing import TollNetwork
@@ -129,7 +130,11 @@ class SessionState:
     _assigned_tickets: Set[str]
 
     # -- simulated host --------------------------------------------------
-    filesystem: Dict[str, Any]
+    filesystem: Dict[str, 'Node']
+    # What the previous stage of a pipeline produced, for commands that read
+    # standard input when given no file arguments.
+    _pipe_input: str
+    _in_pipeline: bool
     processes: List[Dict[str, Any]]
     users: List[Dict[str, str]]
     project_numbers: Dict[str, Any]

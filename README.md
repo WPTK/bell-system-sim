@@ -68,6 +68,29 @@ python -m bell_system          # Equivalent to `bell-system`
 - **Historical Documentation** based on Bell System Technical Journal and operations manuals
 - **Pure Python Implementation** using only standard library modules
 
+## The Machine
+
+It is a Seventh Edition UNIX system and you are logged into it. Move around,
+read things, join commands together.
+
+```
+cd /usr/doc         ls -l          cat divestiture
+who | wc -l         ls /usr/bin | grep test
+grep 1FR /usr/lmos/board | wc -l
+```
+
+The trouble report board is a file (`/usr/lmos/board`), one report to a line,
+so `grep` and `sort` and `wc` are genuinely useful on it. Your shift log is a
+file. The practices are files. Reading the board with `cat` is a real
+alternative to the `report` screens.
+
+There are things to find: the notes the previous operator left, this week's
+operations bulletin, C source under `/usr/src/cmd`, the accounting logs, and a
+memo explaining what happens on 1 January 1984 — which is forty-eight days
+after the shift starts, and is the day the Bell System stopped existing.
+
+You do not need to know anything about telephony to enjoy any of that.
+
 ## The Work
 
 You sit at a test desk. Customer trouble reports arrive on your board with

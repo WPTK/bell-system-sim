@@ -282,6 +282,51 @@ and content-hash by content-hash — 119 files at the previous `main` and 149
 at the branch tip are byte-identical before and after, with zero additions
 and no removals beyond the ten intended files.
 
+## [Unreleased] - The machine you are sitting at
+
+The simulation had drifted into being a telephony examination. Three quarters
+of the commands were plant operations, the UNIX layer was twelve working
+commands, and the filesystem was ten directories with 724 bytes in them whose
+listings named files that did not exist. You could not change directory. You
+could not read anything. Being a person at a Bell System UNIX machine in 1983
+is the point, and it was the one part not implemented.
+
+### Added
+
+- **A shell.** `cd`, `cat`, `more`, `head`, `tail`, `grep`, `wc`, `sort`,
+  `uniq`, `echo`, `file` and `cal`, with Seventh Edition behaviour: `grep`
+  reads standard input when given no file, `wc` prints lines, words and
+  characters in that order, `head` and `tail` default to ten lines, `ls`
+  columnates for a terminal and prints one entry per line down a pipe.
+- **Pipes.** `who | wc -l` works. A pipeline is one command, so its stages do
+  not each advance the shift clock or pull a new report onto the board
+  half-way through.
+- **A filesystem worth walking around in**: 47 nodes and 6,985 readable bytes,
+  against 12 and 724. Directories no longer carry a list of what they claim to
+  hold - children are found by walking the tree, so a listing cannot name a
+  file that is not there. `/bin` and `/usr/bin` are generated from the real
+  dispatch table, which makes `ls /usr/bin | grep test` a way to find
+  commands.
+- **The company is ending.** The shift is 14 November 1983; the Bell System
+  was dissolved on 1 January 1984, forty-eight days later. Engineering and
+  Operations records the consent decree and that "the existence of the Bell
+  System ends with divestiture". That is now in the message of the day, in a
+  memo under `/usr/doc`, and in `cal 12 1983`. It is atmosphere rather than
+  mechanics: nothing about it requires knowing any telephony.
+- **The job is readable as files.** `/usr/lmos/board` is the trouble report
+  board, one report to a line and fixed width so `grep` and `wc` are useful on
+  it. `/usr/adm/shiftlog` is what you have closed. `/usr/bsp` holds the
+  practices. Reading the board with `cat` is a real alternative to the
+  `report` screens rather than a decoration.
+- Things left to find: the previous operator's notes, an operations bulletin,
+  C source under `/usr/src/cmd`, fortunes, the accounting logs.
+
+### Changed
+
+- `help` leads with the work, then the machine, and says that commands join
+  with a pipe and which files are worth reading.
+- The shift briefing points at the filesystem on the first shift.
+
 ## [3.0.0] - 2025-05-27
 
 ### MAJOR RELEASE: COMPREHENSIVE COMMAND VALIDATION & CRITICAL ERROR RESOLUTION
