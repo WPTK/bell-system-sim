@@ -10623,9 +10623,9 @@ Antenna alignment completed successfully.
                          f"({suspected.code})")
             lines.append(f"  Dispatch to: {suspected.dispatch}")
         else:
-            lines.append("  No condition named. Read the numbers.")
-            lines.append("  'report faults' lists what each condition "
-                         "measures like.")
+            lines.append("  The system will not name a condition on this "
+                         "setting.")
+            lines.append("  Match the reading against 'report faults'.")
 
         loop_note = f"{loop_ohms:,} ohms" if loop_ohms is not None else 'open'
         note = (f"{self.clock.time()} MLT: insulation T-R "

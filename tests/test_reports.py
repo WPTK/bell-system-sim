@@ -458,8 +458,9 @@ class TestReportCommands:
         terminal.execute_command('set game.difficulty craft')
         report = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
         result = terminal.execute_command(f'mlt {report.number}')
-        assert 'No condition named' in result
+        assert 'will not name a condition' in result
         assert 'System reads this as' not in result
+        assert 'Dispatch to:' not in result
 
     def test_the_fault_reference_lists_every_condition(self, terminal):
         result = terminal.execute_command('report faults')
