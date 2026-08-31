@@ -38,6 +38,12 @@ from typing import Dict, List, Optional, Any
 from .clock import SimClock
 from .console import clear_screen, render
 from .data.man_pages import MAN_PAGES
+from .data.switching import (
+    METROPOLITAN_SWITCHES,
+    RURAL_SWITCHES,
+    SWITCHING_SYSTEMS,
+    available_in,
+)
 from .settings import (
     OPTIONS,
     OPTIONS_BY_KEY,
@@ -291,13 +297,29 @@ class BellSystemTerminal:
         """Initialize switching equipment states with realistic operational patterns."""
         import random
 
-        # Electronic switching systems with varied performance
+        # Electronic switching systems. Each machine is sited where its size
+        # class belongs and rated within the traffic it could actually carry:
+        # a No. 3 ESS was a rural community dial office switch of a few
+        # thousand lines, not a metropolitan machine.
         self.switching_systems = {
-            "1ESS-NYC-001": {"type": "1ESS", "status": "ACTIVE", "load": random.randint(65, 85), "calls_hour": random.randint(45000, 55000), "uptime": random.randint(720, 8760)},
-            "2ESS-WAS-001": {"type": "2ESS", "status": "ACTIVE", "load": random.randint(50, 75), "calls_hour": random.randint(30000, 40000), "uptime": random.randint(168, 4380)},
-            "3ESS-BOS-001": {"type": "3ESS", "status": "ACTIVE", "load": random.randint(55, 80), "calls_hour": random.randint(25000, 35000), "uptime": random.randint(336, 2190)},
-            "4ESS-CHI-001": {"type": "4ESS", "status": "ACTIVE", "load": random.randint(70, 90), "calls_hour": random.randint(80000, 100000), "uptime": random.randint(504, 6570)},
-            "5ESS-NYC-002": {"type": "5ESS", "status": random.choice(["TESTING", "ACTIVE"]), "load": random.randint(20, 45), "calls_hour": random.randint(15000, 25000), "uptime": random.randint(72, 720)}
+            "1ESS-NYC-001": {"type": "1ESS", "status": "ACTIVE", "location": "New York, NY",
+                             "load": random.randint(65, 85), "lines": random.randint(48000, 62000),
+                             "calls_hour": random.randint(38000, 55000), "uptime": random.randint(720, 8760)},
+            "1AESS-CHI-002": {"type": "1AESS", "status": "ACTIVE", "location": "Chicago, IL",
+                              "load": random.randint(60, 85), "lines": random.randint(84000, 124000),
+                              "calls_hour": random.randint(70000, 110000), "uptime": random.randint(720, 6570)},
+            "2ESS-SUM-001": {"type": "2ESS", "status": "ACTIVE", "location": "Summit, NJ",
+                             "load": random.randint(50, 75), "lines": random.randint(4200, 9400),
+                             "calls_hour": random.randint(3400, 8600), "uptime": random.randint(168, 4380)},
+            "3ESS-SEN-001": {"type": "3ESS", "status": "ACTIVE", "location": "Seneca, IL",
+                             "load": random.randint(55, 80), "lines": random.randint(900, 4200),
+                             "calls_hour": random.randint(700, 3800), "uptime": random.randint(336, 2190)},
+            "4ESS-CHI-001": {"type": "4ESS", "status": "ACTIVE", "location": "Chicago, IL",
+                             "load": random.randint(70, 90), "trunks": random.randint(38000, 52000),
+                             "calls_hour": random.randint(180000, 300000), "uptime": random.randint(504, 6570)},
+            "5ESS-SEN-002": {"type": "5ESS", "status": random.choice(["TESTING", "ACTIVE"]), "location": "Seneca, IL",
+                             "load": random.randint(20, 45), "lines": random.randint(1800, 8000),
+                             "calls_hour": random.randint(1500, 7000), "uptime": random.randint(72, 720)}
         }
 
         # Crossbar systems (legacy equipment)
@@ -673,7 +695,7 @@ class BellSystemTerminal:
                            "Current system load: moderate\n"
                            "Network status: operational\n"
                            "Switch centers online: 47/48\n\n"
-                           "For technical support contact: BELLCORE-TECH\n"
+                           "For technical support contact: BTL-MH TECH ASSISTANCE\n"
                            "For emergency escalation use: emergency command\n\n"
                            "Shift briefings available in /att/tickets/briefing\n")
             }
@@ -701,7 +723,7 @@ class BellSystemTerminal:
         self.users = [
             {"user": "sysop", "tty": "01", "login": "08:30", "location": "MURRAY_HILL"},
             {"user": "switch", "tty": "02", "login": "08:15", "location": "CENTRAL_OFF"},
-            {"user": "noc", "tty": "03", "login": "07:45", "location": "BELLCORE"},
+            {"user": "noc", "tty": "03", "login": "07:45", "location": "BEDMINSTER"},
             {"user": "field", "tty": "04", "login": "09:00", "location": "FIELD_SUP"},
             {"user": "radio", "tty": "05", "login": "08:00", "location": "TRANS_CTR"},
             {"user": "tnds", "tty": "06", "login": "07:30", "location": "DATA_CTR"}
@@ -1707,7 +1729,7 @@ Subsystems available in this release:
                 reader = csv.DictReader(csvfile)
 
                 # Sample and process key Bell System service areas from 1978-1983 era
-                bell_system_areas = ['212', '213', '214', '215', '216', '301', '302', '303', '305', '312', '313', '314', '401', '404', '412', '413', '414', '415', '416', '501', '502', '503', '504', '505', '507', '509', '512', '513', '515', '516', '517', '518', '601', '602', '603', '605', '606', '607', '608', '609', '612', '614', '615', '616', '617', '618', '701', '702', '703', '704', '712', '713', '714', '715', '716', '717', '718', '801', '802', '803', '804', '805', '806', '807', '808', '812', '813', '814', '815', '816', '817', '901', '902', '904', '906', '907', '912', '913', '914', '915', '916', '918', '919']
+                bell_system_areas = ['202', '212', '213', '214', '215', '216', '301', '302', '303', '305', '312', '313', '314', '401', '404', '412', '413', '414', '415', '416', '501', '502', '503', '504', '505', '507', '509', '512', '513', '515', '516', '517', '518', '601', '602', '603', '605', '606', '607', '608', '609', '612', '614', '615', '616', '617', '618', '701', '702', '703', '704', '712', '713', '714', '715', '716', '717', '801', '802', '803', '804', '805', '806', '807', '808', '812', '813', '814', '815', '816', '817', '901', '902', '904', '906', '907', '912', '913', '914', '915', '916', '918', '919']
 
                 row_count = 0
                 for row in reader:
@@ -1742,7 +1764,8 @@ Subsystems available in this release:
                 '213': {'555': [{'city': 'Los Angeles', 'state': 'CA', 'latitude': '34.0522', 'longitude': '-118.2437'}]},
                 '312': {'555': [{'city': 'Chicago', 'state': 'IL', 'latitude': '41.8781', 'longitude': '-87.6298'}]},
                 '617': {'555': [{'city': 'Boston', 'state': 'MA', 'latitude': '42.3601', 'longitude': '-71.0589'}]},
-                '301': {'555': [{'city': 'Washington', 'state': 'DC', 'latitude': '38.9072', 'longitude': '-77.0369'}]}
+                '202': {'555': [{'city': 'Washington', 'state': 'DC', 'latitude': '38.9072', 'longitude': '-77.0369'}]},
+                '301': {'555': [{'city': 'Silver Spring', 'state': 'MD', 'latitude': '38.9907', 'longitude': '-77.0261'}]}
             }
 
     def _initialize_bell_system_infrastructure(self) -> None:
@@ -1766,11 +1789,9 @@ Subsystems available in this release:
                         'nxx': nxx,
                         'city': location['city'],
                         'state': location['state'],
-                        'switch_type': random.choice(['1ESS', '2ESS', '3ESS', '4ESS', '5ESS', 'CROSSBAR', 'STEP']),
-                        'capacity': random.randint(5000, 40000),
+                        **self._generate_switch_placement(location['city']),
                         'utilization': random.randint(45, 85),
                         'trunk_groups': random.randint(12, 48),
-                        'installation_date': f"19{random.randint(65, 83)}",
                         'maintenance_status': random.choice(['NORMAL', 'SCHEDULED', 'EMERGENCY']),
                         'coordinates': (location['latitude'], location['longitude'])
                     }
@@ -1779,7 +1800,7 @@ Subsystems available in this release:
         major_metros = [
             ('212', 'New York', 'NY', '4ESS'), ('213', 'Los Angeles', 'CA', '4ESS'),
             ('312', 'Chicago', 'IL', '4ESS'), ('617', 'Boston', 'MA', '4ESS'),
-            ('301', 'Washington', 'DC', '4ESS'), ('215', 'Philadelphia', 'PA', '4ESS'),
+            ('202', 'Washington', 'DC', '4ESS'), ('215', 'Philadelphia', 'PA', '4ESS'),
             ('313', 'Detroit', 'MI', '4ESS'), ('404', 'Atlanta', 'GA', '4ESS'),
             ('713', 'Houston', 'TX', '4ESS'), ('415', 'San Francisco', 'CA', '4ESS')
         ]
@@ -1919,6 +1940,52 @@ Subsystems available in this release:
                 'capacity': 35000,
                 'utilization': 78
             }
+
+    # Cities large enough to have carried a metropolitan-class machine.
+    METROPOLITAN_CITIES = frozenset({
+        'New York', 'Brooklyn', 'Chicago', 'Los Angeles', 'Philadelphia',
+        'Detroit', 'Houston', 'Boston', 'San Francisco', 'Washington',
+        'Dallas', 'Cleveland', 'Baltimore', 'Saint Louis', 'St. Louis',
+        'Pittsburgh', 'Milwaukee', 'Atlanta', 'Newark', 'Minneapolis',
+        'Seattle', 'Denver', 'Miami', 'Phoenix', 'San Diego',
+    })
+
+    def _generate_switch_placement(self, city: str) -> Dict[str, Any]:
+        """
+        Choose a switching machine and a cutover year that could coexist.
+
+        Type and year were previously drawn independently, which produced
+        offices like a 5ESS installed in 1965 - seventeen years before the
+        first one carried traffic. Here the year is drawn first, only machines
+        already in service by then are eligible, and the size class is taken
+        from what the machine was actually engineered for.
+
+        Args:
+            city: The city the office serves, which decides the size class
+
+        Returns:
+            The switch_type, capacity and installation_date fields
+        """
+        # The simulated present. Offices are cut over some years before it.
+        current_year = self.clock.now().year
+        installed = random.randint(max(1919, current_year - 40), current_year)
+
+        metropolitan = city in self.METROPOLITAN_CITIES
+        pool = METROPOLITAN_SWITCHES if metropolitan else RURAL_SWITCHES
+        eligible = available_in(installed, pool)
+        if not eligible:
+            # Before any machine in the pool existed, step-by-step served.
+            eligible = ['SXS']
+            installed = max(installed, SWITCHING_SYSTEMS['SXS'].first_service)
+
+        code = random.choice(eligible)
+        system = SWITCHING_SYSTEMS[code]
+        return {
+            'switch_type': code,
+            'switch_name': system.name,
+            'capacity': random.randint(system.min_lines, system.max_lines),
+            'installation_date': str(installed),
+        }
 
     def _generate_ticket_scenario(self, category: str, priority: str, office: dict) -> dict:
         """Generate realistic ticket scenario based on category and Bell System operations."""
@@ -2862,9 +2929,13 @@ Bell System Practice: BSP-100-300-001 (Electronic Switching Diagnostics)"""
                 load_change = random.randint(-2, 4)
                 system["load"] = max(30, min(95, system["load"] + load_change))
 
-                # Update call volume based on load
-                base_calls = {"1ESS": 50000, "2ESS": 35000, "3ESS": 30000, "4ESS": 90000, "5ESS": 25000}
-                system["calls_hour"] = int(base_calls[system["type"]] * (system["load"] / 100) * random.uniform(0.9, 1.1))
+                # Update call volume against the machine's engineered
+                # ceiling, so a rural switch can never report metropolitan
+                # traffic and a toll machine is rated on its trunks.
+                ceiling = SWITCHING_SYSTEMS[system["type"]].busy_hour_capacity()
+                system["calls_hour"] = int(
+                    ceiling * (system["load"] / 100) * random.uniform(0.9, 1.1)
+                )
 
                 # Increment uptime
                 system["uptime"] += random.uniform(0.8, 1.2)
@@ -5886,7 +5957,7 @@ To request directory assistance: Dial 411 (local) or 1-Area Code-555-1212 (long 
             ("ACME CORPORATION", "212-555-9000", "250 BROADWAY"),
             ("BROWN, JAMES", "617-555-2847", "BOSTON, MA"),
             ("CITY HALL", "212-555-1000", "MUNICIPAL BLDG"),
-            ("WILLIAMS, SUSAN", "718-555-5623", "BROOKLYN, NY")
+            ("WILLIAMS, SUSAN", "212-555-5623", "BROOKLYN, NY")
         ]
 
         found_listing = random.choice(sample_listings)
