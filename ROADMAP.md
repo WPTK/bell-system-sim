@@ -332,6 +332,24 @@ because the dedup window was larger than the advice pool. Fixed separately.
 
 ---
 
+## What comes after the roadmap
+
+Every section R1 to R8 is now closed or explicitly declined. What is left
+is not accuracy or coverage — it is whether the thing is any good to play.
+
+`FUN.md` is that plan, written after playing a fresh shift rather than
+after reading the source. Its finding, in one line: **the game is not hard,
+it is undiscoverable.** The core loop is four commands, the measurement
+names the fault and the dispatch and was right sixty times out of sixty,
+and the first screen a new player sees is forty commands and a list of
+sixteen they cannot use.
+
+Eight tiers, F1 to F8, in dependency order. F1 and F2 — folding the
+tutorial into the first shift, and never leaving the player without a next
+action — are perhaps two days and are most of the felt difference.
+
+---
+
 ## Working rules carried forward
 
 The four that held through sections 1-6 and should hold here:
