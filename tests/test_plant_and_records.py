@@ -159,8 +159,11 @@ class TestCapacityAndCoer:
         assert 'PC-NYC' in result
 
     def test_coer_reports_the_board(self, terminal):
-        result = terminal.execute_command('coer')
-        assert str(len(terminal.desk.pending())) in result
+        # Counted before the command, not after: a command renders its
+        # output and then ticks the shift, and the tick is where a new
+        # report arrives. Reading the board afterwards is a different board.
+        pending = len(terminal.desk.pending())
+        assert str(pending) in terminal.execute_command('coer')
 
 
 class TestRadioReality:

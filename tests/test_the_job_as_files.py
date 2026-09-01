@@ -109,13 +109,24 @@ class TestTheOtherRecords:
             'grep WRONG /usr/lmos/closed')
 
     def test_the_cable_record_names_the_wet_sections(self, board):
+        """
+        Snapshot the section before the command, not after.
+
+        A command renders the file and then ticks the shift, and the tick
+        is where water spreads to another pair. Reading section.pairs
+        afterwards can therefore include a pair the already-rendered text
+        could not have carried - which is how this test failed on one of
+        four CI runners and passed on the other three.
+        """
         for _ in range(4):
             board.desk.receive(board.clock.now(), 0, fault='WET')
         board.execute_command('pwd')
-        text = board.execute_command('cat /usr/lmos/cable')
         section = board.desk.plant.sections[0]
-        assert str(section.cable) in text
-        assert all(number in text for number in section.pairs.values())
+        cable, expected = section.cable, sorted(section.pairs.values())
+
+        text = board.execute_command('cat /usr/lmos/cable')
+        assert str(cable) in text
+        assert all(number in text for number in expected)
 
     def test_it_says_so_when_the_plant_is_dry(self, terminal):
         terminal.desk.plant.sections = []
@@ -123,8 +134,10 @@ class TestTheOtherRecords:
             'cat /usr/lmos/cable')
 
     def test_the_cable_record_carries_the_weather(self, board):
-        assert board.desk.weather.key in board.execute_command(
-            'cat /usr/lmos/cable')
+        # Read before the command, for the same reason as above: the tick
+        # that follows the render is also where the weather turns.
+        weather = board.desk.weather.key
+        assert weather in board.execute_command('cat /usr/lmos/cable')
 
     def test_the_shift_log_is_still_a_file(self, board):
         assert 'closed' in board.execute_command('cat /usr/adm/shiftlog')
