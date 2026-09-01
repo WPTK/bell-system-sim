@@ -126,8 +126,8 @@ HINTS: Dict[str, Tuple[Hint, Hint, Hint]] = {
         )),
         ('ehalloran', (
             "'readnews' is the netnews spool and there is a fair amount on",
-            "it. /usr/doc has what is going on with the company. 'qual'",
-            'says how far off your next sign-off is.',
+            "it. /usr/doc has what is going on with the company, though the",
+            "documents want nroff(1) - 'training unix' explains why.",
         )),
         ('ehalloran', (
             'There is nothing to do. That is allowed. Look around the',

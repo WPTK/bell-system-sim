@@ -93,3 +93,9 @@ safety-report.txt
 # Scanned PDFs and the NANPA dump: see SOURCES.md
 attached_assets/*.pdf
 attached_assets/full_dataset_csv.csv
+
+# The planning documents, kept locally and out of the repository. The
+# audit, its remediation, the roadmap and the fun plan are all closed
+# out: they record how the project got here rather than how it works.
+# SOURCES.md is not among them - that one is the live provenance record.
+docs/archive/

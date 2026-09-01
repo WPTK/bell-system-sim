@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Tuple
 
 from ..console import wrap
 from ..data.regulars import REGULARS
+from ..data.primer import CLOSING, OPENING, SECTIONS, TITLE
 from ..progression import QUALIFICATIONS
 from .session import SessionState
 
@@ -310,8 +311,11 @@ find out why.
         closed = len([report for report in self.desk.closed()
                       if report.correct])
 
-        if args and args[0].lower() in {q.key for q in QUALIFICATIONS}:
-            return self._training_course(args[0].lower(), held)
+        wanted = args[0].lower() if args else ''
+        if wanted in ('unix', 'machine', 'shell'):
+            return self._unix_primer()
+        if wanted in {q.key for q in QUALIFICATIONS}:
+            return self._training_course(wanted, held)
 
         rows = ["TRAINING AND QUALIFICATION", self.clock.timestamp(),
                 '=' * 62, '',
@@ -329,11 +333,32 @@ find out why.
                         f"{state}")
         rows.extend(['',
                      "training <name> for what one of them covers.",
+                     "training unix for the annual refresher on the machine "
+                     "itself.",
                      '',
                      "Nothing here is a course you sit. The reports on your "
                      "board are the",
                      "course, and closing them correctly is how it is "
                      "passed."])
+        return '\n'.join(rows)
+
+    def _unix_primer(self) -> str:
+        """
+        The annual refresher on the machine, rather than on the job.
+
+        Every part of the Seventh Edition toolkit here works and hardly
+        any of it is discoverable: /usr/doc/loop.pic is a diagram that
+        prints as markup because it wants pic(1), and somebody who cats
+        it reasonably concludes the file is broken. This is where that
+        gets said, in the voice of a course nobody wanted to sit.
+        """
+        rows = [TITLE, '=' * 62, '']
+        rows.extend(OPENING)
+        for heading, body in SECTIONS:
+            rows.extend(['', heading, '-' * 62])
+            rows.extend(body)
+        rows.append('')
+        rows.extend(CLOSING)
         return '\n'.join(rows)
 
     def _training_course(self, key: str, held: set) -> str:

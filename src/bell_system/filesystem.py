@@ -79,6 +79,8 @@ Nothing else is guaranteed.
 Trouble reports: mail(1), or the report(1) command.
 Practices:       /usr/bsp
 Stuck:           hint(1). Ask again if the first one was not enough.
+New here:        'training unix' is the annual refresher on the machine.
+                 Ten minutes, and it covers reading the documents.
 Questions:       write ehalloran
 Games:           /usr/games. Nights are long and the board is not always
                  full. Whoever keeps moo.scores, see net.games.

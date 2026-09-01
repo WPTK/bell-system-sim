@@ -4028,6 +4028,7 @@ NAME
 
 SYNOPSIS
      training [qualification]
+     training unix
 
 DESCRIPTION
      Qualification in the Bell System followed the work: you were signed
@@ -4041,12 +4042,19 @@ DESCRIPTION
      Nothing here is a course you sit. The reports on your board are the
      course, and closing them correctly is how it is passed.
 
+     With one exception. 'training unix' is the annual refresher on the
+     machine rather than on the job: the shell, reading a file, joining
+     two commands with a pipe, and why a document under /usr/doc prints
+     as dot commands until you run it through nroff(1). Ten minutes, and
+     it is the half of this terminal the bureau does not use.
+
 EXAMPLES
      training            where you are
      training trunk      what interoffice trunks covers
+     training unix       the refresher on the machine itself
 
 SEE ALSO
-     qual(1), report(1), trouble(1), man(1)
+     qual(1), report(1), trouble(1), man(1), nroff(1), pic(1)
 """,
     "weather": """
 NAME

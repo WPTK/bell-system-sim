@@ -155,13 +155,21 @@ class TestTheMailbox:
         assert 'signed off' in terminal.execute_command(
             f'grep signed /usr/spool/mail/{terminal.username}')
 
-    def test_reading_it_with_mail_empties_it(self, terminal):
-        """Which is also what Seventh Edition did."""
+    def test_reading_it_with_mail_takes_it_out_of_the_box(self, terminal):
+        """
+        Which is also what Seventh Edition did.
+
+        Asserted against the message that was put there rather than
+        against the file being empty: mail arrives on its own as the tour
+        goes on, and the ambience setting governs whether you are told
+        about it, not whether it happens.
+        """
         terminal.switchroom.qualification_notice(
             terminal.clock.now(), 'Main Distributing Frame', ['cosmos'])
+        box = f'/usr/spool/mail/{terminal.username}'
+        assert 'signed off' in terminal.execute_command(f'cat {box}')
         terminal.execute_command('mail')
-        assert not terminal.execute_command(
-            f'cat /usr/spool/mail/{terminal.username}').strip()
+        assert 'signed off' not in terminal.execute_command(f'cat {box}')
 
     def test_nobody_else_can_read_it(self, terminal):
         assert '-rw-------' in terminal.execute_command('ls -l /usr/spool/mail')
@@ -179,3 +187,65 @@ class TestItIsDiscoverable:
     def test_the_practices_are_still_readable(self, terminal):
         assert 'BELL SYSTEM PRACTICE' in terminal.execute_command(
             'cat /usr/bsp/660')
+
+
+class TestTheAnnualRefresher:
+    """
+    The toolkit is all there and none of it was discoverable.
+
+    /usr/doc/loop.pic is a diagram that prints as nine lines of markup
+    because it is pic(1) source, and somebody who cats it reasonably
+    concludes the file is broken. `training unix` is where that gets said.
+    """
+
+    def test_it_is_reachable(self, terminal):
+        assert 'REFRESHER' in terminal.execute_command('training unix')
+
+    def test_the_qualification_record_still_works(self, terminal):
+        assert 'QUALIFICATION' in terminal.execute_command('training')
+
+    def test_the_record_points_at_it(self, terminal):
+        assert 'training unix' in terminal.execute_command('training')
+
+    def test_it_explains_the_formatters(self, terminal):
+        primer = terminal.execute_command('training unix')
+        assert 'nroff' in primer
+        assert 'pic' in primer
+
+    def test_every_command_it_teaches_exists(self, terminal):
+        """
+        A primer that names a command this machine does not have would be
+        worse than no primer.
+        """
+        import re
+        from bell_system.data.primer import SECTIONS
+        for heading, body in SECTIONS:
+            for line in body:
+                match = re.match(r'^(\w[\w.]*)\s{2,}', line)
+                if match:
+                    assert match.group(1) in terminal._command_handlers, (
+                        f'{heading} names {match.group(1)}, which is not a '
+                        f'command')
+
+    def test_every_path_it_names_is_there(self, terminal):
+        import re
+        from bell_system.data.primer import SECTIONS
+        for heading, body in SECTIONS:
+            for path in re.findall(r'/usr/\S+', ' '.join(body)):
+                cleaned = path.rstrip('.,')
+                assert cleaned in terminal.filesystem, (
+                    f'{heading} sends you to {cleaned}, which is not there')
+
+    def test_the_examples_actually_run(self, terminal):
+        """The two it tells you to try have to produce something."""
+        drawn = terminal.execute_command('pic /usr/doc/loop.pic')
+        assert 'station' in drawn and '.PS' not in drawn
+        formatted = terminal.execute_command('nroff /usr/doc/why.unix')
+        assert 'wire centre' in formatted and '.PP' not in formatted
+
+    def test_the_message_of_the_day_mentions_it(self, terminal):
+        assert 'training unix' in (terminal._read('/etc/motd') or '')
+
+    def test_the_manual_documents_it(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        assert 'training unix' in MAN_PAGES['training']

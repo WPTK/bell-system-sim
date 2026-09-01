@@ -28,62 +28,204 @@
                      5555555555552
        
 ```
+
 # Bell System UNIX V7 Terminal Simulation
 
-A historically accurate recreation of AT&T Bell System internal operations workstations from the transformative period of 1978-1983.
+**It is Monday 14 November 1983. You are at a repair test desk in a Bell
+System wire centre in Jersey City, logged into a Seventh Edition UNIX
+machine. Customers are out of service. The Bell System has forty-eight days
+left to exist.**
 
-This command-line application provides an authentic terminal-based experience of Bell System operations, featuring 12 operational roles, 50+ period-accurate commands, and comprehensive Bell System workflows based on authentic AT&T documentation.
+On 8 January 1982 AT&T settled the Justice Department's antitrust suit by
+agreeing to divest the operating companies. The decree took effect on
+1 January 1984, and *Engineering and Operations in the Bell System* records
+the consequence plainly: the existence of the Bell System ends with
+divestiture. This simulation is set in the run-up. Nothing about the job
+changes because of it, which is the point — the reports still arrive, the
+commitments still run, and everybody in the building knows.
 
-## Quick Start
+You work the board. A customer report reaches you with nothing on it but
+what the customer said; what is actually on the pair is not known until you
+measure it.
 
 ```bash
-# Install
 git clone https://github.com/WPTK/bell-system-sim.git
 cd bell-system-sim
 pip install -e .
-
-# Run
-bell-system                    # Start interactive simulation
-bell-system --role 1           # Start as specific role (1-12), skipping the menu
-bell-system --simple           # Simplified four-role interface
-python -m bell_system          # Equivalent to `bell-system`
+bell-system
 ```
 
-## Features
+Python 3.9 or newer. No dependencies — standard library only.
 
-- **12 Authentic Operational Roles** from UNIX Systems Operator to Document Preparation Specialist
-- **A Repair Service Bureau to Work** with customer trouble reports, mechanised
-  loop testing, repair dispatch and the two published disposition codes
-- **Two Difficulties** - Fun Simulation, and I Hate Myself
-- **Qualification-Based Progression** that governs what you are allowed to touch,
-  the way it actually did
-- **The Other Craft On The Wire** reaching you on `write(1)`, `mail(1)`, the
-  order wire and the maintenance teletype
-- **50+ Period-Accurate Commands** with comprehensive functionality and historical accuracy
-- **Role-Specific Command Sets** with shift briefings and workflows for each position
-- **Event and Ticket Management** using authentic Bell System trouble ticket systems
-- **Simulated 1983 Shift Clock** running from Monday 14 November 1983, advancing in real time
-- **Adjustable Fidelity** via the `set` command, period-accurate by default
-- **Historical Documentation** based on Bell System Technical Journal and operations manuals
-- **Pure Python Implementation** using only standard library modules
+---
 
-## The Machine
+## Your first ten minutes
 
-It is a Seventh Edition UNIX system and you are logged into it. Move around,
-read things, join commands together.
+There is no tutorial mode and nothing to read first. Log in and the wire
+chief puts his head round the door.
+
+The first tour opens with **one report** on the board and the rest held off
+it until that one is closed. Halloran walks you through the loop on
+`write(1)`, one message per step, and then stops. That is the whole of the
+onboarding.
+
+The job is four commands:
 
 ```
-cd /usr/doc         ls -l          cat divestiture
+report                          what is on your board
+mlt 1                           measure the line
+report dispatch 1 outside       send somebody
+report close 1 5 SHORT          close it out
+```
+
+`mlt` names the fault and the crew outright on the forgiving difficulty —
+you do not need to know any telephony to play. Three things exist for when
+you are stuck:
+
+| | |
+|---|---|
+| `help` | opens on **what to do now**, worked out from your actual board |
+| `hint` | asks somebody. Ask again and you get more, three levels deep |
+| `report next` | shows the one report that most wants working |
+
+Every refusal names a way out, and the board prints its own next action
+along the bottom. If you would rather it did not, `set game.prompts off`.
+
+---
+
+## The work
+
+```
+report                       The pending list, nearest commitment first
+report show TR-04471         The line record, the symptom, what has been done
+report callback TR-04471     Telephone the customer for more than the card holds
+mlt TR-04471                 Measure the loop
+report dispatch TR-04471 outside plant
+report close TR-04471 5 GROUND       Trouble found, and what it was
+report close TR-04471 8              No trouble found
+```
+
+Codes 5 and 8 are the published Bell System dispositions, counted
+separately in the network switching performance measurement plan. Closing a
+faulty line as code 8 does not fail loudly. It closes — and then the
+customer calls back, and the repeat is on your service index.
+
+**A wrong close tells you what you missed.** Not a score: the actual
+numbers from the measurement you took, and what they meant.
+
+> That pair had a wet cable, not a short.
+>
+> Insulation measured 48,591 ohms tip to ring and 20,241 to ground. Low but
+> not zero, and low on every reading at once, is water in the sheath. Short
+> reads near zero resistance tip to ring.
+
+Mechanised loop testing gives you insulation resistance on all three
+combinations, loop resistance, foreign potential and capacitance. Local
+cable runs 0.083 microfarads to the mile, so the capacitance reading on an
+open pair is a distance to the break. Transmission goes through the
+far-end test line series — 102-type for loss, 100-type for loss and noise,
+105-type for the full two-way picture — all at 1004 Hz, because that is the
+frequency the loss objectives were stated at.
+
+Water is a **sheath** fault, not a pair fault. A wet binder group takes
+more pairs the harder it rains, so several reports off one cable are one
+trip, and `cat /usr/lmos/cable` is how you notice before you send four
+crews.
+
+### Two difficulties
+
+```
+set game.difficulty fun      Fun Simulation
+set game.difficulty craft    I Hate Myself
+```
+
+**Fun Simulation** is forgiving. Loop testing names the fault it reads, you
+may close a report you never measured, a wrong call costs you little,
+commitments are not counted against you, and qualification comes quickly.
+
+**I Hate Myself** is close to the job. Loop testing prints the numbers and
+nothing else, because reading them is the work. A report cannot be closed
+until it has been measured. Wrongly closed lines come back as repeat
+reports at a rate you will not enjoy. Missed commitments count.
+Qualification is four times slower, and the rest of the building interrupts
+you four times as often.
+
+The difficulty governs **how forgiving the scoring is** and nothing else.
+How much is happening is a matter of how far into a career you are.
+
+### A career, and its last day
+
+What a craftsperson was allowed to work on was governed by qualification.
+You start signed off on Loop and Station plus whatever your position
+carries, and earn the rest a correctly closed report at a time:
+
+```
+Loop and Station              report, mlt, trouble, testboard, testline
+Main Distributing Frame       cosmos, lmos
+Central Office Switching      switch, alarm, crossbar, 3a
+Switching Control Center      sarts, orderwire, connect
+Interoffice Trunks            trunk, routing, dialtone, testcall
+Toll Network                  toll, tnds, traffic
+```
+
+Halloran signs them, and he notices the third. By the fifth there is not
+much left that he can sign.
+
+**A career walks the calendar.** Tours are four days apart, so the
+thirteenth falls on 31 December 1983 and there is no fourteenth. The board
+gets deeper as you go and the weather gets worse, because it is December.
+Signing off that last tour closes the career: the whole record, every tour
+of the service index drawn as a trend, and the wire chief. It happens once.
+
+```
+shift                        Where you are in the tour
+handoff                      The full turnover record
+handoff relieve              Sign off. The index banks, the day moves on
+qual                         Your craft record and the trend
+```
+
+**Your tour survives the window closing.** The board, the weather, the
+water in the cable, where every crew is standing and how much of every
+commitment has been spent are written down after every command and picked
+back up next time you start.
+
+Two clocks run and they are not the same clock. A report's commitment runs
+on elapsed time — the customer is out of service whether or not you are
+doing anything, so the repair force's hours in a manhole count against it.
+Your own working day runs on your time: while the field is out on one
+report you are working the next.
+
+---
+
+## The machine
+
+It is a Seventh Edition UNIX system and you are logged into it. Move
+around, read things, join commands together.
+
+```
+cd /usr/doc         ls -l          nroff why.unix
 who | wc -l         ls /usr/bin | grep test
-grep 1FR /usr/lmos/board | wc -l
+grep WRONG /usr/lmos/closed
 ```
 
-The trouble report board is a file (`/usr/lmos/board`), one report to a line,
-so `grep` and `sort` and `wc` are genuinely useful on it. Your shift log is a
-file. The practices are files. Reading the board with `cat` is a real
-alternative to the `report` screens.
+**Your board is a directory.** `/usr/lmos` holds one file per report with
+the whole record on it, plus three that are always there: `board`, `closed`
+and `cable`. Your mail is a file under `/usr/spool/mail`. The practices are
+under `/usr/bsp`. So there are two ways to work and neither is the proper
+one.
 
-It is writable, so `ed` and `cc` and `nroff` have somewhere to put things:
+New to UNIX? The annual refresher is on the machine and takes ten minutes:
+
+```
+training unix
+```
+
+It covers the shell, reading a file, joining two commands with a pipe, and
+why a document under `/usr/doc` prints as dot commands until you run it
+through `nroff(1)`.
+
+The filesystem is writable, so `ed` and `cc` and the formatters have
+somewhere to put things:
 
 ```
 cp /usr/src/cmd/hello.c .    cc hello.c    a.out
@@ -93,114 +235,46 @@ echo 'note to self' > notes  banner SHIFT 2
 
 `ed` is the real one — every line goes to it until you type `q`, and it
 answers mistakes with a single question mark. `cc` compiles a C program and
-leaves a working `a.out`; it understands `printf` and nothing else, and says
-so. `nroff` and `tbl` are real formatters, so the Document Preparation role
-finally does something.
+leaves a working `a.out`; it understands `printf` and nothing else, and
+says so.
 
-There are things to find: the notes the previous operator left, this week's
-operations bulletin, C source under `/usr/src/cmd`, a scoreboard somebody has
-been keeping for `moo`, the accounting logs, a nightly netnews feed under
-`/usr/spool/news` with people arguing on net.unix-wizards, and a memo
-explaining what happens on 1 January 1984 — which is forty-eight days after
-the shift starts, and is the day the Bell System stopped existing.
+### Things to find
 
-`bcd` punches your text onto an 026 card. `ppt` punches it onto paper tape.
-`fortune` does what it always did.
+The machine rewards poking at. Some of it is useful, some of it was written
+by somebody at Murray Hill on a Friday, and part of the point is that you
+cannot always tell which until you have looked.
+
+Without spoiling any of it: there are notes from whoever held your position
+last, a nightly netnews feed with people arguing on `net.unix-wizards`, a
+scoreboard somebody has been keeping and a grudge attached to it, a file
+you cannot read yet and will be able to later, a memo about January, C
+source, `fortune`, and a trouble report whose answer is a sound rather than
+a number. `/usr/games` exists because it is a long night shift.
+
+```
+tone busy                    Write a signalling tone to a file you can listen to
+tone reorder                 The same two frequencies, twice as fast
+bcd HELLO                    Punch it onto an 026 card
+readnews                     The overnight feed
+```
 
 You do not need to know anything about telephony to enjoy any of that.
 
-## The Work
+---
 
-You sit at a test desk. Customer trouble reports arrive on your board with
-nothing on them but the customer's own words, and what is actually on the pair
-is not known until you measure it.
+## The other craft
 
-```
-report                       The pending list, nearest commitment first
-report show TR-04471         The line record, the symptom, what has been done
-mlt TR-04471                 Measure the loop
-report dispatch TR-04471 outside plant
-report close TR-04471 5 GROUND       Trouble found, and what it was
-report close TR-04471 8              No trouble found
-```
+You are not alone on the system. The repair service attendant puts reports
+on your board and asks what she should tell the customer. The wire chief
+reads your index every morning. The cable splicer calls in from a terminal
+box and does not have all day. CAROT routines the trunk groups all night
+and prints its exceptions to the maintenance teletype whether anybody is
+reading or not.
 
-Codes 5 and 8 are the published Bell System dispositions, counted separately in
-the network switching performance measurement plan. Closing a faulty line as
-code 8 does not fail loudly. It closes - and then the customer calls back, and
-the repeat is on your service index.
-
-Mechanised loop testing gives you insulation resistance on all three
-combinations, loop resistance, foreign potential and capacitance. Local cable
-runs 0.083 microfarads to the mile, so the capacitance reading on an open pair
-is a distance to the break. Transmission goes through the far-end test line
-series - 102-type for loss, 100-type for loss and noise, 105-type for the full
-two-way picture - all at 1004 Hz, because that is the frequency the loss
-objectives were stated at.
-
-### Two Difficulties
-
-```
-set game.difficulty fun      Fun Simulation
-set game.difficulty craft    I Hate Myself
-```
-
-**Fun Simulation** is forgiving. Loop testing names the fault it reads, you may
-close a report you never measured, a wrong call costs you little, commitments
-are not counted against you, and qualification comes quickly.
-
-**I Hate Myself** is close to the job. Loop testing prints the numbers and
-nothing else, because reading them is the work. A report cannot be closed until
-it has been measured. Wrongly closed lines come back as repeat reports at a
-rate you will not enjoy. Missed commitments count. Qualification is four times
-slower, and the rest of the building interrupts you four times as often.
-
-A test call proves a trunk end to end:
-
-```
-testcall EO-NYC-01 EO-BOS-01        Seize, outpulse, advance, answer, release
-testcall EO-NYC-01 EO-BOS-01 105    ...and measure the connection you built
-```
-
-Seizure removes the 2600 Hz supervisory tone toward the far end, the far end
-returns a start signal, the address goes out in multifrequency bracketed by KP
-and ST, the call advances through the hierarchy - high-usage group first,
-overflowing up the homing chain to a final group - and answer supervision
-comes back. Loss accumulates on every trunk in tandem, so a call that took five
-measures worse than one that took three.
-
-### Progression
-
-What a craftsperson was allowed to work on was governed by qualification. You
-start signed off on Loop and Station, plus whatever your assigned position
-carries, and earn the rest a correctly closed report at a time:
-
-```
-Loop and Station              report, mlt, trouble, testboard, testline
-Main Distributing Frame       cosmos, lmos
-Central Office Switching      switch, alarm, crossbar, 3a
-Switching Control Center      sarts, orderwire
-Interoffice Trunks            trunk, routing, dialtone
-Toll Network                  toll, tnds, traffic
-```
-
-Type `qual` for your craft record and `qual index` for the measurement weights
-the service index is scored against. `handoff relieve` signs off the shift and
-banks the index; work you did not finish carries to the next one.
-
-Two clocks run and they are not the same clock. A report's commitment runs on
-elapsed time - the customer is out of service whether or not you are doing
-anything, so the repair force's hours in a manhole count against it. Your own
-working day runs on your time: you are at a test desk, and while the field is
-out on one report you are working the next. Eight hours of your time and the
-wire chief tells you your tour is up. A shift is about twenty-five reports.
-
-### The Other Craft
-
-You are not alone on the system. The repair service attendant puts reports on
-your board and asks what she should tell the customer. The wire chief reads your
-index every morning. The cable splicer calls in from a terminal box and does not
-have all day. CAROT routines the trunk groups all night and prints its
-exceptions to the maintenance teletype whether anybody is reading or not.
+Four lines the bureau knows by heart come back across a career — a sheath
+on Sussex Street that has been in water since the spring, a coin station in
+a rooming-house lobby, a drop over a bus route — and `custdb` says how long
+you have known them and what the last craftsperson wrote on the card.
 
 ```
 who                          Who is on the system
@@ -210,172 +284,130 @@ orderwire                    The maintenance circuit to the control centre
 set game.ambience off        Silence, if you want it
 ```
 
-## Accuracy and Playability
+---
 
-The simulation runs period-accurate by default: a 1983 clock, the bare Bourne
-shell prompt, and output restricted to the printable 7-bit ASCII a Teletype
-Model 43 or DATASPEED 40 could actually render.
+## Accuracy and playability
+
+The simulation runs period-accurate by default: a 1983 clock, the bare
+Bourne shell prompt, output restricted to the printable 7-bit ASCII a
+Teletype Model 43 or DATASPEED 40 could render, and printing paced at
+**300 baud** — ten bits to the character, thirty characters a second, which
+is what a Model 43 actually did.
 
 Where accuracy costs playability on a modern terminal, the choice is yours
-rather than ours. Type `set` for the settings screen:
+rather than ours. Type `set` (or `settings`) for the screen, which lists
+every setting, its current value, its options, and marks any that depart
+from 1978–1983 behaviour.
 
 ```
-set                          Show all settings and which depart from period behaviour
+set                          Every setting and where it stands
+set display.pacing off       Print at once instead of at 300 baud
+set display.pacing 110       A Model 33 instead: eleven bits, ten a second
 set date.format iso          Dates as YYYY-MM-DD instead of UNIX date(1) order
-set date.clock 12            12-hour clock
-set date.seconds off         Drop seconds from timestamps
 set date.source real         Use your own system clock instead of 1983
 set date.epoch 1978-06-01    Run the shift on a different date
 set display.charset unicode  Allow block and box-drawing glyphs
-set display.prompt verbose   Add user, host and directory to the prompt
 set game.difficulty craft    Work the shift the hard way
+set game.prompts off         Stop the terminal telling you what to do next
 set game.ambience off        Stop the other craft interrupting you
 set reset                    Restore period-accurate defaults
 ```
 
-Settings persist between sessions, and the screen marks any that depart from
-1978-1983 behaviour. See `man set` for the full reference.
+Settings persist between sessions. Pacing switches itself off when output
+is not going to a terminal, because a pipe has nobody watching it.
 
-## Installation
+Every historical value in the simulation is either verified against a
+bundled document, externally sourced and labelled, or explicitly marked as
+the simulation's own invention. Where a source could not be reached, the
+gap is recorded in the code rather than filled with something plausible.
+`SOURCES.md` is the record.
 
-### Prerequisites
-- Python 3.9 or higher
-- No external dependencies required
+---
 
-### Install from Source
+## Running it
+
 ```bash
-git clone https://github.com/WPTK/bell-system-sim.git
-cd bell-system-sim
-pip install -e .
-```
-
-> **If you cloned before 31 August 2026:** the history was rewritten to remove
-> 167 MB of scanned PDFs and a superseded data dump, taking a clone from
-> 126 MiB to 6 MiB. Every commit SHA changed, so an existing clone cannot be
-> pulled into — re-clone instead. File contents are unchanged; only the
-> removed files and the commit identifiers differ. See `SOURCES.md`.
-
-### Verify Installation
-```bash
+bell-system                    Start the simulation
+bell-system --role 3           Start at position 3, skipping the login
+bell-system --simple           A simplified four-role interface
+python -m bell_system          Equivalent to bell-system
 bell-system --version
-bell-system --help
 ```
 
-## Usage
+At the login prompt, `?` lists the twelve positions. Each works the same
+board but gets different work on it, different people talking to it, and a
+different measure of a good tour:
 
-1. Start the application using one of the methods above
-2. Select your Bell System operational role (1-12)
-3. Use authentic Bell System commands and workflows
-4. Access role-specific functionality and documentation
+| | | | |
+|---|---|---|---|
+| 1 `sysop` | UNIX Systems Operator | 7 `netplan` | Network Planning Engineer |
+| 2 `switch` | Switching Station Technician | 8 `custserv` | Customer Service Interface |
+| 3 `field` | Field Support Liaison | 9 `radio` | Radio/Microwave Technician |
+| 4 `noc` | National NOC Analyst | 10 `tnds` | TNDS Analyst |
+| 5 `tsps` | Traffic Service Position Operator | 11 `sarts` | SARTS Technician |
+| 6 `dba` | Database Administrator | 12 `docprep` | Document Preparation |
 
-### Available Roles
+### Where your files go
 
-1. **UNIX Systems Operator** - System administration and monitoring
-2. **Switching Station Technician** - Circuit switching and maintenance
-3. **Field Support Liaison** - Customer and field coordination
-4. **National NOC Analyst** - Network operations center analysis
-5. **Traffic Service Position System Operator** - Call routing and management
-6. **Database Administrator** - Data management and integrity
-7. **Network Planning Engineer** - Network design and optimization
-8. **Customer Service Interface Technician** - Customer support systems
-9. **Radio/Microwave Technician** - Wireless communications maintenance
-10. **Total Network Data System (TNDS) Analyst** - Network data analysis
-11. **SARTS (Switched Access Remote Test) Technician** - Service testing and validation
-12. **Document Preparation Specialist** - Technical documentation
+State is written to a per-user directory, not the one you ran from:
+`$BELL_SYSTEM_HOME` if set, otherwise `$XDG_STATE_HOME/bell-system`,
+otherwise `~/.local/state/bell-system`.
 
-## Project Structure
+| | |
+|---|---|
+| `career.json` | Difficulty, sign-offs, index history, your wire centre |
+| `settings.json` | Everything `set` changes |
+| `shift.json` | The tour you are in the middle of |
+| `bell_system.log` | Rotating application log |
+| `bell_system_history.txt` | Command history |
 
-```
-├── src/
-│   └── bell_system/                 # The installable Python package
-│       ├── __init__.py              # Package exports and version
-│       ├── __main__.py              # `python -m bell_system` entry point
-│       ├── cli.py                   # Argument parsing and console script
-│       ├── settings.py              # User-adjustable simulation settings
-│       ├── clock.py                 # Simulated 1983 shift clock
-│       ├── console.py               # Terminal output and character set
-│       ├── progression.py           # Difficulty, qualification, service index
-│       ├── reports.py               # Customer trouble reports and the bureau
-│       ├── loop_testing.py          # Loop measurement and test lines
-│       ├── npc.py                   # The other craft, and their channels
-│       ├── terminal.py              # Dispatch, session and construction
-│       ├── constants.py             # Values the terminal and screens share
-│       ├── lmos.py                  # Loop Maintenance Operations System
-│       ├── special_services.py      # SARTS and special services circuits
-│       ├── screens/                 # One module per subsystem's screens
-│       ├── simple_terminal.py       # Four-role simplified terminal
-│       └── data/                    # Man pages, reference tables, and the
-│                                    # packaged geographic dataset
-├── tests/                           # pytest suite
-├── tools/                           # Build scripts for packaged data
-├── docs/                            # Manual, command reference, and guides
-├── attached_assets/                 # Searchable text of the cited sources
-├── SOURCES.md                       # What every historical claim rests on
-├── ROADMAP.md                       # What is planned, and why
-├── pyproject.toml                   # Packaging, linting, and test configuration
-├── LICENSE
-└── README.md
-```
+> **If you cloned before 31 August 2026:** the history was rewritten to
+> remove 167 MB of scanned PDFs and a superseded data dump, taking a clone
+> from 126 MiB to 6 MiB. Every commit SHA changed, so an existing clone
+> cannot be pulled into — re-clone instead. File contents are unchanged.
 
-## Documentation
-
-- **User Manual**: `docs/manual.txt` - Complete operational guide
-- **Command Reference**: `docs/command_reference.txt` - Quick reference for all commands
-- **Architecture Overview**: `docs/overview.md` - How the package fits together
-- **API Reference**: `docs/api.md` - Programmatic use of the simulation classes
-- **Change Log**: `docs/changelog.md` - Version history and improvements
-- **Sources**: `SOURCES.md` - What every historical claim rests on
-- **Roadmap**: `ROADMAP.md` - What is planned, and why
-- **Historical Assets**: `attached_assets/` - Searchable text of the cited documents
+---
 
 ## Development
 
-### Running Tests
-
 ```bash
 pip install -e ".[dev]"
-python -m pytest tests
-```
-
-### Linting
-
-```bash
+python -m pytest tests        # 1800-odd tests
 ruff check src tests
+mypy src/bell_system          # clean, with no suppressions
 ```
 
-### Logging
+The package is `src/bell_system/`. `terminal.py` is dispatch and session
+only; every screen lives in `screens/`, one module per subsystem, mixed
+into the terminal. `screens/session.py` declares every attribute and
+cross-mixin method they share, which is what keeps that arrangement
+honest. Reference tables and manual pages live in `data/`.
 
-Logs and command history are written to a per-user state directory rather than
-the current working directory. The location is `$BELL_SYSTEM_HOME` when set,
-otherwise `$XDG_STATE_HOME/bell-system`, otherwise `~/.local/state/bell-system`:
+Three guards in `tests/test_integrity.py` hold the shape: no screens module
+over 1,000 lines, `terminal.py` under 2,000, and every `self.x()` call
+resolving against the constructed class.
 
-- `bell_system.log` - Rotating application log (10 MB, 5 backups)
-- `bell_system_history.txt` - Command history
-- `career.json` - Difficulty, sign-offs, service index and the wire centre
-  you are assigned to
-- `settings.json` - Everything `set` changes
-- `shift.json` - The tour you are in the middle of. Written after every
-  command, so a shift survives the window being closed and is picked back
-  up next time. Signing off with `handoff relieve` ends the tour and
-  removes it.
-
-## Historical Context
-
-This simulation is based on authentic AT&T Bell System operations from 1978-1983, a transformative period in telecommunications history. The commands, workflows, and terminology are historically accurate and based on actual Bell System documentation and practices.
+| | |
+|---|---|
+| `docs/overview.md` | How the package fits together |
+| `docs/api.md` | Programmatic use of the simulation classes |
+| `docs/manual.txt` | Operational guide |
+| `docs/command_reference.txt` | Quick reference |
+| `docs/faq.md` | Common questions |
+| `docs/contributing.md` | Layout and conventions |
+| `SOURCES.md` | What every historical claim rests on |
+| `attached_assets/` | Searchable text of the cited documents |
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-Please ensure that any contributions maintain historical accuracy and authentic Bell System practices.
+Fork, branch, and open a pull request. Please keep contributions to the
+project's central rule: every historical value is repo-verified, externally
+sourced and labelled, or explicitly marked as the simulation's own. A gap
+gets recorded, not filled with invention.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
@@ -386,4 +418,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Disclaimer
 
-This is a historical simulation for educational and nostalgic purposes. It is not affiliated with or endorsed by AT&T or any telecommunications company.
+A historical simulation for educational and nostalgic purposes. Not
+affiliated with or endorsed by AT&T or any telecommunications company. The
+people in it are invented; the practices, the measurements and the
+divestiture are not.

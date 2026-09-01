@@ -643,7 +643,8 @@ FIRST_TOUR = {
     ),
     'closed': (
         'That is the job. The rest of the board is coming.',
-        'Everything else on this machine is yours to poke at - try',
-        "'help', or 'ls /usr/doc'. I am on write if you need me.",
+        'Everything else on this machine is yours to poke at. Your annual',
+        "refresher is due and you may as well sit it now: 'training unix'.",
+        'I am on write if you need me.',
     ),
 }
