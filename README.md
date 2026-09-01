@@ -397,28 +397,3 @@ resolving against the constructed class.
 | `docs/contributing.md` | Layout and conventions |
 | `SOURCES.md` | What every historical claim rests on |
 | `attached_assets/` | Searchable text of the cited documents |
-
-## Contributing
-
-Fork, branch, and open a pull request. Please keep contributions to the
-project's central rule: every historical value is repo-verified, externally
-sourced and labelled, or explicitly marked as the simulation's own. A gap
-gets recorded, not filled with invention.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
-
-## Acknowledgments
-
-- AT&T Bell Laboratories historical documentation
-- UNIX V7 system documentation and manuals
-- Bell System Technical Journal archives
-- Historical telecommunications engineering resources
-
-## Disclaimer
-
-A historical simulation for educational and nostalgic purposes. Not
-affiliated with or endorsed by AT&T or any telecommunications company. The
-people in it are invented; the practices, the measurements and the
-divestiture are not.
