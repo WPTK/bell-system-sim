@@ -11,6 +11,7 @@ from typing import (
     Optional,
     Tuple,
 )
+from ..clock import days_to_divestiture
 from ..console import wrap
 from ..data.shift_events import build as build_shift_events
 from ..npc import (
@@ -27,6 +28,18 @@ from ..settings import (
 
 
 from .session import SessionState
+
+
+# What the last tour opens on. Nothing mechanical changes - the board is
+# the same board and the work is the same work - which is the whole of the
+# point. The people in the building know, and that is the only difference,
+# and it is enough.
+LAST_TOUR_NOTICE = (
+    "This is the last working day of the Bell System.",
+    "The board is the board. Nothing about the job is different today and",
+    "everybody in the building knows it, which is a strange way to spend a",
+    "Saturday. Work it the way you have worked the others.",
+)
 
 
 class ShiftCommands(SessionState):
@@ -184,6 +197,7 @@ class ShiftCommands(SessionState):
 
         output = f"""Bell System Shift Handoff Record
 {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
+{days_to_divestiture(self.clock.now())} days to divestiture
 {'=' * 50}
 
 INCOMING FROM PREVIOUS SHIFT
@@ -289,6 +303,8 @@ this shift and the next one starts on a fresh board."""
         self.career.end_shift()
         self.current_shift = self.career.shift
         self._tour_baseline = self._career_counters()
+        # A new tour is a new day. Four days on, until the last one.
+        self.clock.set_tour(self.career.shift)
 
         # A new shift starts with its own clock and its own schedule.
         self.shift_minutes = 0
@@ -322,7 +338,8 @@ this shift and the next one starts on a fresh board."""
             f"  Shift events              {len(self.shift_events)} scheduled",
             '',
             f"Shift {self.career.shift} begins. "
-            f"{len(self.desk.pending())} pending.",
+            f"{len(self.desk.pending())} pending. "
+            f"{self.clock.date()}.",
         ])
         if self.career.index_history:
             trend = self.sparkline(self.career.index_history, span=8)
@@ -334,6 +351,9 @@ this shift and the next one starts on a fresh board."""
         if granted:
             lines.append('')
             lines.extend(granted)
+        if self.clock.last_tour(self.career.shift):
+            lines.append('')
+            lines.extend(LAST_TOUR_NOTICE)
         return '\n'.join(lines)
     def _career_counters(self) -> Tuple[int, int, int, int]:
         """Snapshot the four counters a tour is judged on."""
@@ -524,11 +544,13 @@ this shift and the next one starts on a fresh board."""
         if not quiet:
             pieces = self._drain_queue() + pieces
 
-        # A first tour is one report and the wire chief. Work still arrives
-        # at the bureau; it is held off this board until the first one is
-        # closed, which is what the chief says he is doing. Everything the
-        # building would otherwise say waits with it - four people talking
-        # over a walkthrough is how a new craftsperson stops playing.
+        # A first tour is one report and the wire chief. Work still
+        # arrives at the bureau; it is held off this board until the first
+        # one is closed, which is what the chief says he is doing, and the
+        # people who would hand you more work hold off with it. The
+        # building itself carries on - the weather turns, the shift events
+        # come due - because a first tour that is silent is not a shift,
+        # it is a tutorial with the lights off.
         if self.first_tour():
             return '\n'.join(self.at_due() + ([] if quiet else pieces))
 

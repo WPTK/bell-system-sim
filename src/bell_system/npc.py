@@ -23,7 +23,7 @@ the plant are drawn from the operations the bundled documents describe.
 
 import random
 from datetime import datetime
-from typing import Dict, List, NamedTuple, Optional, Sequence
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 CHANNEL_WRITE = 'write'
 CHANNEL_MAIL = 'mail'
@@ -427,6 +427,25 @@ _HINTS: Sequence[tuple] = (
 )
 
 
+# What the wire chief adds, by how many sign-offs you now hold. He signs
+# every one of them, so a fixed line would make him a form letter. Anything
+# past the fifth falls back to the first, which is where he started and
+# where he stays: he is not effusive.
+_SIGN_OFF_REMARKS: Dict[int, Tuple[str, ...]] = {
+    1: ('Do not work anything you are not signed off on.',),
+    2: ('Second one. You are past the part where everybody helps you.',),
+    3: ('Third. I have signed three for you now and I do not sign three',
+        'for everybody. Whatever happens in January, that is a fact about',
+        'you and not about the company.',
+        'You are in the adm group as of this morning. That opens the',
+        'accounting records, /usr/adm/sulog included, which you will find',
+        'has your name in it.'),
+    4: ('Fourth. You are quicker on the board than I was at this point,',
+        'which I am telling you once and will not repeat.'),
+    5: ('Fifth. There is not much left that I can sign.',),
+}
+
+
 class Switchroom:
     """
     Generates the traffic the other craft put on your terminal.
@@ -517,6 +536,42 @@ class Switchroom:
         return self._deliver(Message(
             channel=CHANNEL_WRITE, sender=sender, received=now,
             lines=list(lines), kind='hint', subject='Advice', about=None,
+        ))
+
+    def advice(self, now: datetime, sender: str, lines: List[str],
+               level: int) -> Message:
+        """
+        A hint somebody asked for, from whoever would give it.
+
+        Distinct from :meth:`hint`, which is unsolicited advice the
+        forgiving difficulty offers on its own. This one only ever arrives
+        because the operator typed hint(1), which is the whole reason it
+        can afford to be direct.
+        """
+        return self._deliver(Message(
+            channel=CHANNEL_WRITE, sender=sender, received=now,
+            lines=list(lines), kind='advice',
+            subject=f'Hint {level}', about=None,
+        ))
+
+    def moo_beaten(self, now: datetime, guesses: int) -> Message:
+        """
+        Okafor, on somebody taking her eleven off the board.
+
+        Her position on that eleven is a matter of record - she maintains
+        the terminal was dropping characters and that she has witnesses -
+        so the scoreboard was never going to change quietly.
+        """
+        return self._deliver(Message(
+            channel=CHANNEL_WRITE, sender='lokafor', received=now,
+            lines=[
+                f'Somebody just did it in {guesses}.',
+                'I want it on the record that mine was not an eleven. That',
+                'terminal was dropping characters and there were people in',
+                'the room.',
+                'Good number though.',
+            ],
+            kind='chatter', subject='moo', about=None,
         ))
 
     def assignment(self, now: datetime, report_number: str,
@@ -729,18 +784,33 @@ class Switchroom:
         ))
 
     def qualification_notice(self, now: datetime, name: str,
-                             commands: Sequence[str]) -> Message:
-        """The wire chief signing off a qualification."""
+                             commands: Sequence[str],
+                             held: int = 1, days_left: int = 48) -> Message:
+        """
+        The wire chief signing off a qualification.
+
+        He signs all of them, so what he says has to change or he is a
+        form letter. The first is business. By the third he has been
+        watching long enough to say something about the person rather than
+        about the sign-off, and with the company weeks from ending, what
+        that sign-off is worth is a question he cannot honestly duck.
+        """
+        lines = [
+            f'You are signed off on {name}.',
+            'That opens: ' + ', '.join(commands) + '.',
+        ]
+        lines.extend(_SIGN_OFF_REMARKS.get(
+            held, ('Do not work anything you are not signed off on.',)))
+        if held >= 3 and days_left <= 14:
+            lines.append(f'For whatever it is worth with {days_left} days '
+                         f'left of the company.')
         return self._deliver(Message(
             channel=CHANNEL_MAIL, sender='ehalloran', received=now,
-            lines=[
-                f'You are signed off on {name}.',
-                'That opens: ' + ', '.join(commands) + '.',
-                'Do not work anything you are not signed off on.',
-            ],
+            lines=lines,
             kind='qualification', subject=f'Qualification: {name}',
             about=None,
         ))
+
 
     # -- reading ---------------------------------------------------------
 

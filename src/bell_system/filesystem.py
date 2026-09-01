@@ -23,11 +23,13 @@ ends with divestiture" on 1 January 1984. The simulated shift is 14 November
 words for a thing that really was about to happen.
 """
 
+from .clock import DIVESTITURE as _DIVESTITURE
 from .data.homes import HOMES
 from typing import Callable, Dict, List, NamedTuple, Optional, Union
 
-# Divestiture took effect on 1 January 1984.
-DIVESTITURE = '1984-01-01'
+# Divestiture took effect on 1 January 1984. The date itself lives in
+# clock.py, with the function that counts down to it, so there is one of it.
+DIVESTITURE = _DIVESTITURE.strftime('%Y-%m-%d')
 
 Content = Union[str, Callable[..., str]]
 
@@ -76,7 +78,10 @@ Nothing else is guaranteed.
 
 Trouble reports: mail(1), or the report(1) command.
 Practices:       /usr/bsp
+Stuck:           hint(1). Ask again if the first one was not enough.
 Questions:       write ehalloran
+Games:           /usr/games. Nights are long and the board is not always
+                 full. Whoever keeps moo.scores, see net.games.
 """
 
 # /etc/passwd. A Seventh Edition entry is name, password, uid, gid, gecos,

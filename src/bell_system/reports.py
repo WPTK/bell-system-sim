@@ -31,11 +31,12 @@ maintenance sequence, the disposition codes and the electrical vocabulary.
 
 import random
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from .cable import CablePlant
 from .field import FieldForce
 from .weather import Weather
+from .data.regulars import REGULAR_SHARE, REGULARS
 from .data.trouble import (
     DISPATCH_FORCES,
     FRAME_DEFECT_CODES,
@@ -142,7 +143,8 @@ class LineRecord:
                  cable: int, pair: int, class_of_service: str,
                  horizontal: str, vertical: str, line_equipment: str,
                  clli: str, fault: str = 'NONE',
-                 frame_defect: Optional[str] = None):
+                 frame_defect: Optional[str] = None,
+                 regular: Optional[str] = None):
         self.npa = npa
         self.nxx = nxx
         self.line = line
@@ -159,6 +161,10 @@ class LineRecord:
         # Set only on a central office equipment fault: what is actually
         # wrong on the frame, which the cross-connect record shows.
         self.frame_defect = frame_defect
+        # Set on the four lines the bureau knows by heart. Keys
+        # data.regulars.REGULARS, and is what makes the line card say you
+        # have been here before.
+        self.regular = regular
 
     @property
     def telephone_number(self) -> str:
@@ -288,8 +294,78 @@ class ReportDesk:
         # planning desk does, and the arrival rate alone cannot express
         # that, because arrival is damped by depth and so self-limiting.
         self.depth_limit = MAX_PENDING
+        # The four lines this bureau knows by heart. Built lazily, once
+        # each, and then handed back every time one of them reports: the
+        # same LineRecord object every time, so the trouble history piles
+        # up on one card the way it did.
+        self._regulars: Dict[str, LineRecord] = {}
 
     # -- generation ------------------------------------------------------
+
+    def regular_record(self, key: str, now: datetime) -> LineRecord:
+        """
+        Return a line record for one of the bureau's regulars.
+
+        The line itself is drawn once and then never moves: the telephone
+        number, the cable and pair, the frame appearance. Everything that
+        identifies it is fixed, which is what makes it the same line every
+        time and what lets the trouble history pile up on one card.
+
+        What comes back is a fresh record carrying those fixed fields, not
+        the stored one. The electrical fault lives on the record, so
+        handing the same object back would mean this week's trouble
+        rewriting last week's report - and the measurement is seeded from
+        the fault, so an old report would measure as something it was
+        never closed as.
+        """
+        held = self._regulars.get(key)
+        if held is None:
+            regular = REGULARS[key]
+            wet = any(code == 'WET' for code, _ in regular.faults)
+            cable, pair = (self.plant.wet_pair(now) if wet
+                           else self.plant.dry_pair())
+            held = self._regulars[key] = LineRecord(
+                npa=self.npa, nxx=self.nxx,
+                line=f"{self.rng.randint(0, 9999):04d}",
+                name=regular.name,
+                address=regular.address,
+                cable=cable, pair=pair,
+                class_of_service=regular.class_of_service,
+                horizontal=f"{self.rng.randint(1, 24):02d}",
+                vertical=f"{self.rng.randint(1, 52):02d}",
+                line_equipment=f"{self.rng.randint(0, 3)}-"
+                               f"{self.rng.randint(0, 7)}-"
+                               f"{self.rng.randint(0, 19):02d}-"
+                               f"{self.rng.randint(0, 9):02d}",
+                clli=self.clli,
+                regular=key,
+            )
+        return LineRecord(
+            npa=held.npa, nxx=held.nxx, line=held.line,
+            name=held.name, address=held.address,
+            cable=held.cable, pair=held.pair,
+            class_of_service=held.class_of_service,
+            horizontal=held.horizontal, vertical=held.vertical,
+            line_equipment=held.line_equipment,
+            clli=held.clli, regular=held.regular,
+        )
+
+    def _draw_regular(self, now: datetime) -> Optional[Tuple[str, LineRecord]]:
+        """
+        Occasionally take the next report off a line the bureau knows.
+
+        Returns the fault and the record together, because a regular's
+        trouble is part of who they are: the drop over the bus route opens,
+        the sheath on Sussex Street is wet, and the coin station in the
+        lobby is nobody's fault at all.
+        """
+        if self.rng.random() >= REGULAR_SHARE:
+            return None
+        regular = REGULARS[self.rng.choice(list(REGULARS))]
+        codes = [code for code, _ in regular.faults]
+        weights = [weight for _, weight in regular.faults]
+        fault = self.rng.choices(codes, weights=weights)[0]
+        return fault, self.regular_record(regular.key, now)
 
     def _next_number(self) -> str:
         """Return the next report number in the bureau's series."""
@@ -382,8 +458,13 @@ class ReportDesk:
         Returns:
             The report that was created
         """
-        condition = fault or self._choose_fault()
-        line_record = record or self._make_record(condition, now)
+        drawn = (self._draw_regular(now)
+                 if fault is None and record is None else None)
+        if drawn is not None:
+            condition, line_record = drawn
+        else:
+            condition = fault or self._choose_fault()
+            line_record = record or self._make_record(condition, now)
         line_record.fault = condition
         symptom = self.rng.choice(REPORT_SYMPTOMS.get(condition, ('Trouble',)))
         report = TroubleReport(

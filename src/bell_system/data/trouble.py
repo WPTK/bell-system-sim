@@ -195,7 +195,12 @@ REPORT_SYMPTOMS: Dict[str, Tuple[str, ...]] = {
     'FEMF': ('Loud hum on the line', 'Shock reported at the set'),
     'ROH': ('Cannot be called', 'Callers get busy'),
     'CO_EQUIP': ('Cannot be called', 'Calls do not complete', 'No ring'),
-    'NONE': ('Noise on the line', 'Cuts off during calls', 'Cannot call out'),
+    # 'Calls do not complete' is here as well as under CO_EQUIP on
+    # purpose: it is the one symptom two conditions share, and the
+    # difference between them is the cadence the customer is
+    # hearing rather than anything the words carry.
+    'NONE': ('Noise on the line', 'Cuts off during calls',
+             'Cannot call out', 'Calls do not complete'),
 }
 
 

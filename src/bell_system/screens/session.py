@@ -98,6 +98,11 @@ class SessionState:
 
     # The career counters as they stood when this tour opened.
     _tour_baseline: Tuple[int, int, int, int]
+
+    # What hint(1) was last asked about, and how many times. The level
+    # resets when the situation changes.
+    _hint_situation: str
+    _hint_level: int
     shift_minutes: int
     shift_events: List[Dict[str, Any]]
     shift_handoff: Dict[str, Any]
@@ -315,6 +320,10 @@ class SessionState:
 
     def shift_time(self) -> str:
         """How far into the shift the operator is, as h:mm."""
+        raise NotImplementedError
+
+    def cmd_hint(self, args: Optional[List[str]] = None) -> str:
+        """Ask somebody. Ask again and you get more."""
         raise NotImplementedError
 
     def tour_summary(self, closed: int, correct: int, missed: int,

@@ -29,6 +29,7 @@ prints, because it is the same function.
 from typing import Iterable, List, NamedTuple, Optional, Tuple
 
 from ..data.positions import POSITION_COMMANDS
+from ..data.hints import EXHAUSTED, HINTS
 from ..npc import render as render_message
 from ..progression import QUALIFICATIONS_BY_KEY
 from .session import SessionState
@@ -44,6 +45,11 @@ class NextAction(NamedTuple):
     # Which step of the loop this is, for the first-tour walkthrough.
     step: str
 
+
+# What asking costs, in minutes of the shift. The same order as reading
+# the frame record, because that is what it is: a minute spent finding out
+# rather than working.
+HINT_MINUTES = 1
 
 # Nothing pressing. Not a failure state: a clear board at the end of a tour
 # is the point of the job.
@@ -233,6 +239,8 @@ class GuidanceCommands(SessionState):
                     "report dispatch,")
         rows.append("   report close. mlt tells you what the fault is and "
                     "who to send.")
+        rows.append("   Stuck on something? 'hint' asks somebody. Ask "
+                    "again for more.")
         return rows
 
     def dead_end(self, message: str) -> str:
@@ -292,6 +300,63 @@ class GuidanceCommands(SessionState):
         message = self.switchroom.chief_nudge(self.clock.now(),
                                              list(lines))
         return render_message(message, self._stamp())
+
+    # -- asking for help ---------------------------------------------------
+
+    def cmd_hint(self, args: Optional[List[str]] = None) -> str:
+        """
+        Ask somebody. Ask again and you get more.
+
+        Three levels to a situation and they are revealed one at a time,
+        so what you get is the smallest nudge that unsticks you rather
+        than the answer. The level resets whenever the situation changes,
+        because a player who has just moved on to a different problem is
+        at the beginning of that one.
+
+        A minute of shift time and nothing else. There is no score
+        penalty for asking: being stuck is already the penalty, and a hint
+        system with a cost attached is a hint system nobody uses.
+        """
+        del args
+        situation = self._situation()
+        if situation != self._hint_situation:
+            self._hint_situation = situation
+            self._hint_level = 0
+        self._hint_level += 1
+        self.shift_minutes += HINT_MINUTES
+
+        levels = HINTS[situation]
+        if self._hint_level > len(levels):
+            return render_message(self.switchroom.advice(
+                self.clock.now(), 'ehalloran', list(EXHAUSTED),
+                len(levels)), self._stamp())
+        sender, lines = levels[self._hint_level - 1]
+        asked = render_message(self.switchroom.advice(
+            self.clock.now(), sender, list(lines), self._hint_level),
+            self._stamp())
+        if self._hint_level < len(levels):
+            asked = f"{asked.rstrip()}\n\nStill stuck? Type 'hint' again."
+        return asked
+
+    def _situation(self) -> str:
+        """
+        Name what the operator is in the middle of.
+
+        The same step the standing prompt works from, so the hint and the
+        prompt can never end up describing different situations.
+
+        The one exception is somebody who has not yet looked at the board.
+        The answer there is not "measure that report", it is "there is a
+        loop and here it is" - but only until they have typed report(1)
+        once. After that a first tour is stuck on the same things anybody
+        else is stuck on, and gets the same three levels about them.
+        """
+        # 'board' is marked the first time report(1) runs, so this is
+        # exactly "has not looked at the board yet".
+        if self.first_tour() and 'board' not in self._tour_nudges:
+            return 'first'
+        step = self.next_action().step
+        return step if step in HINTS else 'idle'
 
     # -- looking back ------------------------------------------------------
 
@@ -386,6 +451,7 @@ class GuidanceCommands(SessionState):
         ('testline', 'Far-end test lines and responders'),
         ('testcall', 'Place a test call through the network'),
         ('qual', 'Your craft record and service index'),
+        ('hint', 'Ask somebody what to do. Ask again for more'),
     )
 
     SHELL_COMMANDS = (
@@ -467,6 +533,12 @@ class GuidanceCommands(SessionState):
         lines.append("   Commands join with a pipe: who | wc -l")
         lines.append("   Worth reading: /etc/motd, /usr/doc/divestiture,")
         lines.append("                  /usr/users/sysop/notes, /usr/lmos/board")
+        # Zachtronics ships a solitaire game inside SHENZHEN I/O and puts
+        # it on the box, for the reason that a job with no break in it is
+        # a job. These have been in /usr/games since the filesystem was
+        # written and nothing has ever said so.
+        lines.append("   There is a break: moo, fortune, arithmetic. "
+                     "/usr/games has them.")
 
         lines.extend(['', 'THE OTHER CRAFT', '-' * 66])
         lines.extend(self._help_rows(self.PEOPLE_COMMANDS))

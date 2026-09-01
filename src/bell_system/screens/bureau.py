@@ -7,6 +7,7 @@ from collections import (
     deque,
 )
 from typing import (
+    Dict,
     List,
     Optional,
 )
@@ -20,6 +21,7 @@ from ..data.trouble import (
     NSPMP_CATEGORIES,
     NSPMP_WEIGHTS,
 )
+from ..clock import days_to_divestiture
 from ..console import article as _a, sentence_case as _lower, wrap
 from ..lmos import LmosConsole
 from ..loop_testing import post_mortem
@@ -52,6 +54,32 @@ from .session import SessionState
 # The board and the craft record rule at 74 columns. The post-mortem is
 # prose rather than a table, so it breaks a little short of the rule.
 POST_MORTEM_WIDTH = 70
+
+# What a customer says, wrapped. Narrower than the post-mortem because it
+# is indented and quoted, which is how a note of a call reads on paper.
+CALLBACK_WIDTH = 64
+
+# What a customer says they hear when a call will not go through, for the
+# two conditions where the answer is in the cadence and not in the words.
+# Busy is 60 interruptions a minute and reorder is 120; they are the same
+# 480 and 620 Hz, so the description says how fast and never says which.
+# tone(1) writes both, which is the one question on this board that has to
+# be answered by ear.
+CADENCE_HEARD: Dict[str, str] = {
+    'CO_EQUIP': "I dial and I get the busy signal, but it is going about "
+                "twice as fast as a busy usually goes. It does it on every "
+                "number I try, including my sister's, and she is not on "
+                "the telephone.",
+    'NONE': "I get the busy signal. The ordinary one, the slow one. It is "
+            "just that I get it rather a lot lately, and I did wonder.",
+    # Not a cadence at all, which is the point of having a third: the
+    # office took the call and then did nothing with it, so there is
+    # nothing to hear. Somebody comparing two tones has to notice that
+    # neither of them is what this customer is describing.
+    'FCG': "I dial the whole number and then there is nothing. Not a busy, "
+           "not a ringing. It goes quiet and it stays quiet until I hang "
+           "up.",
+}
 
 
 class BureauCommands(SessionState):
@@ -149,11 +177,20 @@ class BureauCommands(SessionState):
             f"Type 'qual' for your craft record."
         )
     def _grant_qualifications(self) -> List[str]:
-        """Award anything newly earned and return the notices."""
+        """
+        Award anything newly earned and return the notices.
+
+        The count of what is now held goes with each one, because the man
+        signing them notices how many he has signed for you, and so does
+        the calendar.
+        """
         notices: List[str] = []
+        now = self.clock.now()
         for qualification in self.career.grant_available():
             message = self.switchroom.qualification_notice(
-                self.clock.now(), qualification.name, qualification.unlocks)
+                now, qualification.name, qualification.unlocks,
+                held=len(self.career.qualifications),
+                days_left=days_to_divestiture(now))
             notices.append(render_message(message, self._stamp()))
         return notices
     def cmd_report(self, args: Optional[List[str]] = None) -> str:
@@ -569,12 +606,29 @@ class BureauCommands(SessionState):
                     "Perhaps it fixed itself.",
         }.get(report.record.fault, fault.description)
 
-        return (f"Call back on {report.record.telephone_number} "
-                f"({report.record.name}).\n\n"
-                f"  \"{detail}\"\n\n"
-                f"{COST_CALLBACK} minutes charged. "
-                f"{report.age_label()} "
-                f"{'past' if report.overdue() else 'remaining'}.")
+        # The one question on this board that a screen cannot ask you. On
+        # a report about calls not completing the customer describes a
+        # rhythm instead of the trouble: busy and reorder are the same 480
+        # and 620 Hz and differ only in how fast they are interrupted, so
+        # the words cannot separate them and the ear can. It replaces the
+        # ordinary answer rather than joining it, because a customer who
+        # is telling you about a cadence is not also telling you about
+        # last Tuesday.
+        heard = CADENCE_HEARD.get(report.record.fault)
+        by_ear = heard is not None and 'complete' in report.symptom.lower()
+        said = heard if by_ear else detail
+
+        lines = [f"Call back on {report.record.telephone_number} "
+                 f"({report.record.name}).", '']
+        lines.extend(f"  {line}" for line in
+                     wrap(f'"{said}"', CALLBACK_WIDTH))
+        if by_ear:
+            lines.extend(['', "tone(1) will make both of those if you want "
+                              "to hear them side by side."])
+        lines.extend(['', f"{COST_CALLBACK} minutes charged. "
+                          f"{report.age_label()} "
+                          f"{'past' if report.overdue() else 'remaining'}."])
+        return '\n'.join(lines)
     def cmd_qual(self, args: Optional[List[str]] = None) -> str:
         """Show the craft record: difficulty, qualifications and service index."""
         args = args or []

@@ -20,6 +20,33 @@ from .settings import Settings
 # standard time. A user who moves the epoch into summer is choosing that.
 TIMEZONE_LABEL = 'EST'
 
+# Engineering and Operations in the Bell System records that "the existence
+# of the Bell System ends with divestiture", which took effect on 1 January
+# 1984. The default epoch is 14 November 1983: forty-eight days before.
+DIVESTITURE = datetime(1984, 1, 1)
+
+
+# A career runs from the shift the simulation opens on to the last day of
+# the Bell System. Tours are four days apart, so thirteen of them cover the
+# forty-eight days from 14 November, and the last one is pulled back onto
+# 31 December however the arithmetic lands. That spacing is the
+# simulation's own: a real craftsperson worked every day, a player will not
+# work forty-eight tours, and a countdown that never moves is not one.
+TOURS_TO_DIVESTITURE = 13
+DAYS_PER_TOUR = 4
+
+
+def days_to_divestiture(now: datetime) -> int:
+    """
+    Return how many days are left of the Bell System, from a given moment.
+
+    Computed rather than written down, so that a player who moves the epoch
+    gets a countdown that is true of the date they chose. Negative after the
+    fact, which is a state the simulation can reach and should not lie
+    about.
+    """
+    return (DIVESTITURE.date() - now.date()).days
+
 
 class SimClock:
     """
@@ -33,6 +60,29 @@ class SimClock:
     def __init__(self, settings: Settings, started_at: Optional[datetime] = None):
         self._settings = settings
         self._session_start = started_at or datetime.now()
+        # Days on from the epoch, set by which tour of the career this is.
+        self._day_offset = 0
+
+    def set_tour(self, tour: int) -> None:
+        """
+        Put the clock on the day this tour of the career falls on.
+
+        Tours are four days apart and the last one is the last day of the
+        Bell System, so the countdown on the login banner moves as a career
+        goes on rather than sitting at forty-eight forever. Past the last
+        tour the date holds: there is no fourteenth tour, because there is
+        no Bell System to work it in.
+        """
+        tour = min(max(tour, 1), TOURS_TO_DIVESTITURE)
+        # The last working day of the Bell System, in days from the epoch.
+        # Computed rather than written down so that moving the epoch moves
+        # the whole career with it.
+        final = (DIVESTITURE.date() - self._settings.epoch().date()).days - 1
+        self._day_offset = max(0, min((tour - 1) * DAYS_PER_TOUR, final))
+
+    def last_tour(self, tour: int) -> bool:
+        """Return whether this tour is the last day of the Bell System."""
+        return tour >= TOURS_TO_DIVESTITURE
 
     # -- the time itself ------------------------------------------------
 
@@ -47,7 +97,8 @@ class SimClock:
         if self._settings.get('date.source') == 'real':
             return datetime.now()
         elapsed = datetime.now() - self._session_start
-        return self._settings.epoch() + elapsed
+        return (self._settings.epoch() + elapsed
+                + timedelta(days=self._day_offset))
 
     def elapsed(self) -> timedelta:
         """Return how long the session has been running."""

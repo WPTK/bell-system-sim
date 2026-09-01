@@ -42,7 +42,7 @@ from .constants import (
     BELL_SYSTEM_ROLES,
     SHIFT_LENGTH_MINUTES,
 )
-from .clock import SimClock
+from .clock import SimClock, days_to_divestiture
 from .console import render
 from .data import geography
 from .filesystem import normalise
@@ -177,6 +177,10 @@ class BellSystemTerminal(
         # copy so a shift resumed from disk starts the way it ended.
         self.career = Career(career_path(state_dir()))
         self.career.set_difficulty(self.settings.get('game.difficulty'))
+        # Which day of the run-up to divestiture this tour falls on. A
+        # career walks the calendar from 14 November to the last working
+        # day of the Bell System, so the countdown moves as it goes.
+        self.clock.set_tour(self.career.shift)
 
         # Setup enhanced logging first
         self._setup_logging()
@@ -222,6 +226,10 @@ class BellSystemTerminal(
         # Career counters run for a career. The tour summary is about one
         # tour, so it is read off the difference from here - and the career
         # arrives from disk with a history behind it, so zero is wrong.
+        # Asking for help escalates while the situation holds, and starts
+        # over when it changes.
+        self._hint_situation: str = ''
+        self._hint_level: int = 0
         self._tour_baseline: Tuple[int, int, int, int] = (
             self.career.reports_closed, self.career.reports_correct,
             self.career.missed_commitments, self.career.repeat_reports)
@@ -637,6 +645,11 @@ class BellSystemTerminal(
             f"{self.home_office['clli']}",
             f"UNIX Version 7   tty01   {speed}",
             '',
+            # The whole of the stakes, on the line before anybody has typed
+            # anything. It was a memo in /usr/doc that a player had to know
+            # to open, and it is the reason the shift is this date.
+            self._divestiture_line(),
+            '',
             "Type ? at the login prompt for the positions on this machine.",
         ]
         if pacing.isdigit():
@@ -647,6 +660,25 @@ class BellSystemTerminal(
                          "'set display.pacing off' prints at once.")
         lines.append('')
         return lines
+
+    def _divestiture_line(self) -> str:
+        """
+        How long the Bell System has left, in days, from the shift's date.
+
+        Counted from the epoch rather than written down, so moving the
+        epoch moves the countdown with it - including past the date, which
+        the simulation can reach and should not lie about.
+        """
+        left = days_to_divestiture(self.clock.now())
+        if left > 1:
+            return (f"{left} days to divestiture. "
+                    f"This machine is being inventoried.")
+        if left == 1:
+            return "Divestiture is tomorrow. This is the last full tour."
+        if left == 0:
+            return "Divestiture is today."
+        return (f"Divestiture was {-left} day{'' if left == -1 else 's'} "
+                f"ago. This is no longer the Bell System.")
 
     def _login_roster(self) -> str:
         """The accounts on this machine that answer to a person."""
@@ -755,7 +787,7 @@ class BellSystemTerminal(
                       f"{', '.join(left)}. Worth reading.")
 
         self.emit(f"\nYou are at the {role_name.lower()} position, "
-                  f"tour 1, {self.clock.date()}.")
+                  f"tour {self.career.shift}, {self.clock.date()}.")
 
         # There is no tutorial mode. On a first tour the wire chief puts his
         # head round the door, and that is the whole of it.

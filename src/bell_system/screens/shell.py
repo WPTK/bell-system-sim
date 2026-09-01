@@ -14,10 +14,16 @@ file, ``wc`` prints lines, words and characters in that order, ``head`` and
 the next.
 """
 
-from typing import List, Optional
+from typing import FrozenSet, List, Optional
 
 from ..filesystem import Node, children, normalise
 from .session import SessionState
+
+
+# How many sign-offs the wire chief wants behind somebody before he puts
+# them in the group that owns /usr/adm/sulog. The simulation's own figure:
+# it is the third, which is the one he says he notices.
+ADM_GROUP_QUALIFICATIONS = 3
 
 
 class ShellCommands(SessionState):
@@ -36,18 +42,47 @@ class ShellCommands(SessionState):
 
     def _read(self, path: str) -> Optional[str]:
         """
-        Return a file's text.
+        Return a file's text, or None if there is none to return.
 
         Content may be a callable, so a file can render live state - the
         line records under /usr/lmos are the reports actually on the board.
+
+        A file whose mode denies the rest of the machine also reads as
+        None, and callers turn that into a refusal by looking at the mode
+        themselves. There is exactly one such file, and it is the su log.
         """
         node = self._node(path)
-        if node is None or node.is_dir:
+        if node is None or node.is_dir or not self._may_read(path):
             return None
         content = node.content
         if callable(content):
             return content(self)
         return content or ''
+
+    def _may_read(self, path: str) -> bool:
+        """
+        Return whether this position may read a file.
+
+        The mode column has been on every listing since the filesystem was
+        written and has never meant anything. It means something on the one
+        file that denies the rest of the machine: an operator reads it when
+        the wire chief has put them in the group that owns it, and he does
+        that once he has signed off enough of their qualifications to
+        decide they are staying.
+        """
+        node = self._node(path)
+        if node is None:
+            return True
+        if node.mode[7:8] == 'r' or node.owner == (self.username or 'sysop'):
+            return True
+        return node.group in self._groups()
+
+    def _groups(self) -> FrozenSet[str]:
+        """Which groups this position has been put in."""
+        groups = {'craft'}
+        if len(self.career.qualifications) >= ADM_GROUP_QUALIFICATIONS:
+            groups.add('adm')
+        return frozenset(groups)
 
     def _gather(self, args: List[str], command: str) -> tuple:
         """
@@ -66,6 +101,8 @@ class ShellCommands(SessionState):
                 node = self._node(name)
                 if node is not None and node.is_dir:
                     return None, f"{command}: {name}: is a directory"
+                if node is not None and not self._may_read(name):
+                    return None, f"{command}: {name}: permission denied"
                 return None, f"{command}: {name}: no such file or directory"
             chunks.append(text)
         return ''.join(chunks), None

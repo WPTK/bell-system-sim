@@ -13,6 +13,7 @@ moo were all in section 6 too. Nothing here needs any telephony.
 import random
 from typing import Dict, List, Optional, Tuple
 
+from ..npc import render as render_message
 from .session import SessionState
 
 # Column punches for bcd(6). A card has twelve rows: two zone rows above
@@ -34,6 +35,12 @@ _BCD_PUNCH.update({
     ' ': (), '-': ('11',), '&': ('12',), '.': ('12', '3', '8'),
     ',': ('0', '3', '8'), '/': ('0', '1'), '#': ('3', '8'),
 })
+
+
+# Where the office keeps its bulls and cows scores, and the number
+# everybody in the spool has an opinion about.
+MOO_SCORES = '/usr/games/lib/moo.scores'
+OKAFOR_ELEVEN = 11
 
 
 class GameCommands(SessionState):
@@ -141,8 +148,49 @@ class GameCommands(SessionState):
         if bulls == 4:
             count = self._moo_guesses
             self._moo_secret = None
-            return f"{guess}: 4 bulls. Got it in {count}."
+            return (f"{guess}: 4 bulls. Got it in {count}.\n"
+                    + self._record_moo_score(count))
         return f"{guess}: {bulls} bulls, {cows} cows"
+
+    def _record_moo_score(self, guesses: int) -> str:
+        """
+        Put the win on the scoreboard, and let Okafor hear about it.
+
+        /usr/games/lib/moo.scores has been sitting there since the
+        filesystem was written with everybody's best on it and a dash
+        against sysop, and a scoreboard you cannot get onto is scenery.
+        Okafor's eleven is the running joke of the whole spool - she
+        maintains the terminal was dropping characters - so beating it is
+        the one score that has to get a response.
+        """
+        board = self.filesystem.get(MOO_SCORES)
+        if board is None or board.is_dir:
+            return ''
+        rows = [line for line in str(board.content).split('\n') if line]
+        mine = f"{self.username:<9}{guesses:>2}"
+        held = None
+        for index, line in enumerate(rows):
+            if line.startswith(self.username):
+                held = index
+                break
+        if held is None:
+            rows.append(mine)
+            standing = ''
+        else:
+            previous = rows[held].split()
+            best = previous[1] if len(previous) > 1 else '-'
+            if best.isdigit() and int(best) <= guesses:
+                return (f"Scoreboard stands at {best}. "
+                        f"{MOO_SCORES} if you want to look at it.")
+            rows[held] = mine
+            standing = f" Your {best} is off the board."
+        if self.write_file(MOO_SCORES, '\n'.join(rows) + '\n') is not None:
+            return ''
+        note = f"On the scoreboard.{standing} {MOO_SCORES}."
+        if guesses < OKAFOR_ELEVEN:
+            note += '\n' + render_message(self.switchroom.moo_beaten(
+                self.clock.now(), guesses), self._stamp())
+        return note
 
     def _news_articles(self) -> List[str]:
         """

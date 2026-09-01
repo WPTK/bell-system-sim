@@ -377,3 +377,132 @@ class TestTheTrend:
     def test_a_new_career_has_nothing_to_draw(self, working):
         working.career.index_history = []
         assert 'Last five tours' not in working.execute_command('qual')
+
+
+class TestAskingForHelp:
+    """
+    Infocom sold hints in invisible ink, revealed one at a time.
+
+    What made that work was that asking was a deliberate act and the first
+    thing revealed was never the answer. Both properties are load-bearing
+    here, so both are tested.
+    """
+
+    def test_the_first_ask_is_a_nudge_and_not_the_answer(self, working):
+        board(working)
+        first = working.execute_command('hint')
+        assert 'gvasquez' in first
+        assert 'mlt ' not in first
+
+    def test_asking_again_gets_more(self, working):
+        board(working)
+        asks = [working.execute_command('hint') for _ in range(3)]
+        assert len(set(asks)) == 3
+
+    def test_the_last_level_says_it_outright(self, working):
+        board(working)
+        for _ in range(2):
+            working.execute_command('hint')
+        assert "'mlt'" in working.execute_command('hint')
+
+    def test_the_last_level_is_the_wire_chief(self, working):
+        board(working)
+        for _ in range(2):
+            working.execute_command('hint')
+        assert 'ehalloran' in working.execute_command('hint')
+
+    def test_a_fourth_ask_admits_there_is_no_more(self, working):
+        """More honest than repeating the third and pretending it is new."""
+        board(working)
+        for _ in range(3):
+            working.execute_command('hint')
+        assert 'everything I have' in working.execute_command('hint')
+
+    def test_a_new_situation_starts_over(self, working):
+        """
+        Somebody who has moved on to a different problem is at the
+        beginning of that one, not at the end of the last.
+        """
+        board(working, count=1)
+        working.execute_command('hint')
+        working.execute_command('hint')
+        for report in working.desk.pending():
+            report.tested = True
+        assert 'gvasquez' in working.execute_command('hint')
+
+    def test_it_costs_a_minute_more_than_a_command_that_does_nothing(
+            self, working):
+        """
+        Every command at this terminal costs a minute. The hint's own
+        charge is the minute on top of that, so it is measured against a
+        command that does nothing rather than against zero.
+        """
+        board(working)
+        before = working.shift_minutes
+        working.execute_command('pwd')
+        baseline = working.shift_minutes - before
+        before = working.shift_minutes
+        working.execute_command('hint')
+        assert working.shift_minutes - before == baseline + 1
+
+    def test_it_costs_nothing_on_the_record(self, working):
+        board(working)
+        index = working.career.service_index()
+        closed = working.career.reports_closed
+        for _ in range(4):
+            working.execute_command('hint')
+        assert working.career.service_index() == index
+        assert working.career.reports_closed == closed
+
+    def test_every_situation_the_detector_can_name_has_hints(self, working):
+        """
+        The detector falls back to 'idle', but a step it can return and
+        the table does not carry would be a silent wrong answer.
+        """
+        from bell_system.data.hints import HINTS
+        assert working._situation() in HINTS
+
+    def test_every_situation_has_exactly_three_levels(self):
+        from bell_system.data.hints import HINTS
+        assert all(len(levels) == 3 for levels in HINTS.values())
+
+    def test_the_middle_level_sends_you_somewhere_real(self, working):
+        """
+        Level two points at something to read. Every reference has to be a
+        file or a command that exists, not an invented BSP section number.
+        """
+        import re
+        from bell_system.data.hints import HINTS
+        for situation, levels in HINTS.items():
+            text = ' '.join(levels[1][1])
+            for path in re.findall(r'/usr/\S+', text):
+                assert path.rstrip('.,') in working.filesystem, (
+                    f'{situation} sends you to {path}, which is not there')
+            for command in re.findall(r"'man (\w+)'", text):
+                assert command in working.man_pages, (
+                    f'{situation} cites man {command}, which has no page')
+
+    def test_a_first_tour_is_told_the_loop_exists(self, raw_terminal):
+        raw_terminal.career.shift = 1
+        raw_terminal.career.reports_closed = 0
+        raw_terminal._tour_nudges.clear()
+        assert raw_terminal._situation() == 'first'
+
+    def test_a_first_tour_that_has_looked_gets_the_ordinary_hints(
+            self, raw_terminal):
+        """
+        The chief walks you through the loop; hint(1) is for being stuck
+        inside it, which a new craftsperson can be like anybody else.
+        """
+        raw_terminal.career.shift = 1
+        raw_terminal.career.reports_closed = 0
+        raw_terminal.settings.set('game.ambience', 'off')
+        raw_terminal.execute_command('report')
+        assert raw_terminal._situation() != 'first'
+
+    def test_help_says_it_is_there(self, working):
+        assert "'hint'" in working.execute_command('help')
+
+    def test_the_manual_documents_the_cost(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        assert 'One minute of the shift' in MAN_PAGES['hint']

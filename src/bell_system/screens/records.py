@@ -14,6 +14,8 @@ report desk, the qualifications on the career record. These are views.
 from datetime import timedelta
 from typing import Dict, List, Optional, Tuple
 
+from ..console import wrap
+from ..data.regulars import REGULARS
 from ..progression import QUALIFICATIONS
 from .session import SessionState
 
@@ -96,6 +98,14 @@ class RecordsCommands(SessionState):
                 "TROUBLE HISTORY",
                 f"  Reports         {card.report_count}",
                 f"  Repeats         {card.repeat_count}"]
+        # One of the four the bureau knows by heart. The note is what the
+        # last craftsperson wrote on the card, and it is the difference
+        # between a number and somebody you have been out to.
+        known = REGULARS.get(record.regular or '')
+        if known is not None:
+            rows.append(f"  Known since     {known.since}")
+            rows.append('')
+            rows.extend(f"  {line}" for line in wrap(known.note, 58))
         if card.is_chronic():
             rows.append("  CHRONIC - this line has reported often enough "
                         "that the")
@@ -118,6 +128,8 @@ class RecordsCommands(SessionState):
                 f"  {'NUMBER':<16}{'REPORTS':>8}  NAME"]
         for number, card in sorted(cards.items()):
             flag = ' CHRONIC' if card.is_chronic() else ''
+            if card.record.regular:
+                flag += ' (known)'
             rows.append(f"  {number:<16}{card.report_count:>8}  "
                         f"{card.record.name}{flag}")
         rows.extend(['', "custdb <number> for one of them."])

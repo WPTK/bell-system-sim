@@ -1882,6 +1882,40 @@ NOTES
 SEE ALSO
      testboard(1), trunk(1), mlt(1)
 """,
+    "hint": """
+NAME
+     hint - ask somebody, and ask again if that was not enough
+
+SYNOPSIS
+     hint
+
+DESCRIPTION
+     Somewhere between the board and the manual there is a gap a manual
+     cannot close, which is not knowing what to do next. This is for
+     that. It looks at what is actually in front of you and puts somebody
+     on write(1) about it.
+
+     Ask again and you get more. There are three levels to any situation
+     and they come out one at a time: Vasquez on the testboard gives you
+     a nudge, then you are sent to read something that exists on this
+     machine, then Halloran tells you outright and is short about it,
+     because by then you have asked three times.
+
+     The level starts over whenever the situation changes, so moving on
+     to a different problem starts you at the beginning of that one
+     rather than at the end of the last.
+
+COST
+     One minute of the shift, on top of the minute any command at this
+     terminal costs. Nothing else. Asking does not count against the
+     service index and it is not kept on the craft record: being stuck is
+     already the penalty, and a hint that costs more than that is a hint
+     nobody uses.
+
+SEE ALSO
+     help(1), report(1), qual(1), man(1)
+""",
+
     "qual": """
 NAME
      qual - craft record, qualifications and service index

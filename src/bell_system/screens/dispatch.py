@@ -201,6 +201,7 @@ class CommandDispatch:
         'mlt': self.cmd_mlt,
         'testline': self.cmd_testline,
         'qual': self.cmd_qual,
+        'hint': self.cmd_hint,
         'write': self.cmd_write,
         'mail': self.cmd_mail,
         'orderwire': self.cmd_orderwire,

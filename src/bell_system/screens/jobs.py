@@ -257,10 +257,21 @@ class JobCommands(SessionState):
         return "Password:\nsu: Sorry"
 
     def _sulog(self, line: str) -> None:
-        """Append one line to the su log."""
-        existing = self._read('/usr/adm/sulog') or ''
-        self.filesystem['/usr/adm/sulog'] = self.filesystem[
-            '/usr/adm/sulog']._replace(content=existing + line + '\n')
+        """
+        Append one line to the su log.
+
+        Reads the node rather than going through _read, because the log
+        denies the rest of the machine and the machine is not the rest of
+        the machine. Going the polite way here silently emptied the file
+        for anybody who could not read it, which is every craftsperson the
+        wire chief has not yet put in the adm group.
+        """
+        node = self.filesystem.get('/usr/adm/sulog')
+        if node is None or node.is_dir:
+            return
+        existing = node.content if isinstance(node.content, str) else ''
+        self.filesystem['/usr/adm/sulog'] = node._replace(
+            content=existing + line + '\n')
 
     def cmd_logname(self, args: Optional[List[str]] = None) -> str:
         """Print the name you logged in under."""
