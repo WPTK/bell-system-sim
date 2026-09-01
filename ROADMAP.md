@@ -231,25 +231,36 @@ using UNIX at work in 1983 and the toolkit was half there.
       thirty-two with two mistakes. That is correct for a repair index and
       is now said out loud, with closed and carried printed beside it.
 
-### R5a — What is different about each position · **started**
+### R5a — What is different about each position · **done**
 
 The answer used to be: the help text, one qualification, and a home
 directory that did not exist for eleven of the twelve.
 
 - [x] Twelve homes, each with a `.profile` that opens the desk on its own
-      work and a file left by whoever sat there last. That file is where a
-      good deal of what you need to know about the job actually lives
+      work and a file left by whoever sat there last
 - [x] The role logins are in `/etc/passwd`
-- [ ] **Different work, not just a different opening.** The board is the
-      same twelve ways. A radio position should be handed radio troubles, a
-      special services position should be handed circuits. The report
-      generator already knows about fault categories; the positions do not
-      read them
-- [ ] **Different people talking to you.** The order wire and the NPC
-      chatter are the same regardless of desk. A TSPS operator should hear
-      from operators
-- [ ] **Different measure of a good tour.** The repair index is a repair
-      measure. A planning desk is not judged on commitments met
+- [x] **Different work.** One table, `data/positions.py`, read at seams that
+      already existed. `fault_bias` is a multiplier and never a filter — a
+      switching desk sees false cross and ground go from 9.7 to 19.9 per
+      cent over six thousand draws, and every fault stays reachable at
+      every desk. Board depth is the only lever on volume: measuring showed
+      the board runs saturated, so the arrival rate does nothing and
+      scaling it only removed tickets. Ticket categories are a preference,
+      not a filter.
+- [x] **Different people.** Forty-eight lines, four per desk, added to the
+      shared pool rather than replacing it — a docprep desk still hears
+      CAROT at three in the morning, it just also hears Petrak on the
+      difference between an addendum and a revision. Four craft added,
+      three of whom already existed elsewhere in the tree with no voice.
+- [x] **Different measure.** NSPMP measures a switching machine and eight
+      of these desks are not one, so the table names a component where one
+      fits and says plainly that none covers the rest. A tour account in
+      the handoff, read from counters that already existed — a tally and
+      not a second score, and it says so.
+
+Found on the way: `Switchroom` was silently discarding 40 per cent of every
+ambient message it generated, and 99.7 per cent of the older hands' advice,
+because the dedup window was larger than the advice pool. Fixed separately.
 
 ### R6 — More than one office · weeks
 
