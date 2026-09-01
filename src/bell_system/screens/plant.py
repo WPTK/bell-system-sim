@@ -12,11 +12,16 @@ where the entries say so. Anything the sources consulted do not settle is
 absent rather than guessed at, which is why the table is short.
 """
 
+import os
 import random
 from typing import Dict, List, NamedTuple, Optional
 
 from ..data.trouble import DISPATCH_FORCES
 from ..field import CREWS, LOCATIONS
+from ..data.signaling import PROGRESS_TONES
+from ..data.switching import SWITCHING_SYSTEMS
+from ..settings import state_dir
+from .. import tones
 from ..weather import CONDITIONS
 from .session import SessionState
 
@@ -562,4 +567,165 @@ microwave(1), radio(1), trace(1)
                         "customer's commitment.")
         else:
             rows.append("Somebody is free on every category.")
+        return '\n'.join(rows)
+
+    # -- tone(1) ----------------------------------------------------------
+
+    def cmd_tone(self, args: Optional[List[str]] = None) -> str:
+        """
+        Write a signalling tone to a file you can listen to.
+
+        Every frequency, level and cadence in the tone plan has been in
+        this simulation's data since it was written, described in words and
+        never heard. A craftsperson told a busy from a reorder by ear -
+        they are the same two frequencies and differ only in how fast they
+        are interrupted - and reading that off a table is not the same
+        skill.
+
+        ``tone`` lists what can be made. ``tone busy`` writes it. ``tone mf
+        KP212ST`` pulses an address the way a switch would, and ``tone dtmf
+        5551212`` the way a Touch-Tone set would.
+        """
+        args = args or []
+        if not args or args[0] in ('list', '-l'):
+            return self._tone_listing()
+
+        normalise = '-n' in args
+        rest = [item for item in args if not item.startswith('-')]
+        what = rest[0].lower()
+        argument = rest[1] if len(rest) > 1 else None
+
+        try:
+            samples = tones.render(what, argument, seconds=3.0)
+        except KeyError:
+            return (f"tone: {rest[0]}: nothing of that name.\n"
+                    f"tone with no argument lists what can be made.")
+
+        # A wave file is not something this machine could have made, so it
+        # does not go in the simulated tree. It goes where the rest of this
+        # session's real files go, and the path printed is a real one you
+        # can play.
+        folder = os.path.join(state_dir(), 'tones')
+        name = f"{what}{'-' + argument if argument else ''}.wav"
+        try:
+            os.makedirs(folder, exist_ok=True)
+            path = tones.write(os.path.join(folder, name), samples,
+                               normalise=normalise)
+        except OSError as problem:
+            return f"tone: cannot write {name}: {problem}"
+
+        seconds = len(samples) / tones.SAMPLE_RATE
+        rows = [f"tone: wrote {path}",
+                f"      {seconds:.2f} seconds, "
+                f"{tones.SAMPLE_RATE} samples a second, "
+                f"{tones.SAMPLE_WIDTH * 8} bit"]
+        if what in PROGRESS_TONES:
+            rows.append(f"      {PROGRESS_TONES[what].describe()}")
+            rows.append(f"      {PROGRESS_TONES[what].meaning}")
+        if normalise:
+            rows.append("      normalised for listening: the levels in the "
+                        "table are")
+            rows.append("      relative to each other and a busy tone is "
+                        "genuinely quiet.")
+        rows.append('')
+        rows.append("A wave file is not something this machine could make. "
+                    "It is written")
+        rows.append("outside the simulation, where you can play it.")
+        return '\n'.join(rows)
+
+    def _tone_listing(self) -> str:
+        """Everything that can be rendered."""
+        rows = ["SIGNALLING TONES", self.clock.timestamp(), '=' * 62, '',
+                "A craftsperson identified a call's fate by ear. Busy and",
+                "reorder are the same two frequencies and differ only in "
+                "how fast",
+                "they are interrupted, which is the whole reason the tone "
+                "plan is",
+                "precise.",
+                '',
+                f"  {'NAME':<14}WHAT IT IS",
+                '  ' + '-' * 58]
+        for name, description in tones.catalogue():
+            rows.append(f"  {name:<14}{description[:44]}")
+        rows.extend([
+            '  ' + '-' * 58, '',
+            "  tone <name>            write it here as a wave file",
+            "  tone mf KP212ST        an address pulsed the way a switch "
+            "would",
+            "  tone dtmf 5551212      the way a Touch-Tone set would",
+            "  tone <name> -n         normalised, for listening",
+            '',
+            "Levels are those in the tone plan and are relative to each "
+            "other,",
+            "so a busy tone really does render eleven dB below dial tone.",
+        ])
+        return '\n'.join(rows)
+
+    # -- era(1) -----------------------------------------------------------
+
+    def cmd_era(self, args: Optional[List[str]] = None) -> str:
+        """
+        What network the date you are set to actually produces.
+
+        The epoch is a setting, and moving it moves the plant: a shift set
+        to 1955 finds step-by-step and crossbar and no electronic switching
+        anywhere, because no ESS had entered service. That is not a
+        decoration - the office generator reads the first-service year of
+        every system and will not place one that does not exist yet.
+
+        What does NOT move is the writing. The message of the day, the
+        divestiture memo and the netnews spool are November 1983, and this
+        says so rather than letting you find out by reading a 1984
+        divestiture notice on a 1955 machine.
+        """
+        year = self.clock.now().year
+        kinds: Dict[str, int] = {}
+        for office in self.central_offices.values():
+            kinds[office['switch_type']] = kinds.get(office['switch_type'], 0) + 1
+
+        rows = [f"THE NETWORK IN {year}", self.clock.timestamp(),
+                '=' * 62, '',
+                f"  {len(self.central_offices):,} offices in the numbering "
+                f"plan this session loaded.", '',
+                f"  {'SYSTEM':<10}{'IN SERVICE':<13}{'OFFICES':>9}   NAME",
+                '  ' + '-' * 58]
+        for code, count in sorted(
+                kinds.items(),
+                key=lambda item: SWITCHING_SYSTEMS[item[0]].first_service):
+            system = SWITCHING_SYSTEMS[code]
+            rows.append(f"  {code:<10}{system.first_service:<13}{count:>9}"
+                        f"   {system.name}")
+        rows.append('  ' + '-' * 58)
+
+        absent = [code for code, system in SWITCHING_SYSTEMS.items()
+                  if system.first_service > year]
+        rows.append('')
+        if absent:
+            rows.append("NOT YET BUILT")
+            for code in absent:
+                system = SWITCHING_SYSTEMS[code]
+                rows.append(f"  {code:<10}{system.first_service}   "
+                            f"{system.name}")
+            rows.append('')
+            rows.append("The office generator reads the first-service year "
+                        "of every system")
+            rows.append("and will not place one that does not exist yet.")
+        else:
+            rows.append("Every system in the table is in service by "
+                        f"{year}.")
+
+        if year != 1983:
+            rows.extend([
+                '',
+                "WHAT HAS NOT MOVED WITH YOU",
+                '=' * 62,
+                "The plant follows the date. The writing does not. The "
+                "message of the",
+                "day, /usr/doc/divestiture and the netnews spool are all "
+                "November 1983,",
+                f"so a shift set to {year} is a {year} network with 1983 "
+                f"words on it.",
+                '',
+                "'set date.epoch 1983-11-14' puts them back together.",
+            ])
         return '\n'.join(rows)

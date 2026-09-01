@@ -143,6 +143,8 @@ class CommandDispatch:
         'force': self.cmd_force,
         'connect': self.cmd_connect,
         'company': self.cmd_company,
+        'tone': self.cmd_tone,
+        'era': self.cmd_era,
         'billing': self.cmd_billing,
         'service': self.cmd_service,
         'operator': self.cmd_operator,

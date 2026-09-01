@@ -113,6 +113,9 @@ is the index of those.
 | ANAC reads back the calling number; a 102-type line is a milliwatt supply at 1004 Hz and 0 dBm; a 100-type line is a quiet termination; a loop around is a pair of numbers, one toned and one silent | `src/bell_system/data/testlines.py` | Plant test number practice. The dialable codes are **not** claimed: they were local to each office, and the module says so |
 | Western Electric equipment in-service years (302, 500, 1500, 2500, 1A2, No. 1 and No. 5 crossbar, 1ESS, 1AESS, 4ESS, 5ESS, T1, D4, L4, TD-2, TH-3) | `src/bell_system/screens/plant.py` | Published Bell System equipment history. Anything the sources consulted did not settle is absent from the table rather than guessed at |
 
+| The divestiture assignment: twenty-one wholly owned operating companies, two AT&T held a minority of (SNET, Cincinnati Bell), Nevada Bell wholly owned by Pacific Telephone, four Chesapeake and Potomac companies, and the Pacific Telesis / Ameritech / Bell Atlantic groupings in full | `src/bell_system/data/companies.py`, `company(1)` | Engineering and Operations in the Bell System, 2nd ed. 1984, figure 1-9 and the surrounding text — quoted in the module |
+| The NYNEX, BellSouth, Southwestern Bell and US West groupings | the same table | Externally sourced; the book's OCR of figure 1-9 gives only three groupings in full. Each is marked `verified=False` and prints a `?` in `company all` |
+
 ### What was looked for and not found
 
 Recorded so that nobody repeats the search, and so that nothing was
@@ -131,6 +134,13 @@ invented to fill the gap:
 - **A wire centre's actual field force size.** No source consulted fixes a
   number, so `src/bell_system/field.py` uses five as a working figure and
   says why.
+- **Documented differences in equipment mix between operating companies.**
+  The roadmap asked for per-company character drawn from these. Neither the
+  bundled documents nor anything reachable from here establishes how one
+  operating company's crossbar-to-ESS mix differed from another's.
+  `data/companies.py` says so, and uses the divestiture assignment instead
+  — which is documented, and is what people in those buildings actually
+  knew about their own company in November 1983.
 
 ## What does not ship
 

@@ -8,7 +8,6 @@ buildings on one console, each with its own alarms, each belonging to an
 operating company that goes somewhere specific in forty-eight days.
 """
 
-import random
 
 import pytest
 

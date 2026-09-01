@@ -262,16 +262,27 @@ Found on the way: `Switchroom` was silently discarding 40 per cent of every
 ambient message it generated, and 99.7 per cent of the older hands' advice,
 because the dedup window was larger than the advice pool. Fixed separately.
 
-### R6 — More than one office · weeks
+### R6 — More than one office · **done**
 
-The unfinished half of the original P5:
-
-- [ ] `connect <clli>` to work a remote office from the switching control
-      centre, which is what the SCC qualification is supposed to mean
-- [ ] Per-operating-company character — Pacific Bell, Illinois Bell,
-      Southern Bell — drawn from documented differences in equipment mix and
-      practice, not invented flavour
-- [ ] The SCC assigning you an office for the shift
+- [x] `connect <clli>` reaches another building from the console — by code,
+      by place, or by its number in the listing. Each office has its own
+      alarms and its own health, generated from its CLLI so two looks
+      agree, with identifiers of its own so acknowledging one building's
+      alarm does not touch another's. The trouble board deliberately does
+      not travel: a loop lands on one frame, which is why a control centre
+      could watch eleven offices and a repair bureau could not.
+- [x] Per-operating-company character — **not** equipment mix, which
+      turned out not to be gettable from any source reachable here.
+      `company(1)` gives the twenty-one operating companies and the seven
+      regional holding companies they pass to on 1 January 1984, which is
+      documented, is the better answer, and is the one thing everybody in
+      those buildings actually knew about their own company that autumn.
+      Three of the seven groupings are quoted from Engineering and
+      Operations; the other four are marked `?` as externally sourced.
+- [x] The SCC assigns you an office for the tour, picking the worst
+      building on the console that is not the one you are sitting in.
+      `connect` is now what the SCC sign-off unlocks — it previously paid
+      out in two commands that both stayed in your own building.
 
 ### R7 — Fidelity settings still on the table · **done**
 
@@ -292,11 +303,32 @@ The unfinished half of the original P5:
 
 ### R8 — Stretch
 
-- [ ] Tone synthesis: MF, DTMF and SF rendered as audio through the standard
-      library's `wave`, or a browser front end with Web Audio
-- [ ] Multi-user: a shared board over sockets, order wire between real people
-- [ ] A second era: the same engine at 1955 or 1995 is a different network,
-      and the switching data already carries service dates
+- [x] **Tone synthesis.** `tone(1)` renders the Precise Tone Plan, MF
+      address pulsing, Touch-Tone and 2600 Hz supervision to wave files
+      through the standard library. Nothing invents a frequency: every
+      value comes from `data/signaling.py`, and the relative levels are
+      exact — busy really does render eleven dB below dial tone, because
+      it is. `-n` normalises for listening, which changes the file and not
+      the table. Busy and reorder are the same two frequencies at
+      different rates, which is the distinction a craftsperson made by ear
+      and cannot be read off a page.
+- [x] **A second era**, for the network. Already substantially built: the
+      office generator reads each system's first-service year, so 1955
+      gives step-by-step and crossbar with no ESS anywhere, and 1971 gives
+      the first two. `era(1)` reports what the date produces and, when the
+      epoch is moved, says plainly that the writing did not move with it.
+- [ ] **A second era, for the fiction.** The plant follows the date; the
+      message of the day, the divestiture memo and the netnews spool do
+      not. That is a content job rather than an engine one, and it is
+      substantial: the divestiture framing is the emotional centre of the
+      game, so a second era needs its own centre rather than a date swap.
+- [ ] **Multi-user: not built, deliberately.** A shared board over sockets
+      is a large build — concurrency, a protocol, persistence, session
+      recovery — and the payoff for a single-player period simulator is
+      unclear. The order wire between real people is the appealing half;
+      the shared board is the expensive half and the one that would make
+      every existing test conditional on a network. Recorded here as
+      considered and declined rather than left looking unfinished.
 
 ---
 

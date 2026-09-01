@@ -4066,4 +4066,76 @@ EXAMPLES
 SEE ALSO
      connect(1), coer(1)
 """,
+    "tone": """
+NAME
+     tone - write a signalling tone to a file you can listen to
+
+SYNOPSIS
+     tone
+     tone name [-n]
+     tone mf digits
+     tone dtmf digits
+
+DESCRIPTION
+     Every frequency, level and cadence in the tone plan has been in this
+     simulation's data since it was written, described in words and never
+     heard. A craftsperson told a busy from a reorder by ear - they are the
+     same two frequencies, 480 and 620 Hz, and differ only in how fast they
+     are interrupted, sixty a minute against a hundred and twenty. That is
+     not a distinction you can read off a table.
+
+     With no argument, list what can be made.
+
+OPTIONS
+     -n    Normalise for listening. The levels in the tables are relative
+           to each other and honest, which makes a busy tone genuinely
+           quiet: it is eleven dB below dial tone because it is. This
+           changes the file, not the table.
+
+EXAMPLES
+     tone busy               the tone, cadence and all
+     tone reorder            the same frequencies, twice the rate
+     tone howler             0 dBm, and meant to be unbearable
+     tone mf KP212ST         an address pulsed as a switch would
+     tone dtmf 5551212       as a Touch-Tone set would
+     tone sf                 2600 Hz, a seizure, and the tone returning
+
+     A wave file is not something a 1983 machine could have made. It is
+     written outside the simulation, in this session's own directory, and
+     the path printed is a real one.
+
+SEE ALSO
+     dialtone(1), testline(1), testcall(1), trunk(1)
+""",
+    "era": """
+NAME
+     era - what network the date you are set to produces
+
+SYNOPSIS
+     era
+
+DESCRIPTION
+     The epoch is a setting, and moving it moves the plant. A shift set to
+     1955 finds step-by-step and crossbar and no electronic switching
+     anywhere, because no ESS had entered service. A shift set to 1971
+     finds the first No. 1 and No. 2 ESS machines among a network still
+     mostly step-by-step.
+
+     That is not decoration. The office generator reads the first-service
+     year of every switching system and will not place one that does not
+     exist yet, so the network genuinely is a different network.
+
+     What does not move is the writing. The message of the day, the
+     divestiture memo and the netnews spool are November 1983. era says so
+     rather than letting you discover it by reading a 1984 divestiture
+     notice on a 1955 machine.
+
+EXAMPLES
+     set date.epoch 1955-06-14
+     era
+     set date.epoch 1983-11-14
+
+SEE ALSO
+     set(1), switch(1), crossbar(1), western(1), company(1)
+""",
 }
