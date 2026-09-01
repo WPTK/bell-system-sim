@@ -72,6 +72,7 @@ from .screens.filters import FilterCommands
 from .screens.jobs import JobCommands
 from .screens.plant import PlantCommands
 from .screens.position import PositionCommands
+from .screens.remote import RemoteCommands
 from .screens.records import RecordsCommands
 from .screens.shift import ShiftCommands
 from .screens.shell import ShellCommands
@@ -143,6 +144,7 @@ class BellSystemTerminal(
     JobCommands,
     PlantCommands,
     PositionCommands,
+    RemoteCommands,
     RecordsCommands,
     GameCommands,
     DocPrepCommands,
@@ -237,6 +239,12 @@ class BellSystemTerminal(
         # generator below runs before that, which is why the board a shift
         # opens with is dealt the same for everybody.
         self.position = neutral_position(None)
+        # The office this console is connected to, if it is on somebody
+        # else's. None means the building you are sitting in.
+        self.remote_office: Optional[Dict[str, Any]] = None
+        self._watched: Optional[List[Dict[str, Any]]] = None
+        self._office_alarms: Dict[str, List[Dict[str, Any]]] = {}
+        self._scc_assigned: Optional[str] = None
         self._initialize_processes()
         self._initialize_users()
         self._initialize_shift_handoff()

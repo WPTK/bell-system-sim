@@ -3992,4 +3992,78 @@ DESCRIPTION
 SEE ALSO
      report(1), lmos(1), trouble(1), weather(1)
 """,
+    "connect": """
+NAME
+     connect - work another office from this console
+
+SYNOPSIS
+     connect
+     connect clli
+     connect home
+
+DESCRIPTION
+     A switching control centre watches a group of offices from one
+     console. This is that: reach another building by its CLLI code, by the
+     start of its city name, or by its number in the listing.
+
+     With no argument, list the offices this console watches and mark the
+     one you are on. connect home comes back.
+
+     While connected, alarm(1) reads the office you are connected to, which
+     has its own alarms and its own health. Acknowledging one office's
+     alarm does not touch another's.
+
+     The trouble board does NOT travel. A customer loop lands on exactly
+     one frame in one building, so its report stays there. What travels is
+     everything above the loop: the switching machine, its alarms and its
+     records. That division is not a simplification - it is why a control
+     centre could watch eleven offices and a repair service bureau could
+     not.
+
+EXAMPLES
+     connect                       what is on the console
+     connect NWRKNJCOCG0          by code
+     connect Newark               by place
+     connect home                 back to the building you can walk to
+
+SEE ALSO
+     alarm(1), switch(1), coer(1), company(1), sarts(1)
+""",
+    "company": """
+NAME
+     company - whose office this is, and where it goes in January
+
+SYNOPSIS
+     company
+     company state
+     company all
+
+DESCRIPTION
+     AT&T was sole stockholder in twenty-one operating companies and a
+     minority stockholder in two. On 1 January 1984 the twenty-one pass to
+     seven regional holding companies.
+
+     With no argument, the company running the office this console is on.
+     With a two-letter state code, that state's. With all, the whole table.
+
+     This is the one thing everybody in every one of these buildings
+     actually knew about their own company in the autumn of 1983.
+
+     Connecticut and Cincinnati are absent from the table because AT&T held
+     only a minority stake in Southern New England Telephone and Cincinnati
+     Bell. They do not divest.
+
+     An entry marked ? has its regional assignment from outside the bundled
+     documents. Engineering and Operations gives three of the seven
+     groupings in full - Pacific Telesis, Ameritech and Bell Atlantic - and
+     the rest are externally sourced.
+
+EXAMPLES
+     company all
+     company IL
+     company CT
+
+SEE ALSO
+     connect(1), coer(1)
+""",
 }

@@ -144,7 +144,10 @@ QUALIFICATIONS: List[Qualification] = [
         'Remote administration of offices from the control centre, and the '
         'teletype traffic they generate.',
         requires_reports=4,
-        unlocks=('sarts', 'orderwire'),
+        # connect(1) is what this sign-off is actually for. It said
+        # "remote administration of offices from the control centre" and
+        # paid out in two commands that stay in your own building.
+        unlocks=('sarts', 'orderwire', 'connect'),
     ),
     Qualification(
         'trunk', 'Interoffice Trunks',

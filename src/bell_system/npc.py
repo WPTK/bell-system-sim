@@ -551,6 +551,27 @@ class Switchroom:
             kind='weather', subject='Weather', about=None,
         ))
 
+    def office_assignment(self, now: datetime, clli: str, city: str,
+                          trouble: str, standing: int) -> Message:
+        """
+        The control centre putting an office on you for the tour.
+
+        This is what the switching control centre sign-off is for: one
+        maintenance administrator watching a group of buildings and handing
+        one out when it wants looking at.
+        """
+        return self._deliver(Message(
+            channel=CHANNEL_ORDERWIRE, sender='dpetrak', received=now,
+            lines=[
+                'SCC to office.',
+                f'{clli} at {city} is yours for the tour. {standing} '
+                f'alarm{"" if standing == 1 else "s"} standing,',
+                f'the one that matters is {trouble}.',
+                f"'connect {clli}' when you have a gap.",
+            ],
+            kind='office', subject=f'{clli} assigned', about=clli,
+        ))
+
     def ticket_assignment(self, now: datetime, ticket_id: str, title: str,
                           priority: str, office: str) -> Message:
         """The switching control centre putting a trouble ticket on you."""

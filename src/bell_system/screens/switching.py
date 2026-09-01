@@ -890,12 +890,20 @@ Training Requirements:       Technician retraining program active"""
 
         return performance_output
     def cmd_alarm(self, args: List[str]) -> str:
-        """Central office alarm monitoring and acknowledgement."""
-        health = self.system_health
+        """
+        Central office alarm monitoring and acknowledgement.
+
+        Reads whichever office the console is connected to. An SCC watches
+        eleven buildings and they are not all in the same state, which is
+        the whole reason to have one.
+        """
+        office = self.current_office()
+        health = self.office_health(office)
+        standing = self.office_alarms(office)
 
         if args and args[0] == "ack" and len(args) > 1:
             alarm_id = args[1].upper()
-            for alarm in self.active_alarms:
+            for alarm in standing:
                 if alarm["id"] == alarm_id:
                     if alarm["acknowledged"]:
                         return f"alarm: {alarm_id} was already acknowledged."
@@ -917,6 +925,7 @@ The alarm remains active until the condition clears."""
                     "Available commands: status, list, ack <alarm-id>" % args[0])
 
         output = f"""Bell System Central Office Alarm Monitor
+{office['clli']} - {office['city']}
 {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
 {'=' * 50}
 
@@ -932,11 +941,11 @@ Last Service Outage:      {health['last_outage'].strftime('%B %d, %Y')}
 ACTIVE ALARMS
 {'=' * 40}"""
 
-        if not self.active_alarms:
+        if not standing:
             output += "\nNo active alarms. All monitored systems normal."
         else:
             for alarm in sorted(
-                self.active_alarms,
+                standing,
                 key=lambda a: {'CRITICAL': 0, 'MAJOR': 1, 'MINOR': 2}[a['severity']]
             ):
                 age = int((self.clock.now() - alarm['timestamp']).total_seconds() / 60)
@@ -948,12 +957,12 @@ ACTIVE ALARMS
   Raised:             {alarm['timestamp'].strftime('%H:%M EST')} ({age} minutes ago)
   Acknowledged:       {'YES' if alarm['acknowledged'] else 'NO - REQUIRES ATTENTION'}"""
 
-        unacknowledged = [a for a in self.active_alarms if not a['acknowledged']]
+        unacknowledged = [a for a in standing if not a['acknowledged']]
         output += f"""
 
 SUMMARY
 {'=' * 40}
-Total Active:             {len(self.active_alarms)}
+Total Active:             {len(standing)}
 Awaiting Acknowledgement: {len(unacknowledged)}
 
 Commands:

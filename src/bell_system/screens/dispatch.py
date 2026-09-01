@@ -141,6 +141,8 @@ class CommandDispatch:
         'capacity': self.cmd_capacity,
         'weather': self.cmd_weather,
         'force': self.cmd_force,
+        'connect': self.cmd_connect,
+        'company': self.cmd_company,
         'billing': self.cmd_billing,
         'service': self.cmd_service,
         'operator': self.cmd_operator,

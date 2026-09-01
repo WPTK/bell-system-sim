@@ -537,6 +537,15 @@ this shift and the next one starts on a fresh board."""
                 report.record.telephone_number, report.symptom, committed,
             ), self._stamp()))
 
+        # The control centre hands out an office, once, to somebody signed
+        # off to work one. This is the switching control centre
+        # qualification actually paying out in work rather than in screens.
+        if (self.career.may_use('connect')
+                and random.random() < difficulty.interruption_rate * 0.4):
+            assigned = self.scc_assignment()
+            if assigned:
+                pieces.append(assigned)
+
         # Anything at(1) queued for this minute runs now. A job the operator
         # asked for is not ambience and is not suppressed by turning ambience
         # off: they asked for it, so they get it.

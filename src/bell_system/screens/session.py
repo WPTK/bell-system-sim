@@ -154,6 +154,11 @@ class SessionState:
     # The desk this session is sitting at. Neutral until a role is taken,
     # and neutral is what every session did before positions differed.
     position: Any
+    # The office this console has connected to, and the group it watches.
+    remote_office: Optional[Any]
+    _watched: Optional[List[Any]]
+    _office_alarms: Dict[str, List[Any]]
+    _scc_assigned: Optional[str]
     users: List[Dict[str, str]]
     project_numbers: Dict[str, Any]
     rate_structures: Dict[str, Any]
@@ -249,6 +254,38 @@ class SessionState:
 
     def position_measure(self) -> List[str]:
         """What this desk is judged on, and what it is not."""
+        raise NotImplementedError
+
+    def current_office(self) -> Any:
+        """The office the machine-side screens should be reading."""
+        raise NotImplementedError
+
+    def office_is_remote(self) -> bool:
+        """Whether the console is on somebody else's office."""
+        raise NotImplementedError
+
+    def remote_banner(self) -> str:
+        """One line marking a screen that is showing another building."""
+        raise NotImplementedError
+
+    def watched_offices(self) -> List[Any]:
+        """The offices this control centre has on its console."""
+        raise NotImplementedError
+
+    def company_note(self, state: str) -> List[str]:
+        """Whose office this is, and where it goes in January."""
+        raise NotImplementedError
+
+    def office_alarms(self, office: Any) -> List[Any]:
+        """The alarms standing in a given office."""
+        raise NotImplementedError
+
+    def office_health(self, office: Any) -> Any:
+        """Counted from whatever is standing in that office."""
+        raise NotImplementedError
+
+    def scc_assignment(self) -> Optional[str]:
+        """The control centre putting an office on you for the tour."""
         raise NotImplementedError
 
     def _queue_message(self, message: Any, after: int) -> None:
