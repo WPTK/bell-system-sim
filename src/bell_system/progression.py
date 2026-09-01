@@ -313,14 +313,20 @@ class Career:
 
         return max(0.0, round(100.0 - penalty, 1))
 
-    def office_contribution(self) -> float:
+    def office_contribution(self, component: str = 'customer_reports') -> float:
         """
         Return what this performance is worth to the office's own index.
 
         Customer reports carry ten of the plan's hundred points. This is that
         share, earned in proportion to the score above.
+
+        Args:
+            component: Which of the plan's ten components to weigh this
+                against. Only a desk the plan actually covers passes
+                anything but the default; most of the twelve positions are
+                outside its scope and say so rather than borrowing a key.
         """
-        weight = NSPMP_WEIGHTS['customer_reports']
+        weight = NSPMP_WEIGHTS.get(component, NSPMP_WEIGHTS['customer_reports'])
         return round(weight * self.service_index() / 100.0, 1)
 
     def index_band(self) -> str:

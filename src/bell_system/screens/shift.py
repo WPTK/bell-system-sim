@@ -10,6 +10,7 @@ from typing import (
     List,
     Optional,
 )
+from ..data.shift_events import build as build_shift_events
 from ..npc import (
     CRAFT,
     Message,
@@ -53,203 +54,15 @@ class ShiftCommands(SessionState):
         }
     def generate_shift_events(self) -> None:
         """
-        Generate authentic Bell System operational events with ticket numbers.
+        Put the shift's scheduled work, tests and known conditions on the
+        board.
 
-        Creates realistic operational events based on time of day, season,
-        and historical Bell System operations patterns. Each event has an
-        assigned ticket number for detailed investigation.
+        The catalogue is reference data and lives in data/shift_events.py;
+        what is here is when to ask for it. Re-run at every shift change,
+        which is why it is safe to call again once a position is taken.
         """
-        current_hour = self.clock.now().hour
-        current_month = self.clock.now().month
-
-        # Base events that occur during any shift with ticket numbers
-        base_events = [
-            {
-                "id": "EV-8001",
-                "time": "08:15",
-                "type": "SYSTEM",
-                "title": "Routine trunk group monitoring TG-023 to TG-067",
-                "priority": "LOW",
-                "status": "MONITORING",
-                "description": "Daily trunk group performance monitoring cycle initiated",
-                "details": "All 45 trunk groups showing normal utilization. TG-023 at 67%, TG-045 at 73%, TG-067 at 58%. No blocking events detected.",
-                "actions": ["Review hourly reports", "Monitor for threshold violations", "Document performance metrics"]
-            },
-            {
-                "id": "EV-8002",
-                "time": "08:30",
-                "type": "SYSTEM",
-                "title": "UUCP queue processing - 47 files transferred",
-                "priority": "LOW",
-                "status": "COMPLETE",
-                "description": "UNIX-to-UNIX Copy network file transfer cycle",
-                "details": "Overnight UUCP queue processed successfully. 47 files transferred between Bell Labs sites. Queue depth now at normal levels.",
-                "actions": ["Verify transfer logs", "Check for failed transfers", "Archive completed jobs"]
-            },
-            {
-                "id": "EV-8003",
-                "time": "08:45",
-                "type": "TEST",
-                "title": "Emergency services test call verification completed",
-                "priority": "MEDIUM",
-                "status": "COMPLETE",
-                "description": "Daily test of emergency service routing",
-                "details": "All 911 emergency routing paths tested successfully. Average setup time 1.8 seconds, all within specifications.",
-                "actions": ["Document test results", "Report to emergency services coordinator", "Schedule next test cycle"]
-            }
-        ]
-
-        # Time-specific events
-        time_events = []
-        if 6 <= current_hour < 14:  # Day shift
-            time_events = [
-                {
-                    "id": "EV-8010",
-                    "time": "09:15",
-                    "type": "MAINTENANCE",
-                    "title": "5ESS system cutover preparation scheduled 14:30",
-                    "priority": "HIGH",
-                    "status": "PENDING",
-                    "description": "Electronic switching system cutover coordination",
-                    "details": "5ESS-NYC-002 cutover from test to production. Requires coordination with traffic engineering and field operations.",
-                    "actions": ["Verify test results", "Coordinate with NOC", "Prepare rollback procedures", "Brief field technicians"]
-                },
-                {
-                    "id": "EV-8011",
-                    "time": "10:00",
-                    "type": "MEETING",
-                    "title": "Network planning meeting NP-8301 at 10:00",
-                    "priority": "MEDIUM",
-                    "status": "SCHEDULED",
-                    "description": "Northeast Corridor Expansion Project review",
-                    "details": "Quarterly review of NP-8301 project milestones. Discussion of capacity requirements and timeline adjustments.",
-                    "actions": ["Prepare traffic analysis reports", "Review budget status", "Present capacity forecasts"]
-                }
-            ]
-        elif 14 <= current_hour < 22:  # Evening shift
-            time_events = [
-                {
-                    "id": "EV-8020",
-                    "time": "15:30",
-                    "type": "TRAFFIC",
-                    "title": "Peak traffic period - all trunk groups monitored",
-                    "priority": "HIGH",
-                    "status": "ACTIVE",
-                    "description": "Daily peak traffic management",
-                    "details": "Evening calling peak approaching. All trunk groups under enhanced monitoring. TG-023 approaching 85% capacity.",
-                    "actions": ["Monitor trunk utilization", "Prepare overflow routing", "Coordinate with traffic engineering"]
-                },
-                {
-                    "id": "EV-8021",
-                    "time": "16:00",
-                    "type": "TRAINING",
-                    "title": "TSPS operator training session 16:00-17:30",
-                    "priority": "MEDIUM",
-                    "status": "SCHEDULED",
-                    "description": "Traffic Service Position System operator certification",
-                    "details": "Monthly TSPS operator training on new procedures and emergency protocols.",
-                    "actions": ["Prepare training materials", "Coordinate with training department", "Document attendance"]
-                }
-            ]
-        else:  # Night shift
-            time_events = [
-                {
-                    "id": "EV-8030",
-                    "time": "02:30",
-                    "type": "MAINTENANCE",
-                    "title": "Preventive maintenance window 02:00-05:00",
-                    "priority": "MEDIUM",
-                    "status": "ACTIVE",
-                    "description": "Scheduled overnight maintenance procedures",
-                    "details": "Crossbar system maintenance at three central offices. Estimated completion 04:30.",
-                    "actions": ["Monitor maintenance progress", "Coordinate with field teams", "Verify service restoration"]
-                }
-            ]
-
-        # Equipment-specific events with authentic Bell System issues
-        equipment_events = [
-            {
-                "id": "EV-8040",
-                "time": "09:47",
-                "type": "ALARM",
-                "title": "TH-3 microwave path NYC-WAS fade event detected",
-                "priority": "HIGH",
-                "status": "MONITORING",
-                "description": "Radio path fade margin below threshold",
-                "details": "TH-3 path NYC-WAS-001 experiencing atmospheric fade. Current RSL -65 dBm, fade margin reduced to 12 dB. Space diversity activated.",
-                "actions": ["Monitor signal levels", "Check weather conditions", "Verify diversity operation", "Prepare backup routing"]
-            },
-            {
-                "id": "EV-8041",
-                "time": "11:23",
-                "type": "EQUIPMENT",
-                "title": "3A Central Control Unit D diagnostic alert",
-                "priority": "HIGH",
-                "status": "INVESTIGATING",
-                "description": "Central control processor requires attention",
-                "details": "3A Central Control Unit D reporting memory parity errors. Unit switched to standby. Diagnostic testing in progress.",
-                "actions": ["Run comprehensive diagnostics", "Check memory modules", "Coordinate with maintenance", "Monitor standby unit"]
-            },
-            {
-                "id": "EV-8042",
-                "time": "13:15",
-                "type": "CUSTOMER",
-                "title": "Government priority circuit outage - Pentagon line",
-                "priority": "CRITICAL",
-                "status": "URGENT",
-                "description": "High-priority government customer service interruption",
-                "details": "Dedicated Pentagon communication line experiencing total outage. Customer class: GOVERNMENT-PRIORITY. Immediate response required.",
-                "actions": ["Dispatch emergency team", "Activate backup circuits", "Notify government liaison", "Escalate to Level 3"]
-            }
-        ]
-
-        # Seasonal events
-        seasonal_events = []
-        if current_month in [12, 1, 2]:  # Winter
-            seasonal_events = [
-                {
-                    "id": "EV-8050",
-                    "time": "07:30",
-                    "type": "WEATHER",
-                    "title": "Ice storm impact on microwave paths",
-                    "priority": "HIGH",
-                    "status": "MONITORING",
-                    "description": "Weather affecting radio propagation",
-                    "details": "Ice accumulation on microwave antennas in northeast corridor. Multiple paths showing degraded performance.",
-                    "actions": ["Monitor all radio paths", "Coordinate ice removal crews", "Implement backup routing", "Track weather conditions"]
-                }
-            ]
-        elif current_month in [6, 7, 8]:  # Summer
-            seasonal_events = [
-                {
-                    "id": "EV-8060",
-                    "time": "14:20",
-                    "type": "WEATHER",
-                    "title": "Thunderstorm fade analysis for radio paths",
-                    "priority": "MEDIUM",
-                    "status": "MONITORING",
-                    "description": "Summer storm impact assessment",
-                    "details": "Thunderstorm activity affecting multiple TH-3 paths. Increased fade events expected through evening hours.",
-                    "actions": ["Monitor fade events", "Verify diversity switching", "Prepare traffic rerouting", "Document performance"]
-                }
-            ]
-
-        # Always include base events, then add others based on current conditions
-        selected_events = base_events.copy()
-
-        # Add time-appropriate events
-        selected_events.extend(time_events)
-
-        # Add 2-3 equipment/customer events randomly
-        if equipment_events:
-            selected_events.extend(random.sample(equipment_events, min(2, len(equipment_events))))
-
-        # Add seasonal events if applicable
-        selected_events.extend(seasonal_events)
-
-        # Sort by time and limit to reasonable number
-        selected_events.sort(key=lambda event: str(event["time"]))
-        self.shift_events = selected_events[:8]  # Limit to 8 events per shift
+        self.shift_events = build_shift_events(
+            self.clock.now().hour, self.clock.now().month)
     def show_shift_briefing(self) -> None:
         """
         Display role-specific shift briefing.
@@ -413,12 +226,10 @@ Board Moved:              {len(self.desk.closed()) - len(pending_reports):+d} \
 reports
 Service Index:            {self.career.service_index():.1f} \
 ({self.career.index_band()})
-                          Scores how you closed them, not how many. A tour
-                          that closes five perfectly reads the same as one
-                          that closes thirty. The two numbers above are the
-                          ones that say whether the board moved.
+{self._measure_note()}
 Qualifications Held:      {len(self.career.qualifications)} of \
 {len(QUALIFICATIONS)}
+{self._tour_account()}
 """
 
         if pending_reports:
@@ -998,3 +809,37 @@ this shift and the next one starts on a fresh board."""
                     f"SCC copies. Logged against this office.")
         return ("orderwire: unknown option. Use 'orderwire', "
                 "'orderwire scc' or\n'orderwire report <text>'.")
+
+    def _measure_note(self) -> str:
+        """
+        What this desk is judged on, indented under the index.
+
+        The service index scores how you closed reports, not how many, and
+        for eight of the twelve positions it does not describe the work at
+        all. This says which of those is true here.
+        """
+        indent = ' ' * 26
+        rows = ['Scores how you closed them, not how many.',
+                'A tour that closes five perfectly reads',
+                'the same as one that closes thirty.']
+        rows.extend(self.position_measure())
+        return '\n'.join(indent + line for line in rows)
+
+    def _tour_account(self) -> str:
+        """
+        A plain account of what this tour consisted of.
+
+        Deliberately a tally and not a second score. A number printed
+        beside the index would be read as another thing to optimise, and
+        most of these are not things to optimise - they are what the desk
+        spent the night on.
+        """
+        tally = self.position_tally()
+        if not tally:
+            return ''
+        rows = ['', f"WHAT THIS DESK DID - {self.position.name}", '=' * 40]
+        for label, value in tally:
+            rows.append(f"{label + ':':<32}{value}")
+        rows.append('')
+        rows.append("Not scored. It is what the tour consisted of.")
+        return '\n'.join(rows)

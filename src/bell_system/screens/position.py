@@ -123,6 +123,29 @@ class PositionCommands(SessionState):
             rows.append((label, value))
         return rows
 
+    def position_measure(self) -> List[str]:
+        """
+        What this desk is judged on, and what it is not.
+
+        The service index is the customer reports component of the network
+        switching performance measurement plan. That plan measures a
+        switching machine, and eight of these twelve desks are outside its
+        scope entirely - a planning engineer has no repair commitments and
+        a document preparation specialist has no trunk group.
+
+        Saying so beats forcing a key. What a desk with no component gets
+        instead is the tally: not a second score competing with the first,
+        just a plain account of what the tour consisted of.
+        """
+        position = self.position
+        if position.nspmp:
+            label = position.nspmp.replace('_', ' ')
+            return [f"It is the {label} component of the",
+                    "performance plan, which is what this desk works."]
+        return ["No component of that plan covers this desk. It",
+                "measures a switching machine and this is not,",
+                "so the index is carried for the record."]
+
 
 # -- the counters --------------------------------------------------------
 #
@@ -247,7 +270,7 @@ def _orders_raised(terminal: Any) -> Tuple[str, str]:
 def _circuits_in_trouble(terminal: Any) -> Tuple[str, str]:
     """Special service circuits not in service."""
     return ('special circuits in trouble',
-            str(len(terminal.sarts.in_trouble())))
+            str(len(terminal.special_services.in_trouble())))
 
 
 def _tests_run(terminal: Any) -> Tuple[str, str]:

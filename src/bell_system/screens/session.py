@@ -247,6 +247,10 @@ class SessionState:
         """What this desk did this tour, as label and value."""
         raise NotImplementedError
 
+    def position_measure(self) -> List[str]:
+        """What this desk is judged on, and what it is not."""
+        raise NotImplementedError
+
     def _queue_message(self, message: Any, after: int) -> None:
         """Hold a message back so it lands a few commands from now."""
         raise NotImplementedError
