@@ -1092,38 +1092,43 @@ BELL SYSTEM PRACTICES
 
     "handoff": """
 NAME
-     handoff - Authentic Bell System shift handoff procedures
+     handoff - shift turnover record, and signing off a tour
 
 SYNOPSIS
-     handoff [briefing|status|issues|turnover] [shift]
+     handoff
+     handoff relieve
 
 DESCRIPTION
-     Manage Bell System shift handoff procedures including status
-     briefings, outstanding issues, equipment conditions, and
-     operational continuity between shifts for 24/7 operations.
+     An office worked around the clock, so a tour ended by handing the
+     board to whoever was relieving you and telling them what was on it.
+     With no argument this prints that record: what came in from the
+     previous shift, what is pending now, what is past commitment, what
+     has not been measured, and which alarms are still unacknowledged.
 
-OPTIONS
-     briefing        Generate shift briefing information
-     status          Current operational status summary
-     issues          Outstanding issues and problem reports
-     turnover        Complete shift turnover documentation
+     'handoff relieve' signs off. Anything still pending is carried
+     forward, because it was: a report past its commitment at midnight is
+     still past its commitment in the morning.
 
-HANDOFF ELEMENTS
-     EQUIPMENT STATUS:       All systems operational status
-     OUTSTANDING ISSUES:     Active tickets and problem reports
-     MAINTENANCE ACTIVITIES: Scheduled and ongoing maintenance
-     SERVICE IMPACTS:        Customer affecting conditions
+SIGNING OFF
+     Relieving prints three sentences on the tour before it prints the
+     tally - what went well, what did not, and the one thing worth doing
+     differently. They are written from the tour's own numbers rather than
+     scored, and only ever one thing is named, because a list of four
+     things to improve is a list nobody acts on.
 
-EXAMPLES
-     handoff briefing incoming       Generate incoming shift briefing
-     handoff status all-systems      Complete operational status
-     handoff issues priority         Priority issue summary
+     Then the index for the tour is banked, the shift count advances, and
+     a fresh board opens with the carried reports still on it. Banked
+     figures accumulate on the craft record, which draws them as a trend
+     once there are three tours behind you.
 
 SEE ALSO
-     events(1), status(1), ticket(1)
+     report(1), qual(1), events(1)
 
 BELL SYSTEM PRACTICES
-     BSP 100-025-001 - Shift Handoff Procedures
+     BSP 010-100-000 - Shift Turnover Procedures, cited by the turnover
+     checklist this command prints. The practice number is the one the
+     simulation shows on that checklist; it is not independently verified
+     against a bundled document.
 """,
 
     "tariff": """
@@ -1911,6 +1916,10 @@ SERVICE INDEX
      A report closed as no trouble found on a line that really was faulty
      counts twice against you: once as a wrong disposition and again when
      the customer calls back.
+
+     Once there are three tours behind you the record draws the last five
+     index figures as a bar, because a column of decimals does not show a
+     trend and getting better is the point.
 
 DIFFICULTY
      set game.difficulty fun      Fun Simulation. Close without measuring,

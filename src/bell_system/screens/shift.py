@@ -9,7 +9,9 @@ from collections import (
 from typing import (
     List,
     Optional,
+    Tuple,
 )
+from ..console import wrap
 from ..data.shift_events import build as build_shift_events
 from ..npc import (
     CRAFT,
@@ -283,8 +285,10 @@ this shift and the next one starts on a fresh board."""
         banked = self.career.service_index()
         worked = self.shift_time()
         carried = self.desk.pending()
+        summary = self.tour_summary(*self._tour_worked())
         self.career.end_shift()
         self.current_shift = self.career.shift
+        self._tour_baseline = self._career_counters()
 
         # A new shift starts with its own clock and its own schedule.
         self.shift_minutes = 0
@@ -301,6 +305,15 @@ this shift and the next one starts on a fresh board."""
             f"Relieved. Shift {self.career.shift - 1} closed after "
             f"{worked} worked.",
             '=' * 66,
+        ]
+        # What the tour was like, before what it scored. The tally is a
+        # score and a score says how you did without saying anything about
+        # the work.
+        if summary:
+            for sentence in summary:
+                lines.extend(f"  {line}" for line in wrap(sentence, 64))
+            lines.append('')
+        lines.extend([
             f"  Service index banked      {banked:.1f}  "
             f"{self.career.index_band()}",
             f"  Reports closed to date    {self.career.reports_closed}",
@@ -310,17 +323,31 @@ this shift and the next one starts on a fresh board."""
             '',
             f"Shift {self.career.shift} begins. "
             f"{len(self.desk.pending())} pending.",
-        ]
+        ])
         if self.career.index_history:
-            lines.append('  Index history             '
-                         + ', '.join(f"{entry:.1f}"
-                                     for entry in
-                                     self.career.index_history[-8:]))
+            trend = self.sparkline(self.career.index_history, span=8)
+            recent = ', '.join(f"{entry:.1f}"
+                               for entry in self.career.index_history[-8:])
+            lines.append(f"  Index history             {recent}"
+                         + (f"  {trend}" if trend else ''))
         granted = self._grant_qualifications()
         if granted:
             lines.append('')
             lines.extend(granted)
         return '\n'.join(lines)
+    def _career_counters(self) -> Tuple[int, int, int, int]:
+        """Snapshot the four counters a tour is judged on."""
+        career = self.career
+        return (career.reports_closed, career.reports_correct,
+                career.missed_commitments, career.repeat_reports)
+
+    def _tour_worked(self) -> Tuple[int, int, int, int]:
+        """Return closed, correct, missed and repeats for this tour alone."""
+        now = self._career_counters()
+        closed, correct, missed, repeats = (
+            current - was for current, was in zip(now, self._tour_baseline))
+        return closed, correct, missed, repeats
+
     def cmd_events(self, args: List[str]) -> str:
         """Bell System operational events and shift activity"""
         if not args:

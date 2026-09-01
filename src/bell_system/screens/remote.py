@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from ..data.clli import STATE_CODES, parse as parse_clli
 from ..types import Alarm, SystemHealth
 from ..data.companies import RBOCS, for_state
+from ..console import wrap
 from ..npc import render as render_message
 from .session import SessionState
 
@@ -259,7 +260,7 @@ class RemoteCommands(SessionState):
                 f"  {company.name}",
                 f"  Passes to {RBOCS[company.rboc]} on 1 January 1984.",
                 '']
-        for line in _wrap(company.note, 62):
+        for line in wrap(company.note, 62):
             rows.append(f"  {line}")
         if not company.verified:
             rows.append('')
@@ -431,18 +432,3 @@ class RemoteCommands(SessionState):
             self.clock.now(), worst['clli'], worst['city'], trouble,
             len(standing)), self._stamp())
 
-
-def _wrap(text: str, width: int) -> List[str]:
-    """Wrap a note to the console's measure."""
-    words = text.split()
-    lines: List[str] = []
-    line = ''
-    for word in words:
-        if line and len(line) + 1 + len(word) > width:
-            lines.append(line)
-            line = word
-        else:
-            line = f"{line} {word}".strip()
-    if line:
-        lines.append(line)
-    return lines

@@ -293,6 +293,81 @@ class GuidanceCommands(SessionState):
                                              list(lines))
         return render_message(message, self._stamp())
 
+    # -- looking back ------------------------------------------------------
+
+    def tour_summary(self, closed: int, correct: int, missed: int,
+                     repeats: int) -> List[str]:
+        """
+        Three sentences on a tour, written from its tally.
+
+        The handoff already carried the numbers. Numbers are a score, and a
+        score tells somebody how they did without telling them anything
+        about the work. These say what went well, what did not, and the one
+        thing worth doing differently - and only ever one, because a list of
+        four things to improve is a list nobody acts on.
+
+        Args:
+            closed: Reports closed out this tour
+            correct: How many of those matched what was on the line
+            missed: Commitments passed
+            repeats: Reports that came back after being closed
+
+        Returns:
+            The sentences, or an empty list for a tour with no work in it
+        """
+        if not closed:
+            return ["Nothing was closed out this tour. The board is the "
+                    "job: 'report next' picks the one that wants working."]
+
+        wrong = closed - correct
+        lines = []
+
+        if correct == closed:
+            lines.append(f"Every one of the {closed} you closed matched what "
+                         f"was on the line.")
+        elif correct:
+            lines.append(f"{correct} of {closed} matched what was on the "
+                         f"line.")
+        else:
+            lines.append(f"You cleared {closed} off the board, which is the "
+                         f"half of the job that is not in doubt.")
+
+        # The largest single failure is the one worth naming. Naming three
+        # is how a tour summary becomes something a player skips.
+        worst = max((wrong, 'wrong'), (missed, 'missed'), (repeats, 'repeat'),
+                    key=lambda pair: pair[0])
+        if not worst[0]:
+            lines.append("Nothing came back, nothing ran past commitment.")
+            lines.append("There is not much to do differently. Carry on.")
+            return lines
+
+        count, kind = worst
+        lines.append(FAILURES[kind][0].format(count=count,
+                                              s='' if count == 1 else 's'))
+        lines.append(FAILURES[kind][1])
+        return lines
+
+    def sparkline(self, values: List[float], span: int = 5) -> str:
+        """
+        Draw the last few figures as a bar, so a trend reads at a glance.
+
+        A column of decimals is a table and nobody reads a table for a
+        trend. Eight levels, because that is what the block characters give
+        and the console transliterates them for a terminal that cannot
+        print them.
+        """
+        recent = values[-span:]
+        if len(recent) < 2:
+            return ''
+        low, high = min(recent), max(recent)
+        if high - low < 0.05:
+            # A flat run would otherwise draw as noise around a rounding
+            # error. Flat is the honest picture.
+            return SPARK_LEVELS[len(SPARK_LEVELS) // 2] * len(recent)
+        step = (high - low) / (len(SPARK_LEVELS) - 1)
+        return ''.join(SPARK_LEVELS[int(round((value - low) / step))]
+                       for value in recent)
+
     # -- help(1) ----------------------------------------------------------
 
     # Commands each position works day to day. Every name here is checked
@@ -437,6 +512,31 @@ class GuidanceCommands(SessionState):
             return command
         line = parts[1].strip()
         return line.split(' - ', 1)[1] if ' - ' in line else line
+
+
+# What went wrong, and the one thing to do about it. One entry per way a
+# tour can go badly; the summary names whichever happened most.
+FAILURES = {
+    'wrong': (
+        "{count} close out{s} named a condition the line did not have.",
+        "mlt names the fault outright at the bottom of the reading. It is "
+        "worth four minutes before every close.",
+    ),
+    'missed': (
+        "{count} commitment{s} went past.",
+        "Work the nearest commitment first. 'report next' picks it, and a "
+        "trip by the wrong force costs three quarters of an hour.",
+    ),
+    'repeat': (
+        "{count} report{s} came back after being closed.",
+        "A faulty line closed as no trouble found does not fail loudly. It "
+        "closes, and then the customer telephones again.",
+    ),
+}
+
+# Eight levels for the index trend. console.render() turns these into ASCII
+# on a terminal held to the period character set, which is most of them.
+SPARK_LEVELS = '\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588'
 
 
 # What Halloran says, one message per step of the loop. Four messages and

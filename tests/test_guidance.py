@@ -10,6 +10,7 @@ three of them ask.
 
 import pytest
 
+from bell_system.data.trouble import FAULTS
 from bell_system.progression import QUALIFICATIONS
 from bell_system.screens.guidance import FIRST_TOUR
 
@@ -223,3 +224,156 @@ class TestReportNext:
     def test_the_manual_documents_it(self):
         from bell_system.data.man_pages import MAN_PAGES
         assert 'report next' in MAN_PAGES['report']
+
+
+class TestThePostMortem:
+    """
+    A score tells you that you guessed wrong. The readings teach the job.
+
+    measure_loop is seeded from the line and the fault, so the post-mortem
+    quotes the exact figures the player had in front of them rather than
+    inventing plausible ones.
+    """
+
+    def close(self, terminal, actual, code, found=None, measure=True):
+        terminal.desk.reports.clear()
+        terminal.desk.order.clear()
+        report = terminal.desk.receive(terminal.clock.now(), 0, fault=actual)
+        if measure:
+            terminal.execute_command(f'mlt {report.number}')
+        args = f"{report.number} {code}" + (f" {found}" if found else '')
+        return report, terminal.execute_command(f'report close {args}')
+
+    @pytest.mark.parametrize('actual', list(FAULTS))
+    def test_every_condition_has_something_to_say(self, working, actual):
+        wrong = 'SHORT' if actual != 'SHORT' else 'WET'
+        _, out = self.close(working, actual, 5, wrong)
+        assert len(out.split('\n')) > 3, f'{actual} closed silently'
+
+    def test_it_quotes_the_reading_the_player_saw(self, working):
+        from bell_system.loop_testing import measure_loop
+        report, out = self.close(working, 'SHORT', 5, 'WET')
+        measured = measure_loop(report.record.telephone_number, 'SHORT',
+                                name_fault=False)
+        assert f"{measured.tip_ring_ohms:,} ohms" in out
+
+    def test_it_says_what_the_claimed_condition_reads_like(self, working):
+        _, out = self.close(working, 'WET', 5, 'SHORT')
+        assert 'Short reads near zero' in out
+
+    def test_a_correct_close_gets_no_lecture(self, working):
+        _, out = self.close(working, 'SHORT', 5, 'SHORT')
+        assert 'matches what was on the line' in out
+        assert 'reads' not in out
+
+    def test_an_unmeasured_line_is_told_what_it_would_have_read(self, working):
+        """
+        Naming a figure would teach the wrong reading half the time: tip to
+        ring is normal on a ground.
+        """
+        working.settings.set('game.difficulty', 'fun')
+        working.career.set_difficulty('fun')
+        _, out = self.close(working, 'GROUND', 8, measure=False)
+        assert 'never measured' in out
+        assert 'conductor to ground' in out
+
+    def test_the_article_agrees_with_the_condition(self, working):
+        _, out = self.close(working, 'OPEN', 8)
+        assert 'an open' in out
+        assert 'a open' not in out
+
+    def test_an_initialism_keeps_its_capitals(self, working):
+        _, out = self.close(working, 'FEMF', 8)
+        assert 'foreign EMF' in out
+
+    def test_an_office_fault_is_not_something_the_pair_had(self, working):
+        _, out = self.close(working, 'CO_EQUIP', 8)
+        assert 'on that pair' not in out.split('\n')[1]
+
+
+class TestTheTourSummary:
+    """Three sentences above the tally: what went well, what did not, one fix."""
+
+    def test_a_clean_tour_says_so(self, working):
+        assert 'matched what was on the line' in ' '.join(
+            working.tour_summary(closed=4, correct=4, missed=0, repeats=0))
+
+    def test_a_clean_tour_names_nothing_to_change(self, working):
+        assert 'Carry on' in ' '.join(
+            working.tour_summary(closed=4, correct=4, missed=0, repeats=0))
+
+    def test_an_empty_tour_points_at_the_board(self, working):
+        assert "'report next'" in ' '.join(
+            working.tour_summary(closed=0, correct=0, missed=0, repeats=0))
+
+    def test_it_names_one_failure_and_not_three(self, working):
+        """A list of four things to improve is a list nobody acts on."""
+        summary = working.tour_summary(closed=6, correct=2, missed=3,
+                                       repeats=1)
+        assert len(summary) == 3
+        assert 'named a condition the line did not have' in summary[1]
+
+    def test_the_largest_failure_is_the_one_named(self, working):
+        summary = working.tour_summary(closed=6, correct=5, missed=4,
+                                       repeats=1)
+        assert 'commitment' in summary[1]
+
+    def test_it_says_what_to_do_about_it(self, working):
+        summary = working.tour_summary(closed=6, correct=6, missed=0,
+                                       repeats=3)
+        assert 'no trouble found' in summary[2]
+
+    def test_the_handoff_leads_with_it(self, working):
+        working.career.reports_closed = 4
+        working.career.reports_correct = 4
+        out = working.execute_command('handoff relieve')
+        head = out.split('Service index banked')[0]
+        assert 'matched what was on the line' in head
+
+    def test_a_returning_career_is_not_summarised_from_zero(self, isolated_state):
+        """
+        The counters arrive from disk with a career behind them. Reading the
+        tour off zero credited a new session with every closure ever made.
+        """
+        from bell_system.terminal import BellSystemTerminal
+        first = BellSystemTerminal()
+        first.career.reports_closed = 12
+        first.career.reports_correct = 9
+        first.career.save()
+        second = BellSystemTerminal()
+        assert second._tour_worked() == (0, 0, 0, 0)
+
+
+class TestTheTrend:
+    """Getting better is the reward, and a column of decimals does not show it."""
+
+    def test_one_shift_is_not_a_trend(self, working):
+        assert working.sparkline([61.5]) == ''
+
+    def test_it_draws_one_mark_a_shift(self, working):
+        assert len(working.sparkline([10.0, 20.0, 30.0])) == 3
+
+    def test_it_shows_only_the_span_asked_for(self, working):
+        assert len(working.sparkline([1.0] * 20, span=5)) == 5
+
+    def test_a_rise_reads_as_a_rise(self, working):
+        drawn = working.sparkline([10.0, 50.0, 90.0])
+        assert drawn[0] < drawn[-1]
+
+    def test_a_flat_run_draws_flat(self, working):
+        """Otherwise a rounding error draws as a mountain range."""
+        drawn = working.sparkline([72.0, 72.0, 72.0])
+        assert len(set(drawn)) == 1
+
+    def test_it_survives_a_seven_bit_terminal(self, working):
+        from bell_system.console import non_ascii_characters, render
+        drawn = working.sparkline([10.0, 40.0, 20.0, 90.0, 60.0])
+        assert non_ascii_characters(render(drawn, 'ascii')) is None
+
+    def test_the_craft_record_draws_it(self, working):
+        working.career.index_history = [61.5, 72.0, 88.9]
+        assert 'Last five tours' in working.execute_command('qual')
+
+    def test_a_new_career_has_nothing_to_draw(self, working):
+        working.career.index_history = []
+        assert 'Last five tours' not in working.execute_command('qual')

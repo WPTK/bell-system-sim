@@ -20,7 +20,9 @@ from ..data.trouble import (
     NSPMP_CATEGORIES,
     NSPMP_WEIGHTS,
 )
+from ..console import article as _a, sentence_case as _lower, wrap
 from ..lmos import LmosConsole
+from ..loop_testing import post_mortem
 from ..npc import (
     Switchroom,
     render as render_message,
@@ -46,6 +48,10 @@ from ..special_services import (
 
 
 from .session import SessionState
+
+# The board and the craft record rule at 74 columns. The post-mortem is
+# prose rather than a table, so it breaks a little short of the rule.
+POST_MORTEM_WIDTH = 70
 
 
 class BureauCommands(SessionState):
@@ -478,11 +484,28 @@ class BureauCommands(SessionState):
             truth = FAULTS[report.record.fault]
             if report.record.fault == 'NONE':
                 lines.append("Nothing was actually wrong with that line.")
-            elif disposition == 8:
-                lines.append(f"There was a {truth.name.lower()} on that pair.")
             else:
-                lines.append(f"That pair had a {truth.name.lower()}, not "
-                             f"{FAULTS[found].name.lower() if found else 'that'}.")
+                # Where the trouble was decides how the sentence reads. A
+                # central office equipment failure is not something the
+                # pair "had", and saying so read like a defect.
+                on_the_pair = truth.where == 'LOOP'
+                was = (f"There was {_a(truth.name)} on that pair."
+                       if on_the_pair
+                       else f"The trouble was {_lower(truth.name)}.")
+                if disposition == 8:
+                    lines.append(was)
+                else:
+                    named = _a(FAULTS[found].name) if found else 'that'
+                    lines.append(f"{was[:-1]}, not {named}.")
+            # A score tells you that you guessed wrong. The readings tell
+            # you what to read next time, and they are the readings this
+            # player actually had in front of them: measure_loop is seeded
+            # from the line and the fault, so it quotes rather than invents.
+            taught = post_mortem(report.record.telephone_number,
+                                 report.record.fault, found, report.tested)
+            if taught:
+                lines.append('')
+                lines.extend(wrap(taught, POST_MORTEM_WIDTH))
 
         if report.missed_commitment:
             lines.append("Commitment was missed. It counts.")
@@ -575,10 +598,20 @@ class BureauCommands(SessionState):
             f"{career.index_band()}",
             f"  Worth to the office {career.office_contribution():.1f} of "
             f"{NSPMP_WEIGHTS['customer_reports']} index points",
+        ]
+        # Getting better is the reward, and a column of decimals does not
+        # show it. Two shifts is not a trend; from the third the shape is
+        # worth drawing.
+        trend = self.sparkline(career.index_history)
+        if trend:
+            span = career.index_history[-5:]
+            lines.append(f"  Last five tours     {trend}   "
+                         f"{span[0]:.1f} to {span[-1]:.1f}")
+        lines.extend([
             '',
             'QUALIFICATIONS',
             '-' * 74,
-        ]
+        ])
         for qualification in QUALIFICATIONS:
             held = career.is_qualified(qualification.key)
             mark = 'x' if held else ' '
@@ -589,8 +622,9 @@ class BureauCommands(SessionState):
                 needed = (qualification.requires_reports
                           * difficulty.reports_per_qualification
                           - career.reports_correct)
-                lines.append(f"      Needs {max(0, needed)} more correct "
-                             f"closures.")
+                short = max(0, needed)
+                lines.append(f"      Needs {short} more correct closure"
+                             f"{'' if short == 1 else 's'}.")
             lines.append('')
 
         # What help(1) used to end on. It belongs here, next to the
@@ -608,8 +642,9 @@ class BureauCommands(SessionState):
             lines.append("Fully qualified. Every system on this terminal is "
                          "open to you.")
         else:
-            lines.append(f"Next: {nxt.name} in "
-                         f"{career.reports_until_next()} correct closures.")
+            short = career.reports_until_next()
+            lines.append(f"Next: {nxt.name} in {short} correct closure"
+                         f"{'' if short == 1 else 's'}.")
         lines.extend([
             '',
             "Change difficulty with 'set game.difficulty fun' or "
@@ -680,6 +715,14 @@ class BureauCommands(SessionState):
             lines.append('  Previous shifts     '
                          + ', '.join(f"{entry:.1f}"
                                      for entry in career.index_history[-10:]))
+            # Getting better is the reward, and a column of decimals does
+            # not show it. Two shifts is not a trend; from the third the
+            # shape is worth drawing.
+            trend = self.sparkline(career.index_history, span=10)
+            if trend:
+                lines.append(f"  Trend               {trend}   "
+                             f"{min(career.index_history[-10:]):.1f} to "
+                             f"{max(career.index_history[-10:]):.1f}")
         lines.extend([
             '',
             "A report closed as no trouble found on a line that really was",

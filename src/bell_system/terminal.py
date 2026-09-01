@@ -219,6 +219,12 @@ class BellSystemTerminal(
         self.role_name: Optional[str] = None
         self.shift_events: List[Dict[str, Any]] = []
         self.current_shift: int = 1
+        # Career counters run for a career. The tour summary is about one
+        # tour, so it is read off the difference from here - and the career
+        # arrives from disk with a history behind it, so zero is wrong.
+        self._tour_baseline: Tuple[int, int, int, int] = (
+            self.career.reports_closed, self.career.reports_correct,
+            self.career.missed_commitments, self.career.repeat_reports)
 
         # Initialize Bell System environment
         # The toll network the routing engine searches.

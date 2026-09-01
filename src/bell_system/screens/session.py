@@ -21,7 +21,9 @@ adding another shared field.
 
 import logging
 from collections import deque
-from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Optional, Set
+from typing import (
+    TYPE_CHECKING, Any, Dict, FrozenSet, List, Optional, Set, Tuple,
+)
 
 from ..clock import SimClock
 from ..filesystem import Node
@@ -93,6 +95,9 @@ class SessionState:
 
     # -- the shift -------------------------------------------------------
     current_shift: int
+
+    # The career counters as they stood when this tour opened.
+    _tour_baseline: Tuple[int, int, int, int]
     shift_minutes: int
     shift_events: List[Dict[str, Any]]
     shift_handoff: Dict[str, Any]
@@ -310,6 +315,15 @@ class SessionState:
 
     def shift_time(self) -> str:
         """How far into the shift the operator is, as h:mm."""
+        raise NotImplementedError
+
+    def tour_summary(self, closed: int, correct: int, missed: int,
+                     repeats: int) -> List[str]:
+        """Three sentences on a tour, written from its tally."""
+        raise NotImplementedError
+
+    def sparkline(self, values: List[float], span: int = 5) -> str:
+        """Draw the last few figures as a bar, so a trend reads."""
         raise NotImplementedError
 
     def first_tour(self, after_close: bool = False) -> bool:

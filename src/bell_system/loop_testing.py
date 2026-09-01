@@ -178,6 +178,96 @@ def measure_loop(telephone_number: str, fault_code: str,
     )
 
 
+# What each condition shows in the readings, written as the sentence a wire
+# chief would say over your shoulder. The number in each is pulled from the
+# measurement the player actually took, because "you should have measured
+# more carefully" teaches nothing and "tip to ring measured 39 ohms" teaches
+# the reading.
+def _reading_tell(fault_code: str, measured: LoopMeasurement) -> str:
+    """Return the sentence naming what the readings said."""
+    tip_ring = f"{measured.tip_ring_ohms:,}"
+    to_ground = min(measured.tip_ground_ohms, measured.ring_ground_ohms)
+    if fault_code == 'OPEN':
+        return (f"Tip to ring measured {tip_ring} ohms with no station "
+                f"termination, and the capacitance put the end of the pair "
+                f"at {measured.distance_miles:.2f} miles. The pair stops "
+                f"there.")
+    if fault_code == 'SHORT':
+        return (f"Tip to ring measured {tip_ring} ohms. Near zero across the "
+                f"pair is tip and ring in contact.")
+    if fault_code == 'GROUND':
+        return (f"One conductor measured {to_ground:,} ohms to ground with "
+                f"tip to ring at {tip_ring}. One leg down and the other "
+                f"clean is a conductor on earth.")
+    if fault_code == 'CROSS':
+        return (f"Tip to ring measured {tip_ring} ohms with "
+                f"{measured.dc_volts:.1f} volts DC on the pair and no office "
+                f"battery applied. That is another pair's battery.")
+    if fault_code == 'WET':
+        return (f"Insulation measured {tip_ring} ohms tip to ring and "
+                f"{to_ground:,} to ground. Low but not zero, and low on "
+                f"every reading at once, is water in the sheath.")
+    if fault_code == 'FEMF':
+        present = (f"{measured.ac_volts:.1f} volts AC" if measured.ac_volts
+                   else f"{measured.dc_volts:.1f} volts DC")
+        return (f"There was {present} on that pair with no office battery "
+                f"applied. Voltage arriving from somewhere else is foreign "
+                f"potential.")
+    if fault_code == 'ROH':
+        return (f"The station was terminated and drawing "
+                f"{measured.loop_current_ma:.1f} mA with the loop closed. "
+                f"That is a receiver off the hook, not a fault on the pair.")
+    if fault_code == 'FCG':
+        return ("The loop measured clean to the frame and the office test "
+                "was the one that failed. That puts it inside the office.")
+    if fault_code == 'CO_EQUIP':
+        return (f"Every loop reading was within limits - {tip_ring} ohms tip "
+                f"to ring - and the customer was still out of service. A "
+                f"clean loop points at the switch.")
+    return (f"Every reading was within limits, {tip_ring} ohms tip to ring "
+            f"and nothing on the pair that should not be there.")
+
+
+def post_mortem(telephone_number: str, actual: str,
+                claimed: Optional[str], tested: bool) -> str:
+    """
+    Say what the measurement would have caught, using its own numbers.
+
+    A wrong close out was scored and then forgotten, which taught the
+    player that they had guessed wrong without ever teaching them what to
+    read. The readings are seeded from the line and the fault, so this can
+    quote back the exact figures the player had in front of them.
+
+    Args:
+        telephone_number: The line, which seeds its readings
+        actual: The condition that was really on the pair
+        claimed: What the report was closed as, or None for code 8
+        tested: Whether the line was ever measured
+
+    Returns:
+        Two sentences at most, or an empty string when there is nothing
+        useful to say
+    """
+    if actual == claimed:
+        return ''
+    measured = measure_loop(telephone_number, actual, name_fault=False)
+
+    if not tested:
+        # Nothing to quote back, because they never looked. Naming a figure
+        # here would teach the wrong reading half the time - tip to ring is
+        # normal on a ground - so name what the test would have said.
+        signature = FAULTS[actual].mlt_signature
+        return (f"That line was never measured. mlt would have read: "
+                f"{signature[0].lower()}{signature[1:]}.")
+
+    lines = [_reading_tell(actual, measured)]
+    if claimed is not None and claimed in FAULTS and claimed != actual:
+        signature = FAULTS[claimed].mlt_signature
+        lines.append(f"{FAULTS[claimed].name} reads "
+                     f"{signature[0].lower()}{signature[1:]}.")
+    return ' '.join(lines)
+
+
 def distance_to_open(capacitance_uf: float) -> float:
     """
     Return the distance a capacitance measurement implies, in miles.

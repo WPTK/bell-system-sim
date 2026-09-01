@@ -283,15 +283,20 @@ worse.
 
 ## Part 4 — Order of work
 
-| | Tier | Effort | Why here |
-|---|---|---|---|
-| 1 | F1 first ten minutes | small | Nothing else matters if they quit |
-| 2 | F2 next action | small | Mostly editing strings that exist |
-| 3 | F5 post-mortem | moderate | Turns every mistake into a lesson |
-| 4 | F3 hints | moderate | Needs F2's situation detector |
-| 5 | F4 stakes | moderate | Writing, and the best writing available |
-| 6 | F7 things to find | small | Cheap, and it is the flavour |
-| 7 | F6 save/resume | large | The biggest single build here |
+| | Tier | Effort | Why here | |
+|---|---|---|---|---|
+| 1 | F1 first ten minutes | small | Nothing else matters if they quit | **done** |
+| 2 | F2 next action | small | Mostly editing strings that exist | **done** |
+| 3 | F5 post-mortem | moderate | Turns every mistake into a lesson | **done** |
+| 4 | F3 hints | moderate | Needs F2's situation detector | |
+| 5 | F4 stakes | moderate | Writing, and the best writing available | |
+| 6 | F7 things to find | small | Cheap, and it is the flavour | |
+| 7 | F6 save/resume | large | The biggest single build here | |
+
+The first three are built. `screens/guidance.py` holds the one function
+that decides what to do next, and F3's hint levels want the same
+function, so the ordering held: F3 is now a matter of writing three
+levels of nudge around a situation detector that already exists.
 
 F1 and F2 together are perhaps two days and they are most of the felt
 difference between "this is impenetrable" and "oh, I see".
