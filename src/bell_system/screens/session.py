@@ -96,6 +96,11 @@ class SessionState:
     # -- the shift -------------------------------------------------------
     current_shift: int
 
+    # Where the working shift is written so it survives being closed, and
+    # whether this session picked one up.
+    shift_file: str
+    resumed: bool
+
     # The career counters as they stood when this tour opened.
     _tour_baseline: Tuple[int, int, int, int]
 
@@ -320,6 +325,22 @@ class SessionState:
 
     def shift_time(self) -> str:
         """How far into the shift the operator is, as h:mm."""
+        raise NotImplementedError
+
+    def generate_shift_events(self) -> None:
+        """Build the schedule of events this tour will bring due."""
+        raise NotImplementedError
+
+    def cmd_shift(self, args: Optional[List[str]] = None) -> str:
+        """Where you are in the tour."""
+        raise NotImplementedError
+
+    def _tour_worked(self) -> Tuple[int, int, int, int]:
+        """Closed, correct, missed and repeats for this tour alone."""
+        raise NotImplementedError
+
+    def save_shift(self) -> None:
+        """Write the shift down where the next session will find it."""
         raise NotImplementedError
 
     def cmd_hint(self, args: Optional[List[str]] = None) -> str:

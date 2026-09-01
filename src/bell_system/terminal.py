@@ -42,6 +42,7 @@ from .constants import (
     BELL_SYSTEM_ROLES,
     SHIFT_LENGTH_MINUTES,
 )
+from . import save
 from .clock import SimClock, days_to_divestiture
 from .console import render
 from .data import geography
@@ -56,6 +57,7 @@ from .progression import (
     career_path,
 )
 from .routing import build_default_network
+from .save import shift_path
 from .screens.customer import CustomerCommands
 from .screens.frame import FrameCommands
 from .screens.games import GameCommands
@@ -85,6 +87,7 @@ from .screens.toll import TollCommands
 from .screens.tools import ToolCommands
 from .screens.traffic import TrafficCommands
 from .screens.trunks import TrunkCommands
+from .screens.turnover import TurnoverCommands
 from .screens.tsps import TspsCommands
 from .settings import (
     OPTIONS,
@@ -133,6 +136,7 @@ class BellSystemTerminal(
     TestingCommands,
     BureauCommands,
     ShiftCommands,
+    TurnoverCommands,
     DocumentCommands,
     RadioCommands,
     TicketGeneration,
@@ -175,6 +179,7 @@ class BellSystemTerminal(
         # What the craftsperson carries between shifts, and how hard the
         # shift is. The setting is the authority: the career record stores a
         # copy so a shift resumed from disk starts the way it ended.
+        self.shift_file = shift_path(state_dir())
         self.career = Career(career_path(state_dir()))
         self.career.set_difficulty(self.settings.get('game.difficulty'))
         # Which day of the run-up to divestiture this tour falls on. A
@@ -285,6 +290,11 @@ class BellSystemTerminal(
 
         # The repair service bureau's board, and the other craft on the wire.
         self._initialize_repair_bureau()
+
+        # And then, if there is one, the shift somebody put down. This runs
+        # last because it writes over the board the bureau just opened, the
+        # weather, the plant and where every crew is standing.
+        self.resumed = self._resume_shift()
 
     def _initialize_network_state(self) -> None:
         """Initialize dynamic network state for realistic simulation behavior."""
@@ -660,6 +670,29 @@ class BellSystemTerminal(
                          "'set display.pacing off' prints at once.")
         lines.append('')
         return lines
+
+    def _resume_shift(self) -> bool:
+        """
+        Put a saved shift back, if the one on disk is this one.
+
+        A tour is a couple of hours and it used to be one process: closing
+        the window threw away the board, the weather and every commitment
+        half spent. Anything that does not load, or belongs to a different
+        tour, is discarded rather than repaired.
+        """
+        stored = save.read(self.shift_file)
+        if stored is not None and save.restore(self, stored):
+            return True
+        # Either it would not parse or it does not belong to this tour.
+        # Both are thrown away: a file that will not load is not going to
+        # start loading, and leaving it means discarding this tour's work
+        # at the end of it too.
+        save.discard(self.shift_file)
+        return False
+
+    def save_shift(self) -> None:
+        """Write the shift down where the next session will find it."""
+        save.write(self.shift_file, self)
 
     def _divestiture_line(self) -> str:
         """
@@ -1262,6 +1295,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
 
                     # History is recorded once, inside execute_command().
                     if command_line.lower() in ['exit', 'quit', 'logout']:
+                        self.save_shift()
                         self.emit("Logging out of Bell System terminal...")
                         self.emit("Session terminated.")
                         break
@@ -1269,14 +1303,20 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                     output = self.execute_command(command_line)
                     if output:
                         self.emit(output)
+                    # After every command, because the thing this is
+                    # insuring against is the window being closed rather
+                    # than the session being ended politely.
+                    self.save_shift()
 
                 except KeyboardInterrupt:
                     self.emit("\n^C")
                     choice = input("Really quit Bell System terminal? (y/N): ")
                     if choice.lower().startswith('y'):
+                        self.save_shift()
                         self.emit("Session terminated.")
                         break
                 except EOFError:
+                    self.save_shift()
                     self.emit("\nSession terminated.")
                     break
 
@@ -1777,6 +1817,9 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                 readline.write_history_file(self.history_file)
             except OSError as exc:
                 self.logger.warning(f"Could not save command history: {exc}")
+
+        # The board goes down with the session, and comes back with it.
+        self.save_shift()
 
         self.logger.info(f"Session {self.session_id} terminated by user")
         self.emit("\nBell System session terminated.")

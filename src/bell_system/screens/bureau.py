@@ -21,7 +21,7 @@ from ..data.trouble import (
     NSPMP_CATEGORIES,
     NSPMP_WEIGHTS,
 )
-from ..clock import days_to_divestiture
+from ..clock import career_progress, days_to_divestiture
 from ..console import article as _a, sentence_case as _lower, wrap
 from ..lmos import LmosConsole
 from ..loop_testing import post_mortem
@@ -58,6 +58,12 @@ POST_MORTEM_WIDTH = 70
 # What a customer says, wrapped. Narrower than the post-mortem because it
 # is indented and quoted, which is how a note of a call reads on paper.
 CALLBACK_WIDTH = 64
+
+# What a stored home office has to carry to be usable. Anything short of
+# this is treated as absent and drawn again, which is what happens to a
+# career record written before the office was kept.
+HOME_OFFICE_FIELDS = frozenset(
+    {'npa', 'nxx', 'city', 'state', 'switch_type', 'clli'})
 
 # What a customer says they hear when a call will not go through, for the
 # two conditions where the answer is in the cadence and not in the words.
@@ -115,14 +121,31 @@ class BureauCommands(SessionState):
             state = home['state']
             switch_type = home['switch_type']
 
-        self.home_office = {
-            'npa': npa, 'nxx': nxx, 'city': city,
-            'state': STATE_CODES.get(state, state),
-            'switch_type': switch_type,
-            'clli': self._office_clli(city, state, switch_type) or 'NWRKNJ02',
-        }
+        # The office a career is assigned to, kept on the career record.
+        # The switching machine at an office is drawn at random and the
+        # COMMON LANGUAGE code is built from it, so without this a
+        # craftsperson turned up at a differently named building every
+        # session and every line record they had ever seen belonged to
+        # somewhere else.
+        if self.career.office.keys() >= HOME_OFFICE_FIELDS:
+            self.home_office = dict(self.career.office)
+        else:
+            self.home_office = {
+                'npa': npa, 'nxx': nxx, 'city': city,
+                'state': STATE_CODES.get(state, state),
+                'switch_type': switch_type,
+                'clli': (self._office_clli(city, state, switch_type)
+                         or 'NWRKNJ02'),
+            }
+            self.career.office = dict(self.home_office)
+            self.career.save()
 
-        self.desk = ReportDesk(npa, nxx, self.home_office['clli'])
+        npa = self.home_office['npa']
+        nxx = self.home_office['nxx']
+
+        self.desk = ReportDesk(npa, nxx, self.home_office['clli'],
+                               wet_bias=career_progress(
+                                   self.career.shift))
         self.switchroom = Switchroom()
         self.special_services = SartsInventory(self.home_office['clli'])
         self.lmos_console = LmosConsole(self)

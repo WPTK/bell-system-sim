@@ -351,6 +351,13 @@ otherwise `$XDG_STATE_HOME/bell-system`, otherwise `~/.local/state/bell-system`:
 
 - `bell_system.log` - Rotating application log (10 MB, 5 backups)
 - `bell_system_history.txt` - Command history
+- `career.json` - Difficulty, sign-offs, service index and the wire centre
+  you are assigned to
+- `settings.json` - Everything `set` changes
+- `shift.json` - The tour you are in the middle of. Written after every
+  command, so a shift survives the window being closed and is picked back
+  up next time. Signing off with `handoff relieve` ends the tour and
+  removes it.
 
 ## Historical Context
 

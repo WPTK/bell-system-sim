@@ -39,6 +39,7 @@ from typing import Dict, List, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src'))
 
 from bell_system.cable import binder_of                       # noqa: E402
+from bell_system.clock import career_progress                 # noqa: E402
 from bell_system.data.trouble import FAULTS, REAL_FAULTS      # noqa: E402
 from bell_system.progression import (                         # noqa: E402
     DIFFICULTIES,
@@ -46,7 +47,8 @@ from bell_system.progression import (                         # noqa: E402
     REPEAT_REPORT_WEIGHT,
     WRONG_DISPOSITION_WEIGHT,
 )
-from bell_system.reports import ReportDesk                    # noqa: E402
+from bell_system.reports import MAX_PENDING, ReportDesk       # noqa: E402
+from bell_system.screens.position import CAREER_DEPTH         # noqa: E402
 
 SHIFT_START = datetime(1983, 11, 14, 8, 0)
 SHIFT_MINUTES = 480
@@ -103,15 +105,21 @@ PLAYERS = (
 )
 
 
-def play_shift(player: Player, difficulty, seed: int) -> Dict[str, int]:
+def play_shift(player: Player, difficulty, seed: int,
+               tour: int = 1) -> Dict[str, int]:
     """
     Work one shift and return what the career record would have counted.
 
     The desk is the real one: the same generator, the same commitments, the
-    same cable plant. What differs is only what the player does with it.
+    same cable plant. What differs is only what the player does with it,
+    and which tour of the career it is - a later tour carries a deeper
+    board and wetter weather, and this is where that gets measured rather
+    than assumed.
     """
     rng = random.Random(seed)
-    desk = ReportDesk('201', '555', 'NWRKNJ02', rng)
+    desk = ReportDesk('201', '555', 'NWRKNJ02', rng,
+                      wet_bias=career_progress(tour))
+    desk.depth_limit = round(MAX_PENDING + CAREER_DEPTH * career_progress(tour))
     desk.open_shift(SHIFT_START, difficulty.commitment_slack_minutes)
 
     now = SHIFT_START

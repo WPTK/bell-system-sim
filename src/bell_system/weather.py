@@ -67,6 +67,16 @@ REGIMES: Tuple[Tuple[str, int], ...] = (
     ('CLEAR', 30), ('CLOUDY', 34), ('DRIZZLE', 20), ('RAIN', 12), ('HEAVY', 4),
 )
 
+# How much each regime's weight is allowed to grow as a career goes on. A
+# career walks from mid-November to the last day of December, so a later
+# tour being wetter than an early one is the calendar rather than a
+# difficulty knob - and the difficulty setting still governs only how
+# forgiving the scoring is. CLEAR does not grow at all, so what these do is
+# move weight off the dry end without ever making a dry tour impossible.
+WET_LEAN: Dict[str, float] = {
+    'CLEAR': 0.0, 'CLOUDY': 0.2, 'DRIZZLE': 0.6, 'RAIN': 1.2, 'HEAVY': 1.5,
+}
+
 # Minutes of shift time between weather changes. Weather does not turn on a
 # minute; an hour is about right and is the interval a craftsperson would
 # notice it at.
@@ -85,10 +95,20 @@ class Weather:
     the regime the shift is pulled toward, and the temperature.
     """
 
-    def __init__(self, rng: Optional[random.Random] = None):
+    def __init__(self, rng: Optional[random.Random] = None,
+                 wet_bias: float = 0.0):
+        """
+        Args:
+            rng: The generator to draw from
+            wet_bias: 0.0 for mid-November, 1.0 for the end of December.
+                Leans the regime draw toward the wet end without ever
+                closing off a dry tour.
+        """
         self.rng = rng or random.Random()
+        lean = max(0.0, min(1.0, wet_bias))
         keys = [key for key, _ in REGIMES]
-        weights = [weight for _, weight in REGIMES]
+        weights = [weight * (1.0 + lean * WET_LEAN[key])
+                   for key, weight in REGIMES]
         self.regime = self.rng.choices(keys, weights=weights)[0]
         # A shift starts somewhere near its regime rather than at it.
         start = SEQUENCE.index(self.regime)

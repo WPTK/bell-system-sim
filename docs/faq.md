@@ -88,7 +88,20 @@ otherwise `~/.local/state/bell-system`:
 ls "${BELL_SYSTEM_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/bell-system}"
 # bell_system.log            Rotating application log (10 MB, 5 backups)
 # bell_system_history.txt    Command history
+# career.json                Sign-offs, index, and your wire centre
+# settings.json              Everything `set` changes
+# shift.json                 The tour you are in the middle of
 ```
+
+### Q: Do I lose my shift if I close the window?
+**A:** No. The board, the weather, the water in the cable, where every crew
+is standing and how much of every commitment has been spent are written to
+`shift.json` after every command and picked back up next time you start.
+Signing off with `handoff relieve` ends the tour and removes the file,
+because the tour is finished. A saved shift belonging to a different tour,
+or one that will not read, is discarded rather than repaired: it costs you
+one tour and never leaves you with a board that is half of one shift and
+half of another.
 
 ### Q: Can I keep the simulation's files somewhere else?
 **A:** Yes. Set `BELL_SYSTEM_HOME` to any directory you like; it is created if it

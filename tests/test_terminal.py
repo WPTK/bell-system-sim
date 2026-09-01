@@ -418,9 +418,16 @@ class TestClockIsWiredIn:
         assert '1983' in terminal.execute_command('date')
 
     def test_date_command_default_is_v7_order(self, terminal):
+        """
+        Weekday, month, day. Which day it is depends on the tour - a career
+        walks four days at a time toward divestiture - so this is about the
+        order and not about the date.
+        """
+        terminal.clock.set_tour(1)
         assert terminal.execute_command('date').startswith('Mon Nov 14')
 
     def test_date_format_setting_changes_the_date_command(self, terminal):
+        terminal.clock.set_tour(1)
         terminal.execute_command('set date.format iso')
         assert terminal.execute_command('date').startswith('1983-11-14')
 

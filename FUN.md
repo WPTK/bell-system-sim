@@ -288,15 +288,45 @@ worse.
 | 1 | F1 first ten minutes | small | Nothing else matters if they quit | **done** |
 | 2 | F2 next action | small | Mostly editing strings that exist | **done** |
 | 3 | F5 post-mortem | moderate | Turns every mistake into a lesson | **done** |
-| 4 | F3 hints | moderate | Needs F2's situation detector | |
-| 5 | F4 stakes | moderate | Writing, and the best writing available | |
-| 6 | F7 things to find | small | Cheap, and it is the flavour | |
-| 7 | F6 save/resume | large | The biggest single build here | |
+| 4 | F3 hints | moderate | Needs F2's situation detector | **done** |
+| 5 | F4 stakes | moderate | Writing, and the best writing available | **done** |
+| 6 | F7 things to find | small | Cheap, and it is the flavour | **done** |
+| 7 | F6 save/resume | large | The biggest single build here | **done** |
 
-The first three are built. `screens/guidance.py` holds the one function
-that decides what to do next, and F3's hint levels want the same
-function, so the ordering held: F3 is now a matter of writing three
-levels of nudge around a situation detector that already exists.
+All of it is built, and the ordering held: `screens/guidance.py` holds
+the one function that decides what to do next, and F3's three hint levels
+hang off the same function, so the hint and the standing prompt cannot
+end up describing different situations.
+
+Four things turned up in the building that were not on the plan, each
+found by making something persist that never had before.
+
+**The wire centre was different every session.** The switching machine at
+an office is drawn at random and the COMMON LANGUAGE code is built from
+it, so a craftsperson turned up at a differently named building each
+morning and every line record they had ever seen belonged to somewhere
+else. Nothing noticed until a shift started surviving the session and
+refused to load into the wrong office. The office is career state now.
+
+**A regular's line record was shared across every report on it**, so this
+week's trouble rewrote last week's, and because the measurement is seeded
+from the fault, an old report measured as something it was never closed
+as.
+
+**su(1) appended to the log through the operator's own read**, which
+silently emptied /usr/adm/sulog for anybody not yet allowed to read it -
+which is everybody, at the start.
+
+**The career had no end.** Tours ran past the divestiture date for ever,
+each one announcing that it was the last working day of the Bell System.
+The thirteenth tour closes the career now, once.
+
+Two levers were measured rather than set by eye, which is the habit R5a
+taught: the board goes from nine to eleven across a career and closes the
+same thirty-two reports a tour at either end, because depth is pressure
+rather than volume; and the weather goes from twelve per cent wet tours
+to twenty-two, with the water taking eight and a half pairs a shift
+instead of seven and a half.
 
 F1 and F2 together are perhaps two days and they are most of the felt
 difference between "this is impenetrable" and "oh, I see".

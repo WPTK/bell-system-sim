@@ -21,6 +21,7 @@ behaves as it always has.
 
 from typing import Any, Dict, List, Optional, Tuple
 
+from ..clock import career_progress
 from ..data.positions import get as get_position
 from ..reports import MAX_PENDING
 from .session import SessionState
@@ -30,6 +31,19 @@ from .session import SessionState
 # centre traffic; the total does not change, because a quieter board has to
 # mean a busier order wire rather than an emptier tour.
 NEUTRAL_SHARE = 0.5
+
+# How many more open reports the last tour of a career carries than the
+# first. Measured rather than set by eye: a desk left to fill settles at
+# nine on tour one and eleven on tour thirteen, and no position comes near
+# the three-to-five backlog a shift opens with. Small on purpose - the last
+# attempt at moving this lever overshot and left one desk with a board that
+# started full and never took another report for three hundred commands.
+#
+# What it does not change is throughput. Simulated players close the same
+# thirty-two reports a tour at either end, because the board runs saturated
+# and arrival falls as depth rises. Depth is pressure, not volume, and that
+# is the right thing for it to be.
+CAREER_DEPTH = 2
 
 
 class PositionCommands(SessionState):
@@ -68,7 +82,13 @@ class PositionCommands(SessionState):
         # three-to-five report backlog a shift opens with, or the desk
         # starts full and refuses work for the whole tour - which is how
         # the first attempt at this gave a planning desk a dead board.
-        return round(MAX_PENDING - 3 + 6 * share)
+        #
+        # Plus up to two more across a career. Tour one is quiet and tour
+        # thirteen is not, and that is the shape of getting good at
+        # something rather than a difficulty setting: the difficulty still
+        # governs only how forgiving the scoring is.
+        deeper = CAREER_DEPTH * career_progress(self.career.shift)
+        return round(MAX_PENDING - 3 + 6 * share + deeper)
 
     # -- what it changes -------------------------------------------------
 

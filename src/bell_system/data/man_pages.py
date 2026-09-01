@@ -1121,6 +1121,14 @@ SIGNING OFF
      figures accumulate on the craft record, which draws them as a trend
      once there are three tours behind you.
 
+THE LAST TOUR
+     A career walks the calendar four days at a time, so the thirteenth
+     tour falls on 31 December 1983 and there is no fourteenth. Signing
+     off that one closes the career rather than opening a board: the whole
+     record, every tour of the index drawn as a trend, and the wire chief.
+     It happens once. The board stays on the machine afterwards, because
+     the machine did not stop on the first of January either.
+
 SEE ALSO
      report(1), qual(1), events(1)
 
@@ -1882,6 +1890,39 @@ NOTES
 SEE ALSO
      testboard(1), trunk(1), mlt(1)
 """,
+    "shift": """
+NAME
+     shift - where you are in the tour
+
+SYNOPSIS
+     shift
+
+DESCRIPTION
+     The four numbers you want in the middle of a tour, on one screen:
+     how far in you are and how much is left, what is on the board and how
+     much of it is past commitment or has never been measured, what you
+     have closed so far and how it went, and which crews are out and when
+     they are due back.
+
+     handoff(1) is the full turnover record and it is a page and a half,
+     because it is for handing the board to the person relieving you.
+     This is for the middle of the shift.
+
+     The date and the days remaining are on it because a career walks the
+     calendar: tours are four days apart, from the fourteenth of November
+     to the last working day of the Bell System.
+
+RESUMING
+     A tour survives the session being closed. The board, the weather, the
+     cable, where every crew is standing and how much of every commitment
+     has been spent are written down after every command and picked back
+     up next time. Signing off with 'handoff relieve' ends the tour and
+     throws the saved one away, because it is finished.
+
+SEE ALSO
+     handoff(1), report(1), qual(1)
+""",
+
     "hint": """
 NAME
      hint - ask somebody, and ask again if that was not enough

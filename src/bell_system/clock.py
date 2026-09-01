@@ -36,6 +36,21 @@ TOURS_TO_DIVESTITURE = 13
 DAYS_PER_TOUR = 4
 
 
+def career_progress(tour: int) -> float:
+    """
+    Return how far into a career a tour is, from 0.0 to 1.0.
+
+    The one figure the escalation reads. Tour one is the beginning of it
+    and the last tour is the end, so anything that grows over a career -
+    the depth of the board, the weather - grows against this and nothing
+    has to know how many tours there are.
+    """
+    if TOURS_TO_DIVESTITURE <= 1:
+        return 0.0
+    span = TOURS_TO_DIVESTITURE - 1
+    return max(0.0, min(1.0, (tour - 1) / span))
+
+
 def days_to_divestiture(now: datetime) -> int:
     """
     Return how many days are left of the Bell System, from a given moment.

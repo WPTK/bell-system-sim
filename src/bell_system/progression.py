@@ -191,6 +191,17 @@ class Career:
         self.missed_commitments: int = 0
         self.qualifications: List[str] = ['loop']
         self.index_history: List[float] = []
+        # The wire centre this career is assigned to. Chosen the first time
+        # a session opens and then kept: the switching machine at an office
+        # is drawn at random, so the COMMON LANGUAGE code was coming out
+        # different every session and a craftsperson was turning up at a
+        # different building each morning. Nothing noticed until a shift
+        # started surviving the session and refused to load into the wrong
+        # office.
+        self.office: Dict[str, str] = {}
+        # Set when the last tour has been signed off. There is nobody to
+        # relieve you twice on the last day of the Bell System.
+        self.finished = False
         if path:
             self.load()
 
@@ -394,6 +405,13 @@ class Career:
                 key for key in held if key in QUALIFICATIONS_BY_KEY
             ] or ['loop']
 
+        self.finished = bool(stored.get('finished', False))
+
+        office = stored.get('office')
+        if isinstance(office, dict):
+            self.office = {str(key): str(value)
+                           for key, value in office.items()}
+
         history = stored.get('index_history')
         if isinstance(history, list):
             self.index_history = [
@@ -422,6 +440,8 @@ class Career:
                     'missed_commitments': self.missed_commitments,
                     'qualifications': self.qualifications,
                     'index_history': self.index_history[-40:],
+                    'office': self.office,
+                    'finished': self.finished,
                 }, handle, indent=2, sort_keys=True)
                 handle.write('\n')
         except OSError:

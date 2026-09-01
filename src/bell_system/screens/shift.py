@@ -9,10 +9,7 @@ from collections import (
 from typing import (
     List,
     Optional,
-    Tuple,
 )
-from ..clock import days_to_divestiture
-from ..console import wrap
 from ..data.shift_events import build as build_shift_events
 from ..npc import (
     CRAFT,
@@ -28,18 +25,6 @@ from ..settings import (
 
 
 from .session import SessionState
-
-
-# What the last tour opens on. Nothing mechanical changes - the board is
-# the same board and the work is the same work - which is the whole of the
-# point. The people in the building know, and that is the only difference,
-# and it is enough.
-LAST_TOUR_NOTICE = (
-    "This is the last working day of the Bell System.",
-    "The board is the board. Nothing about the job is different today and",
-    "everybody in the building knows it, which is a strange way to spend a",
-    "Saturday. Work it the way you have worked the others.",
-)
 
 
 class ShiftCommands(SessionState):
@@ -98,6 +83,12 @@ class ShiftCommands(SessionState):
                 role_name = name
                 break
         self.emit(f"Role: {role_name}")
+        if self.resumed:
+            # Not a new tour: the one somebody put down. Worth saying,
+            # because the board is not the board a shift usually opens on
+            # and the difference matters if part of it is already overdue.
+            self.emit(f"Resumed: {self.shift_time()} already worked, "
+                      f"{len(self.desk.pending())} on the board")
         self.emit(f"{'='*60}")
 
         # Role-specific briefings
@@ -185,189 +176,6 @@ class ShiftCommands(SessionState):
             return "Evening Shift (16:00-24:00)"
         else:
             return "Night Shift (24:00-08:00)"
-    def cmd_handoff(self, args: List[str]) -> str:
-        """Bell System shift handoff briefing and turnover record."""
-        previous = self.shift_handoff["previous_shift"]
-        pending_reports = self.desk.pending()
-        overdue_reports = [r for r in pending_reports if r.overdue()]
-        untested_reports = [r for r in pending_reports if not r.tested]
-        open_now = [t for t in self.active_tickets if t['status'] != 'RESOLVED']
-        critical = [t for t in open_now if t['priority'] == 'CRITICAL']
-        unacknowledged = [a for a in self.active_alarms if not a['acknowledged']]
-
-        output = f"""Bell System Shift Handoff Record
-{self.clock.now().strftime('%B %d, %Y %H:%M EST')}
-{days_to_divestiture(self.clock.now())} days to divestiture
-{'=' * 50}
-
-INCOMING FROM PREVIOUS SHIFT
-{'=' * 40}
-Operator:                 {previous['operator']}
-Shift Ended:              {previous['end_time']}
-Summary:                  {previous['summary']}
-System Status:            {previous['system_status']}
-
-Key Issues Carried Forward:"""
-        for issue in previous['key_issues']:
-            output += f"\n  - {issue}"
-
-        output += f"""
-
-Tickets Transferred:      {', '.join(previous['open_tickets'])}
-
-Special Instructions:
-  {previous['special_instructions']}
-
-CURRENT SHIFT POSITION
-{'=' * 40}
-Operator On Duty:         {self.username}
-Role:                     {self.role_name or 'Unassigned'}
-Shift Number:             {self.career.shift}
-Time Worked:              {self.shift_time()} of \
-{SHIFT_LENGTH_MINUTES // 60}:00
-Commands This Session:    {len(self.command_history)}
-
-Open Trouble Tickets:     {len(open_now)}
-  Critical:               {len(critical)}
-Unacknowledged Alarms:    {len(unacknowledged)}
-Overall Health:           {self.system_health['overall_status']}
-
-REPAIR SERVICE BUREAU
-{'=' * 40}
-Reports Pending:          {len(pending_reports)}
-  Past Commitment:        {len(overdue_reports)}
-  Not Yet Measured:       {len(untested_reports)}
-Closed This Session:      {len(self.desk.closed())}
-Board Moved:              {len(self.desk.closed()) - len(pending_reports):+d} \
-reports
-Service Index:            {self.career.service_index():.1f} \
-({self.career.index_band()})
-{self._measure_note()}
-Qualifications Held:      {len(self.career.qualifications)} of \
-{len(QUALIFICATIONS)}
-{self._tour_account()}
-"""
-
-        if pending_reports:
-            output += ("\nREPORTS CARRIED TO THE NEXT SHIFT\n" + "=" * 40)
-            for report in pending_reports[:6]:
-                output += (
-                    f"\n{report.number}: {report.record.telephone_number}"
-                    f"\n  Customer states:    {report.symptom}"
-                    f"\n  Commitment:         "
-                    f"{report.commitment.strftime('%H:%M %a %b %d')}"
-                    f" ({report.age_label()}"
-                    f" {'past' if report.overdue() else 'remaining'})"
-                    f"\n  Measured:           "
-                    f"{'yes' if report.tested else 'NO'}")
-
-        if critical:
-            output += "\nCRITICAL TICKETS REQUIRING HANDOFF\n" + "=" * 40
-            for ticket in critical:
-                output += f"""
-{ticket['id']}: {ticket['title']}
-  Office:             {self._office_label(ticket['affected_office'])}
-  Assigned:           {ticket['assigned_team']}
-  Customers Affected: {ticket['customer_impact']:,}"""
-
-        output += f"""
-
-TURNOVER CHECKLIST
-{'=' * 40}
-  [ ] Review all open trouble tickets with relieving operator
-  [ ] Transfer unacknowledged alarms
-  [ ] Confirm maintenance windows in progress
-  [ ] Record special instructions in the shift log
-  [ ] Verify emergency contact roster is current
-  [ ] Hand the board over with every commitment stated
-
-Reference: BSP 010-100-000 (Shift Turnover Procedures)
-
-Type 'handoff relieve' to sign off. The service index is banked against
-this shift and the next one starts on a fresh board."""
-
-        if args and args[0].lower() in ('relieve', 'signoff', 'end'):
-            return self._end_shift()
-        return output
-    def _end_shift(self) -> str:
-        """
-        Sign off: bank the index, advance the shift, and start a new board.
-
-        Reports left pending are carried forward, because they were. Anything
-        past commitment is still past commitment in the morning.
-        """
-        banked = self.career.service_index()
-        worked = self.shift_time()
-        carried = self.desk.pending()
-        summary = self.tour_summary(*self._tour_worked())
-        self.career.end_shift()
-        self.current_shift = self.career.shift
-        self._tour_baseline = self._career_counters()
-        # A new tour is a new day. Four days on, until the last one.
-        self.clock.set_tour(self.career.shift)
-
-        # A new shift starts with its own clock and its own schedule.
-        self.shift_minutes = 0
-        self._charged_total = sum(report.desk_minutes
-                                  for report in self.reports_all())
-        self._fired_events = set()
-        self.generate_shift_events()
-
-        difficulty = self._difficulty()
-        opened = self.desk.open_shift(
-            self.clock.now(), difficulty.commitment_slack_minutes)
-
-        lines = [
-            f"Relieved. Shift {self.career.shift - 1} closed after "
-            f"{worked} worked.",
-            '=' * 66,
-        ]
-        # What the tour was like, before what it scored. The tally is a
-        # score and a score says how you did without saying anything about
-        # the work.
-        if summary:
-            for sentence in summary:
-                lines.extend(f"  {line}" for line in wrap(sentence, 64))
-            lines.append('')
-        lines.extend([
-            f"  Service index banked      {banked:.1f}  "
-            f"{self.career.index_band()}",
-            f"  Reports closed to date    {self.career.reports_closed}",
-            f"  Carried forward           {len(carried)}",
-            f"  New on the board          {len(opened)}",
-            f"  Shift events              {len(self.shift_events)} scheduled",
-            '',
-            f"Shift {self.career.shift} begins. "
-            f"{len(self.desk.pending())} pending. "
-            f"{self.clock.date()}.",
-        ])
-        if self.career.index_history:
-            trend = self.sparkline(self.career.index_history, span=8)
-            recent = ', '.join(f"{entry:.1f}"
-                               for entry in self.career.index_history[-8:])
-            lines.append(f"  Index history             {recent}"
-                         + (f"  {trend}" if trend else ''))
-        granted = self._grant_qualifications()
-        if granted:
-            lines.append('')
-            lines.extend(granted)
-        if self.clock.last_tour(self.career.shift):
-            lines.append('')
-            lines.extend(LAST_TOUR_NOTICE)
-        return '\n'.join(lines)
-    def _career_counters(self) -> Tuple[int, int, int, int]:
-        """Snapshot the four counters a tour is judged on."""
-        career = self.career
-        return (career.reports_closed, career.reports_correct,
-                career.missed_commitments, career.repeat_reports)
-
-    def _tour_worked(self) -> Tuple[int, int, int, int]:
-        """Return closed, correct, missed and repeats for this tour alone."""
-        now = self._career_counters()
-        closed, correct, missed, repeats = (
-            current - was for current, was in zip(now, self._tour_baseline))
-        return closed, correct, missed, repeats
-
     def cmd_events(self, args: List[str]) -> str:
         """Bell System operational events and shift activity"""
         if not args:
@@ -878,37 +686,3 @@ this shift and the next one starts on a fresh board."""
                     f"SCC copies. Logged against this office.")
         return ("orderwire: unknown option. Use 'orderwire', "
                 "'orderwire scc' or\n'orderwire report <text>'.")
-
-    def _measure_note(self) -> str:
-        """
-        What this desk is judged on, indented under the index.
-
-        The service index scores how you closed reports, not how many, and
-        for eight of the twelve positions it does not describe the work at
-        all. This says which of those is true here.
-        """
-        indent = ' ' * 26
-        rows = ['Scores how you closed them, not how many.',
-                'A tour that closes five perfectly reads',
-                'the same as one that closes thirty.']
-        rows.extend(self.position_measure())
-        return '\n'.join(indent + line for line in rows)
-
-    def _tour_account(self) -> str:
-        """
-        A plain account of what this tour consisted of.
-
-        Deliberately a tally and not a second score. A number printed
-        beside the index would be read as another thing to optimise, and
-        most of these are not things to optimise - they are what the desk
-        spent the night on.
-        """
-        tally = self.position_tally()
-        if not tally:
-            return ''
-        rows = ['', f"WHAT THIS DESK DID - {self.position.name}", '=' * 40]
-        for label, value in tally:
-            rows.append(f"{label + ':':<32}{value}")
-        rows.append('')
-        rows.append("Not scored. It is what the tour consisted of.")
-        return '\n'.join(rows)

@@ -42,6 +42,13 @@ def terminal(isolated_state):
     # first tour holds the board at one report and keeps the building quiet.
     # Tests of the working shift want the working shift.
     instance.career.shift = 2
+    # Persisted, because it is on disk everywhere else: the career is only
+    # ever written when it changes, so a fixture that moves the shift and
+    # does not write it leaves the record disagreeing with the session.
+    instance.career.save()
+    # The clock reads the tour at construction, before the fixture moved
+    # it. Real sessions load the career first; this keeps the two agreeing.
+    instance.clock.set_tour(instance.career.shift)
     return instance
 
 

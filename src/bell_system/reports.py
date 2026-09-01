@@ -268,7 +268,8 @@ class ReportDesk:
     """
 
     def __init__(self, npa: str, nxx: str, clli: str,
-                 rng: Optional[random.Random] = None):
+                 rng: Optional[random.Random] = None,
+                 wet_bias: float = 0.0):
         self.npa = npa
         self.nxx = nxx
         self.clli = clli
@@ -282,7 +283,10 @@ class ReportDesk:
         # a sheath fault, not a pair fault, so where a wet pair lands is the
         # plant's decision and not a pair of random numbers.
         self.plant = CablePlant(self.rng)
-        self.weather = Weather(self.rng)
+        # Later in a career is later in the year: a tour in the last week
+        # of December is wetter than one in mid-November, and the water in
+        # the sheath is what that costs.
+        self.weather = Weather(self.rng, wet_bias=wet_bias)
         # Who is available to go out, and where they are standing.
         self.force = FieldForce(self.rng)
         # Multipliers on what kind of trouble a report is, set by whichever

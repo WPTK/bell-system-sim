@@ -157,6 +157,7 @@ class CommandDispatch:
         'collect': self.cmd_collect,
         'tsps': self.cmd_tsps,
         'handoff': self.cmd_handoff,
+        'shift': self.cmd_shift,
         'tariff': self.cmd_tariff,
         'events': self.cmd_events,
         'training': self.cmd_training,

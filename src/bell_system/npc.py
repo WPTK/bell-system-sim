@@ -574,6 +574,34 @@ class Switchroom:
             kind='chatter', subject='moo', about=None,
         ))
 
+    def last_word(self, now: datetime, tours: int, closed: int,
+                  qualifications: int) -> Message:
+        """
+        What the wire chief says at the end of the last tour.
+
+        He has been reading the service index every morning for however
+        long this took, and he signed every qualification on the record.
+        He does not make a speech about it, because he would not.
+        """
+        lines = [
+            'That is the tour, and that is the company.',
+            f'{tours} tours and {closed} reports off the board. I signed '
+            f'{qualifications} of your',
+            'qualifications and I stand behind every one of them.',
+            '',
+            'They go with you. Whichever of the seven you end up at in the',
+            'morning, the record says what you can work and nobody there',
+            'is going to argue with it.',
+            'Go home.',
+        ]
+        if qualifications >= 5:
+            lines.insert(3, 'You were better at it than most of the people '
+                            'who trained you.')
+        return self._deliver(Message(
+            channel=CHANNEL_WRITE, sender='ehalloran', received=now,
+            lines=lines, kind='nudge', subject='Last tour', about=None,
+        ))
+
     def assignment(self, now: datetime, report_number: str,
                    telephone_number: str, symptom: str,
                    commitment: str) -> Message:
