@@ -762,7 +762,7 @@ this shift and the next one starts on a fresh board."""
             return self.switchroom.hint(now)
         if untested and roll < 0.50:
             return self.switchroom.hint(now)
-        return self.switchroom.chatter(now)
+        return self.switchroom.chatter(now, position=self.role)
     def _advance_shift(self) -> List[str]:
         """
         Charge the shift for the work just done and fire anything now due.

@@ -104,6 +104,10 @@ lokafor::24:1::/usr/users/lokafor:/bin/sh
 gvasquez::25:1::/usr/users/gvasquez:/bin/sh
 ehalloran::26:1::/usr/users/ehalloran:/bin/sh
 tnakamura::27:1::/usr/users/tnakamura:/bin/sh
+wfinch::36:1::/usr/users/wfinch:/bin/sh
+jsandoval::37:1::/usr/users/jsandoval:/bin/sh
+abright::38:1::/usr/users/abright:/bin/sh
+jhaverty::39:1::/usr/users/jhaverty:/bin/sh
 tsps::28:1::/usr/users/tsps:/bin/sh
 dba::29:1::/usr/users/dba:/bin/sh
 netplan::30:1::/usr/users/netplan:/bin/sh
@@ -120,8 +124,8 @@ bin::3:bin
 sys::4:sys
 adm::5:adm
 uucp::6:uucp
-craft::10:rjohnson,lokafor,gvasquez,mreyes
-mgmt::11:ehalloran,dpetrak,tnakamura
+craft::10:rjohnson,lokafor,gvasquez,mreyes,wfinch,jsandoval,abright
+mgmt::11:ehalloran,dpetrak,tnakamura,jhaverty
 """
 
 

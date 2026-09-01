@@ -80,6 +80,31 @@ CRAFT: Dict[str, Craft] = {
         'ehalloran', 'Halloran, E.', 'Wire Chief',
         'CENTRAL_OFF', '01',
         'Signs your qualifications. Reads the service index every morning.'),
+    'wfinch': Craft(
+        'wfinch', 'Finch, W.', 'Station Installer',
+        'FIELD_SUP', '06',
+        'Drop, protector and set: everything the customer can see. Rings in '
+        'from the kitchen phone as often as from a terminal box.'),
+    'jsandoval': Craft(
+        'jsandoval', 'Sandoval, J.', 'Cable Splicer',
+        'FIELD_SUP', '11',
+        'Second splicer. Newer than Okafor and says less, which the wire '
+        'chief has noticed and has not decided about.'),
+    'abright': Craft(
+        'abright', 'Bright, A.', 'Lineman',
+        'FIELD_SUP', '12',
+        'Aerial and buried plant between the office and the drop. Calls in '
+        'from wherever the ladder is.'),
+    'jhaverty': Craft(
+        'jhaverty', 'Haverty, J.', 'Chief Operator',
+        'TSPS_NEWARK', '10',
+        'Runs a room of operator positions. Everything she brings you is a '
+        'call somebody is still holding.'),
+    'adm': Craft(
+        'adm', 'ADM', 'System accounting',
+        'CENTRAL_OFF', '08',
+        'Not a person. The machine writing its own record, in the register '
+        'a machine writes in.'),
     'tnakamura': Craft(
         'tnakamura', 'Nakamura, T.', 'Transmission Engineer',
         'TRANS_CTR', '05',
@@ -159,6 +184,218 @@ _CHATTER: Sequence[tuple] = (
       'line from here without CAROT. Ask before you seize a trunk we are',
       'already routining.']),
 )
+
+
+# What each desk hears on top of the whole building.
+#
+# Added to the shared pool rather than replacing it: a document preparation
+# desk still hears CAROT printing trunk exceptions at three in the morning,
+# because it is in the same building and the teletype does not care who is
+# sitting there. It just also hears Petrak about an addendum.
+#
+# This is where the character of a position actually lives. The work mix
+# tells you what kind of tour it is; these tell you whose building it is.
+_POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
+
+    'sysop': (
+        (CHANNEL_TELETYPE, 'adm',
+         ['/usr/spool is at 84 percent. uucp has 47 files queued for pwba',
+          'and pwba has not answered since 06:44.']),
+        (CHANNEL_WRITE, 'tnakamura',
+         ['Somebody left a job running on the 11/70 over the weekend and it',
+          'is still running. It is not mine. I have looked.']),
+        (CHANNEL_WRITE, 'ehalloran',
+         ['When the operating company takes this machine in January they',
+          'take the accounts on it. Anything in /tmp is yours until then',
+          "and nobody else's ever."]),
+        (CHANNEL_TELETYPE, 'adm',
+         ['su: BADSU 11/14 07:52 - tty03 mreyes-root']),
+    ),
+
+    'switch': (
+        (CHANNEL_WRITE, 'rjohnson',
+         ['Marker 2 took eleven seconds on a third trial this morning. Peg',
+          'count is up and nothing is out of limits, which is the whole',
+          'problem with a marker.']),
+        (CHANNEL_ORDERWIRE, 'dpetrak',
+         ['SCC to office. Your dial tone speed is on the wrong side of the',
+          'objective for the second morning. Nothing is alarming. Somebody',
+          'is going to ask.']),
+        (CHANNEL_WRITE, 'ehalloran',
+         ['If it is a false cross or ground the loop will measure clean to',
+          'the frame every time. Do not send anybody out on one.']),
+        (CHANNEL_TELETYPE, 'carot',
+         ['*** OFFICE 24 HOUR SUMMARY - MACHINE ACCESS WITHIN OBJECTIVE',
+          '*** MACHINE SWITCHING - 3 EXCEPTIONS - SEE COER']),
+    ),
+
+    'field': (
+        (CHANNEL_ORDERWIRE, 'lokafor',
+         ['Field to test desk. I am in a manhole at Franklin and it has six',
+          'inches of water in it. Whatever else you were going to give me',
+          'today, give it to Sandoval.']),
+        (CHANNEL_ORDERWIRE, 'wfinch',
+         ['Station to test desk. Customer met me at the door and told me it',
+          'has been doing it for three weeks. Three weeks and one report.',
+          'They always wait.']),
+        (CHANNEL_WRITE, 'mreyes',
+         ['Two off Elm Street in twenty minutes. Before you send anybody,',
+          'look at what cable they are on.']),
+        (CHANNEL_ORDERWIRE, 'abright',
+         ['Lineman to test desk. That pole at Grand has been leaning since',
+          "the storm and it is going to be somebody's problem in January."]),
+    ),
+
+    'noc': (
+        (CHANNEL_TELETYPE, 'carot',
+         ['*** REGIONAL SUMMARY 08:00 - 4 GROUPS OVER OBJECTIVE',
+          '*** ALL WITHIN P.01 - NO ACTION INDICATED']),
+        (CHANNEL_ORDERWIRE, 'dpetrak',
+         ['SCC to national. Bedminster is showing the same three groups you',
+          'are. Nobody below us can see it: every office underneath reports',
+          'a normal day.']),
+        (CHANNEL_WRITE, 'ehalloran',
+         ['One group over objective is a group. Three homing on the same',
+          'sectional centre is something else, and it will not show up',
+          'anywhere but here.']),
+        (CHANNEL_TELETYPE, 'carot',
+         ['*** MASS CALLING DETECTED NPA 212 NXX 555',
+          '*** CODE BLOCK RECOMMENDED']),
+    ),
+
+    'tsps': (
+        (CHANNEL_ORDERWIRE, 'jhaverty',
+         ['Chief operator. Position 14 has a collect the called party will',
+          'not accept and will not hang up on either. She has been on it',
+          'four minutes.']),
+        (CHANNEL_WRITE, 'jhaverty',
+         ['If it rings and nobody answers it is a line. If it rings and',
+          'somebody answers and cannot hear, it is not, and I would rather',
+          'know which before I tell the caller anything.']),
+        (CHANNEL_ORDERWIRE, 'jhaverty',
+         ['We have had six calls off one exchange saying the line is busy',
+          'when it is not. Six is not six people being wrong.']),
+        (CHANNEL_WRITE, 'mreyes',
+         ['A permanent signal and a receiver off the hook are the same',
+          'thing to the equipment. They are not the same thing to the',
+          'customer, who is asleep.']),
+    ),
+
+    'dba': (
+        (CHANNEL_WRITE, 'lokafor',
+         ['The pair COSMOS says is spare has a working line on it. I am',
+          'standing at the terminal box looking at it. Fix the record',
+          'before somebody gets assigned it.']),
+        (CHANNEL_WRITE, 'ehalloran',
+         ['Every record on this machine goes to the operating company on',
+          'the first of January. Anything wrong in it on the thirty-first',
+          'is wrong in it forever.']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['cosmos: 3 pending frame orders unworked at 08:00',
+          'cosmos: load balance index 0.940 - within objective']),
+        (CHANNEL_WRITE, 'rjohnson',
+         ['If the cross-connect record and the frame disagree, the frame is',
+          'right. It is always the frame. The frame is the thing that is',
+          'actually there.']),
+    ),
+
+    'netplan': (
+        (CHANNEL_WRITE, 'ehalloran',
+         ['They want the eighteen month forecast by Friday and the only',
+          'thing you have to build it out of is last month.']),
+        (CHANNEL_WRITE, 'tnakamura',
+         ['The growth is not in telephones. It is in what people put on the',
+          'line once they have one, and the special services group is going',
+          'to run out of facilities before anybody notices.']),
+        (CHANNEL_ORDERWIRE, 'dpetrak',
+         ['SCC to planning. Who does the arithmetic in January for a circuit',
+          'with one end in each company? Nobody here knows and I have asked',
+          'three people.']),
+        (CHANNEL_TELETYPE, 'carot',
+         ['*** TRUNK FORECAST EXCEPTION - TG-089-CHI',
+          '*** MEASURED BUSY HOUR HAS MOVED 2 HOURS SINCE LAST QUARTER']),
+    ),
+
+    'custserv': (
+        (CHANNEL_WRITE, 'mreyes',
+         ['She has taken the morning off work twice for this. If we miss it',
+          'again I would rather ring her than have her ring us.']),
+        (CHANNEL_WRITE, 'mreyes',
+         ['The line tests fine from here about a third of the time and the',
+          'trouble is real about a third of the time. They are not the',
+          'same third.']),
+        (CHANNEL_ORDERWIRE, 'jhaverty',
+         ['Chief operator. The caller you had at ten rang the operator',
+          'instead. She is not angry, she is just out of ways to try.']),
+        (CHANNEL_WRITE, 'wfinch',
+         ['Station to desk. Nothing wrong with the set. Nothing wrong with',
+          'the drop. I have told them somebody will call and I would rather',
+          'somebody did.']),
+    ),
+
+    'radio': (
+        (CHANNEL_ORDERWIRE, 'tnakamura',
+         ['Transmission to radio. Fade margin on the Chester hop is down',
+          'four dB and it is raining on it. That is weather, not a fault,',
+          'and there is nothing on the ground to go and look at.']),
+        (CHANNEL_WRITE, 'gvasquez',
+         ['A path that fades on a clear morning is a dish that has moved.',
+          'Winter does it. Nobody notices until spring.']),
+        (CHANNEL_TELETYPE, 'carot',
+         ['*** TH-3 ROUTE 4 - DIVERSITY SWITCH TO PROTECTION 07:41',
+          '*** RESTORED 07:58 - NO ACTION INDICATED']),
+        (CHANNEL_ORDERWIRE, 'tnakamura',
+         ['Transmission to radio. Somebody is going to ask you why we do',
+          'not put it on satellite. Half a second, is why.']),
+    ),
+
+    'tnds': (
+        (CHANNEL_TELETYPE, 'carot',
+         ['*** OVERNIGHT COLLECTION COMPLETE - 41 OFFICES REPORTING',
+          '*** 2 OFFICES NO DATA - JCITNJ02 NWRKNJ07']),
+        (CHANNEL_WRITE, 'tnakamura',
+         ['Before you report a difference between two offices, find out',
+          'whether it is a difference in the traffic or a difference in the',
+          'counting. It is the counting more often than anybody admits.']),
+        (CHANNEL_ORDERWIRE, 'dpetrak',
+         ['SCC to data. That office has been engineered to a busy hour that',
+          'stopped being the busy hour in 1980.']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['tnds: collection window 0100-0400 - 3h 12m elapsed',
+          'tnds: 1 retransmission requested']),
+    ),
+
+    'sarts': (
+        (CHANNEL_ORDERWIRE, 'gvasquez',
+         ['Test centre to specials. Both ends measure in limits and the',
+          'circuit is still down. That is the whole job, that sentence.']),
+        (CHANNEL_WRITE, 'rjohnson',
+         ['Get the layout record before you ring anybody. Half of what',
+          'comes to that desk is somebody testing a section that was',
+          'rearranged in 1979 and is not in the circuit any more.']),
+        (CHANNEL_ORDERWIRE, 'tnakamura',
+         ['Transmission to specials. The customer on that private line runs',
+          'a data set on it and they will know before we do.']),
+        (CHANNEL_TELETYPE, 'carot',
+         ['*** ROTL SEIZURE FAILED - CKT 27-DATA-0088',
+          '*** RETRY SCHEDULED 0300']),
+    ),
+
+    'docprep': (
+        (CHANNEL_WRITE, 'dpetrak',
+         ['The addendum supplements the practice, it does not replace it.',
+          'Both go out. I know. I have said this before.']),
+        (CHANNEL_WRITE, 'ehalloran',
+         ['Every practice with the words Bell System on the cover needs',
+          'looking at before January and there are four hundred of them.']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['lpd: 2 jobs queued, 31 pages',
+          'lpd: /dev/lp paper low']),
+        (CHANNEL_WRITE, 'tnakamura',
+         ['If it is coming out mangled it is nf and fi in the wrong place.',
+          'It is always nf and fi in the wrong place.']),
+    ),
+}
 
 # Advice offered when a report is sitting untested. Written as the older
 # craft would put it: what to do, not what it is called.
@@ -251,9 +488,18 @@ class Switchroom:
 
     # -- traffic ---------------------------------------------------------
 
-    def chatter(self, now: datetime) -> Optional[Message]:
-        """Return an ambient message, or None if the pool is used up."""
-        picked = self._pick(_CHATTER, 'chatter')
+    def chatter(self, now: datetime,
+                position: Optional[str] = None) -> Optional[Message]:
+        """
+        Return an ambient message, or None if the pool is used up.
+
+        A position hears its own people on top of the whole building, not
+        instead of it: a document preparation desk still gets CAROT
+        printing trunk exceptions, because the teletype does not care who
+        is sitting there.
+        """
+        pool = tuple(_CHATTER) + tuple(_POSITION_CHATTER.get(position or '', ()))
+        picked = self._pick(pool, 'chatter')
         if picked is None:
             return None
         channel, sender, lines = picked
@@ -416,13 +662,25 @@ class Switchroom:
         'Central office': 'rjohnson',
         'Outside plant': 'lokafor',
         'Cable repair': 'lokafor',
-        'Station': 'lokafor',
+        'Station': 'wfinch',
     }
 
     def field_call(self, now: datetime, report_number: str,
-                   finding: str, force: str = 'Outside plant') -> Message:
-        """The dispatched force calling in from the field."""
+                   finding: str, force: str = 'Outside plant',
+                   crew: Optional[str] = None) -> Message:
+        """
+        The dispatched force calling in from the field.
+
+        Names the crew that actually went where one is known. The report
+        has recorded who it was since named field forces were built; this
+        call was still coming in as the cable splicer whoever went.
+        """
         sender = self.FORCE_SENDERS.get(force, 'lokafor')
+        if crew:
+            for login, person in CRAFT.items():
+                if person.name == crew:
+                    sender = login
+                    break
         opening = ('Frame to test desk.' if sender == 'rjohnson'
                    else 'Field to test desk.')
         return self._deliver(Message(

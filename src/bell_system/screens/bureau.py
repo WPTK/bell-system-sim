@@ -372,7 +372,8 @@ class BureauCommands(SessionState):
             called_in = (f'nothing at our end. Somebody else has this one, '
                          f'not {canonical.lower()}')
         message = self.switchroom.field_call(
-            self.clock.now(), report.number, called_in, force=canonical)
+            self.clock.now(), report.number, called_in, force=canonical,
+            crew=report.crew)
         self._queue_message(message, after=random.randint(1, 3))
 
         return (f"{report.number} dispatched to {canonical}.\n"
