@@ -79,6 +79,9 @@ class SessionState:
     log_verbosity: str
     man_pages: Dict[str, str]
 
+    # Short names the dispatcher expands before looking a command up.
+    COMMAND_ALIASES: Dict[str, str]
+
     # -- the work --------------------------------------------------------
     career: Career
     desk: ReportDesk
@@ -159,6 +162,7 @@ class SessionState:
     _watched: Optional[List[Any]]
     _office_alarms: Dict[str, List[Any]]
     _scc_assigned: Optional[str]
+    _tour_nudges: Any
     users: List[Dict[str, str]]
     project_numbers: Dict[str, Any]
     rate_structures: Dict[str, Any]
@@ -286,6 +290,34 @@ class SessionState:
 
     def scc_assignment(self) -> Optional[str]:
         """The control centre putting an office on you for the tour."""
+        raise NotImplementedError
+
+    def next_action(self) -> Any:
+        """The single next thing worth doing on this board."""
+        raise NotImplementedError
+
+    def next_line(self) -> str:
+        """The standing prompt, or nothing."""
+        raise NotImplementedError
+
+    def guidance_rows(self) -> List[str]:
+        """The WHAT TO DO NOW block at the top of help(1)."""
+        raise NotImplementedError
+
+    def dead_end(self, message: str) -> str:
+        """Put a way out on the end of a refusal."""
+        raise NotImplementedError
+
+    def shift_time(self) -> str:
+        """How far into the shift the operator is, as h:mm."""
+        raise NotImplementedError
+
+    def first_tour(self, after_close: bool = False) -> bool:
+        """Whether this is somebody's first ten minutes on the job."""
+        raise NotImplementedError
+
+    def first_tour_nudge(self, step: str) -> Optional[str]:
+        """The wire chief walking a new craftsperson through one report."""
         raise NotImplementedError
 
     def _queue_message(self, message: Any, after: int) -> None:

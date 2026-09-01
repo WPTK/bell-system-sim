@@ -24,18 +24,24 @@ def terminal(isolated_state):
     """
     A constructed main Bell System terminal, fully qualified and quiet.
 
-    Qualification gating and ambient traffic from the other craft are both
-    real behaviour, but they make every other command's output conditional on
-    progression and on a dice roll. Tests that exercise a command want the
-    command. Progression and ambience have their own tests, which build their
-    own terminals.
+    Qualification gating, ambient traffic from the other craft and the
+    standing what-to-do-next prompt are all real behaviour, but they make
+    every other command's output conditional on progression, on a dice roll
+    and on the state of the board. Tests that exercise a command want the
+    command. Progression, ambience and guidance have their own tests, which
+    build their own terminals.
     """
     from bell_system.progression import QUALIFICATIONS
     from bell_system.terminal import BellSystemTerminal
 
     instance = BellSystemTerminal()
     instance.settings.set('game.ambience', 'off')
+    instance.settings.set('game.prompts', 'off')
     instance.career.qualifications = [q.key for q in QUALIFICATIONS]
+    # Somebody signed off on everything is not on their first tour, and a
+    # first tour holds the board at one report and keeps the building quiet.
+    # Tests of the working shift want the working shift.
+    instance.career.shift = 2
     return instance
 
 

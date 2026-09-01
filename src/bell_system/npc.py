@@ -551,6 +551,20 @@ class Switchroom:
             kind='weather', subject='Weather', about=None,
         ))
 
+    def chief_nudge(self, now: datetime, lines: List[str]) -> Message:
+        """
+        The wire chief walking a new craftsperson through one report.
+
+        This is the whole of the tutorial. It arrives on write(1) from the
+        man who signs your qualifications, because that is who would do it
+        and because the channel already exists.
+        """
+        return self._deliver(Message(
+            channel=CHANNEL_WRITE, sender='ehalloran', received=now,
+            lines=list(lines), kind='nudge', subject='First tour',
+            about=None,
+        ))
+
     def office_assignment(self, now: datetime, clli: str, city: str,
                           trouble: str, standing: int) -> Message:
         """

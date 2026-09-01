@@ -43,7 +43,10 @@ def at_desk(isolated_state):
         instance = BellSystemTerminal()
         instance.settings.set('game.ambience', 'off')
         instance.settings.set('display.pacing', 'off')
+        instance.settings.set('game.prompts', 'off')
         instance.career.qualifications = [q.key for q in QUALIFICATIONS]
+        # Past the first tour, which holds the board at one report.
+        instance.career.shift = 2
         if role_key is not None:
             with redirect_stdout(io.StringIO()):
                 instance.take_position(role_key)

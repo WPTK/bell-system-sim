@@ -22,7 +22,7 @@ def test_help_lists_every_documented_option(capsys):
     with pytest.raises(SystemExit):
         main(['--help'])
     out = capsys.readouterr().out
-    for option in ('--tutorial', '--role', '--simple', '--version'):
+    for option in ('--role', '--simple', '--version'):
         assert option in out
 
 
@@ -66,18 +66,6 @@ def test_simple_flag_selects_the_simplified_terminal(monkeypatch, isolated_state
     assert started['ran']
 
 
-def test_tutorial_flag_selects_the_tutorial(monkeypatch, isolated_state):
-    started = {}
-
-    class FakeTutorial:
-        def run(self):
-            started['ran'] = True
-
-    monkeypatch.setattr('bell_system.tutorial.BellSystemTutorial', FakeTutorial)
-    assert main(['--tutorial']) == 0
-    assert started['ran']
-
-
 def test_keyboard_interrupt_exits_cleanly(monkeypatch, isolated_state):
     """Ctrl-C ends the session with status 0 rather than a traceback."""
     class Interrupting:
@@ -89,7 +77,7 @@ def test_keyboard_interrupt_exits_cleanly(monkeypatch, isolated_state):
 
 
 def test_eof_exits_cleanly(monkeypatch, isolated_state):
-    """Ctrl-D ends the session cleanly; the tutorial used to crash on it."""
+    """Ctrl-D ends the session cleanly rather than with a traceback."""
     class EndOfFile:
         def run(self, role=None):
             raise EOFError

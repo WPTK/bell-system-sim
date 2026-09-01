@@ -16,10 +16,8 @@ __license__ = "MIT"
 
 from .simple_terminal import SimpleTerminal
 from .terminal import BellSystemTerminal
-from .tutorial import BellSystemTutorial
 
 __all__ = [
     'BellSystemTerminal',
     'SimpleTerminal',
-    'BellSystemTutorial',
 ]

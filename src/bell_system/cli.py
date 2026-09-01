@@ -22,7 +22,6 @@ def build_parser() -> argparse.ArgumentParser:
         epilog="""
 Examples:
   bell-system                 Start the interactive simulation
-  bell-system --tutorial      Work through the guided tutorial
   bell-system --role 1        Start as UNIX Systems Operator
   bell-system --simple        Use the simplified four-role interface
 """,
@@ -31,11 +30,6 @@ Examples:
         '--version',
         action='version',
         version=f'Bell System UNIX V7 Terminal Simulation v{__version__}',
-    )
-    parser.add_argument(
-        '--tutorial',
-        action='store_true',
-        help='start the interactive tutorial',
     )
     parser.add_argument(
         '--role',
@@ -65,10 +59,7 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
 
     try:
-        if args.tutorial:
-            from .tutorial import BellSystemTutorial
-            BellSystemTutorial().run()
-        elif args.simple:
+        if args.simple:
             from .simple_terminal import SimpleTerminal
             SimpleTerminal().run()
         else:

@@ -44,7 +44,6 @@ pip install -e .
 
 # Run
 bell-system                    # Start interactive simulation
-bell-system --tutorial         # Learn Bell System operations
 bell-system --role 1           # Start as specific role (1-12), skipping the menu
 bell-system --simple           # Simplified four-role interface
 python -m bell_system          # Equivalent to `bell-system`
@@ -305,7 +304,6 @@ bell-system --help
 │       ├── special_services.py      # SARTS and special services circuits
 │       ├── screens/                 # One module per subsystem's screens
 │       ├── simple_terminal.py       # Four-role simplified terminal
-│       ├── tutorial.py              # Interactive tutorial system
 │       └── data/                    # Man pages, reference tables, and the
 │                                    # packaged geographic dataset
 ├── tests/                           # pytest suite

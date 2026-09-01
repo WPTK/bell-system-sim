@@ -47,7 +47,7 @@ from .console import render
 from .data import geography
 from .filesystem import normalise
 from .data.man_pages import MAN_PAGES
-from .data.positions import POSITION_COMMANDS, get as neutral_position
+from .data.positions import get as neutral_position
 from .progression import (
     DIFFICULTIES,
     QUALIFICATIONS_BY_KEY,
@@ -71,6 +71,7 @@ from .screens.editor import EditorCommands
 from .screens.filters import FilterCommands
 from .screens.jobs import JobCommands
 from .screens.plant import PlantCommands
+from .screens.guidance import GuidanceCommands
 from .screens.position import PositionCommands
 from .screens.remote import RemoteCommands
 from .screens.records import RecordsCommands
@@ -143,6 +144,7 @@ class BellSystemTerminal(
     FilterCommands,
     JobCommands,
     PlantCommands,
+    GuidanceCommands,
     PositionCommands,
     RemoteCommands,
     RecordsCommands,
@@ -245,6 +247,9 @@ class BellSystemTerminal(
         self._watched: Optional[List[Dict[str, Any]]] = None
         self._office_alarms: Dict[str, List[Dict[str, Any]]] = {}
         self._scc_assigned: Optional[str] = None
+        # Steps of the loop the wire chief has already walked a new
+        # craftsperson through. First tour only.
+        self._tour_nudges: set = set()
         self._initialize_processes()
         self._initialize_users()
         self._initialize_shift_handoff()
@@ -743,6 +748,13 @@ class BellSystemTerminal(
 
         self.emit(f"\nYou are at the {role_name.lower()} position, "
                   f"tour 1, {self.clock.date()}.")
+
+        # There is no tutorial mode. On a first tour the wire chief puts his
+        # head round the door, and that is the whole of it.
+        opening = self.first_tour_nudge('open')
+        if opening:
+            self.emit('')
+            self.emit(opening)
 
 
 
@@ -1330,7 +1342,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                 if interruption:
                     result = f"{result}\n{interruption}" if result else interruption
 
-                return result
+                return self._add_guidance(result, command)
             else:
                 # A program cc built is run by naming it, the way ./a.out or
                 # a.out on the path would be.
@@ -1629,254 +1641,6 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
 
 
 
-
-
-
-    # Commands each position works day to day. Every name here is checked
-    # against the dispatch table by the test suite: this list once carried
-    # two commands that had never existed.
-    # What each desk reaches for, printed as its section of help(1).
-    # The table lives in data/positions.py, where the rest of what is
-    # different about a position lives with it.
-    ROLE_COMMANDS = POSITION_COMMANDS
-
-    # The work itself, which every position has a board of.
-    BUREAU_COMMANDS = (
-        ('report', 'The pending trouble reports on your board'),
-        ('mlt', 'Measure a subscriber loop'),
-        ('testboard', 'The test board: loops, test lines, supervision'),
-        ('testline', 'Far-end test lines and responders'),
-        ('testcall', 'Place a test call through the network'),
-        ('qual', 'Your craft record and service index'),
-    )
-
-    SHELL_COMMANDS = (
-        ('cd', 'Change directory'),
-        ('ls', 'List a directory (-l for the long form)'),
-        ('cat', 'Read a file'),
-        ('grep', 'Search a file for a pattern'),
-        ('wc', 'Count lines, words and characters'),
-        ('man', 'The manual page for any command'),
-    )
-
-    PEOPLE_COMMANDS = (
-        ('who', 'Who is on the system'),
-        ('write', 'Write to another terminal'),
-        ('mail', 'Read your mail'),
-        ('orderwire', 'The maintenance order wire'),
-        ('handoff', 'Shift turnover; handoff relieve to sign off'),
-    )
-
-    def cmd_help(self, args: Optional[List[str]] = None) -> str:
-        """
-        Show available commands, marking what this craftsperson may work.
-
-        Qualification governs what may be used, so the listing says so rather
-        than offering a command that will be refused.
-
-        Args:
-            args: Optional command name for specific help
-
-        Returns:
-            Help information formatted for terminal display
-        """
-        if args and args[0]:
-            command = args[0].lower()
-            command = self.COMMAND_ALIASES.get(command, command)
-            if command not in self.man_pages:
-                return (f"No help available for '{args[0]}'. "
-                        f"Use 'help' to see available commands.")
-            needed = self.career.qualification_for_command(command)
-            note = ''
-            if needed and not self.career.is_qualified(needed):
-                note = (f"\n\nYou are not signed off on "
-                        f"{QUALIFICATIONS_BY_KEY[needed].name}. "
-                        f"Type 'qual'.")
-            first = self.man_pages[command].strip().splitlines()
-            summary = first[1].strip() if len(first) > 1 else command
-            return (f"{summary}\n\n"
-                    f"Use 'man {command}' for complete documentation.{note}")
-
-        pending = len(self.desk.pending())
-        lines = [
-            f"Bell System UNIX V7 Commands - Role: "
-            f"{self.role_name or 'unassigned'}",
-            '=' * 66,
-            '',
-            f"THE WORK   {pending} trouble report(s) on your board, "
-            f"{self.shift_time()} into the shift",
-            '-' * 66,
-        ]
-        lines.extend(self._help_rows(self.BUREAU_COMMANDS))
-
-        role_commands = self.ROLE_COMMANDS.get(self.role or '')
-        if role_commands:
-            lines.extend(['', f"THIS POSITION   {self.role_name}", '-' * 66])
-            lines.extend(self._help_rows(
-                (name, self._help_summary(name))
-                for name in sorted(role_commands)
-            ))
-
-        lines.extend(['', 'THE MACHINE', '-' * 66])
-        lines.extend(self._help_rows(self.SHELL_COMMANDS))
-        lines.append("   Commands join with a pipe: who | wc -l")
-        lines.append("   Worth reading: /etc/motd, /usr/doc/divestiture,")
-        lines.append("                  /usr/users/sysop/notes, /usr/lmos/board")
-
-        lines.extend(['', 'THE OTHER CRAFT', '-' * 66])
-        lines.extend(self._help_rows(self.PEOPLE_COMMANDS))
-
-        lines.extend([
-            '',
-            'THE SYSTEM',
-            '-' * 66,
-            "  set               Settings, including difficulty and ambience",
-            "  bsp search <topic>  Bell System Practices",
-            "  help <command>    One line on a single command",
-            "  ps, df, date, pwd, more, head, tail, sort, echo, file, cal",
-            "  exit              Log out",
-            '',
-        ])
-
-        locked = sorted(
-            name for name in self._command_handlers
-            if not self.career.may_use(name)
-        )
-        if locked:
-            lines.append("* marks a command you are not signed off on.")
-            lines.append(f"Not signed off: {', '.join(locked)}. Type 'qual'.")
-        return '\n'.join(lines)
-
-    def _help_rows(self, entries) -> List[str]:
-        """Render command rows, marking anything not signed off."""
-        rows = []
-        for name, summary in entries:
-            mark = ' ' if self.career.may_use(name) else '*'
-            rows.append(f" {mark}{name:<12} {summary}")
-        return rows
-
-    def _help_summary(self, command: str) -> str:
-        """Return the one-line description from a command's manual page."""
-        page = self.man_pages.get(command)
-        if not page:
-            return command
-        parts = page.strip().splitlines()
-        if len(parts) < 2:
-            return command
-        line = parts[1].strip()
-        return line.split(' - ', 1)[1] if ' - ' in line else line
-
-
-    # Basic UNIX commands
-
-
-
-
-
-
-    # Bell System specific commands (implementations would continue...)
-
-
-
-
-
-    # Bell System Core Commands Implementation
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # Additional essential commands
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # Implement remaining critical commands with similar patterns
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # Enhanced commands
 
 
 

@@ -401,9 +401,19 @@ class ReportDesk:
                               report.number)
         return report
 
-    def open_shift(self, now: datetime, slack_minutes: int = 0) -> List[TroubleReport]:
-        """Seed the pending list a shift starts with."""
-        count = self.rng.randint(*OPENING_BACKLOG)
+    def open_shift(self, now: datetime, slack_minutes: int = 0,
+                   count: Optional[int] = None) -> List[TroubleReport]:
+        """
+        Seed the pending list a shift starts with.
+
+        Args:
+            now: When the shift begins
+            slack_minutes: Extra commitment time the difficulty allows
+            count: How many to deal. A first tour is dealt one, so that a
+                new craftsperson learns the loop on a board they can see
+                the whole of rather than on five reports at once.
+        """
+        count = self.rng.randint(*OPENING_BACKLOG) if count is None else count
         opened = []
         for index in range(count):
             received = now - timedelta(minutes=self.rng.randint(20, 240))

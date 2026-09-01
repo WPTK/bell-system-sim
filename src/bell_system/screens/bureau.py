@@ -106,7 +106,12 @@ class BureauCommands(SessionState):
         self._fired_events: set = set()
 
         slack = self.career.difficulty.commitment_slack_minutes
-        self.desk.open_shift(self.clock.now(), slack)
+        # A first tour opens with one report. The wire chief says he has
+        # kept the rest off your board until it is closed, and he has.
+        first_tour = (self.career.shift == 1
+                      and self.career.reports_closed == 0)
+        self.desk.open_shift(self.clock.now(), slack,
+                             count=1 if first_tour else None)
     def _difficulty(self):
         """Return the active difficulty profile."""
         return self.career.difficulty
@@ -376,12 +381,14 @@ class BureauCommands(SessionState):
             crew=report.crew)
         self._queue_message(message, after=random.randint(1, 3))
 
-        return (f"{report.number} dispatched to {canonical}.\n"
+        sent = (f"{report.number} dispatched to {canonical}.\n"
                 f"{finding}\n"
                 f"Time charged {report.minutes_spent // 60}:"
                 f"{report.minutes_spent % 60:02d} of the commitment "
                 f"({report.age_label()} "
                 f"{'past' if report.overdue() else 'remaining'}).")
+        nudge = self.first_tour_nudge('dispatch')
+        return f"{sent}\n\n{nudge}" if nudge else sent
     def _close_report(self, token: str, rest: List[str]) -> str:
         """Close a report against a disposition code and judge the call."""
         report = self.desk.find(token)
@@ -466,6 +473,11 @@ class BureauCommands(SessionState):
         if granted:
             lines.append('')
             lines.extend(granted)
+
+        parting = self.first_tour_nudge('closed')
+        if parting:
+            lines.append('')
+            lines.append(parting)
         return '\n'.join(lines)
     def _report_callback(self, token: str) -> str:
         """Call the customer back and get more out of them than the card has."""
@@ -545,6 +557,16 @@ class BureauCommands(SessionState):
                           - career.reports_correct)
                 lines.append(f"      Needs {max(0, needed)} more correct "
                              f"closures.")
+            lines.append('')
+
+        # What help(1) used to end on. It belongs here, next to the
+        # sign-offs that open each one, rather than as the last thing a new
+        # craftsperson reads on the first screen they ever see.
+        locked = sorted(name for name in self._command_handlers
+                        if not career.may_use(name))
+        if locked:
+            lines.extend(['NOT SIGNED OFF', '-' * 74])
+            lines.append(f"  {', '.join(locked)}")
             lines.append('')
 
         nxt = career.next_qualification()

@@ -497,6 +497,14 @@ this shift and the next one starts on a fresh board."""
         if not quiet:
             pieces = self._drain_queue() + pieces
 
+        # A first tour is one report and the wire chief. Work still arrives
+        # at the bureau; it is held off this board until the first one is
+        # closed, which is what the chief says he is doing. Everything the
+        # building would otherwise say waits with it - four people talking
+        # over a walkthrough is how a new craftsperson stops playing.
+        if self.first_tour():
+            return '\n'.join(self.at_due() + ([] if quiet else pieces))
+
         # The switching control centre puts a ticket on you now and then.
         # These are the tickets the trouble system already carries; being
         # handed one by name is the difference between a list and an

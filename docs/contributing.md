@@ -124,7 +124,7 @@ src/bell_system/        # The installable package
 ├── cli.py             # Argument parsing, the bell-system console script
 ├── terminal.py        # Main 12-role simulation (BellSystemTerminal)
 ├── simple_terminal.py # Simplified 4-role interface (SimpleTerminal)
-├── tutorial.py        # Interactive tutorial (BellSystemTutorial)
+├── screens/           # One module per subsystem's screens
 └── data/              # Manual page text and other static data
 
 tests/                  # pytest suite

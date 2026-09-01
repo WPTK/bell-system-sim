@@ -14,7 +14,6 @@ They can also be imported from the modules that define them:
 ```python
 from bell_system.terminal import BellSystemTerminal
 from bell_system.simple_terminal import SimpleTerminal
-from bell_system.tutorial import BellSystemTutorial
 ```
 
 ## Core Classes
@@ -60,16 +59,23 @@ terminal.run()
 - `execute_command(command_line: str) -> str` - Execute a command and return its
   output.
 
-### `BellSystemTutorial`
-Interactive tutorial system for learning Bell System operations. Defined in
-`bell_system/tutorial.py` and reached from the CLI with `--tutorial`.
+### `GuidanceCommands`
+What to do next, and the three places that say it. Defined in
+`bell_system/screens/guidance.py` and mixed into `BellSystemTerminal`.
 
-```python
-from bell_system import BellSystemTutorial
+There is no tutorial class and no `--tutorial` flag: teaching happens inside
+the shift now. `next_action()` reads the board and returns the single next
+thing worth doing; the standing prompt, `help(1)` and the wire chief on a
+first tour all ask it, so they cannot disagree.
 
-tutorial = BellSystemTutorial()
-tutorial.run()
-```
+**Methods:**
+- `next_action() -> NextAction` - The one thing worth doing, and the command
+  that does it.
+- `next_line() -> str` - That, as the standing prompt. Empty when
+  `game.prompts` is off.
+- `dead_end(message: str) -> str` - A refusal with a way out on the end.
+- `first_tour_nudge(step: str) -> Optional[str]` - The wire chief's line for
+  one step of the loop, once, on a first tour only.
 
 ## Command Line Entry Point
 

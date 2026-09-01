@@ -6,6 +6,7 @@ working a shift: what each difficulty permits, what qualification gates, and
 how a wrong close out scores.
 """
 
+import importlib
 import json
 
 import pytest
@@ -370,29 +371,76 @@ class TestHelpAndBriefing:
         raw_terminal.show_shift_briefing()
         assert 'game.difficulty craft' not in capsys.readouterr().out
 
+class TestFirstTour:
+    """
+    The tutorial is the first tour, not a mode you run beforehand.
 
-class TestTutorial:
-    """The tutorial teaches the work, not only the commands."""
+    There was a --tutorial flag and a five-hundred-line script behind it
+    that walked a radio desk through commands in a terminal that was not
+    the game. It is gone. What replaced it is the wire chief on write(1),
+    one message per step of the loop, on the board you actually work.
+    """
 
-    def test_the_work_is_a_tutorial_step(self):
-        from bell_system.tutorial import BellSystemTutorial
-        tutorial = BellSystemTutorial()
-        assert 'trouble_reports' in tutorial.tutorial_steps
-        assert hasattr(tutorial, 'step_trouble_reports')
+    def _fresh(self, raw_terminal):
+        raw_terminal.career.shift = 1
+        raw_terminal.career.reports_closed = 0
+        raw_terminal._tour_nudges.clear()
+        return raw_terminal
 
-    def test_every_declared_step_is_implemented(self):
-        from bell_system.tutorial import BellSystemTutorial
-        tutorial = BellSystemTutorial()
-        for step in tutorial.tutorial_steps:
-            assert hasattr(tutorial, f'step_{step}'), f'{step} has no method'
+    def _one_report(self, terminal):
+        terminal.desk.reports.clear()
+        terminal.desk.order.clear()
+        terminal.desk.open_shift(terminal.clock.now(), 0, count=1)
 
-    def test_the_steps_are_numbered_in_order(self):
-        import re
-        from pathlib import Path
-        source = Path(__file__).parent.parent / 'src' / 'bell_system' / \
-            'tutorial.py'
-        numbers = [int(match) for match in
-                   re.findall(r'^STEP (\d+):', source.read_text(),
-                              re.MULTILINE)]
-        assert numbers == sorted(numbers)
-        assert len(numbers) == len(set(numbers)), 'a step number is repeated'
+    def test_the_first_board_holds_one_report(self, raw_terminal):
+        terminal = self._fresh(raw_terminal)
+        self._one_report(terminal)
+        assert len(terminal.desk.pending()) == 1
+
+    def test_the_board_does_not_fill_during_a_first_tour(self, raw_terminal):
+        """The chief says he is holding the rest off. He has to mean it."""
+        terminal = self._fresh(raw_terminal)
+        self._one_report(terminal)
+        for _ in range(40):
+            terminal.execute_command('pwd')
+        assert len(terminal.desk.pending()) == 1
+
+    def test_every_step_of_the_loop_has_something_to_say(self):
+        from bell_system.screens.guidance import FIRST_TOUR
+        assert set(FIRST_TOUR) == {'open', 'board', 'measure', 'dispatch',
+                                   'closed'}
+
+    def test_each_step_speaks_once(self, raw_terminal):
+        terminal = self._fresh(raw_terminal)
+        assert terminal.first_tour_nudge('board') is not None
+        assert terminal.first_tour_nudge('board') is None
+
+    def test_the_chief_is_silent_after_the_first_tour(self, raw_terminal):
+        terminal = self._fresh(raw_terminal)
+        terminal.career.shift = 2
+        assert terminal.first_tour_nudge('board') is None
+
+    def test_the_parting_line_survives_the_first_closure(self, raw_terminal):
+        """
+        Every other step is gated on nothing being closed yet. The last one
+        is said on the way out of the first closure, so it needs the one
+        closure of slack that `after_close` gives it.
+        """
+        terminal = self._fresh(raw_terminal)
+        terminal.career.reports_closed = 1
+        assert terminal.first_tour_nudge('measure') is None
+        assert terminal.first_tour_nudge('closed') is not None
+
+    def test_the_standing_prompt_keeps_out_of_the_way(self, raw_terminal):
+        """Two voices saying what to do next is one too many."""
+        terminal = self._fresh(raw_terminal)
+        assert 'Next:' not in terminal._add_guidance('', 'pwd')
+
+    def test_the_flag_is_gone(self):
+        from bell_system.cli import build_parser
+        options = {action.dest for action in build_parser()._actions}
+        assert 'tutorial' not in options
+
+    def test_the_module_is_gone(self):
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module('bell_system.tutorial')
