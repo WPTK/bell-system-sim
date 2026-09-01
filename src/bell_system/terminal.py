@@ -496,7 +496,9 @@ class BellSystemTerminal(
             response += f"\nHint: Type 'help' for available commands or 'man {command}' for detailed help.\n"
             response += "Type 'errors' to see recent error summary.\n"
 
-        return response
+        # A refusal that names nothing is where a player stops. Mistyping a
+        # command should not cost anybody their place in the job.
+        return self.dead_end(response.rstrip())
 
     def _get_command_suggestions(self, command: str) -> List[str]:
         """Get command suggestions based on failed command."""

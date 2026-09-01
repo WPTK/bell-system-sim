@@ -401,7 +401,7 @@ class TestFirstTour:
         """The chief says he is holding the rest off. He has to mean it."""
         terminal = self._fresh(raw_terminal)
         self._one_report(terminal)
-        for _ in range(40):
+        for _ in range(200):
             terminal.execute_command('pwd')
         assert len(terminal.desk.pending()) == 1
 

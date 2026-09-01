@@ -159,3 +159,67 @@ class TestTheWireChief:
         raw_terminal._tour_nudges.clear()
         nudge = raw_terminal.first_tour_nudge('board')
         assert 'Message from ehalloran' in nudge
+
+class TestEveryRefusalNamesAWayOut:
+    """
+    A refusal that names nothing is where a player stops.
+
+    Mistyping a command, or reaching for one you are not signed off on,
+    should not cost anybody their place in the job.
+    """
+
+    def test_an_unknown_command_still_points_at_the_work(self, working):
+        board(working)
+        assert 'Meanwhile:' in working.execute_command('frobnicate')
+
+    def test_a_command_you_may_not_use_points_at_the_work(self, working):
+        board(working)
+        working.career.qualifications = ['central_office']
+        refusal = working.execute_command('connect')
+        assert 'not signed off' in refusal
+        assert 'Meanwhile:' in refusal
+
+    def test_an_unknown_report_verb_points_at_the_work(self, working):
+        board(working)
+        assert 'Meanwhile:' in working.execute_command('report wibble')
+
+    def test_the_way_out_goes_quiet_with_the_prompt(self, working):
+        board(working)
+        working.settings.set('game.prompts', 'off')
+        assert 'Meanwhile:' not in working.execute_command('frobnicate')
+
+    def test_a_clear_board_adds_nothing_to_a_refusal(self, working):
+        """There is no way out to name when nothing is waiting."""
+        working.desk.reports.clear()
+        working.desk.order.clear()
+        working.career.qualifications = []
+        assert 'Meanwhile:' not in working.dead_end('no')
+
+
+class TestReportNext:
+    """One word instead of reading a table."""
+
+    def test_it_shows_the_report_the_prompt_points_at(self, working):
+        board(working)
+        wanted = working.next_action()
+        shown = working.execute_command('report next')
+        assert wanted.command.split()[-1] in shown
+        assert f"Type: {wanted.command}" in shown
+
+    def test_it_falls_back_to_the_board_when_nothing_is_pending(self, working):
+        working.desk.reports.clear()
+        working.desk.order.clear()
+        assert 'Board is clear' in working.execute_command('report next')
+
+    def test_the_board_names_it(self, working):
+        board(working)
+        assert "'report next'" in working.execute_command('report')
+
+    def test_the_board_stays_quiet_with_the_prompt_off(self, working):
+        board(working)
+        working.settings.set('game.prompts', 'off')
+        assert "'report next'" not in working.execute_command('report')
+
+    def test_the_manual_documents_it(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        assert 'report next' in MAN_PAGES['report']

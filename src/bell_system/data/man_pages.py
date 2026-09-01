@@ -1724,6 +1724,7 @@ NAME
 
 SYNOPSIS
      report [board]
+     report next
      report show <number>
      report callback <number>
      report dispatch <number> <force>
@@ -1743,6 +1744,8 @@ DESCRIPTION
 
 OPTIONS
      board             The pending list, nearest commitment first
+     next              The one report that most wants working, and what it
+                       wants. The same decision the standing prompt makes
      show <n>          The line record, the symptom and everything done so far
      callback <n>      Telephone the customer for more than the card carries
      dispatch <n> <f>  Send a repair force. The wrong force costs time

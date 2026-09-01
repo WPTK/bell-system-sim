@@ -136,7 +136,7 @@ class BureauCommands(SessionState):
             * self._difficulty().reports_per_qualification
             - self.career.reports_correct,
         )
-        return (
+        return self.dead_end(
             f"{command}: you are not signed off on {qualification.name}.\n\n"
             f"{qualification.description}\n\n"
             f"Correct closures still needed: {remaining}\n"
@@ -161,6 +161,8 @@ class BureauCommands(SessionState):
 
         if action in ('board', 'list'):
             return self._show_report_board()
+        if action == 'next':
+            return self._show_next_report()
         if action == 'closed':
             return self._show_closed_reports()
         if action == 'faults':
@@ -188,9 +190,32 @@ class BureauCommands(SessionState):
                 return "report: usage: report callback <number>"
             return self._report_callback(rest[0])
 
-        return (f"report: unknown option '{args[0]}'\n"
-                "Options: board, show, dispatch, close, callback, closed, "
-                "faults, forces")
+        return self.dead_end(
+            f"report: unknown option '{args[0]}'\n"
+            "Options: board, next, show, dispatch, close, callback, closed, "
+            "faults, forces")
+
+    def _show_next_report(self) -> str:
+        """
+        Show the report that most wants working, and say what it wants.
+
+        The board is a table and reading a table is a skill. This is the
+        same decision the standing prompt makes, spent as a command: one
+        word, one report, one thing to do with it.
+        """
+        if not self.desk.pending():
+            return self._show_report_board()
+        action = self.next_action()
+        if not action.command:
+            return self._show_report_board()
+        report = self.desk.find(action.command.split()[-1])
+        if report is None:
+            # Nothing on the board wants anything: the prompt is pointing
+            # somewhere else, at a sign-off or at the newsreader.
+            return f"{action.reason}\n\nType: {action.command}"
+        return (f"{self._show_report_detail(report.number)}\n\n"
+                f"{action.reason}\n"
+                f"Type: {action.command}")
     def _show_report_board(self) -> str:
         """Render the pending list, nearest commitment first."""
         pending = self.desk.pending()
@@ -234,6 +259,15 @@ class BureauCommands(SessionState):
         lines.append('')
         lines.append("report show <n> | mlt <n> | report dispatch <n> <force> "
                      "| report close <n> <5|8> [fault]")
+        # The board is a table, and reading a table is a skill. Anybody who
+        # would rather not is one word away from being told outright. Not on
+        # a first tour: the wire chief is already saying this, and two
+        # voices saying it is one too many.
+        action = self.next_action()
+        if (action.command and not self.first_tour()
+                and self.settings.is_on('game.prompts')):
+            lines.append('')
+            lines.append(f"{action.reason} 'report next' shows it.")
         return '\n'.join(lines)
     def _show_report_detail(self, token: str) -> str:
         """Render one report in full: the line record and everything done to it."""

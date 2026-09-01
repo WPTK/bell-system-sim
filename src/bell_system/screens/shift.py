@@ -624,7 +624,10 @@ this shift and the next one starts on a fresh board."""
                 self._stamp()))
 
         elapsed = max(0, self.shift_minutes - was)
-        if not elapsed:
+        # A first tour is one report and the wire chief. The weather still
+        # turns, but the water is not allowed to take another pair and put
+        # a second report on a board that is meant to hold one.
+        if not elapsed or self.first_tour():
             return pieces
         spreading = self.desk.plant.spread(elapsed, self.desk.weather.rain)
         for _ in range(spreading):

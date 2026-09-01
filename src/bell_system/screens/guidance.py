@@ -240,10 +240,16 @@ class GuidanceCommands(SessionState):
         Put a way out on the end of a refusal.
 
         A refusal that names nothing is where a player stops. Every one of
-        them can afford a second line, and this is that line.
+        them can afford a second line, and this is that line. Off with the
+        standing prompt, because it is the same prompt.
         """
+        if not self.settings.is_on('game.prompts'):
+            return message
         action = self.next_action()
-        if not action.command:
+        # Nothing is waiting, so there is no way out to name. Telling
+        # somebody who mistyped a command to go and read the news is not
+        # help, it is the terminal having the last word.
+        if not action.command or action.step == 'idle':
             return message
         return f"{message}\n\nMeanwhile: {action.reason} '{action.command}'"
 
