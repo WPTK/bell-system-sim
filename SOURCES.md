@@ -25,75 +25,78 @@ grep -n "1300 ohms" attached_assets/Engineering_and_Operations_in_the_Bell_Syste
 
 ### Full text inventory
 
-| File | Size |
-| --- | ---: |
-| `00 Frontmatter and Table of Contents_djvu.txt` | 0.0 MB |
-| `01 Introduction_djvu.txt` | 0.0 MB |
-| `01 UNIX Documentation Road Map_djvu.txt` | 0.0 MB |
-| `02 Administrative Advice (DEC)_djvu.txt` | 0.0 MB |
-| `02 Editor Tutorial_djvu.txt` | 0.0 MB |
-| `03 Administrative Advice (3B20S)_djvu.txt` | 0.0 MB |
-| `03 UNIX for Beginners_djvu.txt` | 0.1 MB |
-| `04 Setting Up The UNIX System (DEC)_djvu.txt` | 0.1 MB |
-| `04 UNIX Shell Tutorial_djvu.txt` | 0.1 MB |
-| `05 C Reference Manual_djvu.txt` | 0.1 MB |
-| `05 Setting Up The UNIX System (3B20)_djvu.txt` | 0.1 MB |
-| `06 Auto Call Facility Installation_djvu.txt` | 0.0 MB |
-| `06 UNIX Programming_djvu.txt` | 0.1 MB |
-| `07 UNIX System Accounting_djvu.txt` | 0.0 MB |
-| `08 File System Checking_djvu.txt` | 0.0 MB |
-| `09 LP Spooling System_djvu.txt` | 0.0 MB |
-| `10 UNIX System Remote Job Entry_djvu.txt` | 0.1 MB |
-| `11 UNIX System Activity Package_djvu.txt` | 0.0 MB |
-| `12 Modification Request_djvu.txt` | 0.0 MB |
-| `301-925_I1_djvu.txt` | 1.4 MB |
-| `806220_djvu.txt` | 0.3 MB |
-| `BSRS 104.011_djvu.txt` | 0.3 MB |
-| `BSTJ_V56N10_197712_djvu.txt` | 0.9 MB |
-| `BSTJ_V58N05_197905_djvu.txt` | 0.4 MB |
-| `BSTJ_V60N08_198110_djvu.txt` | 0.7 MB |
-| `BSTJ_V61N04_198204_djvu.txt` | 0.7 MB |
-| `Crossbar-Dial-System_Section-III_Part-2-Terminating-Circuits_djvu.txt` | 0.3 MB |
-| `Engineering_and_Operations_in_the_Bell_System_2ed_1984_djvu.txt` | 2.1 MB |
-| `Image071317211624_djvu.txt` | 0.2 MB |
-| `Image092317124839_djvu.txt` | 0.2 MB |
-| `Image092317125247_djvu.txt` | 0.2 MB |
-| `SD_26030-01_djvu.txt` | 0.2 MB |
-| `Telecommunications_Transmission_Engineering_Vol_1_Principles_2ed_1977_djvu.txt` | 1.4 MB |
-| `Telecommunications_Transmission_Engineering_Vol_2_Facilities_1ed_1977_djvu.txt` | 1.7 MB |
-| `Telecommunications_Transmission_Engineering_Vol_3_2ed_1977_djvu.txt` | 1.4 MB |
-| `UNIX System User's Manual, System V (Release 1)_djvu.txt` | 1.5 MB |
-| `WE_Fundamentals_of_Telephony_Lesson_1_Mar62_nicer_djvu.txt` | 0.3 MB |
-| `bellsystem_SD-1C900-01_djvu.txt` | 1.5 MB |
-| `bstj50-7-2085_djvu.txt` | 0.2 MB |
-| `bstj57-10-3371_djvu.txt` | 0.2 MB |
-| `bstj57-10-3455_djvu.txt` | 0.2 MB |
-| `bstj57-6-1897_djvu.txt` | 0.2 MB |
-| `bstj57-6-1899_djvu.txt` | 0.2 MB |
-| `bstj57-6-1971_djvu.txt` | 0.2 MB |
-| `bstj57-6-2049_djvu.txt` | 0.2 MB |
-| `bstj57-6-2103_djvu.txt` | 0.2 MB |
-| `bstj57-6-2115_djvu.txt` | 0.2 MB |
-| `bstj57-6-2155_djvu.txt` | 0.2 MB |
-| `bstj57-6-2177_djvu.txt` | 0.2 MB |
-| `bstj57-6-2233_djvu.txt` | 0.2 MB |
-| `bstj58-6-1347_djvu.txt` | 0.2 MB |
-| `bstj59-4-501_djvu.txt` | 0.2 MB |
-| `bstj59-9-1757_djvu.txt` | 0.2 MB |
-| `bstj59-9-1793_djvu.txt` | 0.2 MB |
-| `bstj59-9-1811_djvu.txt` | 0.2 MB |
-| `bstj61-6-981_djvu.txt` | 0.2 MB |
-| `bstj61-7-1589_djvu.txt` | 0.2 MB |
-| `bstj61-9-2459_djvu.txt` | 0.2 MB |
-| `bstj62-10-2911_djvu.txt` | 0.2 MB |
-| `bstj62-3-765_djvu.txt` | 0.2 MB |
-| `bstj62-7-2127_djvu.txt` | 0.2 MB |
-| `bstj62-7-2345_djvu.txt` | 0.2 MB |
-| `cman74_djvu.txt` | 0.2 MB |
-| `cman_djvu.txt` | 0.2 MB |
-| `reader_djvu.txt` | 0.4 MB |
+Sixty-five files, 968,959 lines and 2,668,827 words of searchable
+text. Counted in lines and words rather than megabytes because that is
+what the number is for: these are grepped, and `grep -n` answers in
+line numbers.
 
-65 files, 22 MB total.
+| File | Lines | Words |
+| --- | ---: | ---: |
+| `00 Frontmatter and Table of Contents_djvu.txt` | 127 | 215 |
+| `01 Introduction_djvu.txt` | 64 | 303 |
+| `01 UNIX Documentation Road Map_djvu.txt` | 657 | 2,526 |
+| `02 Administrative Advice (DEC)_djvu.txt` | 1,065 | 5,425 |
+| `02 Editor Tutorial_djvu.txt` | 1,668 | 6,377 |
+| `03 Administrative Advice (3B20S)_djvu.txt` | 759 | 4,093 |
+| `03 UNIX for Beginners_djvu.txt` | 2,086 | 8,892 |
+| `04 Setting Up The UNIX System (DEC)_djvu.txt` | 1,861 | 10,880 |
+| `04 UNIX Shell Tutorial_djvu.txt` | 3,006 | 17,959 |
+| `05 C Reference Manual_djvu.txt` | 2,517 | 13,620 |
+| `05 Setting Up The UNIX System (3B20)_djvu.txt` | 2,254 | 12,219 |
+| `06 Auto Call Facility Installation_djvu.txt` | 254 | 1,166 |
+| `06 UNIX Programming_djvu.txt` | 1,722 | 9,928 |
+| `07 UNIX System Accounting_djvu.txt` | 1,851 | 7,627 |
+| `08 File System Checking_djvu.txt` | 1,316 | 7,890 |
+| `09 LP Spooling System_djvu.txt` | 947 | 4,872 |
+| `10 UNIX System Remote Job Entry_djvu.txt` | 1,738 | 8,261 |
+| `11 UNIX System Activity Package_djvu.txt` | 537 | 3,387 |
+| `12 Modification Request_djvu.txt` | 27 | 41 |
+| `301-925_I1_djvu.txt` | 58,933 | 216,450 |
+| `806220_djvu.txt` | 11,241 | 26,569 |
+| `BSRS 104.011_djvu.txt` | 15,908 | 24,487 |
+| `BSTJ_V56N10_197712_djvu.txt` | 25,898 | 121,712 |
+| `BSTJ_V58N05_197905_djvu.txt` | 12,651 | 49,987 |
+| `BSTJ_V60N08_198110_djvu.txt` | 20,359 | 100,161 |
+| `BSTJ_V61N04_198204_djvu.txt` | 21,077 | 97,998 |
+| `Crossbar-Dial-System_Section-III_Part-2-Terminating-Circuits_djvu.txt` | 22,714 | 36,392 |
+| `Engineering_and_Operations_in_the_Bell_System_2ed_1984_djvu.txt` | 75,884 | 290,608 |
+| `Image071317211624_djvu.txt` | 4,578 | 11,373 |
+| `Image092317124839_djvu.txt` | 3,707 | 12,349 |
+| `Image092317125247_djvu.txt` | 4,551 | 16,747 |
+| `SD_26030-01_djvu.txt` | 12,345 | 17,731 |
+| `Telecommunications_Transmission_Engineering_Vol_1_Principles_2ed_1977_djvu.txt` | 51,506 | 197,647 |
+| `Telecommunications_Transmission_Engineering_Vol_2_Facilities_1ed_1977_djvu.txt` | 59,156 | 237,641 |
+| `Telecommunications_Transmission_Engineering_Vol_3_2ed_1977_djvu.txt` | 55,308 | 195,939 |
+| `UNIX System User's Manual, System V (Release 1)_djvu.txt` | 58,098 | 221,177 |
+| `WE_Fundamentals_of_Telephony_Lesson_1_Mar62_nicer_djvu.txt` | 18,351 | 31,004 |
+| `bellsystem_SD-1C900-01_djvu.txt` | 273,678 | 205,429 |
+| `bstj50-7-2085_djvu.txt` | 5,485 | 17,841 |
+| `bstj57-10-3371_djvu.txt` | 5,851 | 21,336 |
+| `bstj57-10-3455_djvu.txt` | 4,850 | 15,161 |
+| `bstj57-6-1897_djvu.txt` | 3,136 | 8,314 |
+| `bstj57-6-1899_djvu.txt` | 3,319 | 9,626 |
+| `bstj57-6-1971_djvu.txt` | 4,290 | 13,045 |
+| `bstj57-6-2049_djvu.txt` | 5,153 | 21,163 |
+| `bstj57-6-2103_djvu.txt` | 3,756 | 11,543 |
+| `bstj57-6-2115_djvu.txt` | 4,259 | 15,326 |
+| `bstj57-6-2155_djvu.txt` | 4,314 | 15,274 |
+| `bstj57-6-2177_djvu.txt` | 4,518 | 16,496 |
+| `bstj57-6-2233_djvu.txt` | 3,817 | 12,983 |
+| `bstj58-6-1347_djvu.txt` | 4,180 | 10,424 |
+| `bstj59-4-501_djvu.txt` | 5,128 | 17,408 |
+| `bstj59-9-1757_djvu.txt` | 3,539 | 11,548 |
+| `bstj59-9-1793_djvu.txt` | 4,118 | 14,524 |
+| `bstj59-9-1811_djvu.txt` | 3,931 | 13,108 |
+| `bstj61-6-981_djvu.txt` | 6,548 | 15,278 |
+| `bstj61-7-1589_djvu.txt` | 3,929 | 10,839 |
+| `bstj61-9-2459_djvu.txt` | 3,981 | 13,072 |
+| `bstj62-10-2911_djvu.txt` | 4,940 | 15,920 |
+| `bstj62-3-765_djvu.txt` | 4,174 | 11,094 |
+| `bstj62-7-2127_djvu.txt` | 4,792 | 14,807 |
+| `bstj62-7-2345_djvu.txt` | 6,327 | 16,103 |
+| `cman74_djvu.txt` | 6,299 | 19,296 |
+| `cman_djvu.txt` | 5,463 | 19,759 |
+| `reader_djvu.txt` | 18,463 | 50,457 |
 
 ## Sourced from outside this repository
 

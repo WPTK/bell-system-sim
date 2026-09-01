@@ -5,6 +5,243 @@ All notable changes to the Bell System UNIX V7 Terminal Simulation project will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-09-01
+
+This release ships everything listed under the `[Unreleased]` sections below,
+which accumulated during development, together with the work described here.
+
+The version jumps to 4.0.0 because `--tutorial` is gone and `BellSystemTutorial`
+no longer exists as a package export. The package version had also drifted to
+2.1.0 while the changelog was at 3.0.0; both now agree.
+
+The round began with the roadmap closed and one question left: whether the
+thing was any good to play. It was played rather than read, and the finding
+inverted what the roadmap had assumed. **The game was not hard. It was
+undiscoverable.** The core loop is four commands, `mlt` names the fault and
+the dispatch outright - it was right sixty times out of sixty when that was
+measured - and no telephony is needed to work a report. What the loop required
+was knowing it existed, and nothing said so: the first screen a new player saw
+was forty commands followed by a list of sixteen they were not signed off on.
+Everything below follows from that.
+
+### Added - Knowing what to do
+
+- **The tutorial is the first tour.** `tutorial.py` and the `--tutorial` flag
+  are gone: 560 lines that walked a radio desk through commands in a terminal
+  that was not the game, before the game started, behind a flag whose own
+  docstring said to run it *before* using the simulation. A first tour now
+  opens with one report on the board and the rest held off it until that one
+  is closed, and the wire chief walks you through the loop on `write(1)`, one
+  message per step, then stops. That is the whole of the onboarding.
+- **One place decides what to do next.** `screens/guidance.py` reads the board
+  and returns the single next thing worth doing. Four things ask it - the
+  standing prompt after a command, the top of `help(1)`, the board's own
+  footer, and the wire chief - so they cannot end up describing different
+  situations, which they would have within a fortnight if each worked it out
+  for itself.
+- **A standing next-action line** after any command that leaves you with
+  nothing to look at. `set game.prompts off` for anybody who knows the job.
+- **Every refusal names a way out.** A mistyped command, a command you are not
+  signed off on, an unknown `report` verb: each was a place a player could
+  stop. Each now ends with somewhere to go - and says nothing when the board
+  is clear, because telling somebody who mistyped a command to go and read the
+  news is not help.
+- **`report next`** shows the one report that most wants working. The board is
+  a table and reading a table is a skill; this is the same decision the
+  standing prompt makes, spent as a command.
+- **`help(1)` opens on WHAT TO DO NOW** and names the four commands outright.
+  The list of things you are not signed off on moved to `qual(1)`, next to the
+  sign-offs that open them.
+- **`hint(1)`, one level at a time.** Vasquez on the testboard gives a nudge,
+  then you are sent to read something that exists on this machine, then
+  Halloran says it outright and is short about it, because by then you have
+  asked three times. The level resets when the situation changes. One minute
+  of shift time and nothing else: being stuck is already the penalty, and a
+  hint with a score attached is a hint nobody uses. Modelled on Infocom's
+  InvisiClues, which worked because asking was a deliberate act.
+- **`training unix`,** the annual refresher on the machine rather than the job.
+  The Seventh Edition toolkit was all implemented and almost none of it was
+  discoverable: `/usr/doc/loop.pic` is a diagram that prints as nine lines of
+  markup because it is `pic(1)` source, and somebody who `cat`s it reasonably
+  concludes the file is broken. The course covers looking around, reading, the
+  formatters, pipes, the board as a directory, and where the rest of the
+  machine is. Every command it names is checked against the dispatch table and
+  every path against the filesystem, so it cannot drift into teaching
+  something that is not there.
+
+### Added - Feedback that teaches
+
+- **A post-mortem on a wrong close,** in the numbers the player actually had.
+  `measure_loop` is seeded from the line and the fault, so the explanation
+  quotes rather than invents, and each rule names the *discriminating* figure:
+  tip to ring on a short, the conductor to ground on a ground, the volts on a
+  foreign EMF. A line closed without being measured is told what `mlt` would
+  have read instead of a number, because naming a figure there would teach the
+  wrong reading half the time.
+- **A tour summary above the tally.** Three sentences on signing off: what went
+  well, what did not, and the one thing worth doing differently. One thing,
+  never three, because a list of four things to improve is a list nobody acts
+  on.
+- **The index as a trend.** `qual(1)` draws the last five tours as a bar once
+  there are three behind you. The block glyphs transliterate to a density ramp
+  on a terminal held to the period character set, which is what a printer
+  would have used to draw the same thing.
+
+### Added - Stakes, and people who remember you
+
+- **The divestiture countdown** is now the line before anybody has typed
+  anything, computed from the epoch rather than written down.
+- **A career walks the calendar.** Tours are four days apart, so thirteen of
+  them cover the forty-eight days from 14 November and the thirteenth falls on
+  31 December 1983. There is no fourteenth. Signing that one off closes the
+  career: the whole record, every tour of the index drawn as a trend, and the
+  wire chief. It happens once, and the board stays on the machine afterwards,
+  because the machine did not stop on the first of January either.
+- **Halloran has an arc.** He signs every qualification, so a fixed line made
+  him a form letter. He now says something different at each, notices the
+  third, and close to January cannot honestly duck what a sign-off is worth.
+- **Four lines the bureau knows by heart** turn up on about one report in six:
+  a sheath on Sussex Street that has been in water since the spring, a coin
+  station in a rooming-house lobby, a drop over a bus route, a doctor's
+  answering line the frame keeps eating. `custdb(1)` says how long we have
+  known them and what the last craftsperson wrote on the card.
+
+### Added - The shape of a session
+
+- **A tour survives the window closing.** `save.py` writes the working shift
+  after every command - the board, the weather, the water in the cable, where
+  every crew is standing, how much of every commitment has been spent - and
+  picks it back up next time. Everything is written by hand, field by field;
+  nothing is pickled, and a save file is a JSON object a person can read.
+  Anything unreadable, from another version, or belonging to a different tour
+  is discarded rather than repaired: a shift is two hours, and a resume that
+  half works is worse than starting again.
+- **`shift(1)`** is the four numbers you want in the middle of a tour, against
+  `handoff(1)`'s page and a half at the end of one.
+- **The career escalates, on two levers that were measured rather than set by
+  eye.** The board goes from nine open reports to eleven across thirteen tours
+  and closes the same thirty-two a tour at either end, because arrival falls
+  as depth rises - depth is pressure, not volume. The weather goes from twelve
+  per cent wet tours to twenty-two, which is the calendar rather than a
+  difficulty knob. The difficulty setting still governs only how forgiving the
+  scoring is, and there is a test that says so.
+
+### Added - The job as files
+
+- **`/usr/lmos` is the board.** One file per pending report carrying the whole
+  record, kept level with the board so a closed report leaves the directory
+  rather than sitting in a listing that lies. Three names are always there
+  beside them: `board`, `closed`, and `cable` - the last being the one thing
+  the board genuinely cannot show you, because a wet sheath is a property of
+  the plant rather than of any pair, and reading it is how you find out that
+  four reports are one trip.
+- **Mail is a file**, under `/usr/spool/mail`, the way Seventh Edition kept it,
+  so `grep(1)` works on it. `mail(1)` still empties it when read, which is also
+  what Seventh Edition did.
+
+### Added - Things to find
+
+- The `moo` scoreboard takes your score, and Okafor disputes her eleven again
+  if you beat it. Her position on that eleven is a matter of record.
+- `/usr/adm/sulog` is shut until the wire chief puts you in the `adm` group,
+  and when it opens your own `su` attempts are in it. The mode column had been
+  on every listing since the filesystem was written and had never meant
+  anything; it means something on exactly one file.
+- A report about calls not completing now has the customer describing a
+  *rhythm* rather than a fault. Busy and reorder are the same 480 and 620 Hz
+  and differ only in how fast they are interrupted, so the words cannot
+  separate them and the ear can. `tone(1)` writes both. Three conditions share
+  that symptom and all three have something to hear, because one without would
+  be the answer.
+- The message of the day says the games are there, which nothing ever had.
+
+### Added - Earlier in the round
+
+- **Twelve desks that are not the same desk twelve times over.** Each position
+  now draws different faults, carries a different board depth, hears from
+  different people on the wire, and is judged on the measurement component its
+  own work maps to. A planning desk is no longer scored on repair commitments.
+- **Eleven buildings on one console.** `connect` works a remote office from the
+  switching control centre, with per-office alarm state, and `company` says
+  which of the seven regional holding companies each building passes to in
+  January.
+- **The tone plan, heard rather than read.** `tone` synthesises dial, busy,
+  reorder, ringback, congestion, howler, MF and DTMF digits and SF supervision
+  to a WAV file at the documented frequencies, levels and cadences. Dial
+  against busy measures 11.0 dB apart, which is what the table says.
+
+### Changed
+
+- `help(1)` no longer ends on what you cannot do. The count and a pointer stay;
+  the list moved to `qual(1)`.
+- The `README` is rewritten around the game rather than a feature list. It led
+  with "12 roles, 50+ commands" and said nothing about the first tour, the
+  wire chief, `hint(1)`, the career, or a shift surviving the window closing.
+  It now opens on the date and the stakes, then the four commands. Things to
+  find are teased and not spoiled.
+- `SOURCES.md`'s text inventory is counted in lines and words rather than
+  megabytes. Half the table read `0.0 MB` and twenty more rows all read
+  `0.2 MB`, which distinguished nothing; these files are grepped, and `grep -n`
+  answers in line numbers.
+- The `terminal` test fixture starts on the second shift with prompts off, for
+  the same reason it already had ambience off: a test that exercises a command
+  wants the command, not a dice roll and the state of the board.
+- `screens/shift.py` gives up the turnover half to `screens/turnover.py`, and
+  `terminal.py` gives up `help(1)` to `screens/guidance.py`, both under the
+  integrity guards.
+
+### Removed
+
+- `src/bell_system/tutorial.py`, the `--tutorial` flag, and the
+  `BellSystemTutorial` export.
+- 114 lines of blank space and orphaned section headings left in `terminal.py`
+  by an older refactor.
+- The finished planning documents - the audit, its remediation, the roadmap,
+  the fun plan and a superseded UX proposal - move to a gitignored
+  `docs/archive/`. They record how the project got here rather than how it
+  works. `SOURCES.md` stays: it is the live provenance record and is cited from
+  the code.
+
+### Fixed
+
+- **The wire centre was redrawn every session.** The switching machine at an
+  office is drawn at random and the COMMON LANGUAGE code is built from it, so a
+  craftsperson turned up at a differently named building each morning and every
+  line record they had ever seen belonged somewhere else. Nothing noticed until
+  a shift started surviving the session and refused to load into the wrong
+  office. The office is career state now.
+- **A regular's line record was shared across every report on it**, so this
+  week's trouble rewrote last week's - and because the measurement is seeded
+  from the fault, an old report measured as something it was never closed as.
+- **`su(1)` appended to the log through the operator's own read**, which
+  silently emptied `/usr/adm/sulog` for anybody not yet allowed to read it,
+  which is everybody at the start.
+- **A saved shift that would not parse was never discarded**, so it sat there
+  refusing to load and taking each tour's work down with it.
+- **The career had no end.** Tours ran past the divestiture date for ever, each
+  one announcing that it was the last working day of the Bell System.
+- **The report files were a minute behind the board.** The sync ran after a
+  command rather than before, which left `ls(1)` one report behind `cat(1)` on
+  `/usr/lmos/board` - that file is rendered when it is read, so the two were
+  describing boards a minute apart.
+- **An undiagnosed intermittent failure** in `custdb(1)`'s listing test, which
+  took its telephone number after running the command and so could pick a
+  report that arrived during it. Two new tests made the same mistake and were
+  rewritten to compare within one command.
+- Prose defects in the close-out that had been there since it was written:
+  "a open", "a foreign emf" (an article that never looked at the noun, and a
+  `lower()` that flattened initialisms), "a central office equipment on that
+  pair" for a fault that was never on the pair, and "Needs 1 more correct
+  closures".
+- `handoff(1)`'s manual page described four verbs the command does not have and
+  never mentioned `relieve`, the one that ends a tour.
+
+### Verification
+
+1,786 tests passing and 1 skipped, against 1,391 at the start of the round.
+`ruff` and `mypy` clean across 72 source modules with no suppressions. CI green
+on Python 3.9, 3.10, 3.11 and 3.12.
+
 ## [Unreleased]
 
 ### Added - Gameplay: the work, the difficulty and the other craft
@@ -517,11 +754,36 @@ This release represents a complete overhaul of the command system achieving 100%
 
 ## Version History Summary
 
+- **v4.0.0**: The game made discoverable - the tutorial folded into the first
+  shift, a standing next action, hints you ask for, feedback that teaches, a
+  career that walks the calendar to the last day of the Bell System, and a tour
+  that survives the window closing
+- **v3.0.0**: Comprehensive command validation and critical error resolution
 - **v2.0.0**: Professional CLI-only refactoring with comprehensive GitHub readiness
 - **v1.0.0**: Complete Bell System simulation with 12 roles and historical accuracy
 - **v0.1.0**: Initial development framework and asset collection
 
 ## Migration Notes
+
+### Upgrading to v4.0
+
+**Breaking Changes:**
+
+1. **`--tutorial` is gone.** There is no separate tutorial mode. The first
+   shift of a new career *is* the tutorial: it opens with one report and the
+   wire chief walks you through the loop on `write(1)`. Just run
+   `bell-system`.
+2. **`BellSystemTutorial` is no longer exported** from the `bell_system`
+   package, and `bell_system/tutorial.py` is removed. Nothing in the package
+   referenced it.
+3. **A new state file.** `shift.json` appears beside `career.json` and
+   `settings.json` in the state directory, holding the tour you are in the
+   middle of. It is written after every command and removed when you sign off
+   with `handoff relieve`. Deleting it costs you one tour and nothing else.
+
+**Nothing else changes.** Existing `career.json` and `settings.json` files are
+read as before; a career that predates this version simply picks up its wire
+centre the first time it opens and keeps it from then on.
 
 ### Upgrading from v1.x to v2.0
 

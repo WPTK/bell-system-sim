@@ -1,4 +1,4 @@
-```                                  
+```
                   5555555555555555555          
               555555555555555555555555555    
            5555555552             5555555551 
@@ -82,11 +82,9 @@ report close 1 5 SHORT          close it out
 you do not need to know any telephony to play. Three things exist for when
 you are stuck:
 
-| | |
-|---|---|
-| `help` | opens on **what to do now**, worked out from your actual board |
-| `hint` | asks somebody. Ask again and you get more, three levels deep |
-| `report next` | shows the one report that most wants working |
+- **`help`** — opens on *what to do now*, worked out from your actual board
+- **`hint`** — asks somebody. Ask again and you get more, three levels deep
+- **`report next`** — shows the one report that most wants working
 
 Every refusal names a way out, and the board prints its own next action
 along the bottom. If you would rather it did not, `set game.prompts off`.
@@ -338,14 +336,20 @@ At the login prompt, `?` lists the twelve positions. Each works the same
 board but gets different work on it, different people talking to it, and a
 different measure of a good tour:
 
-| | | | |
-|---|---|---|---|
-| 1 `sysop` | UNIX Systems Operator | 7 `netplan` | Network Planning Engineer |
-| 2 `switch` | Switching Station Technician | 8 `custserv` | Customer Service Interface |
-| 3 `field` | Field Support Liaison | 9 `radio` | Radio/Microwave Technician |
-| 4 `noc` | National NOC Analyst | 10 `tnds` | TNDS Analyst |
-| 5 `tsps` | Traffic Service Position Operator | 11 `sarts` | SARTS Technician |
-| 6 `dba` | Database Administrator | 12 `docprep` | Document Preparation |
+| # | Login | Position |
+| ---: | --- | --- |
+| 1 | `sysop` | UNIX Systems Operator |
+| 2 | `switch` | Switching Station Technician |
+| 3 | `field` | Field Support Liaison |
+| 4 | `noc` | National NOC Analyst |
+| 5 | `tsps` | Traffic Service Position System Operator |
+| 6 | `dba` | Database Administrator |
+| 7 | `netplan` | Network Planning Engineer |
+| 8 | `custserv` | Customer Service Interface Technician |
+| 9 | `radio` | Radio/Microwave Technician |
+| 10 | `tnds` | Total Network Data System Analyst |
+| 11 | `sarts` | SARTS Technician |
+| 12 | `docprep` | Document Preparation Specialist |
 
 ### Where your files go
 
@@ -353,8 +357,8 @@ State is written to a per-user directory, not the one you ran from:
 `$BELL_SYSTEM_HOME` if set, otherwise `$XDG_STATE_HOME/bell-system`,
 otherwise `~/.local/state/bell-system`.
 
-| | |
-|---|---|
+| File | What it holds |
+| --- | --- |
 | `career.json` | Difficulty, sign-offs, index history, your wire centre |
 | `settings.json` | Everything `set` changes |
 | `shift.json` | The tour you are in the middle of |
@@ -387,8 +391,8 @@ Three guards in `tests/test_integrity.py` hold the shape: no screens module
 over 1,000 lines, `terminal.py` under 2,000, and every `self.x()` call
 resolving against the constructed class.
 
-| | |
-|---|---|
+| Document | What it is |
+| --- | --- |
 | `docs/overview.md` | How the package fits together |
 | `docs/api.md` | Programmatic use of the simulation classes |
 | `docs/manual.txt` | Operational guide |

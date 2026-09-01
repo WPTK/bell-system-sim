@@ -10,7 +10,7 @@ featuring 12 operational roles, period-accurate commands, and Bell System
 operational workflows.
 """
 
-__version__ = "2.1.0"
+__version__ = "4.0.0"
 __author__ = "Bell System Operations Simulation Project"
 __license__ = "MIT"
 
