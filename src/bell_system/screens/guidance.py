@@ -532,7 +532,13 @@ class GuidanceCommands(SessionState):
         lines.extend(self._help_rows(self.SHELL_COMMANDS))
         lines.append("   Commands join with a pipe: who | wc -l")
         lines.append("   Worth reading: /etc/motd, /usr/doc/divestiture,")
-        lines.append("                  /usr/users/sysop/notes, /usr/lmos/board")
+        lines.append("                  /usr/users/sysop/notes")
+        # The job is reachable as files, which is the whole argument for
+        # putting it on a UNIX machine rather than behind twelve screens.
+        lines.append("   The board is files: /usr/lmos holds one per report, "
+                     "plus board,")
+        lines.append("                       closed and cable. Your mail is "
+                     "/usr/spool/mail.")
         # Zachtronics ships a solitaire game inside SHENZHEN I/O and puts
         # it on the box, for the reason that a job with no break in it is
         # a job. These have been in /usr/games since the filesystem was

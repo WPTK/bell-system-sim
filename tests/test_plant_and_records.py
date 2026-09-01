@@ -192,8 +192,11 @@ class TestCustomerRecords:
         return sorted(terminal.lmos_console.lmos.line_cards())[0]
 
     def test_it_lists_the_lines_with_records(self, terminal):
-        result = terminal.execute_command('custdb')
-        assert self.a_number(terminal) in result
+        # Read before the command, not after: a command costs a minute and
+        # work arrives in minutes, so a number taken afterwards can belong
+        # to a report that was not on the board when the listing was made.
+        wanted = self.a_number(terminal)
+        assert wanted in terminal.execute_command('custdb')
 
     def test_a_record_carries_the_outside_plant(self, terminal):
         result = terminal.execute_command(f'custdb {self.a_number(terminal)}')

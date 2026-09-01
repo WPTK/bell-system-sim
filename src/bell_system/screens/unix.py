@@ -22,6 +22,10 @@ def _generated(content: Any, owner: str = 'root', group: str = 'other',
     return Node('file', owner, group, mode, content)
 
 
+# Where a position's mail lives, the way Seventh Edition kept it.
+MAIL_DIR = '/usr/spool/mail/'
+
+
 class UnixCommands(SessionState):
     """
     The Seventh Edition commands the terminal presents around the plant.
@@ -187,6 +191,35 @@ class UnixCommands(SessionState):
         self.filesystem['/usr/adm/shiftlog'] = _generated(
             lambda terminal: terminal._render_shift_log(),
             owner='adm', group='adm')
+        self.filesystem['/usr/lmos/closed'] = _generated(
+            lambda terminal: terminal._render_closed_file(),
+            owner='sysop', group='craft')
+        self.filesystem['/usr/lmos/cable'] = _generated(
+            lambda terminal: terminal._render_cable_file(),
+            owner='sysop', group='craft')
+        self.filesystem['/usr/spool/mail'] = Node(
+            'dir', 'root', 'other', 'drwxrwxr-x', '')
+        self.add_mailbox()
+
+    def add_mailbox(self) -> None:
+        """
+        Put this position's mailbox under /usr/spool/mail.
+
+        Seventh Edition kept mail in a file per user and mail(1) read it,
+        so keeping that true is what makes grep(1) work on your mail.
+        Called again when a position is taken, because the filesystem is
+        built before anybody has logged in and the name changes when they
+        do - the mailbox was being made out to sysop and left there.
+
+        mail(1) still empties it when you read it, which is also what
+        Seventh Edition did.
+        """
+        for path in [path for path in self.filesystem
+                     if path.startswith(MAIL_DIR)]:
+            del self.filesystem[path]
+        self.filesystem[MAIL_DIR + (self.username or 'sysop')] = _generated(
+            lambda terminal: terminal._render_mailbox(),
+            owner=self.username or 'sysop', group='craft', mode='-rw-------')
         for code, title in sorted(BSP_CATEGORIES.items()):
             self.filesystem[f'/usr/bsp/{code}'] = _generated(
                 f"BELL SYSTEM PRACTICE\nDivision {code} - {title}\n"

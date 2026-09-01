@@ -339,6 +339,14 @@ class SessionState:
         """Closed, correct, missed and repeats for this tour alone."""
         raise NotImplementedError
 
+    def add_mailbox(self) -> None:
+        """Put this position's mailbox under /usr/spool/mail."""
+        raise NotImplementedError
+
+    def _sync_report_files(self) -> None:
+        """Keep one file per pending report under /usr/lmos."""
+        raise NotImplementedError
+
     def save_shift(self) -> None:
         """Write the shift down where the next session will find it."""
         raise NotImplementedError
