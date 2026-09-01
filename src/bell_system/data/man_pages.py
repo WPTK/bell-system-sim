@@ -1784,6 +1784,24 @@ REFERRING TO A REPORT
      A report answers to its number (TR-04471), to the telephone number on
      it, or to its position on the board (1, 2, 3).
 
+AS FILES
+     The board is also a directory. /usr/lmos holds one file per report
+     with the whole record on it, alongside three that are always there:
+
+     board       The pending list, one line to a report
+     closed      What has been closed this session, and how it was judged
+     cable       The wet sections, the pairs they have taken, and the
+                 weather that is making them worse
+
+     So the second way to work is the shell:
+
+          grep WRONG /usr/lmos/closed
+          cat /usr/lmos/TR-04471
+          ls /usr/lmos | wc -l
+
+     Your mail is a file too, under /usr/spool/mail, and the practices are
+     under /usr/bsp.
+
 TIME
      Every action is charged against the report's commitment: a measurement
      costs four minutes, a call back eight, a repair as long as that repair

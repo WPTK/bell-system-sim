@@ -348,6 +348,16 @@ Eight tiers, F1 to F8, in dependency order. F1 and F2 — folding the
 tutorial into the first shift, and never leaving the player without a next
 action — are perhaps two days and are most of the felt difference.
 
+All eight are now built, and so is the last item that had been carried
+loose since R4a: **the job is reachable through the shell, not only
+through the screens.** `/usr/lmos` holds one file per report with the
+whole record on it, alongside `board`, `closed` and `cable`; mail is a
+file under `/usr/spool/mail` the way Seventh Edition kept it; the
+practices have always been under `/usr/bsp` and the tour under
+`/usr/adm/shiftlog`. `grep WRONG /usr/lmos/closed` is a real second way
+to ask what you got wrong today, which is the whole argument for putting
+a telephone company on a UNIX machine rather than behind twelve screens.
+
 ---
 
 ## Working rules carried forward

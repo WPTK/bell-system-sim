@@ -46,7 +46,9 @@ from . import save
 from .clock import SimClock, days_to_divestiture
 from .console import render
 from .data import geography
-from .filesystem import normalise
+from .data.regulars import REGULARS
+from .filesystem import Node, normalise
+from .npc import render as render_message
 from .data.man_pages import MAN_PAGES
 from .data.positions import get as neutral_position
 from .progression import (
@@ -121,6 +123,13 @@ except ImportError:  # pragma: no cover - readline is absent on stock Windows
 
 
 
+
+
+# Where the line records live, and the entries in it that are not reports.
+# The board, the closed list and the cable record are always there; every
+# other name under /usr/lmos is a report currently on the board.
+LMOS_DIR = '/usr/lmos/'
+RESERVED_LMOS_NAMES = frozenset({'board', 'closed', 'cable'})
 
 
 class BellSystemTerminal(
@@ -796,6 +805,10 @@ class BellSystemTerminal(
             qualification = QUALIFICATIONS_BY_KEY[assigned]
             self.emit(f"Position sign-off: {qualification.name}")
 
+        # The mailbox is made out to whoever is at the position, and until
+        # now nobody was.
+        self.add_mailbox()
+
         # The first moment the machine knows which desk it is. Everything
         # above ran while self.role was still None.
         self.take_position(role_key)
@@ -1336,6 +1349,12 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
         """
         start_time = time.time()
 
+        # Bring the files under /usr/lmos level with the board before the
+        # command runs rather than after, because the command is what reads
+        # them. Syncing afterwards left ls(1) one report behind cat(1) on
+        # /usr/lmos/board, which is rendered when it is read.
+        self._sync_report_files()
+
         # Add to command history
         if command_line.strip():
             self.command_history.append(command_line)
@@ -1559,6 +1578,142 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                 f"{record.class_of_service:<6}{record.cable_pair():<12}"
                 f"{report.status:<8}{report.age_label():<8}{report.symptom}")
         return '\n'.join(rows) + '\n'
+
+    def _render_report_file(self, number: str) -> str:
+        """
+        Render one trouble report as its own file.
+
+        The board is a table and the table is one line to a report, which
+        is what makes grep(1) useful on it and what makes it useless for
+        actually working one. This is the whole record: the line, the
+        plant, the symptom, every measurement taken, and where it has been
+        so far. It is report(1) show, spelled as a file, so a craftsperson
+        can pipe it, save it, or mail themselves a copy.
+        """
+        report = self.desk.find(number)
+        if report is None:
+            return ''
+        record = report.record
+        rows = [
+            f"report      {report.number}",
+            f"telephone   {record.telephone_number}",
+            f"name        {record.name}",
+            f"address     {record.address}",
+            f"class       {record.class_of_service}",
+            f"office      {record.clli}",
+            f"cable/pair  {record.cable_pair()}",
+            f"frame       H {record.horizontal} V {record.vertical}",
+            f"equipment   {record.line_equipment}",
+            '',
+            f"symptom     {report.symptom}",
+            f"received    {report.received.strftime('%d %b %H:%M')}",
+            f"commitment  {report.commitment.strftime('%d %b %H:%M')}",
+            f"due         {report.age_label()} "
+            f"{'past' if report.overdue() else 'remaining'}",
+            f"status      {report.status}",
+            f"charged     {report.minutes_spent // 60}:"
+            f"{report.minutes_spent % 60:02d}",
+        ]
+        if record.regular:
+            rows.append(f"known       {REGULARS[record.regular].since}")
+        if report.repeat_of:
+            rows.append(f"repeat of   {report.repeat_of}")
+        if report.dispatched_to:
+            rows.append(f"dispatched  {report.dispatched_to}"
+                        + (f" ({report.crew})" if report.crew else ''))
+        if report.field_finding:
+            rows.append(f"field found {report.field_finding}")
+        if report.sheath_repaired:
+            rows.append("sheath      repaired on somebody else's report")
+        rows.append('')
+        if report.test_notes:
+            rows.append('measurements')
+            rows.extend(f"  {note}" for note in report.test_notes)
+        else:
+            rows.append('measurements  none. mlt(1) has not been run.')
+        return '\n'.join(rows) + '\n'
+
+    def _render_closed_file(self) -> str:
+        """
+        Render what has been closed this session as a file.
+
+        One line to a closure, with the code and whether it held up, so
+        `grep WRONG /usr/lmos/closed` is the shortest route to what you got
+        wrong today.
+        """
+        rows = ['# report  telephone       code found      verdict  closed']
+        for report in self.desk.closed():
+            closed_at = (report.closed_at.strftime('%d %b %H:%M')
+                         if report.closed_at else '-')
+            rows.append(
+                f"{report.number:<9}{report.record.telephone_number:<16}"
+                f"{report.disposition or '-':<5}"
+                f"{report.found or '-':<11}"
+                f"{'correct' if report.correct else 'WRONG':<9}{closed_at}")
+        return '\n'.join(rows) + '\n'
+
+    def _render_cable_file(self) -> str:
+        """
+        Render the water in the plant as a file.
+
+        A wet sheath is the one fault that is not a property of a pair, so
+        it is the one thing on this job the board cannot show you. Reading
+        it here is how you find out that four separate reports are one
+        trip.
+        """
+        weather = self.desk.weather
+        rows = [
+            f"# weather {weather.key} {weather.temperature}F "
+            f"regime {weather.regime} rain {weather.rain:.2f}",
+            "# cable binder pairs status  psi   report numbers",
+        ]
+        for section in self.desk.plant.sections:
+            state = 'repaired' if section.repaired else 'open'
+            rows.append(
+                f"{section.cable:<6}{section.binder:<7}"
+                f"{len(section.pairs):<6}{state:<9}{section.psi:<6.1f}"
+                + ' '.join(sorted(section.pairs.values())))
+        if len(rows) == 2:
+            rows.append('# no wet sections in this wire centre')
+        return '\n'.join(rows) + '\n'
+
+    def _render_mailbox(self) -> str:
+        """
+        Render the mailbox as the file it was.
+
+        Seventh Edition kept mail in a file per user under /usr/spool/mail
+        and mail(1) read it. Keeping that true means grep(1) works on your
+        mail, which is the whole argument for a system where everything is
+        a file.
+        """
+        waiting = self.switchroom.unread()
+        if not waiting:
+            return ''
+        blocks = [render_message(message, message.received.strftime(
+            '%a %b %d %H:%M:%S %Y')) for message in waiting]
+        return '\n'.join(blocks) + '\n'
+
+    def _sync_report_files(self) -> None:
+        """
+        Keep one file per pending report under /usr/lmos.
+
+        Called after every command, because the board moves under you: a
+        report arrives, one closes, and a directory listing that still
+        names it is worse than not having the files at all.
+        """
+        wanted = {report.number for report in self.desk.pending()}
+        for path in [path for path in self.filesystem
+                     if path.startswith(LMOS_DIR)
+                     and path[len(LMOS_DIR):] not in RESERVED_LMOS_NAMES
+                     and path[len(LMOS_DIR):] not in wanted]:
+            del self.filesystem[path]
+        for number in wanted:
+            path = LMOS_DIR + number
+            if path not in self.filesystem:
+                self.filesystem[path] = Node(
+                    'file', 'sysop', 'craft', '-rw-r--r--',
+                    (lambda held: lambda terminal:
+                        terminal._render_report_file(held))(number))
 
     def _render_shift_log(self) -> str:
         """Render this position's shift log as a file."""
