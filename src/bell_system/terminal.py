@@ -47,6 +47,7 @@ from .console import render
 from .data import geography
 from .filesystem import normalise
 from .data.man_pages import MAN_PAGES
+from .data.positions import POSITION_COMMANDS, get as neutral_position
 from .progression import (
     DIFFICULTIES,
     QUALIFICATIONS_BY_KEY,
@@ -70,6 +71,7 @@ from .screens.editor import EditorCommands
 from .screens.filters import FilterCommands
 from .screens.jobs import JobCommands
 from .screens.plant import PlantCommands
+from .screens.position import PositionCommands
 from .screens.records import RecordsCommands
 from .screens.shift import ShiftCommands
 from .screens.shell import ShellCommands
@@ -140,6 +142,7 @@ class BellSystemTerminal(
     FilterCommands,
     JobCommands,
     PlantCommands,
+    PositionCommands,
     RecordsCommands,
     GameCommands,
     DocPrepCommands,
@@ -230,6 +233,10 @@ class BellSystemTerminal(
         self._rje_jobs = 0
         self._service_orders: List[Dict[str, Any]] = []
         self._order_number = 0
+        # The desk. Neutral until select_role puts somebody at one; every
+        # generator below runs before that, which is why the board a shift
+        # opens with is dealt the same for everybody.
+        self.position = neutral_position(None)
         self._initialize_processes()
         self._initialize_users()
         self._initialize_shift_handoff()
@@ -702,6 +709,10 @@ class BellSystemTerminal(
             self.career.save()
             qualification = QUALIFICATIONS_BY_KEY[assigned]
             self.emit(f"Position sign-off: {qualification.name}")
+
+        # The first moment the machine knows which desk it is. Everything
+        # above ran while self.role was still None.
+        self.take_position(role_key)
 
         # login(1) runs the .profile in your home directory, and each
         # position's does something different: this is where a switching
@@ -1616,25 +1627,10 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
     # Commands each position works day to day. Every name here is checked
     # against the dispatch table by the test suite: this list once carried
     # two commands that had never existed.
-    ROLE_COMMANDS = {
-        "sysop": ["ps", "df", "who", "uucp", "uulog", "at", "date", "ls"],
-        "switch": ["trunk", "switch", "toll", "crossbar", "alarm", "5ess",
-                   "3a"],
-        "field": ["trace", "dialtone", "emergency", "ticket", "provision",
-                  "sarts"],
-        "noc": ["trunk", "emergency", "switch", "ticket", "traffic", "tnds",
-                "satellite"],
-        "tsps": ["tsps", "operator", "directory", "collect", "billing"],
-        "dba": ["dbquery", "custdb", "billing", "service"],
-        "netplan": ["netplan", "traffic", "routing", "capacity", "billing",
-                    "tnds"],
-        "custserv": ["service", "provision", "billing", "custdb",
-                     "directory"],
-        "radio": ["radio", "microwave", "satellite", "alarm"],
-        "tnds": ["tnds", "traffic", "capacity", "trace"],
-        "sarts": ["sarts", "testline", "testcall", "provision", "trunk"],
-        "docprep": ["nroff", "troff", "tbl", "eqn", "pic", "refer", "spell"],
-    }
+    # What each desk reaches for, printed as its section of help(1).
+    # The table lives in data/positions.py, where the rest of what is
+    # different about a position lives with it.
+    ROLE_COMMANDS = POSITION_COMMANDS
 
     # The work itself, which every position has a board of.
     BUREAU_COMMANDS = (

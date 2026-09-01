@@ -690,12 +690,16 @@ this shift and the next one starts on a fresh board."""
         # These are the tickets the trouble system already carries; being
         # handed one by name is the difference between a list and an
         # assignment.
-        if random.random() < difficulty.interruption_rate * 0.3:
+        if random.random() < self.ticket_rate(difficulty.interruption_rate * 0.3):
             unassigned = [
                 ticket for ticket in self.active_tickets
                 if ticket['status'] != 'RESOLVED'
                 and ticket['id'] not in self._assigned_tickets
             ]
+            # This desk's own kind first. A preference and not a filter:
+            # with nothing of its own waiting it takes what there is,
+            # because somebody has to.
+            unassigned = self.prefer_tickets(unassigned)
             if unassigned:
                 ticket = random.choice(unassigned)
                 self._assigned_tickets.add(ticket['id'])

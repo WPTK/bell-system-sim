@@ -279,6 +279,15 @@ class ReportDesk:
         self.weather = Weather(self.rng)
         # Who is available to go out, and where they are standing.
         self.force = FieldForce(self.rng)
+        # Multipliers on what kind of trouble a report is, set by whichever
+        # position sat down. Empty means uniform, which is what every
+        # session did before positions differed.
+        self.fault_bias: Dict[str, float] = {}
+        # How deep a board this desk carries. Set by whichever position sat
+        # down: a customer service desk holds more open reports than a
+        # planning desk does, and the arrival rate alone cannot express
+        # that, because arrival is damped by depth and so self-limiting.
+        self.depth_limit = MAX_PENDING
 
     # -- generation ------------------------------------------------------
 
@@ -324,12 +333,24 @@ class ReportDesk:
         )
 
     def _choose_fault(self) -> str:
-        """Pick the electrical condition behind a new report."""
-        if self.rng.random() < NO_TROUBLE_SHARE:
+        """
+        Pick the electrical condition behind a new report.
+
+        The position sitting at the desk biases the draw. It is a bias and
+        never a filter: no weight is ever zero, so a switching position
+        still gets wet cable now and then and is never handed work whose
+        vocabulary it has not been taught. With no position, or a position
+        that sets no bias, this is a flat draw exactly as it always was.
+        """
+        bias = self.fault_bias
+        if self.rng.random() < min(0.45, NO_TROUBLE_SHARE * bias.get('NONE', 1.0)):
             return 'NONE'
-        if self.rng.random() < 0.07:
+        if self.rng.random() < min(0.30, 0.07 * bias.get('ROH', 1.0)):
             return 'ROH'
-        return self.rng.choice(REAL_FAULTS)
+        if not bias:
+            return self.rng.choice(REAL_FAULTS)
+        weights = [max(0.05, bias.get(fault, 1.0)) for fault in REAL_FAULTS]
+        return self.rng.choices(REAL_FAULTS, weights=weights)[0]
 
     def _commitment(self, fault: str, received: datetime,
                     slack_minutes: int) -> datetime:
@@ -632,8 +653,8 @@ class ReportDesk:
         )
 
     def full(self) -> bool:
-        """Return whether the pending list is at its working limit."""
-        return len(self.pending()) >= MAX_PENDING
+        """Return whether the pending list is at this desk's working limit."""
+        return len(self.pending()) >= self.depth_limit
 
 
 def disposition_name(code: int) -> str:

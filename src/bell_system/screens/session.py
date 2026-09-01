@@ -151,6 +151,9 @@ class SessionState:
     # link, and the number given out so far.
     _rje_queue: List[Dict[str, Any]]
     _rje_jobs: int
+    # The desk this session is sitting at. Neutral until a role is taken,
+    # and neutral is what every session did before positions differed.
+    position: Any
     users: List[Dict[str, str]]
     project_numbers: Dict[str, Any]
     rate_structures: Dict[str, Any]
@@ -222,6 +225,26 @@ class SessionState:
 
     def at_due(self) -> List[str]:
         """Run every at(1) job now due and return what they printed."""
+        raise NotImplementedError
+
+    def board_depth(self) -> int:
+        """How many open reports this desk carries."""
+        raise NotImplementedError
+
+    def ticket_rate(self, base: float) -> float:
+        """Scale how often the control centre hands you something."""
+        raise NotImplementedError
+
+    def prefer_tickets(self, tickets: List[Any]) -> List[Any]:
+        """Narrow unassigned tickets to this desk's kind, if any are."""
+        raise NotImplementedError
+
+    def position_voices(self) -> Any:
+        """Who talks to this desk on top of the whole building."""
+        raise NotImplementedError
+
+    def position_tally(self) -> List[Any]:
+        """What this desk did this tour, as label and value."""
         raise NotImplementedError
 
     def _queue_message(self, message: Any, after: int) -> None:
