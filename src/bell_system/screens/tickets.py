@@ -29,8 +29,8 @@ class TicketCommands(SessionState):
         # only declared here for the type checker.
         def advise(self, args: List[str]) -> str: ...
         def _triage(self, args: List[str]) -> str: ...
-        def triage_stamp(self, ticket: TroubleTicket,
-                         at: Optional[int] = None) -> None: ...
+        def triage_admit(self, ticket: TroubleTicket) -> None: ...
+        def triage_notice(self) -> None: ...
 
     def cmd_ticket(self, args: List[str]) -> str:
         """Trouble ticket management system"""
@@ -363,6 +363,8 @@ Commands:
         if not ticket:
             return f"trouble: Ticket {ticket_id} not found"
 
+        # A ticket given away after its window closed has lapsed.
+        self.triage_notice()
         old_team = ticket['assigned_team']
         ticket['assigned_team'] = team
         # The switching control centre hands out unassigned tickets as the
@@ -572,10 +574,9 @@ Example:
             'business_impact': self._calculate_business_impact(priority, customer_impact),
             'resolution_steps': []
         }
-        self.active_tickets.append(ticket)
         # Stamped at every desk, not only the NOC's: the book is kept
         # wherever a ticket is entered, and only the NOC's verb reads it.
-        self.triage_stamp(ticket)
+        self.triage_admit(ticket)
 
         return f"""Trouble Ticket Created
 {'=' * 50}

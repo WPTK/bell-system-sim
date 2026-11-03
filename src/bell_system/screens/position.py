@@ -82,6 +82,11 @@ class PositionCommands(SessionState):
         counts those through career.open_overdue. Adding the tickets to
         that count is what makes ignoring the queue cost something without
         anyone looking, and the handoff already prints the result.
+
+        Every ticket whose window passed stays in the count, taken or not.
+        The index only sees a missed commitment next to a report closed or
+        one still open, so a late take that left the count would cost
+        nothing on a tour with no closes.
         """
         queue: Any = self  # The ticket commands, mixed into the same class.
         queue.triage_book()
@@ -90,7 +95,7 @@ class PositionCommands(SessionState):
         self._triage_counted = True
         reports = self.career.open_overdue
         self.career.open_overdue = (
-            lambda: reports() + len(queue.triage_overdue()))
+            lambda: reports() + queue.triage_lapsed())
 
     _outages_counted = False
 
