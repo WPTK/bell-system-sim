@@ -20,7 +20,7 @@ machine did not stop on the first of January either.
 
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
-from .. import save
+from .. import ledger, save
 from ..clock import career_progress, days_to_divestiture
 from ..console import wrap
 from ..constants import SHIFT_LENGTH_MINUTES
@@ -698,6 +698,8 @@ this shift and the next one starts on a fresh board."""
         service index is still the only thing that takes marks off.
         """
         rows = ['TOUR CREDIT', '=' * 40, *self.credit_rows()]
+        placed = ledger.lines(self.career)
+        rows.extend(['', *placed] if placed else [])
         if earned:
             held = self.commendation_lines(self.career.earned_this_tour())
             rows.extend(['', *held] if held else [])
