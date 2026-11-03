@@ -78,6 +78,10 @@ for that person must pass the Never column.
 Sample lines are quoted from the code and are the standard. Wrapping is
 normalised to one line.
 
+**Who is on (Provisional, phase 6c, A12).** The building is staffed round the clock, with three day jobs and an evening man, the simulation's own: Nakamura and Bright on the day watch (08:00-16:00), Haverty and Finch on day and evening. Everyone else, and both machines, are on all three. Reyes (03:47) and Halloran (06:15) must stay on nights for T2. Off watch a person is absent from `who`, `write` and the mail and order-wire traffic; `man write` says so. Which watch a tour is worked on is the tour's own (`data/tours.py` `Tour.watch`, the simulation's own: day on tours 1, 2, 5, 8, 10 and 13, evening on 3, 7, 9 and 11, night on 4, 6 and 12), because the simulated clock starts every tour at 08:00 and an eight-hour tour never leaves the day; only with `date.source` set to `real` does the hour on the clock decide. A crew the bureau dispatches is called out, not asked in: dispatch ignores the watch, and a crew sent in the evening still calls in. The one absence that does change dispatch is **Okafor on tours 12 and 13** (T3): she is not in `who`, `write` is refused, no message is in her voice, and the crew pool cannot send her, so Sandoval takes the sheath, as `sandoval.3` says. Hints are asked for, so they can come from anyone, on or off watch. `npc.py` `Craft.watches`, `AWAY`.
+
+**Rapport and the favour (Provisional, phase 6b, A6; the simulation's own invention).** Each report closed in a tour moves the crew that worked it, or the bureau, one step: up for a right code, down for a wrong one, at most once each way per person per tour. At step 3 that person does one favour, once: they ring the customer and the report with the nearest commitment gets an hour more, said in their own voice (`npc.py` `FAVOURS`). It is held until that report is within the hour of its commitment, since that is when an hour matters. Only people who work the board have one: Reyes, Okafor, Sandoval, Finch, Bright, Nakamura. Nobody offers one unasked before then and nobody is ever told their rapport. It is kept in the career file (`rapport`, and the `rapport+:`, `settled:`, `rang:`, `chased:`, `about:` and `favour:` entries of `beats_seen`) so that a resume says nothing twice.
+
 ### Halloran, E.: wire chief  (`ehalloran`, CENTRAL_OFF, tty01)
 
 **Canon:** Established (`npc.py` `CRAFT`, `_SIGN_OFF_REMARKS`, `last_word`; `data/hints.py`). He/him in the code.
@@ -95,6 +99,8 @@ normalised to one line.
 - **Never:** blames a person; guesses a cause out loud (`custserv` notes: "The one thing you are not allowed to do is guess out loud.").
 - **Sample:** "I told them a time and it has gone. What do I tell them now?" (`npc.py` `overdue_notice`)
 - **Open:** the 03:47 su (section 5, T2).
+- **Consequences (Provisional, phase 6b, C17):** the customer's words come through her, one line by class of service, in three places: a report past its commitment with the line out of service, the second call on a repeat, and (a quarter of clean closes) a call to say it held. `data/consequences.py`. Each message keeps to her profile: report, number, time, a question. The notice when a commitment passes is said once and the board does not ask the same again; the second call and the call-back each end on her question.
+- **Arc (Provisional, phase 6b, A6):** `reyes.1` (tours 5-8) and `reyes.2` (tours 9-11) are about a closed report: she cannot reopen it and asks if there is another way; a customer asks who will have the line's trouble card in February. The two never speak of the same report. They wait for a report to speak of. Neither explains T2.
 
 ### Johnson, R.: switching equipment technician  (`rjohnson`, CENTRAL_OFF, tty02)
 
@@ -120,6 +126,7 @@ normalised to one line.
 - **Never:** complains about the weather or a crew; jokes.
 - **Sample:** "It is because there is less and less of this job that needs a person standing in front of it, and the company now knows that, and so do we." (`filesystem.py` NEWS_MISC_88)
 - **Open:** section 5, T3.
+- **Arc (Provisional, phase 6b, A6):** three orderwire notes to the test desk, never more than three lines. `sandoval.1` (tours 4-7): small-count aerial spliced and tested, send more of that size. `sandoval.2` (tours 8-10): the memo says his employment continues; he looked for which company it means. `sandoval.3` (tours 12-13): Okafor is not on this shift, he has the Franklin sheath, will be slow, will do it. No beat names the strike or the move from `mhuxt`.
 
 ### Alvarez, R.: the predecessor, sysop position, "tour 2"  (no login, no tty)
 
@@ -128,6 +135,7 @@ normalised to one line.
 - **Does:** hands down practical advice in the first person, confesses a mistake to be useful, and signs off without a flourish. Slightly tired. Writes for whoever "has this position next".
 - **Never:** addresses the player by name or by sign-off; is angry at anyone.
 - **Sample:** "I sent four separate crews to Franklin Street last month. Do not be me." (`data/homes.py`)
+- **Arc (Provisional, phase 6b, A6):** has no voice of their own; Halloran speaks of them. `alvarez.1` (tours 2-4, mail): the position had somebody before you, `testlog.c` is theirs. `alvarez.2` (tours 10-12, write): Alvarez rang to ask how the position was going; Halloran said it was being worked. No pronouns in either.
 
 ### Petrak, D.: SCC maintenance administrator  (`dpetrak`, SCC_BEDMINSTER, tty03)
 
@@ -234,7 +242,7 @@ text is that it contradicts none of these.
 **Shown now (Established):** the second splicer, newer than Okafor, slower on a big sheath, who "says less" and whom the wire chief "has noticed and has not decided about" (`npc.py`, `field.py`); the author of a netnews post on the August strike from `mhuxt`; Okafor tells the player to "give it to Sandoval".
 
 **True answer (Provisional):** Sandoval came over from the neighbouring wire centre (`mhuxt`) in the autumn when its splicing force was cut. Sandoval was out in the August strike and thinks the memo's "your employment continues" is a promise from a company that will not exist. Halloran has not decided about Sandoval because Halloran does not know either. Sandoval is good on small-count aerial and drop work and slow on a big sheath because that is what he came from; on tour 12 or 13, when Okafor is out, Sandoval takes the sheath job nobody else will, and the player can learn why by ending up in the same room.
-**Pays off:** phase 6, row A6 (rapport, arcs for Sandoval); the last line in phase 10 (C23).
+**Pays off:** phase 6b, row A6 (rapport, `sandoval.1` to `.3` in `npc.py` `ARC_BEATS`; the Franklin sheath beat is `sandoval.3`); the last line in phase 10 (C23).
 **Period facts:** the 1983 strike and its terms [sourced, `SOURCES.md` `net.misc/88`]; Sandoval's history is [own].
 
 ### T4. The January memo

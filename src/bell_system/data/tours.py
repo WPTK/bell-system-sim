@@ -57,6 +57,9 @@ METRICS = ('closed', 'correct', 'wrong', 'missed', 'repeats', 'carried',
 # What the briefing and a goal are written in, whatever else is going on.
 KINDS = ('build', 'crisis', 'relief', 'farewell')
 
+# The three watches of a day.
+WATCHES = ('day', 'evening', 'night')
+
 
 class Beat(NamedTuple):
     """
@@ -115,6 +118,10 @@ class Tour(NamedTuple):
     day: date
     theme: str
     kind: str
+    # Which watch of the day the tour is worked on (``WATCHES``): the
+    # simulation's own, chosen to suit the theme. The clock starts every tour
+    # at 08:00, so the hour on it cannot say who is in the building.
+    watch: str
     briefing: Tuple[str, ...]
     beats: Tuple[Beat, ...]
     goals: Tuple[Goal, ...]
@@ -136,6 +143,7 @@ def _news(group: str, number: int, posting: str, sender: str, name: str,
 TOURS: Tuple[Tour, ...] = (
     Tour(
         1, date(1983, 11, 14), 'A new board', 'build',
+        'day',
         ("Your first tour. One report on the board and the wire chief on",
          "the order wire. Operations Bulletin 83-114 came out this morning."),
         (Beat(
@@ -152,6 +160,7 @@ TOURS: Tuple[Tour, ...] = (
     ),
     Tour(
         2, date(1983, 11, 18), 'Records stay', 'build',
+        'day',
         ("The memo of 1 November is in force: line, cable and frame",
          "records stay with this wire centre. Work the board."),
         (Beat(
@@ -179,6 +188,7 @@ The tenth time it is somebody's afternoon.
     ),
     Tour(
         3, date(1983, 11, 22), 'Before the holiday', 'build',
+        'evening',
         ("Thanksgiving is Thursday, after this tour. The building runs",
          "thin from tomorrow night. Leave the board in a state somebody",
          "who has never seen it could pick up."),
@@ -207,6 +217,7 @@ cycle. Nothing is lost, it is only late.
     ),
     Tour(
         4, date(1983, 11, 26), 'After the holiday', 'crisis',
+        'night',
         ("First tour since Thanksgiving. Reports taken over the long",
          "weekend are on the board with their commitments running.",
          "A lot of it will be the same few faults."),
@@ -234,6 +245,7 @@ Retries are handled by the one person who is still awake at midnight.
     ),
     Tour(
         5, date(1983, 11, 30), 'Deferred work', 'build',
+        'day',
         ("Maintenance that waited out the August strike is back on the",
          "schedule this week. It runs into the board."),
         (Beat(
@@ -262,6 +274,7 @@ ones nobody looked at for a season are the ones that call in first.
     ),
     Tour(
         6, date(1983, 12, 4), 'Weekend coverage', 'relief',
+        'night',
         ("A Sunday tour and a lighter one. The routine work is done",
          "and the building is quiet. Use it to measure everything that",
          "has not been measured."),
@@ -293,6 +306,7 @@ ones last.
     ),
     Tour(
         7, date(1983, 12, 8), 'Pressure watch', 'crisis',
+        'evening',
         ("Pressure readings on the cable routes out of this office are",
          "due. Water gets in where pressure has been lost, and the",
          "board follows it by a day or two."),
@@ -319,6 +333,7 @@ tried it on?
     ),
     Tour(
         8, date(1983, 12, 12), 'Inventory for transfer', 'build',
+        'day',
         ("The office, its plant and its records pass to the operating",
          "company on 1 January. The inventory list is due, and the",
          "board is the part of it you can still change."),
@@ -349,6 +364,7 @@ would write the shell scripts accordingly.
     ),
     Tour(
         9, date(1983, 12, 16), 'Close honestly', 'build',
+        'evening',
         ("Rule 2 of the memo: do not close reports you have not worked",
          "to clear the board. Disposition codes are audited after",
          "transfer. The wire chief is reading them already."),
@@ -376,6 +392,7 @@ the scoreboard.
     ),
     Tour(
         10, date(1983, 12, 20), 'The new owners', 'relief',
+        'day',
         ("Someone from the operating company walks the office this week.",
          "Nothing about the work changes. Keep the board as it is."),
         (Beat(
@@ -402,6 +419,7 @@ An alias for a month is cheaper than a lost letter.
     ),
     Tour(
         11, date(1983, 12, 24), 'Christmas Eve', 'crisis',
+        'evening',
         ("Christmas Day is tomorrow. On a peak day the long-haul",
          "interstate traffic runs past what the network was built for",
          "while local calling is light. Network management is getting",
@@ -437,6 +455,7 @@ phone line.
     ),
     Tour(
         12, date(1983, 12, 28), 'The controls come off', 'relief',
+        'night',
         ("Christmas Day is past. Anything put on for it has to be taken",
          "off, and the week between holidays is the quietest on the",
          "board. Four days left."),
@@ -465,6 +484,7 @@ week.
     ),
     Tour(
         13, date(1983, 12, 31), 'The last day', 'farewell',
+        'day',
         ("The last working day of the Bell System. The memo is the",
          "last thing anyone will ask you to read. Hand the board over",
          "the way you would want to be handed one."),
@@ -492,6 +512,27 @@ on.
 """),
     ),
 )
+
+# -- windows -----------------------------------------------------------
+
+# Stretches of the career, as the first and last tour of each, for anything
+# said by the building that fits only part of the countdown. The names are
+# the simulation's own and follow the dates above: tours 1-4 are the four
+# days of 14-26 November, 5-8 run 30 November to 12 December, 9-12 are
+# 16-28 December and 13 is 31 December.
+Window = Tuple[int, int]
+
+EARLY: Window = (1, 4)
+MIDDLE: Window = (5, 8)
+LATE: Window = (9, 12)
+LAST: Window = (13, 13)
+ANY: Window = (1, len(TOURS))
+
+
+def heard_on(window: Window, tour: int) -> bool:
+    """Whether a line tagged for a window may be said on this tour."""
+    return window[0] <= tour <= window[1]
+
 
 # -- filler ------------------------------------------------------------
 
@@ -548,6 +589,19 @@ _FILLER: Tuple[Tuple[Any, ...], ...] = (
      'afternoon.',
      ('Read the result when it prints',)),
 )
+
+
+def watch_of(tour: int) -> str:
+    """
+    The watch a tour is worked on.
+
+    Not tied to the calendar the way ``script`` is: which watch it is has
+    nothing to say about 24 November, so a player who has moved the epoch
+    still has a day tour and a night one.
+    """
+    if not 1 <= tour <= len(TOURS):
+        return 'day'
+    return TOURS[tour - 1].watch
 
 
 def script(tour: int, today: date) -> Optional[Tour]:

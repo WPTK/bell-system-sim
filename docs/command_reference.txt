@@ -81,7 +81,7 @@ set game.difficulty fun     Fun Simulation. Loop testing names the fault for
 set game.difficulty craft   I Hate Myself. Measure before you close, repeat
                             reports come back on your index, commitments are
                             counted, and qualification is slow
-set game.prompts off    Stop the terminal telling you what to do next
+set game.prompts on     Have the terminal tell you what to do next
 set game.ambience off   Silence the other craft
 set display.pacing off  Print at once instead of at 300 baud
 set date.source real    Use your own system clock instead of 1983

@@ -73,7 +73,7 @@ first tour all ask it, so they cannot disagree.
 - `next_action() -> NextAction` - The one thing worth doing, and the command
   that does it.
 - `next_line() -> str` - That, as the standing prompt. Empty when
-  `game.prompts` is off.
+  `game.prompts` is off, which is the default.
 - `dead_end(message: str) -> str` - A refusal with a way out on the end.
 - `first_tour_nudge(step: str) -> Optional[str]` - The wire chief's line for
   one step of the loop, once, on a first tour only.

@@ -284,6 +284,10 @@ class SessionState:
         """Narrow unassigned tickets to this desk's kind, if any are."""
         raise NotImplementedError
 
+    def is_in(self, login: str) -> bool:
+        """Whether this person is in the building on the tour being worked."""
+        raise NotImplementedError
+
     def position_voices(self) -> Any:
         """Who talks to this desk on top of the whole building."""
         raise NotImplementedError

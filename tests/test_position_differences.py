@@ -209,9 +209,22 @@ class TestNobodyGetsLessWork:
         assert reports >= 1.0, f'{role} board barely moves'
 
     @pytest.mark.parametrize('role', ROLE_KEYS)
-    def test_every_desk_gets_tickets(self, at_desk, role):
-        _, tickets = self.arrivals(at_desk, role)
-        assert tickets >= 1.0, f'{role} hears nothing from the control centre'
+    def test_every_desk_gets_tickets(self, at_desk, role, monkeypatch):
+        """
+        A desk is handed a ticket when the draw comes up, which it can.
+
+        The rate is small enough that counting arrivals over a few hundred
+        commands is a measurement of the random stream. This holds the
+        draw at its lowest instead: the first command after the first tour
+        must assign one, whichever desk it is.
+        """
+        terminal = at_desk(role)
+        terminal.settings.set('game.ambience', 'on')
+        before = len(terminal._assigned_tickets)
+        monkeypatch.setattr(random, 'random', lambda: 0.0)
+        terminal.execute_command('pwd')
+        assert len(terminal._assigned_tickets) > before, (
+            f'{role} hears nothing from the control centre')
 
     def test_the_report_rate_is_not_scaled_at_all(self):
         """
@@ -263,7 +276,7 @@ class TestWhoTalksToYou:
 
     def test_every_line_comes_from_somebody_on_the_machine(self):
         for key, pool in _POSITION_CHATTER.items():
-            for _, sender, _ in pool:
+            for _, sender, *_ in pool:
                 assert sender in CRAFT, (key, sender)
 
     def test_a_desk_still_hears_the_whole_building(self, terminal):
@@ -278,7 +291,7 @@ class TestWhoTalksToYou:
             message = room.chatter(terminal.clock.now(), position='docprep')
             if message:
                 heard.add(message.subject)
-        shared = {lines[0][:40] for _, _, lines in _CHATTER}
+        shared = {item[2][0][:40] for item in _CHATTER}
         assert shared & heard, 'the shared pool went missing'
 
     def test_a_desk_hears_things_no_other_desk_does(self, terminal):

@@ -254,6 +254,8 @@ class UnixCommands(SessionState):
         """
         output = ""
         for user in self.users:
+            if not self.is_in(user['user']):
+                continue
             person = CRAFT.get(user['user'])
             title = f"  {person.title}" if person else ""
             output += (f"{user['user']:<10} tty{user['tty']:<4} "
