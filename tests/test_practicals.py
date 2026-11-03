@@ -578,12 +578,18 @@ def test_next_action_does_not_suggest_closing_the_staged_report(terminal):
 def test_next_action_works_the_real_board_past_a_staged_report(terminal):
     ready(terminal, 'frame')
     terminal.execute_command('qual take frame')
-    real = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
+    _, practical = staged(terminal)
+    terminal.desk.receive(terminal.clock.now(), fault='OPEN')
     # With a practical up, handing it in is the one thing worth doing; once
-    # it is in, the customer's report is what the board wants.
+    # it is in, a customer's report is what the board wants. Which one is
+    # down to the board's order, which is chance; that it is never the
+    # staged one is not.
     assert terminal.next_action().command == 'qual submit'
     terminal.execute_command('qual submit')
-    assert real.number in terminal.next_action().reason
+    reason = terminal.next_action().reason
+    assert practical.number not in reason
+    assert any(report.number in reason
+               for report in terminal.desk.customers())
 
 
 def test_training_names_the_practical(terminal):
