@@ -23,11 +23,15 @@ the plant are drawn from the operations the bundled documents describe.
 
 import random
 from datetime import datetime
-from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
+from typing import (
+    Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple,
+)
 
 from .data import consequences
 from .data.consequences import Late
-from .data.tours import EARLY, LAST, LATE, MIDDLE, Window, heard_on
+from .data.tours import (
+    EARLY, LAST, LATE, MIDDLE, WATCHES, Window, heard_on,
+)
 
 # How the audit at the end of the last tour came out (screens/turnover.py).
 AUDIT_PASSED = 'PASSED'
@@ -47,9 +51,8 @@ CHANNEL_NAMES: Dict[str, str] = {
 }
 
 
-# The three watches of a day, by the hour on the clock: the bands the shift
-# briefing already uses (``screens/shift.py`` ``_get_shift_hours``).
-WATCHES = ('day', 'evening', 'night')
+# The three watches of a day (``data/tours.py`` says which a tour is worked
+# on), with the bands the shift briefing prints.
 WATCH_LABELS: Dict[str, str] = {
     'day': 'Day Shift (08:00-16:00)',
     'evening': 'Evening Shift (16:00-24:00)',
@@ -58,7 +61,13 @@ WATCH_LABELS: Dict[str, str] = {
 
 
 def watch_at(when: datetime) -> str:
-    """Which watch of the day this moment falls in."""
+    """
+    Which watch of the day an hour on the clock falls in.
+
+    Only for a clock that is the real one (``date.source`` set to ``real``).
+    A simulated tour starts at 08:00 whichever watch it is worked on, so
+    there the tour says (``tours.watch_of``).
+    """
     if 8 <= when.hour < 16:
         return 'day'
     if 16 <= when.hour < 24:
@@ -79,6 +88,7 @@ class Craft(NamedTuple):
     # The watches they are on. Most of the building is staffed round the
     # clock; a few are a day job. The simulation's own, set from what each
     # job was (narrative-bible.md section 4); nothing says otherwise.
+    # Dispatch ignores it: a crew is called out, not asked in.
     watches: Tuple[str, ...] = WATCHES
 
 
@@ -134,7 +144,7 @@ CRAFT: Dict[str, Craft] = {
         'TSPS_NEWARK', '10',
         'Runs a room of operator positions. Everything she brings you is a '
         'call somebody is still holding.',
-        watches=('day',)),
+        watches=('day', 'evening')),
     'adm': Craft(
         'adm', 'ADM', 'System accounting',
         'CENTRAL_OFF', '08',
@@ -183,6 +193,10 @@ class ArcBeat(NamedTuple):
     The simulation's own. A beat is the story arriving on a channel the
     building already has: one or two lines, never a scene, and nothing the
     player has to answer (plan.md anti-pillar 1).
+
+    The sender has to be on the watch the tour is worked on or the beat waits
+    for a tour they are, so a beat from a day-only person in a window of
+    night tours would never be said. Every sender here is on every watch.
     """
 
     key: str
@@ -213,7 +227,7 @@ _CHATTER: Sequence[tuple] = (
       'the wire.']),
     (CHANNEL_ORDERWIRE, 'tnakamura',
      ['Transmission to office. We are running routines on the toll groups',
-      'tonight. If a trunk goes quiet on you, it is us, not the plant.']),
+      'this shift. If a trunk goes quiet on you, it is us, not the plant.']),
     (CHANNEL_TELETYPE, 'carot',
      ['CAROT ROUTINE TEST COMPLETE',
       'GROUP TESTED 24 CIRCUITS  NO EXCEPTIONS']),
@@ -488,17 +502,40 @@ _SIGN_OFF_REMARKS: Dict[int, Tuple[str, ...]] = {
 }
 
 
+# Which login a person is, by the name the field force knows them by.
+CRAFT_BY_NAME: Dict[str, str] = {
+    person.name: login for login, person in CRAFT.items()}
 
-def on_shift(login: str, when: datetime) -> bool:
+# People away for whole tours, by login: Okafor is out on tours 12 and 13
+# (narrative-bible T3, which has Sandoval take the sheath nobody else will).
+# The simulation's own.
+AWAY: Dict[str, Window] = {'lokafor': (12, 13)}
+
+
+def is_away(login: str, tour: int) -> bool:
+    """Whether this person is out for the whole of this tour."""
+    return login in AWAY and heard_on(AWAY[login], tour)
+
+
+def on_shift(login: str, watch: str, tour: Optional[int] = None) -> bool:
     """
-    Whether this person is on the watch the clock is in.
+    Whether this person is in on this watch of this tour.
 
     Anyone who is not a person on the roster (a machine, a name from an
     older save) is always on: nothing here has the standing to say they are
-    not.
+    not. With no tour given, nobody is away.
     """
     person = CRAFT.get(login)
-    return person is None or watch_at(when) in person.watches
+    if person is None:
+        return True
+    if tour is not None and is_away(login, tour):
+        return False
+    return watch in person.watches
+
+
+def _by_the_clock(login: str, when: datetime) -> bool:
+    """Who is in, for a room nobody has told which tour it is."""
+    return on_shift(login, watch_at(when))
 
 
 # The story, said once each, in the order they are due. The simulation's own;
@@ -533,7 +570,7 @@ ARC_BEATS: Tuple[ArcBeat, ...] = (
         'I said it was being worked. That was the whole call.',
     )),
     ArcBeat('sandoval.3', CHANNEL_ORDERWIRE, 'jsandoval', (12, 13), (
-        'Field to test desk. Okafor is not on tonight. I have the Franklin '
+        'Field to test desk. Okafor is not on this shift. I have the Franklin '
         'sheath.',
         'It is a big count and I will be slow on it. I will do it.',
     )),
@@ -597,17 +634,17 @@ def adjust_rapport(rapport: Dict[str, int], ledger: List[str], login: str,
 
 
 def favour_due(rapport: Dict[str, int], ledger: List[str],
-               when: Optional[datetime] = None) -> Optional[str]:
+               is_in: Optional[Callable[[str], bool]] = None) -> Optional[str]:
     """
     The first person at the threshold who has not yet done their favour.
 
-    Given a time, only somebody on the watch it is: a favour waits for the
-    person to be in.
+    Given who is in, only somebody who is: a favour waits for the person to
+    be there.
     """
     for login in FAVOURS:
         if (rapport.get(login, 0) >= FAVOUR_AT
                 and f'favour:{login}' not in ledger
-                and (when is None or on_shift(login, when))):
+                and (is_in is None or is_in(login))):
             return login
     return None
 
@@ -622,8 +659,13 @@ class Switchroom:
     """
 
     def __init__(self, rng: Optional[random.Random] = None,
-                 arcs: Optional[Sequence[ArcBeat]] = None):
+                 arcs: Optional[Sequence[ArcBeat]] = None,
+                 present: Optional[Callable[[str, datetime], bool]] = None):
         self.rng = rng or random.Random()
+        # Whether a person is in at a given moment. The terminal supplies
+        # this from the tour being worked (the board and the clock do not
+        # agree on the hour); a room with none goes by the clock.
+        self.present: Callable[[str, datetime], bool] = present or _by_the_clock
         self.mailbox: List[Message] = []
         self.log: List[Message] = []
         # The story beats there are to say. Handed in by tests; otherwise
@@ -696,7 +738,7 @@ class Switchroom:
                          if len(item) < 4 or heard_on(item[3], tour))
         # Only whoever is on the watch it is can say anything: the order
         # wire, the mail and the write(1) traffic all come from somebody.
-        pool = tuple(item for item in pool if on_shift(item[1], now))
+        pool = tuple(item for item in pool if self.present(item[1], now))
         picked = self._pick(pool, 'chatter')
         if picked is None:
             return None
@@ -744,7 +786,7 @@ class Switchroom:
         for beat in self.arcs:
             if beat.key in seen or not heard_on(beat.window, tour):
                 continue
-            if not on_shift(beat.sender, now):
+            if not self.present(beat.sender, now):
                 continue
             about = '{number}' in ''.join(beat.lines)
             if about and recall is None:
@@ -1164,9 +1206,13 @@ class Switchroom:
         call was still coming in as the cable splicer whoever went.
         """
         sender = self.FORCE_SENDERS.get(force, 'lokafor')
-        if not on_shift(sender, now):
-            # Called out, nobody; the splicer is out in it at any hour.
-            sender = 'lokafor'
+        if not self.present(sender, now):
+            # Dispatch does not care who is on the watch: a crew is called
+            # out (``field_call`` is made for a crew that was sent, and its
+            # name wins below). Only the voice does, so with no crew named
+            # it is a splicer who rings in, out in it at any hour.
+            sender = next((login for login in ('lokafor', 'jsandoval')
+                           if self.present(login, now)), 'jsandoval')
         if crew:
             for login, person in CRAFT.items():
                 if person.name == crew:

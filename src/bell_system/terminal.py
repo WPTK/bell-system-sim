@@ -303,6 +303,10 @@ class BellSystemTerminal(
 
         # The repair service bureau's board, and the other craft on the wire.
         self._initialize_repair_bureau()
+        # Who is in follows the tour being worked, not the hour on the
+        # clock (npc.py ``on_shift``), so the room and the crews ask here.
+        self.switchroom.present = lambda login, _when: self.is_in(login)
+        self.desk.force.absent = self.absent_crews
 
         # The tour's scheduled work. After the bureau, because the events
         # name the office the career was assigned to.

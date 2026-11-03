@@ -2077,6 +2077,10 @@ DESCRIPTION
      The other craft on this system are working too, and they answer.
 
 USERS
+     Who is reachable depends on the watch the tour is worked on: some of
+     these are a day job, and one is away the last two tours. who(1) lists
+     whoever is in. Write to somebody who is not and it says so.
+
      rjohnson    Switching Equipment Technician, central office
      mreyes      Repair Service Attendant, repair service bureau
      dpetrak     SCC Maintenance Administrator, switching control centre

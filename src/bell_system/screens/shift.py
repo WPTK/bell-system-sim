@@ -2,6 +2,7 @@
 The working shift: its clock, its events, and the other craft on the wire.
 """
 from ..constants import BELL_SYSTEM_ROLES, SHIFT_LENGTH_MINUTES
+from ..field import CREWS
 import random
 from datetime import timedelta
 from collections import (
@@ -13,17 +14,20 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Set,
 )
 from ..data import tours
 from ..data.consequences import Late
-from ..data.tours import Tour
+from ..data.tours import Tour, watch_of
 from ..npc import (
     CRAFT,
     FAVOUR_MINUTES,
     WATCH_LABELS,
     Message,
+    CRAFT_BY_NAME,
     adjust_rapport,
     favour_due,
+    is_away,
     on_shift,
     rapport_with,
     render as render_message,
@@ -224,7 +228,30 @@ class ShiftCommands(SessionState):
                       "worked the hard way.")
     def _get_shift_hours(self) -> str:
         """Get current shift description."""
-        return WATCH_LABELS[watch_at(self.clock.now())]
+        return WATCH_LABELS[self.current_watch()]
+
+    def current_watch(self) -> str:
+        """
+        Which watch of the day this tour is worked on.
+
+        The tour says (``tours.watch_of``): the clock starts every tour at
+        08:00 and a tour is eight hours of work, so the hour on it never
+        gets as far as an evening or a night. With ``date.source`` set to
+        ``real`` the clock is the host's and its hour decides, since that is
+        the one place the hour on the clock is the hour.
+        """
+        if self.settings.get('date.source') == 'real':
+            return watch_at(self.clock.now())
+        return watch_of(self.career.shift)
+
+    def is_in(self, login: str) -> bool:
+        """Whether this person is in the building on this watch and tour."""
+        return on_shift(login, self.current_watch(), self.career.shift)
+
+    def absent_crews(self) -> Set[str]:
+        """Keys of the field crews who are away for the whole of this tour."""
+        return {crew.key for crew in CREWS
+                if is_away(CRAFT_BY_NAME.get(crew.name, ''), self.career.shift)}
     def cmd_events(self, args: List[str]) -> str:
         """Bell System operational events and shift activity"""
         if not args:
@@ -595,7 +622,7 @@ class ShiftCommands(SessionState):
         if not quiet:
             # The favour is asked at the door, so it waits until the nearest
             # report is close enough to its commitment for an hour to matter.
-            login = favour_due(self.career.rapport, ledger, self.clock.now())
+            login = favour_due(self.career.rapport, ledger, self.is_in)
             waiting = sorted((r for r in self.desk.customers()
                               if not r.overdue()), key=lambda r: r.commitment)
             window = timedelta(minutes=FAVOUR_MINUTES)
@@ -788,7 +815,7 @@ class ShiftCommands(SessionState):
                 '-' * 66,
             ]
             for person in CRAFT.values():
-                if not on_shift(person.login, self.clock.now()):
+                if not self.is_in(person.login):
                     continue
                 lines.append(f"{person.login:<12} tty{person.tty:<2} "
                              f"{person.name:<16} {person.location}")
@@ -798,7 +825,7 @@ class ShiftCommands(SessionState):
 
         login = args[0].lower()
         found = CRAFT.get(login)
-        if found is None or not on_shift(login, self.clock.now()):
+        if found is None or not self.is_in(login):
             return f"write: {args[0]} is not logged on."
         if login == 'carot':
             return ("write: CAROT is a test system, not a terminal. It prints "
