@@ -58,6 +58,16 @@ def open_report(desk: ReportDesk,
     return report, ''
 
 
+# What mlt writes after the time on a report's notes. The measurement a
+# practical certifies is the one note that has it.
+MLT_TAG = ' MLT: '
+
+
+def measured(report: TroubleReport) -> bool:
+    """Whether mlt has read this report's loop."""
+    return any(MLT_TAG in note for note in report.test_notes)
+
+
 def already_done(report: TroubleReport, kind: str) -> bool:
     """
     Whether this verb has already been worked on this report.

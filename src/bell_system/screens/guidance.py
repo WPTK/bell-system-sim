@@ -31,9 +31,11 @@ from typing import Iterable, List, NamedTuple, Optional, Tuple
 from ..data.positions import POSITION_COMMANDS
 from ..data.hints import EXHAUSTED, HINTS
 from ..data.trouble import FAULTS
-from ..loop_testing import STAGE_NUMBERS, measure_loop, reading_is_clean
+from ..loop_testing import (
+    STAGE_NUMBERS, measure_loop, names_fault, reading_is_clean)
 from ..npc import render as render_message
 from ..progression import QUALIFICATIONS_BY_KEY
+from ..verbs import measured
 from .session import SessionState
 
 
@@ -84,6 +86,12 @@ class GuidanceCommands(SessionState):
         pending = [report for report in self.desk.pending()
                    if not report.practical]
         if staged is not None:
+            if not measured(staged[1]):
+                return NextAction(
+                    f"{staged[1].number} is {staged[0].title}, the "
+                    f"practical. He signs the reading as well as the fix: "
+                    f"measure it first.",
+                    f"mlt {staged[1].number}", 'measure')
             return NextAction(
                 f"{staged[1].number} is {staged[0].title}, the practical. "
                 f"Work it, then hand it in.",
@@ -106,7 +114,7 @@ class GuidanceCommands(SessionState):
                     f"report close {report.number} 8", 'close')
             # The code is the answer, so it is only typed for the player
             # while the fault is still being named to them.
-            if self._reading_stage(report, count=False) == STAGE_NUMBERS:
+            if not names_fault(self._reading_stage(report, count=False)):
                 found = '<fault>'
             else:
                 found = report.field_finding or 'WET'
