@@ -346,3 +346,32 @@ class TestTheDifficultySentence:
         result = terminal.execute_command('set game.difficulty craft')
         assert 'no longer name the fault' not in result
         assert 'cannot be closed until the loop has been measured' in result
+
+
+def _looked_at(terminal, sightings):
+    """A no-trouble report a crew has been to and found nothing on."""
+    terminal.career.fault_sightings['NONE'] = sightings
+    report = terminal.desk.receive(terminal.clock.now(), fault='NONE')
+    report.dispatched_to = 'Station'
+    report.field_finding = 'NONE'
+    _alone(terminal, report)
+    return report
+
+
+class TestNothingFoundIsClosedEight:
+    def test_next_closes_a_no_trouble_finding_as_eight(self, terminal):
+        report = _looked_at(terminal, 0)
+        action = terminal.next_action()
+        assert action.step == 'close'
+        assert action.command == f'report close {report.number} 8'
+
+    def test_it_is_eight_at_the_numbers_stage_too(self, terminal):
+        report = _looked_at(terminal, 4)
+        assert terminal.next_action().command == (
+            f'report close {report.number} 8')
+
+    def test_the_suggested_close_scores_right(self, terminal):
+        report = _looked_at(terminal, 0)
+        terminal.execute_command(terminal.next_action().command)
+        assert report.status == 'CLOSED'
+        assert report.correct
