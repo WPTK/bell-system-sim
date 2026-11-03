@@ -4411,8 +4411,8 @@ TRIAGE
 # The command only the SARTS technician's desk has.
 MAN_PAGES["sarts"] += """
 REPAIR
-     sarts repair <circuit id>
-     sarts repair <circuit id> office | facility | premises
+     sarts repair <circuit id | row>
+     sarts repair <circuit id | row> office | facility | premises
 
      The SARTS (Switched Access Remote Test) Technician desk only. For a
      circuit held in trouble: the first form loops it back at this
@@ -4420,17 +4420,27 @@ REPAIR
      and prints what each read. Each loop reads everything between it
      and this office, so the trouble is in the stretch after the last
      loop that passed. The second form sends the force for that place.
-     The right place clears the circuit; the wrong one finds nothing,
-     costs the shift the trip and leaves the circuit out.
+     A row is a row of the board 'sarts trouble' printed.
+
+     A force is not sent to a circuit nobody has read this tour: it
+     needs a 'sarts test' (SMAS and DACS access only) or a loop-back
+     first, and is refused, with no time spent, until it has one. The
+     right place clears the circuit. The wrong one finds nothing, costs
+     the trip and 12 minutes more to bring the force back and send it
+     again, and leaves the circuit out.
 
      Every minute a circuit is held in trouble is counted against the
      tour, by the shift clock and by nothing else, and sarts trouble
-     shows it. Looping a circuit on SMAS or DACS access is done by relay
-     and costs 3 minutes; one on manual jack access needs a visit and
-     costs 15. The force costs 10 minutes at the office, 20 on the
-     facility and 15 at the customer's end. These figures are the
-     simulation's own. Engineering and Operations notes only that
-     special services troubles may be traced to interoffice facilities.
+     shows it. One held past 60 minutes counts as a missed commitment on
+     the index whether or not you look, and so does one cleared after
+     60; the first tour is a grace. Looping a circuit on SMAS or DACS
+     access is done by relay and costs 3 minutes; one on manual jack
+     access needs a visit and costs 15. The force costs 10 minutes at
+     the office, 20 on the facility and 15 at the customer's end. The
+     places, their odds, these minutes and the 60 are the simulation's
+     own. Engineering and Operations notes only, at p. 581 [598] n. 4,
+     that "in the case of special services, troubles may be traced to
+     interoffice facilities".
 """
 
 
