@@ -160,19 +160,37 @@ class RemoteCommands(SessionState):
         cleared on the last one says nothing about this one. ``held`` is
         kept because a late clear must not wipe the lapse: the alarm is gone
         from the panel, but the span it stood at the top lamp is not.
+
+        ``live`` is whether the tour began with the control centre's sign-off
+        in hand, which is what ``connect work`` waits on. A panel the desk
+        cannot work yet does not run (see :meth:`_panel_runs`), and the tour
+        the sign-off is passed in is that kind of tour for all of it.
         """
         book = self._lamp_book
         if book is None or book['tour'] != self.career.shift:
             book = {'tour': self.career.shift, 'cleared': [], 'rose': [],
-                    'held': []}
+                    'held': [], 'live': self.career.may_use('connect')}
             self._lamp_book = book
         return book
+
+    def _panel_runs(self) -> bool:
+        """
+        Whether the lamps run this tour: past the first, with the sign-off.
+
+        The one rule on whether the panel is scored. An alarm the desk is
+        refused ``connect work`` on cannot be cleared, so it does not climb,
+        is not held and is not counted; the tour the sign-off arrives in
+        stays that way to its end, as the first tour does, so the sign-off
+        does not land on lamps that have been climbing without it.
+        """
+        return self.career.shift > 1 and self.lamp_book()['live']
 
     def lamp_state(self) -> Dict[str, Any]:
         """The book as the save file keeps it."""
         book = self.lamp_book()
         return {'tour': book['tour'], 'cleared': list(book['cleared']),
-                'rose': list(book['rose']), 'held': list(book['held'])}
+                'rose': list(book['rose']), 'held': list(book['held']),
+                'live': book['live']}
 
     def restore_lamps(self, stored: Any) -> None:
         """
@@ -186,12 +204,15 @@ class RemoteCommands(SessionState):
         nothing back.
         """
         book: Dict[str, Any] = {'tour': self.career.shift, 'cleared': [],
-                                'rose': [], 'held': []}
+                                'rose': [], 'held': [],
+                                'live': self.career.may_use('connect')}
         if isinstance(stored, dict) and stored.get('tour') == book['tour']:
             for key in ('cleared', 'rose', 'held'):
                 listed = stored.get(key)
                 if isinstance(listed, list):
                     book[key] = [str(n) for n in listed]
+            if isinstance(stored.get('live'), bool):
+                book['live'] = stored['live']
         self._lamp_book = book
         self._office_alarms.clear()
         self._alarms_dealt = 0
@@ -260,11 +281,11 @@ class RemoteCommands(SessionState):
         An alarm that nobody works lights a level higher every LAMP_MINUTES
         of the shift, from its own point in the span so that they ripen at
         different times. Deterministic from the tour and the alarm's
-        identifier. It is the shift clock and nothing else, and the first
-        tour, the whole of it, is a grace.
+        identifier. It is the shift clock and nothing else, and a tour the
+        panel does not run (see :meth:`_panel_runs`) is a grace.
         """
         base = LAMPS.index(alarm['severity'])
-        if self.career.shift == 1:
+        if not self._panel_runs():
             return LAMPS[base], LAMP_MINUTES
         age = self._lamp_age(alarm)
         level = min(len(LAMPS) - 1, base + age // LAMP_MINUTES)
@@ -285,9 +306,9 @@ class RemoteCommands(SessionState):
         the top, not the moment it did. The point in the span an alarm
         ripens at staggers only the climb; one dealt at the top lamp is not
         climbing, so its span runs from the start of the tour. Read only,
-        and the first tour is a grace.
+        and a tour the panel does not run is a grace.
         """
-        if self.career.shift == 1:
+        if not self._panel_runs():
             return False
         base = LAMPS.index(alarm['severity'])
         if base == len(LAMPS) - 1:

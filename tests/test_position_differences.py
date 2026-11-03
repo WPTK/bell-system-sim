@@ -1266,6 +1266,56 @@ class TestTheOfficeAlarmPanel:
         assert any(LAMPS.index(after[i]) > LAMPS.index(before[i])
                    for i in before)
 
+    def test_nothing_runs_while_connect_work_is_refused(self, at_desk):
+        # An alarm the desk cannot clear does not climb, is not held and is
+        # not on the index, however late in the tour it is.
+        terminal = at_desk('switch')
+        terminal.career.qualifications.remove('scc')
+        terminal.career.shift = 3
+        terminal.deal_alarms()
+        assert not terminal.career.may_use('connect')
+        terminal.shift_minutes = 470
+        for alarm, lamp, *_ in terminal.lamp_panel():
+            assert lamp == alarm['severity']
+            assert not terminal.lamp_held(alarm)
+        assert terminal.alarms_risen() == 0
+        assert terminal.alarms_overdue() == 0
+
+    def test_the_tour_the_sign_off_arrives_in_stays_a_grace(self, at_desk):
+        terminal = at_desk('switch')
+        terminal.career.qualifications.remove('scc')
+        terminal.career.shift = 3
+        terminal.deal_alarms()
+        terminal.shift_minutes = 300
+        assert terminal.alarms_overdue() == 0
+        terminal.lamp_book()
+        terminal.career.qualifications.append('scc')
+        terminal.shift_minutes = 470
+        assert terminal.alarms_overdue() == 0 and terminal.alarms_risen() == 0
+        # The next tour began with the sign-off in hand, so it runs.
+        terminal.career.shift = 4
+        terminal.deal_alarms()
+        terminal.shift_minutes = 470
+        assert terminal.alarms_overdue() > 0
+
+    def test_a_dead_panel_stays_dead_across_a_resume(self, at_desk):
+        import json
+        from bell_system import save
+        terminal = at_desk('switch')
+        terminal.career.qualifications.remove('scc')
+        terminal.career.shift = 3
+        terminal.deal_alarms()
+        terminal.career.qualifications.append('scc')
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        assert captured['tour']['lamps']['live'] is False
+        fresh = BellSystemTerminal(rng=random.Random(SEED))
+        fresh.career.shift = 3
+        fresh.career.qualifications = list(terminal.career.qualifications)
+        assert save.restore(fresh, captured)
+        fresh.shift_minutes = 470
+        assert fresh.lamp_book()['live'] is False
+        assert fresh.alarms_overdue() == 0
+
     def test_the_first_tour_is_a_grace(self, at_desk):
         terminal = office_desk(at_desk)
         terminal.career.shift = 1

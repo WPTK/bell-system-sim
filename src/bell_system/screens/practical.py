@@ -11,7 +11,7 @@ The scenarios are in data/practicals.py. This is the driver.
 """
 
 from datetime import timedelta
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from ..clock import days_to_divestiture
 from ..console import wrap
@@ -180,6 +180,10 @@ class PracticalCommands(SessionState):
             lines.extend(['', f"'qual take {practical.key}' sets it up "
                               f"again. 'hint' is free."])
             return '\n'.join(lines)
+        # The office panel's tour is settled by what was held when it began,
+        # so it is opened before the sign-off that would change the answer.
+        console: Any = self  # The office commands, mixed into the same class.
+        console.lamp_book()
         qualification = self.career.pass_practical(practical.key)
         if qualification is None:
             # Worked, and already signed (a role the game was started with

@@ -697,3 +697,20 @@ def test_the_audit_does_not_count_the_staged_report(terminal):
     _, report = staged(terminal)
     assert report.number not in terminal.career_audit().open_numbers
     assert report.number not in [r.number for r in terminal.desk.customers()]
+
+
+def test_the_scc_sign_off_does_not_start_the_office_lamps_that_tour(terminal):
+    # Nothing has looked at the panel yet this tour, so the practical's own
+    # pass must not be the first thing to ask whether it runs.
+    ready(terminal, 'scc')
+    terminal.career.shift = 3
+    terminal.take_position('switch')
+    terminal._lamp_book = None
+    terminal.execute_command('qual take scc')
+    _, report = staged(terminal)
+    work(terminal, 'scc', report.number)
+    assert 'passed' in terminal.execute_command('qual submit')
+    assert terminal.career.may_use('connect')
+    terminal.shift_minutes = 470
+    assert terminal.alarms_overdue() == 0
+    assert terminal.alarms_risen() == 0

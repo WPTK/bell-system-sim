@@ -4569,8 +4569,12 @@ ALARM PANEL
      then is not; one cleared after it still is, and stays on the
      index. The other buildings' lamps rise and show on the panel but
      are not on the index. Each tour deals the alarms again, the same ones
-     for the same tour however many times the shift is resumed. The first
-     tour is a grace. The clock is the shift clock and not a stopwatch.
+     for the same tour however many times the shift is resumed. The lamps
+     run only on a tour that began with the Switching Control Center
+     sign-off, which is what connect work waits on: the first tour, and
+     the tour the sign-off is passed in, are a grace, with nothing
+     climbing and nothing counted. The clock is the shift clock and not a
+     stopwatch.
      These figures are the simulation's own.
 """},
 }
