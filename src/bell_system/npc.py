@@ -706,7 +706,7 @@ class Switchroom:
     def __init__(self, rng: Optional[random.Random] = None,
                  arcs: Optional[Sequence[ArcBeat]] = None,
                  present: Optional[Callable[[str, datetime], bool]] = None):
-        self.rng = rng or random.Random()
+        self.rng = rng or random.Random(random.getrandbits(64))
         # Whether a person is in at a given moment. The terminal supplies
         # this from the tour being worked (the board and the clock do not
         # agree on the hour); a room with none goes by the clock.

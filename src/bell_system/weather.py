@@ -104,7 +104,7 @@ class Weather:
                 Leans the regime draw toward the wet end without ever
                 closing off a dry tour.
         """
-        self.rng = rng or random.Random()
+        self.rng = rng or random.Random(random.getrandbits(64))
         lean = max(0.0, min(1.0, wet_bias))
         keys = [key for key, _ in REGIMES]
         weights = [weight * (1.0 + lean * WET_LEAN[key])
