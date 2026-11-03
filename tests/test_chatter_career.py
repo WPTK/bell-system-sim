@@ -17,6 +17,7 @@ from datetime import datetime
 import pytest
 
 from bell_system import npc
+from bell_system.data.trouble import FAULTS
 from bell_system.data import tours
 from bell_system.npc import (
     CHATTER_REST_TOURS, Switchroom, chatter_key, forget_rested, heard_on,
@@ -59,28 +60,51 @@ def test_each_voice_has_a_line_for_every_tour_of_a_career(desk):
             assert lines >= need, (desk, tour, voice, lines)
 
 
-@pytest.mark.parametrize('desk', DESKS, ids=lambda d: d or 'no desk')
-@pytest.mark.parametrize('seed', [1, 2, 3])
-def test_a_busy_career_never_says_a_line_inside_its_rest(desk, seed):
-    """Craft rates: fifteen tries a tour, thirteen tours, three seeds."""
+def recycled(desk, seed, tries):
+    """Lines said again inside the rest, over a career of `tries` a tour."""
     room = Switchroom(random.Random(seed))
     ledger = []
     said = collections.defaultdict(list)
+    quiet = 0
     for tour in range(1, len(tours.TOURS) + 1):
         seated(room, tour)
-        for _ in range(15):
+        for _ in range(tries):
+            # The ledger is the only thing keeping a line from coming round.
+            room._recent.clear()
             message = room.chatter(NOW, position=desk, tour=tour, seen=ledger)
             if message is None:
+                quiet += 1
                 continue
             forget_rested(ledger, tour)
             key = chatter_key(tour, message.lines)
             if key not in ledger:
                 ledger.append(key)
             said[tuple(message.lines)].append(tour)
+    again = [(lines[0], on) for lines, on in said.items()
+             for earlier, later in zip(on, on[1:])
+             if later - earlier <= CHATTER_REST_TOURS]
+    return again, quiet, len(said)
+
+
+@pytest.mark.parametrize('desk', DESKS, ids=lambda d: d or 'no desk')
+@pytest.mark.parametrize('seed', [1, 2, 3])
+def test_a_career_never_says_a_line_inside_its_rest(desk, seed):
+    """Far busier than craft: sixty tries a tour, so pools do run dry."""
+    again, _, said = recycled(desk, seed, 60)
     assert said, 'the building said nothing in thirteen tours'
-    for lines, on in said.items():
-        for earlier, later in zip(on, on[1:]):
-            assert later - earlier > CHATTER_REST_TOURS, (lines[0], on)
+    assert again == []
+
+
+def test_the_busy_career_does_run_pools_dry_into_silence():
+    quiet = sum(recycled(desk, 1, 60)[1] for desk in DESKS)
+    assert quiet > 0
+
+
+def test_the_recycling_check_can_fail(monkeypatch):
+    """With the rest switched off the same career does come round."""
+    monkeypatch.setattr(npc, 'rested', lambda lines, tour, seen: True)
+    again, _, _ = recycled('sysop', 1, 60)
+    assert again
 
 
 def test_every_voice_is_heard_across_a_career():
@@ -115,21 +139,69 @@ def test_no_line_is_wider_than_the_bible_allows():
 
 
 # Pillar 1: nothing but mlt or a field finding names a fault, a force or a
-# close code. One line predates the check and is left to its own fix (the
-# switch desk's wire chief, who says what a false cross or ground reads as).
-NAMES = re.compile(
-    r'false cross|foreign emf|wet cable|outside plant|cable repair|'
-    r'station force|central office force|code [0-9]|disposition',
+# close code. What counts is derived from the data the game answers from
+# (data/trouble.py), so a new fault or force is covered without editing this:
+# every fault's name, every force it dispatches to, and every three words in a
+# row of its mlt signature or its description. A few plain words are added by
+# hand: the ones a line says without quoting the data.
+STOPWORDS = {'a', 'an', 'and', 'at', 'be', 'by', 'for', 'in', 'is', 'it',
+             'its', 'of', 'on', 'or', 'the', 'to', 'with', 'no', 'not', 'one',
+             'than', 'that', 'there', 'rather'}
+
+
+def _words(text):
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+
+def _runs(text, size=3):
+    words = _words(text)
+    return {' '.join(words[i:i + size]) for i in range(len(words) - size + 1)}
+
+
+def _named_by_the_data():
+    phrases = set()
+    for fault in FAULTS.values():
+        phrases.add(' '.join(_words(fault.name)))
+        if not fault.dispatch.lower().startswith('none'):
+            phrases.add(' '.join(_words(fault.dispatch)))
+        phrases |= _runs(fault.mlt_signature) | _runs(fault.description)
+    # Runs that are only grammar say nothing about a fault.
+    return {run for run in phrases
+            if len(set(run.split()) - STOPWORDS) >= 2}
+
+
+# An idiom of the trade, and Johnson's canonical line about the marker (bible
+# section 4): it says a number is in limits, not what is wrong with a loop.
+DENIED = _named_by_the_data() - {'out of limits'}
+PLAIN = re.compile(
+    r"\bground(ed|s)?\b|\bcross(ed)?\b(?!-connect)|\bntf\b|"
+    r"no trouble found|send (anybody|anyone|somebody) out|"
+    r"\bforeign\b|\bclose code\b",
     re.IGNORECASE)
-PREDATES = {'If it is a false cross or ground the loop will measure clean to'}
+
+
+def _found_in(text):
+    spoken = ' '.join(_words(text))
+    hits = [run for run in DENIED if run in spoken]
+    match = PLAIN.search(text)
+    return hits + ([match.group(0)] if match else [])
+
+
+def test_the_net_catches_what_it_should():
+    """The deny-list is not empty or blind to the data it is built on."""
+    assert len(DENIED) > 40
+    for said in ('If it is a false cross or ground, do not dispatch.',
+                 'closed as no trouble found', 'the loop measures clean to it',
+                 'do not send anybody out on it', 'NTF again',
+                 'it is the cable repair gang',
+                 'infinite resistance tip to ring'):
+        assert _found_in(said), said
 
 
 def test_no_line_names_a_fault_a_force_or_a_close_code():
     for item in every_line():
         text = ' '.join(item[2])
-        if item[2][0] in PREDATES:
-            continue
-        assert not NAMES.search(text), text
+        assert _found_in(text) == [], text
 
 
 @pytest.mark.parametrize('login', ['adm', 'carot'])

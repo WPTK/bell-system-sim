@@ -188,7 +188,7 @@ FRAGMENTS: Tuple[Fragment, ...] = (
              owner='ehalloran', group='mgmt', mode='-rw-r-----'),
     # What was on the machine already. The two files that ship with the story
     # belong to the machine, not the position: a beat (the
-    # chief's 'the log it writes is yours now') points at the log, so it is
+    # chief's 'the log it writes is kept for you') points at the log, so it is
     # not the player's to rm or overwrite.
     Fragment('notes', 'Notes for whoever has the position',
              '/usr/users/sysop/notes'),
