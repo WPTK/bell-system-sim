@@ -208,6 +208,13 @@ class CablePlant:
                 return section
         return None
 
+    def open_section(self, cable: int, binder: int) -> Optional[WetSection]:
+        """Return the open wet section in a named cable and binder, if any."""
+        for section in self.open_sections():
+            if section.cable == cable and section.binder == binder:
+                return section
+        return None
+
     def wet_pair(self, now: datetime) -> Tuple[int, int]:
         """
         Return the cable and pair the next wet report should land on.

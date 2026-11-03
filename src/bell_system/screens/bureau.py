@@ -276,7 +276,8 @@ class BureauCommands(SessionState):
             return self._show_report_detail(rest[0])
         if action == 'dispatch':
             if len(rest) < 2:
-                return ("report: usage: report dispatch <number> <force>\n"
+                return ("report: usage: report dispatch <number> <force> "
+                        "[cable/binder]\n"
                         "Forces: " + ', '.join(DISPATCH_FORCES))
             return self._dispatch_report(rest[0], ' '.join(rest[1:]))
         if action == 'close':
@@ -500,24 +501,31 @@ class BureauCommands(SessionState):
         if report.status == 'CLOSED':
             return f"{report.number} is already closed."
 
+        force, section, refusal = self._named_section(force)
+        if refusal:
+            return refusal
         canonical = valid_force(force)
         if canonical is None:
             return (f"report: '{force}' is not a repair force.\n"
                     f"Forces: {', '.join(DISPATCH_FORCES)}")
+        refusal = self._section_asked(canonical, section)
+        if refusal:
+            return refusal
 
         # A crew that goes to the wrong place reads nothing, so only a
         # dispatch that finds something is a sighting.
         name_fault = names_fault(self._reading_stage(report, count=False))
         repaired = sum(r.sheath_repaired for r in self.desk.reports.values())
         finding, went = self.desk.send_crew(
-            report, canonical, self.shift_minutes, name_fault)
+            report, canonical, self.shift_minutes, name_fault, section)
         if went and not report.first_dispatch_judged:
             # The first crew sent is the judgement; whatever follows it is
             # not. Nobody sent, or nobody needed, is not a dispatch.
             report.first_dispatch_judged = True
             self.career.record_dispatch(
                 canonical.lower()
-                == FAULTS[report.record.fault].dispatch.lower(),
+                == FAULTS[report.record.fault].dispatch.lower()
+                and self._is_own_section(report, section),
                 sum(r.sheath_repaired for r in self.desk.reports.values())
                 - repaired if report.tested else 0)
         # Only a crew that went reads the plant. A report another report's

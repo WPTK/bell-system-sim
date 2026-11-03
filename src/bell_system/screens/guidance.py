@@ -168,10 +168,15 @@ class GuidanceCommands(SessionState):
             fault = report.record.fault
             force = ('' if self._reading_stage(report, count=False)
                      == STAGE_NUMBERS else self._dispatch_for(fault))
+            # The splicers ask where, and the prompt says so; where is the
+            # player's to work out.
+            where = (' <cable>/<binder>'
+                     if force == 'Cable repair'
+                     and self._difficulty().section_required else '')
             return NextAction(
                 f"{report.number} is measured and waiting on a crew. "
                 f"{report.age_label()} left.",
-                f"report dispatch {report.number} {force.lower()}"
+                f"report dispatch {report.number} {force.lower()}{where}"
                 if force else f"report show {report.number}",
                 'dispatch')
         return NextAction(

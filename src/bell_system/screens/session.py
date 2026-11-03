@@ -367,6 +367,21 @@ class SessionState:
         """Let shift minutes go by that nobody spent on a report."""
         raise NotImplementedError
 
+    def _named_section(self, words: str
+                       ) -> Tuple[str, Optional[Tuple[int, int]], str]:
+        """Split a cable and binder group off the end of a dispatch."""
+        raise NotImplementedError
+
+    def _section_asked(self, force: str,
+                       section: Optional[Tuple[int, int]]) -> str:
+        """Refuse a Cable repair dispatch that does not say where to go."""
+        raise NotImplementedError
+
+    def _is_own_section(self, report: Any,
+                        section: Optional[Tuple[int, int]]) -> bool:
+        """Whether a dispatch's section is the one the report is in."""
+        raise NotImplementedError
+
     def _advance_shift(self) -> List[str]:
         """Charge the shift for the work just done and fire what is due."""
         raise NotImplementedError

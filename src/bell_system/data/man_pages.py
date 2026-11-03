@@ -1773,7 +1773,7 @@ SYNOPSIS
      report next
      report show <number>
      report callback <number>
-     report dispatch <number> <force>
+     report dispatch <number> <force> [cable/binder]
      report close <number> <5|8> [fault]
      report closed | faults | forces
 
@@ -1794,7 +1794,10 @@ OPTIONS
                        wants. The same decision the standing prompt makes
      show <n>          The line record, the symptom and everything done so far
      callback <n>      Telephone the customer for more than the card carries
-     dispatch <n> <f>  Send a repair force. The wrong force costs time
+     dispatch <n> <f>  Send a repair force. The wrong force costs time.
+                       Cable repair also wants the cable and binder group
+                       to open, as 81/8, where the job is run that way;
+                       a group with no water in it is a wrong trip too
      close <n> 5 <c>   Trouble found. Name the condition you found
      close <n> 8       No trouble found
      closed            What has been closed this session, and how it was judged
@@ -4146,6 +4149,38 @@ EXAMPLES
 
 SEE ALSO
      qual(1), report(1), trouble(1), man(1), nroff(1), pic(1)
+""",
+    "cable": """
+NAME
+     cable - cable and binder group, and how to tell a splicer where to go
+
+SYNOPSIS
+     report dispatch <number> cable <cable>/<binder>
+
+DESCRIPTION
+     Exchange cable is built in groups of twenty-five pairs, each wrapped
+     in a coloured binder. Pairs 1 to 25 are group 1, 26 to 50 group 2,
+     and so on up to group 24, which ends at pair 600. A line record
+     carries its cable and pair as 0081/0181; the splicer wants the cable
+     and the group, as 81/8, and the group is the part you work out.
+
+     The groups take their colours from the 25-pair colour code, the same
+     one the pairs inside follow: group 1 is white-blue, group 2
+     white-orange, and group 24 violet-brown. Violet-slate is a real pair
+     colour and is never used as a binder.
+
+     Water is a binder group fault. A splicer who opens the group the water
+     is in dries it and reseals it, and every pair in the group comes back
+     with it. A splicer sent to a group with no water in it opens a dry
+     sheath, and that is a trip charged against the commitment like any
+     other wrong one.
+
+     Where the job is run that way, Cable repair will not go without a
+     section. Where it is not, it opens the sheath the report is on. A
+     section you name is honoured either way.
+
+SEE ALSO
+     report(1), lmos(1), weather(1)
 """,
     "weather": """
 NAME

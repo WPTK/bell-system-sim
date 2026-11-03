@@ -94,6 +94,11 @@ class Difficulty(NamedTuple):
     # coaching, kept apart from require_test_before_close so that asking
     # for the one does not change the other.
     annotation_sightings: int
+    # Whether a splicer has to be told which cable and binder group to open.
+    # Off, a Cable repair dispatch with no section opens the sheath the
+    # report's own pair is in, as it always did; named, the section is
+    # honoured either way.
+    section_required: bool
 
 
 DIFFICULTIES: Dict[str, Difficulty] = {
@@ -119,6 +124,7 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         interruption_rate=0.06,
         commitment_slack_minutes=90,
         annotation_sightings=4,
+        section_required=False,
     ),
     'craft': Difficulty(
         key='craft',
@@ -134,6 +140,7 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         interruption_rate=0.22,
         commitment_slack_minutes=0,
         annotation_sightings=0,
+        section_required=True,
     ),
 }
 
@@ -216,6 +223,14 @@ ASSISTS: List[Assist] = [
         'fade names a fault type for its first two sightings, the crew class '
         'for the next two, and then leaves the reading to you; on never '
         'stops.',
+    ),
+    Assist(
+        'assist.sections', 'section_required',
+        {'named': True, 'assumed': False},
+        'Whether a splicer is told which binder group to open',
+        'named has Cable repair ask for a cable and binder group and open '
+        'the one you give it, so a wrong group costs a trip; assumed opens '
+        'the sheath the report is on when you give none.',
     ),
 ]
 

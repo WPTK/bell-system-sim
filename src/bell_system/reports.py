@@ -33,7 +33,13 @@ import random
 from datetime import datetime, timedelta
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from .cable import BINDERS_PER_UNIT, PAIRS_PER_BINDER, CablePlant
+from .cable import (
+    BINDERS_PER_UNIT,
+    PAIRS_PER_BINDER,
+    CablePlant,
+    WetSection,
+    binder_colour,
+)
 from .field import FieldForce
 from .weather import Weather
 from .data.regulars import (
@@ -800,7 +806,9 @@ class ReportDesk:
                 f"{report.number} stays on the board.")
 
     def send_crew(self, report: TroubleReport, force: str,
-                  now: int = 0, name_fault: bool = True) -> Tuple[str, bool]:
+                  now: int = 0, name_fault: bool = True,
+                  section: Optional[Tuple[int, int]] = None
+                  ) -> Tuple[str, bool]:
         """
         Send a repair force, and say what the field reports and whether
         anybody went.
@@ -810,6 +818,10 @@ class ReportDesk:
         is whether the crew says what they cleared: a correct dispatch that
         names the fault is the answer to the report, and the closing code
         is the one thing the player is meant to work out.
+
+        ``section`` is the cable and binder group a splicer is told to open.
+        None leaves it to the report's own pair, as a dispatch always did;
+        a section is honoured, and a wrong one is a wrong trip.
 
         Dispatching to the wrong place is the expensive mistake it was: the
         trip is charged against the commitment and the trouble is still there.
@@ -833,6 +845,11 @@ class ReportDesk:
                     f"opened. The pair came back with the rest of the "
                     f"group.\nNobody needs to go. Close it out: {close}.",
                     False)
+
+        if section is not None and force.lower() == 'cable repair':
+            named = self._named_job(report, force, section, now, name_fault)
+            if named is not None:
+                return named
 
         if force.lower() != wanted.lower():
             # The right force draws its repair time here; so does this one,
@@ -884,8 +901,55 @@ class ReportDesk:
         return (f"{went}\n{crew.name} reports {cleared} located "
                 f"and cleared. {repair} minutes on the job.", True)
 
+    def _named_job(self, report: TroubleReport, force: str,
+                   section: Tuple[int, int], now: int,
+                   name_fault: bool) -> Optional[Tuple[str, bool]]:
+        """
+        A splicer sent to a binder group the dispatcher named.
+
+        Returns None when that group is this report's own wet one, which is
+        the ordinary repair and goes on down send_crew. Anywhere else the
+        splicer goes, opens what they were told to open, and finds what is
+        there: water, which they dry and which is somebody else's trouble
+        cleared, or a dry sheath, which is a wrong trip charged like any
+        other. The same words are said whatever the report's own fault is,
+        so naming a group tells nothing about what this report has.
+        """
+        record = report.record
+        cable, binder = section
+        wet = self.plant.open_section(cable, binder)
+        if (record.fault == 'WET' and wet is not None
+                and wet is self.plant.section_at(record.cable, record.pair)):
+            return None
+        fault = FAULTS['WET'] if wet is not None else FAULTS[record.fault]
+        low, high = fault.typical_minutes
+        repair = self.rng.randint(low, high)
+        cost = repair if wet is not None else COST_WRONG_DISPATCH
+        crew, travel, came_from = self.force.send(
+            force, report.number, cost, now)
+        if crew is None:
+            return self._nobody_free(report, force, now), False
+        report.dispatched_to = force
+        report.crew = crew.name
+        report.travel_minutes = travel
+        report.status = STATUS_DISPATCHED
+        went = (f"{crew.name} ({crew.title.lower()}) rolled from "
+                f"{came_from}, {travel} minutes.")
+        if wet is not None:
+            report.spend(repair + travel + COST_DISPATCH, desk=COST_DISPATCH)
+            return (f"{went}\n" + self._repair_sheath(
+                report, crew.name, repair, name_fault, wet), True)
+        report.spend(COST_WRONG_DISPATCH + COST_DISPATCH + travel,
+                     desk=COST_DISPATCH + COST_WRONG_DISPATCH_DESK)
+        return (f"{went}\n{crew.name} opened cable {cable}, binder {binder} "
+                f"({binder_colour(binder)}) and found it dry.\n"
+                f"{COST_WRONG_DISPATCH + travel} minutes charged against "
+                f"the commitment, and {crew.name} is now out on nothing.",
+                True)
+
     def _repair_sheath(self, report: 'TroubleReport', force: str,
-                       repair: int, name_fault: bool = True) -> str:
+                       repair: int, name_fault: bool = True,
+                       section: Optional[WetSection] = None) -> str:
         """
         A splicer has opened one sheath, which repairs every pair in it.
 
@@ -897,7 +961,7 @@ class ReportDesk:
         tour left in their notes.
         """
         record = report.record
-        section = self.plant.section_at(record.cable, record.pair)
+        section = section or self.plant.section_at(record.cable, record.pair)
         if section is None:
             what = 'wet cable' if name_fault else 'the trouble'
             return (f"{force} reports {what} located and cleared. "

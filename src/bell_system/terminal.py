@@ -67,6 +67,7 @@ from .screens.radio import RadioCommands
 from .screens.ticket_generation import TicketGeneration
 from .screens.unix import UnixCommands
 from .screens.bureau import BureauCommands
+from .screens.cases import CaseCommands
 from .screens.carrier import CarrierCommands
 from .screens.dispatch import CommandDispatch
 from .screens.docprep import DocumentCommands as DocPrepCommands
@@ -147,6 +148,7 @@ class BellSystemTerminal(
     TollCommands,
     TestingCommands,
     BureauCommands,
+    CaseCommands,
     RepairDeskCommands,
     ShiftCommands,
     TurnoverCommands,

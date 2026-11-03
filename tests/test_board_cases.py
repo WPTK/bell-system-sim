@@ -154,3 +154,128 @@ class TestTransientTrouble:
         terminal.execute_command('report')
         terminal.execute_command(f'report show {report.number}')
         assert report.clears_at is None
+
+
+def _wet(terminal):
+    """A wet report, and the cable and binder group its pair is in."""
+    from bell_system.cable import binder_of
+    report = terminal.desk.receive(terminal.clock.now(), fault='WET')
+    return report, f"{report.record.cable}/{binder_of(report.record.pair)}"
+
+
+def _craft(terminal):
+    terminal.execute_command('set assist.sections named')
+
+
+class TestNamingTheSection:
+    """C21: a splicer is told where, and a wrong group is a wrong trip."""
+
+    def test_the_right_section_repairs(self, terminal):
+        report, section = _wet(terminal)
+        result = terminal.execute_command(
+            f'report dispatch {report.number} cable {section}')
+        assert 'resealed' in result
+        assert report.field_finding == 'WET'
+
+    def test_a_wrong_section_returns_the_crews_finding(self, terminal):
+        report, section = _wet(terminal)
+        cable, binder = section.split('/')
+        wrong = f"{cable}/{(int(binder) % 24) + 1}"
+        result = terminal.execute_command(
+            f'report dispatch {report.number} cable {wrong}')
+        assert 'found it dry' in result
+        assert 'resealed' not in result
+        assert report.field_finding is None
+        assert terminal.desk.plant.section_at(
+            report.record.cable, report.record.pair) is not None
+
+    def test_a_wrong_section_costs_the_wrong_trip(self, terminal):
+        right, section = _wet(terminal)
+        cable, binder = section.split('/')
+        wrong = f"{cable}/{(int(binder) % 24) + 1}"
+        before = right.minutes_spent
+        terminal.execute_command(
+            f'report dispatch {right.number} cable {wrong}')
+        assert right.minutes_spent - before >= 45
+
+    def test_the_old_form_still_works_in_fun(self, terminal):
+        report, _ = _wet(terminal)
+        terminal.execute_command('set assist.sections assumed')
+        result = terminal.execute_command(
+            f'report dispatch {report.number} cable')
+        assert 'resealed' in result
+        assert report.field_finding == 'WET'
+
+    def test_craft_asks_where_and_charges_nothing(self, terminal):
+        report, _ = _wet(terminal)
+        _craft(terminal)
+        before = report.desk_minutes
+        result = terminal.execute_command(
+            f'report dispatch {report.number} cable')
+        assert 'Which one?' in result
+        assert report.desk_minutes == before
+        assert report.dispatched_to is None
+
+    def test_the_question_is_the_same_for_a_report_that_is_not_wet(
+            self, terminal):
+        wet, _ = _wet(terminal)
+        dry = terminal.desk.receive(terminal.clock.now(), fault='SHORT')
+        _craft(terminal)
+        asked = [terminal.execute_command(
+            f'report dispatch {report.number} cable') for report in (wet, dry)]
+        assert asked[0] == asked[1]
+
+    def test_another_force_is_not_asked_for_a_section(self, terminal):
+        report = terminal.desk.receive(terminal.clock.now(), fault='SHORT')
+        _craft(terminal)
+        result = terminal.execute_command(
+            f'report dispatch {report.number} outside')
+        assert 'Which one?' not in result
+
+    def test_a_section_for_the_wrong_force_finds_the_same_dry_sheath(
+            self, terminal):
+        report = terminal.desk.receive(terminal.clock.now(), fault='SHORT')
+        cable = (report.record.cable % 80) + 1
+        result = terminal.execute_command(
+            f'report dispatch {report.number} cable {cable}/3')
+        assert 'found it dry' in result
+
+    def test_a_group_with_other_water_is_cleared_for_its_own_reports(
+            self, terminal):
+        wet, section = _wet(terminal)
+        other = terminal.desk.receive(terminal.clock.now(), fault='SHORT')
+        result = terminal.execute_command(
+            f'report dispatch {other.number} cable {section}')
+        assert 'resealed' in result
+        assert wet.sheath_repaired
+        assert other.field_finding is None
+
+    @pytest.mark.parametrize('token', ['81', '81/', '/8', '81/x', '81/8/2'])
+    def test_something_that_is_not_a_section_is_refused(self, terminal, token):
+        report, _ = _wet(terminal)
+        if '/' not in token:
+            return
+        result = terminal.execute_command(
+            f'report dispatch {report.number} cable {token}')
+        assert 'not a cable and binder group' in result
+        assert report.dispatched_to is None
+
+    def test_there_is_no_binder_group_twenty_five(self, terminal):
+        report, _ = _wet(terminal)
+        result = terminal.execute_command(
+            f'report dispatch {report.number} cable 81/25')
+        assert 'There is no group 25' in result
+
+    def test_the_pair_form_is_not_a_section(self, terminal):
+        """0081/0181 is the answer on the card; it is not accepted as one."""
+        report, _ = _wet(terminal)
+        result = terminal.execute_command(
+            f'report dispatch {report.number} cable '
+            f'{report.record.cable_pair()}')
+        assert 'not a cable and binder group' in result \
+            or 'There is no group' in result
+
+    def test_the_setting_reads_off_the_profile_by_default(self, terminal):
+        from bell_system.progression import DIFFICULTIES
+        assert not DIFFICULTIES['fun'].section_required
+        assert DIFFICULTIES['craft'].section_required
