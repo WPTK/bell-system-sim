@@ -152,6 +152,7 @@ class BureauCommands(SessionState):
                                wet_bias=career_progress(
                                    self.career.shift),
                                rng=rng)
+        self.desk.tour_of = lambda: self.career.shift
         # The career's index counts reports left open past commitment, and
         # the only place that is true is the board.
         self.career.open_overdue = lambda: sum(
@@ -393,6 +394,8 @@ class BureauCommands(SessionState):
             f"  Frame appearance    H {record.horizontal} / V {record.vertical}",
             f"  Line equipment      {record.line_equipment}",
             f"  Office              {record.clli}",
+            *([f"  Known line          custdb {record.telephone_number}"]
+              if record.regular else []),
             '',
             'REPORT',
             f"  Customer states     {report.symptom}",
@@ -646,7 +649,8 @@ class BureauCommands(SessionState):
             # Ran past the commitment on the close itself.
             self.career.record_missed()
         self.career.record_closure(correct, report.minutes_spent,
-                                   report.tested, report.number)
+                                   report.tested, report.number,
+                                   report.record.regular or '')
 
         lines = [
             f"{report.number} closed, code {disposition} - "
