@@ -597,25 +597,32 @@ class Switchroom:
             f'{tours} tours and {closed} reports off the board. I signed '
             f'{qualifications} of your',
             'qualifications and I stand behind every one of them.',
-            '',
-            'They go with you. Whichever of the seven you end up at in the',
-            'morning, the record says what you can work and nobody there',
-            'is going to argue with it.',
-            'Go home.',
         ]
         if qualifications >= 5:
-            lines.insert(3, 'You were better at it than most of the people '
-                            'who trained you.')
+            lines.append('You were better at it than most of the people '
+                         'who trained you.')
+        # The qualifications are still signed and still his. What the audit
+        # takes back is the claim that nobody there will argue, and it says
+        # so after the praise rather than in front of it.
         if verdict == AUDIT_EXCEPTIONS:
-            lines[3:3] = ['The audit found some things. They are on the '
-                          'record with your name,', 'and so is the rest of it.']
+            lines.extend(['The audit found some things. They are on the '
+                          'record with your name,', 'and so is the rest of '
+                          'it.'])
+            closing = ['morning, the record says what you can work.']
         elif verdict == AUDIT_FAILED:
-            # The qualifications are still signed and still his. What does
-            # not carry is the claim that nobody there will argue.
-            lines[3:3] = ['The audit did not go your way and I am not going '
-                          'to tell you it did.']
-            lines[-3:-1] = ['morning, the record says what you can work. The '
-                            'audit says how you did it.', 'Read both.']
+            lines.append('The audit did not go your way and I am not going '
+                         'to tell you it did.')
+            closing = ['morning, the record says what you can work. The '
+                       'audit says how you did it.', 'Read both.']
+        else:
+            closing = ['morning, the record says what you can work and '
+                       'nobody there', 'is going to argue with it.']
+        lines.extend([
+            '',
+            'They go with you. Whichever of the seven you end up at in the',
+            *closing,
+            'Go home.',
+        ])
         return self._deliver(Message(
             channel=CHANNEL_WRITE, sender='ehalloran', received=now,
             lines=lines, kind='nudge', subject='Last tour', about=None,

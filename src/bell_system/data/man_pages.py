@@ -1130,10 +1130,13 @@ THE LAST TOUR
      the machine did not stop on the first of January either.
 
      The last tour also carries an audit of the record: dispositions
-     against the line, repeats, and the reports that go over open with
-     your name on them. It gives a verdict, and the wire chief's words
-     follow it. On the last day, handoff shows how it stands before you
-     sign off. It never ends the career early.
+     against the line and the reports that go over open with your name
+     on them. Repeats are shown, not scored. It gives a verdict, and
+     the wire chief's words follow it. On the last day, handoff shows
+     the counts before you sign off and holds the verdict until then,
+     because the hours nobody worked age the board first. Any report
+     handed over past its commitment is a finding. The audit never ends
+     the career early, and handoff shows it again afterwards.
 
 SEE ALSO
      report(1), qual(1), events(1)

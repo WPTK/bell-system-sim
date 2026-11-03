@@ -69,7 +69,7 @@ class Audit(NamedTuple):
     reasons: List[str]
 
 
-def audit(closed: int, correct: int, repeats: int,
+def audit(closed: int, wrong: int, repeats: int,
           open_numbers: List[str], late: int) -> Audit:
     """
     Judge a career's dispositions and the board it hands over.
@@ -81,19 +81,22 @@ def audit(closed: int, correct: int, repeats: int,
 
     Args:
         closed: Reports closed over the career
-        correct: How many matched what was on the line
-        repeats: Reports that came back after a wrong close
+        wrong: How many did not match what was on the line. Read from the
+            career's own count and held between none and all of them, so a
+            damaged record cannot make the audit's figures negative
+        repeats: Reports that came back after a wrong close. Shown, not
+            weighed: the verdict reads dispositions and the board
         open_numbers: Reports on the board at transfer, which go over with
             the craftsperson's name on them
         late: How many of those are past their commitment
     """
-    wrong = closed - correct
+    wrong = max(0, min(wrong, closed))
     rate = wrong / closed if closed else 0.0
     failed: List[str] = []
     findings: List[str] = []
     if not closed:
         failed.append("Nothing was closed, so there is no disposition to "
-                      "stand behind and the board goes over as it was found.")
+                      "stand behind and the board goes over as you left it.")
     if closed and rate > AUDIT_FAILURE_RATE:
         failed.append(f"{wrong} of {closed} dispositions did not match "
                       f"the line.")
@@ -116,7 +119,7 @@ def audit(closed: int, correct: int, repeats: int,
     else:
         verdict, reasons = AUDIT_PASSED, [
             "Every disposition on record matched the line."]
-    return Audit(closed, correct, wrong, repeats, open_numbers, late,
+    return Audit(closed, closed - wrong, wrong, repeats, open_numbers, late,
                  verdict, reasons)
 
 
@@ -228,16 +231,37 @@ Reference: BSP 010-100-000 (Shift Turnover Procedures)
 Type 'handoff relieve' to sign off. The service index is banked against
 this shift and the next one starts on a fresh board."""
 
-        if self.clock.last_tour(self.career.shift) and not self.career.finished:
-            output += ('\n\n'
-                       + '\n'.join(
-                           self.audit_lines(self.career_audit(), final=False)))
-
         if args and args[0].lower() in ('relieve', 'signoff', 'end'):
             if not self._tour_has_work():
                 return self._nothing_to_hand_over()
             return self._end_shift()
+        if self.clock.last_tour(self.career.shift):
+            found = self.stored_audit()
+            if found is not None:
+                lines = self.audit_lines(found, final=True)
+            elif not self.career.finished:
+                lines = self.audit_lines(self.career_audit(), final=False)
+            else:
+                lines = []
+            if lines:
+                output += '\n\n' + '\n'.join(lines)
         return output
+
+    def stored_audit(self) -> Optional[Audit]:
+        """
+        The audit the career was signed off with, or None before that.
+
+        Read from what ``_end_career`` kept, so the last day can be read
+        again once it is over. The verdict is the stored one; the figures
+        beside it are the career's own, which no longer move.
+        """
+        career = self.career
+        if not career.finished or not career.audit_verdict:
+            return None
+        found = audit(career.reports_closed, career.reports_wrong,
+                      career.repeat_reports, list(career.audit_open),
+                      career.audit_late)
+        return found._replace(verdict=career.audit_verdict)
 
     def career_audit(self) -> Audit:
         """
@@ -248,7 +272,7 @@ this shift and the next one starts on a fresh board."""
         """
         pending = self.desk.pending()
         career = self.career
-        return audit(career.reports_closed, career.reports_correct,
+        return audit(career.reports_closed, career.reports_wrong,
                      career.repeat_reports,
                      [report.number for report in pending],
                      sum(1 for report in pending if report.overdue()))
@@ -278,17 +302,31 @@ this shift and the next one starts on a fresh board."""
             more = len(found.open_numbers) - 6
             rows.append(f"    your name is on them   {shown}"
                         + (f" and {more} more" if more > 0 else ''))
-        rows.append(f"  Verdict                  {found.verdict}")
-        for reason in found.reasons:
-            rows.extend(f"    {line}" for line in wrap(reason, 60))
+        if final:
+            rows.append(f"  Verdict                  {found.verdict}")
+            for reason in found.reasons:
+                rows.extend(f"    {line}" for line in wrap(reason, 60))
+        else:
+            # The board is aged by the hours nobody worked before the audit
+            # reads it, so a verdict given now could be taken back. The
+            # counts are shown and the verdict waits for sign-off.
+            rows.append("  Verdict                  struck at sign-off")
+            rows.append("    Unworked time will still age the board first.")
         rows.append("  The memo says dispositions are audited and open "
                     "reports go over with")
         rows.append("  your name on them. How the audit weighs them is the "
                     "simulation's own.")
         if not final:
-            rows.append("  Working the board changes this. Nothing here "
+            rows.append("  Working the board changes these. Nothing here "
                         "ends the career early.")
         return rows
+
+    def _audit_again(self) -> str:
+        """The stored audit as text to append, or nothing before sign-off."""
+        found = self.stored_audit()
+        if found is None:
+            return ''
+        return '\n\n' + '\n'.join(self.audit_lines(found, final=True))
 
     def goal_counts(self) -> Dict[str, int]:
         """
@@ -401,7 +439,8 @@ this shift and the next one starts on a fresh board."""
                     "you twice on the last\nday of the Bell System, and "
                     "there is no shift after this one to open.\n\n"
                     "The board is still there if you want it. "
-                    "'qual' has the career record.")
+                    "'qual' has the career record."
+                    + self._audit_again())
             return self._end_career(banked, worked, summary, goals)
         self.career.end_shift()
         self.current_shift = self.career.shift
@@ -496,6 +535,10 @@ this shift and the next one starts on a fresh board."""
         career = self.career
         if banked is not None:
             career.index_history.append(round(banked, 1))
+        found = self.career_audit()
+        career.audit_verdict = found.verdict
+        career.audit_open = list(found.open_numbers)
+        career.audit_late = found.late
         career.finished = True
         career.save()
         self.resumed = False
@@ -509,7 +552,6 @@ this shift and the next one starts on a fresh board."""
             lines.extend(f"  {line}" for line in wrap(sentence, 64))
         if goals:
             lines.extend(['', goals])
-        found = self.career_audit()
         lines.extend([
             '',
             'THE CAREER',
