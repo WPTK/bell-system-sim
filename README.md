@@ -346,7 +346,7 @@ gap is recorded in the code rather than filled with something plausible.
 ```bash
 bell-system                    Start the simulation
 bell-system --role 3           Start at position 3, skipping the login
-bell-system --simple           A simplified four-role interface
+bell-system --simple           A plain Unix V7 sandbox (shell only: no board, no positions)
 python -m bell_system          Equivalent to bell-system
 bell-system --version
 ```

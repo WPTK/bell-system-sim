@@ -8,7 +8,7 @@ STARTING
 --------
 bell-system                 Start; the login prompt lists the positions with ?
 bell-system --role N        Start at position N (1-12), skipping the menu
-bell-system --simple        The simplified four-role interface
+bell-system --simple        A plain Unix V7 sandbox (shell only, no board)
 bell-system --version       Print the version and exit
 
 IF YOU ARE STUCK

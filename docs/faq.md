@@ -26,7 +26,7 @@ source ~/.bashrc
 **A:** Use the `bell-system` command:
 - `bell-system` - Log in and pick a position
 - `bell-system --role 1` - Start as a specific role (1-12), skipping the menu
-- `bell-system --simple` - Simplified four-role interface
+- `bell-system --simple` - A plain Unix V7 sandbox: a shell and filesystem, no board or positions
 - `bell-system --version` - Print the version and exit
 
 `python -m bell_system` accepts the same options and is equivalent to
@@ -199,7 +199,7 @@ python -m bell_system --version
 ```
 
 ### Performance Issues
-- Use the simplified interface: `bell-system --simple`
+- Use the plain Unix sandbox: `bell-system --simple` (shell only, no board)
 - Check available memory and disk space
 - Per-command execution times are recorded in `bell_system.log`
 
