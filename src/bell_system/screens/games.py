@@ -13,7 +13,8 @@ moo were all in section 6 too. Nothing here needs any telephony.
 import random
 from typing import Dict, List, Optional, Tuple
 
-from ..filesystem import MOO_SCORES
+from ..data.tours import NewsItem, news_through
+from ..filesystem import MOO_SCORES, _article, _dir, _file
 from ..npc import render as render_message
 from .session import SessionState
 
@@ -191,6 +192,32 @@ class GameCommands(SessionState):
             note += '\n' + render_message(self.switchroom.moo_beaten(
                 self.clock.now(), guesses), self._stamp())
         return note
+
+    def deliver_news(self) -> None:
+        """
+        Put the articles the feed has brought in so far into the spool.
+
+        The nightly feed brings one article a tour (data/tours.py), so the
+        spool on 22 December is not the spool on 14 November, and nothing in
+        it is dated after the day the tour falls on. Safe to call again:
+        an article already filed stays where it is.
+        """
+        for item in news_through(self.career.shift, self.clock.tour_day()):
+            group = f'/usr/spool/news/{item.group}'
+            path = f'{group}/{item.number}'
+            if path in self.filesystem:
+                continue
+            self.filesystem.setdefault(group, _dir(owner='uucp', group='uucp'))
+            self.filesystem[path] = _file(self._news_text(item), owner='uucp')
+
+    @staticmethod
+    def _news_text(item: NewsItem) -> str:
+        """Assemble an article from the schedule, headers in RFC 850 order."""
+        posted = item.posted
+        stamp = (f'{posted:%A}, {posted.day}-{posted:%b-%y} '
+                 f'{posted:%H:%M:%S} EST')
+        return _article(item.posting, item.path, item.sender, item.group,
+                        item.subject, item.message_id, stamp, item.body)
 
     def _news_articles(self) -> List[str]:
         """

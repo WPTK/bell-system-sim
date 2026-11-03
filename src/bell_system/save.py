@@ -348,6 +348,7 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     terminal.shift_minutes = tour['shift_minutes']
     terminal._charged_total = tour['charged_total']
     terminal._fired_events = set(tour['fired_events'])
+    terminal.settle_fired_events()
     terminal._tour_baseline = tuple(tour['baseline'])
     terminal._tour_nudges = set(tour['nudges'])
     terminal._hint_situation = tour['hint_situation']

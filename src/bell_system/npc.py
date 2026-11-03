@@ -25,6 +25,11 @@ import random
 from datetime import datetime
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
+# How the audit at the end of the last tour came out (screens/turnover.py).
+AUDIT_PASSED = 'PASSED'
+AUDIT_EXCEPTIONS = 'PASSED WITH EXCEPTIONS'
+AUDIT_FAILED = 'FAILED'
+
 CHANNEL_WRITE = 'write'
 CHANNEL_MAIL = 'mail'
 CHANNEL_ORDERWIRE = 'orderwire'
@@ -575,28 +580,49 @@ class Switchroom:
         ))
 
     def last_word(self, now: datetime, tours: int, closed: int,
-                  qualifications: int) -> Message:
+                  qualifications: int,
+                  verdict: str = AUDIT_PASSED) -> Message:
         """
         What the wire chief says at the end of the last tour.
 
         He has been reading the service index every morning for however
         long this took, and he signed every qualification on the record.
         He does not make a speech about it, because he would not.
+
+        The audit changes what he says and not how long the career was: it
+        had its say on the same page, and he does not pretend it did not.
         """
         lines = [
             'That is the tour, and that is the company.',
             f'{tours} tours and {closed} reports off the board. I signed '
             f'{qualifications} of your',
             'qualifications and I stand behind every one of them.',
-            '',
-            'They go with you. Whichever of the seven you end up at in the',
-            'morning, the record says what you can work and nobody there',
-            'is going to argue with it.',
-            'Go home.',
         ]
         if qualifications >= 5:
-            lines.insert(3, 'You were better at it than most of the people '
-                            'who trained you.')
+            lines.append('You were better at it than most of the people '
+                         'who trained you.')
+        # The qualifications are still signed and still his. What the audit
+        # takes back is the claim that nobody there will argue, and it says
+        # so after the praise rather than in front of it.
+        if verdict == AUDIT_EXCEPTIONS:
+            lines.extend(['The audit found some things. They are on the '
+                          'record with your name,', 'and so is the rest of '
+                          'it.'])
+            closing = ['morning, the record says what you can work.']
+        elif verdict == AUDIT_FAILED:
+            lines.append('The audit did not go your way and I am not going '
+                         'to tell you it did.')
+            closing = ['morning, the record says what you can work. The '
+                       'audit says how you did it.', 'Read both.']
+        else:
+            closing = ['morning, the record says what you can work and '
+                       'nobody there', 'is going to argue with it.']
+        lines.extend([
+            '',
+            'They go with you. Whichever of the seven you end up at in the',
+            *closing,
+            'Go home.',
+        ])
         return self._deliver(Message(
             channel=CHANNEL_WRITE, sender='ehalloran', received=now,
             lines=lines, kind='nudge', subject='Last tour', about=None,

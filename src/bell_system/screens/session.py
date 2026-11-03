@@ -22,7 +22,7 @@ adding another shared field.
 import logging
 from collections import deque
 from typing import (
-    TYPE_CHECKING, Any, Dict, FrozenSet, List, Optional, Set, Tuple,
+    TYPE_CHECKING, Any, Dict, FrozenSet, List, Mapping, Optional, Set, Tuple,
 )
 
 from ..clock import SimClock
@@ -348,6 +348,19 @@ class SessionState:
 
     def generate_shift_events(self) -> None:
         """Build the schedule of events this tour will bring due."""
+        raise NotImplementedError
+
+    def deliver_news(self) -> None:
+        """File the articles the feed has brought in by this tour."""
+        raise NotImplementedError
+
+    def tour_script(self) -> Optional[Any]:
+        """This tour's entry in data/tours.py, if the calendar fits."""
+        raise NotImplementedError
+
+    def tour_brief(self, counts: Optional[Mapping[str, int]] = None
+                   ) -> List[str]:
+        """The tour's theme, briefing and goals, as printed lines."""
         raise NotImplementedError
 
     def cmd_shift(self, args: Optional[List[str]] = None) -> str:
