@@ -2,6 +2,7 @@
 The small fixes from the wave 3 playtest (#93, the P3 batch), one test each.
 """
 
+import re
 from datetime import timedelta
 
 import pytest
@@ -21,6 +22,12 @@ def test_the_night_watch_opens_at_midnight_not_at_twenty_four():
     assert WATCH_LABELS['night'] == 'Night Shift (00:00-08:00)'
 
 
+def test_the_tsps_staffing_sheet_reads_the_same_night_label(terminal):
+    said = terminal.execute_command('tsps operators')
+    assert WATCH_LABELS['night'] in said
+    assert '24:00-08:00' not in said
+
+
 def test_no_filler_claims_a_peak_hour_on_a_watch_that_has_none():
     """The same board is drawn for every watch, so it can't say 'peak-hour'."""
     for row in tours._FILLER:
@@ -34,7 +41,7 @@ def test_the_briefing_never_prints_a_negative_time(terminal):
     terminal.emit = lines.append
     terminal._emit_board_briefing()
     row = next(line for line in lines if 'Nearest commitment' in line)
-    assert 'in -' not in row
+    assert 'in -' not in row and ' -' not in row
     assert row.endswith('past')
 
 
@@ -46,6 +53,30 @@ def test_the_briefing_says_remaining_for_a_report_not_yet_due(terminal):
     terminal._emit_board_briefing()
     row = next(line for line in lines if 'Nearest commitment' in line)
     assert row.endswith('remaining')
+
+
+@pytest.mark.parametrize('command', ['shift', 'handoff', 'report show'])
+def test_no_sheet_prints_a_minus_beside_past(terminal, command):
+    """The turnover sheet, the handoff record and the card say it one way."""
+    for report in terminal.desk.customers():
+        report.commitment = report.received - timedelta(hours=3)
+    first = terminal.desk.customers()[0]
+    said = terminal.execute_command(
+        f'{command} {first.number}' if command == 'report show' else command)
+    assert ' past' in said
+    assert not re.search(r'-\d+:\d\d (past|remaining)', said), said
+
+
+def test_the_label_is_the_span_and_the_side(terminal):
+    from bell_system.commitment import commitment_label
+    report = terminal.desk.customers()[0]
+    report.commitment = (report.received + report.elapsed()
+                         - timedelta(minutes=208))
+    assert commitment_label(report) == '3:28 past'
+    report.commitment = (report.received + report.elapsed()
+                         + timedelta(minutes=300))
+    assert commitment_label(report).endswith(' remaining')
+    assert '-' not in commitment_label(report)
 
 
 class TestAResolvedRegularIsNotChronic:
@@ -111,6 +142,11 @@ class TestTouch:
         stamp = terminal.filesystem['/tmp/mine'].mtime
         assert stamp - written >= timedelta(minutes=60)
         assert terminal.execute_command('cat /tmp/mine') == 'hi'
+
+    def test_touch_goes_on_to_the_next_name_after_an_error(self, terminal):
+        said = terminal.execute_command('touch /etc/passwd /tmp/after')
+        assert said == 'touch: /etc/passwd: not owner'
+        assert '/tmp/after' in terminal.filesystem
 
     def test_touch_still_makes_a_new_file(self, terminal):
         assert terminal.execute_command('touch /tmp/new') == ''

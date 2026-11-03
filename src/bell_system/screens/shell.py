@@ -750,6 +750,7 @@ class ShellCommands(FindsCommands):
         args = args or []
         if not args:
             return "touch: usage: touch file ..."
+        problems = []
         for name in args:
             path = normalise(name, self.current_directory)
             existing = self.filesystem.get(path)
@@ -760,9 +761,10 @@ class ShellCommands(FindsCommands):
             else:
                 error = self.store_node(
                     path, existing._replace(mtime=self.clock.now()), 'touch')
+            # As touch does, an error on one name is not the end of the rest.
             if error:
-                return error
-        return ''
+                problems.append(error)
+        return '\n'.join(problems)
 
     def cmd_chmod(self, args: Optional[List[str]] = None) -> str:
         """

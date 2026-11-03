@@ -39,6 +39,7 @@ from ..loop_testing import (
 from ..npc import render as render_message
 from ..progression import QUALIFICATIONS_BY_KEY, Kpis
 from ..reports import hours_minutes
+from ..commitment import commitment_label
 from ..verbs import measured
 from .session import SessionState
 
@@ -156,7 +157,7 @@ class GuidanceCommands(SessionState):
                     f"report callback {report.number}", 'callback')
             return NextAction(
                 f"{report.number} has not been measured. "
-                f"{report.age_label()} on the commitment.",
+                f"{commitment_label(report)}.",
                 f"mlt {report.number}", 'measure')
 
         # Everything measured, nothing overdue: send somebody to the one
@@ -170,7 +171,7 @@ class GuidanceCommands(SessionState):
                      == STAGE_NUMBERS else self._dispatch_for(fault))
             return NextAction(
                 f"{report.number} is measured and waiting on a crew. "
-                f"{report.age_label()} left.",
+                f"{commitment_label(report)}.",
                 f"report dispatch {report.number} {force.lower()}"
                 if force else f"report show {report.number}",
                 'dispatch')

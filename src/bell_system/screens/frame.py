@@ -21,6 +21,7 @@ from ..data.clli import (
 
 from ..data.trouble import FRAME_DEFECTS
 from ..reports import COST_FRAME_FIX, COST_FRAME_LOOKUP, COST_OFFICE_CLEAR
+from ..commitment import commitment_label
 from ..verbs import already_done, clear_office, fix_frame, open_report
 from .session import SessionState
 
@@ -393,8 +394,7 @@ equipment at the next convenient frame visit."""
                 "That was a central office trouble, and it is cleared "
                 "without a truck.",
                 f"{COST_FRAME_FIX} minutes charged. "
-                f"{report.age_label()} "
-                f"{'past' if report.overdue() else 'remaining'}.",
+                f"{commitment_label(report)}.",
                 f"Close it out: report close {report.number} 5 CO_EQUIP"]
         return '\n'.join(rows)
 
@@ -439,8 +439,8 @@ equipment at the next convenient frame visit."""
             "untouched.",
             "Diagnostic on the new appearance runs clean.",
             '',
-            f"{COST_OFFICE_CLEAR} minutes charged. {report.age_label()} "
-            f"{'past' if report.overdue() else 'remaining'}.",
+            f"{COST_OFFICE_CLEAR} minutes charged. "
+            f"{commitment_label(report)}.",
             f"Close it out: report close {report.number} 5 FCG",
         ])
 

@@ -3260,6 +3260,23 @@ class TestSartsRepairByRow:
         assert f'no row {past} on the board' in said
         assert 'Loop-back' not in said
 
+    def test_a_row_past_the_whole_inventory_is_no_row_either(self, at_desk):
+        terminal = at_desk('sarts')
+        terminal.special_services = SartsInventory('NWRKNJ01', random.Random(5))
+        total = len(terminal.special_services.listing())
+        # '166' is the tail of 0006-FX-166 and is past every row there is.
+        for token in (str(total + 1), '166'):
+            said = terminal.execute_command(f'sarts repair {token}')
+            assert f'no row {token} on the board' in said, said
+            assert 'Loop-back' not in said
+
+    def test_a_zero_led_number_is_an_identifier(self, at_desk):
+        terminal = at_desk('sarts')
+        terminal.special_services = SartsInventory('NWRKNJ01', random.Random(5))
+        said = terminal.execute_command('sarts repair 0006')
+        assert 'no row' not in said
+        assert '0006-FX-166' in said
+
     def test_an_identifier_still_works_whole_or_as_a_zero_led_number(
             self, at_desk):
         terminal = at_desk('sarts')

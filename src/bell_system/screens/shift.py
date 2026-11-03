@@ -19,6 +19,7 @@ from ..field import CREWS
 from ..data import tours
 from ..data.consequences import Late
 from ..data.tours import Tour, watch_of
+from ..commitment import commitment_label
 from ..npc import (
     CRAFT,
     FAVOUR_MINUTES,
@@ -202,12 +203,9 @@ class ShiftCommands(SessionState):
         self.emit(f"  Reports on your board: {len(pending)}")
         if pending:
             oldest = pending[0]
-            # age_label() is signed; the board says which side of the
-            # commitment it is on, as the turnover sheet does.
             self.emit(f"  Nearest commitment:    {oldest.number} "
                       f"({oldest.record.telephone_number}) "
-                      f"{oldest.age_label().lstrip('-')} "
-                      f"{'past' if oldest.overdue() else 'remaining'}")
+                      f"{commitment_label(oldest)}")
         self.emit(f"  Difficulty:            {difficulty.name}")
         self.emit(f"  Service index:         "
                   f"{self.career.service_index():.1f} of 100 "

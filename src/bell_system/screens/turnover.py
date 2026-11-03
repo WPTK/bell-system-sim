@@ -32,6 +32,7 @@ from ..npc import (
 )
 from ..progression import QUALIFICATIONS
 from ..reports import hours_minutes
+from ..commitment import commitment_label
 from ..verbs import control_standing
 from ..weather import Weather
 from .session import SessionState
@@ -205,8 +206,7 @@ Qualifications Held:      {len(self.career.qualifications)} of \
                     f"\n  Customer states:    {report.symptom}"
                     f"\n  Commitment:         "
                     f"{report.commitment.strftime('%H:%M %a %b %d')}"
-                    f" ({report.age_label()}"
-                    f" {'past' if report.overdue() else 'remaining'})"
+                    f" ({commitment_label(report)})"
                     f"\n  Measured:           "
                     f"{'yes' if report.tested else 'NO'}")
 
@@ -682,8 +682,7 @@ this shift and the next one starts on a fresh board."""
             rows.extend([
                 '',
                 f"  Nearest commitment  {soonest.number}  "
-                f"{soonest.age_label()} "
-                f"{'past' if soonest.overdue() else 'remaining'}",
+                f"{commitment_label(soonest)}",
             ])
         busy = self.desk.force.busy(self.shift_minutes)
         if busy:

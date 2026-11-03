@@ -44,6 +44,7 @@ from .constants import (
 )
 from . import legacy, save
 from .clock import SimClock, days_to_divestiture
+from .commitment import commitment_label
 from .console import render
 from .data import geography
 from .data.regulars import REGULARS
@@ -1517,8 +1518,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
             f"symptom     {report.symptom}",
             f"received    {report.received.strftime('%d %b %H:%M')}",
             f"commitment  {report.commitment.strftime('%d %b %H:%M')}",
-            f"due         {report.age_label()} "
-            f"{'past' if report.overdue() else 'remaining'}",
+            f"due         {commitment_label(report)}",
             f"status      {report.status}",
             f"charged     {report.minutes_spent // 60}:"
             f"{report.minutes_spent % 60:02d}",
