@@ -28,12 +28,25 @@ LABELS = ('Dispositions on record', 'matched the line', 'did not match',
           'Came back as repeats', 'Handed over open', 'Verdict')
 
 
+BOARD = 6
+
+
 def go_to_last_tour(terminal):
-    """Put a constructed terminal on 31 December."""
+    """
+    Put a constructed terminal on 31 December, with a board it is sure of.
+
+    The fixture's board was dealt on tour one, which is a single report, so
+    closing three of them left nothing to hand over unless a report happened
+    to arrive in time. Six are dealt here: closing three always leaves
+    reports open, and nothing the tests do can take the board below that.
+    """
     terminal.career.shift = TOURS_TO_DIVESTITURE
     terminal.career.save()
     terminal.clock.set_tour(terminal.career.shift)
     terminal.generate_shift_events()
+    terminal.desk.reports.clear()
+    terminal.desk.order.clear()
+    terminal.desk.open_shift(terminal.clock.now(), 0, count=BOARD)
 
 
 def close_some(terminal, count):
@@ -260,7 +273,7 @@ class TestTheAuditIsKept:
         out = self.finish(terminal)
         career = terminal.career
         assert career.audit_verdict == audit_block(out)['Verdict']
-        assert career.audit_open
+        assert len(career.audit_open) >= BOARD - 3
         assert career.audit_late >= 0
 
     def test_they_survive_a_restart(self, terminal):
