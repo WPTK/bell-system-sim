@@ -202,7 +202,7 @@ this shift and the next one starts on a fresh board."""
         late = self.desk.new_tour(left, self.shift_minutes)
         if late:
             self.career.record_missed(len(late))
-        banked = self.career.service_index()
+        banked = self.career.service_index() if self.career.scored() else None
         worked = self.shift_time()
         carried = self.desk.pending()
         summary = self.tour_summary(*self._tour_worked())
@@ -261,8 +261,7 @@ this shift and the next one starts on a fresh board."""
                 lines.extend(f"  {line}" for line in wrap(sentence, 64))
             lines.append('')
         lines.extend([
-            f"  Service index banked      {banked:.1f}  "
-            f"{self.career.index_band()}",
+            f"  Service index banked      {self._banked_line(banked)}",
             f"  Reports closed to date    {self.career.reports_closed}",
             f"  Carried forward           {len(carried)}{carried_late}",
             f"  New on the board          {len(opened)}",
@@ -287,7 +286,13 @@ this shift and the next one starts on a fresh board."""
             lines.extend(LAST_TOUR_NOTICE)
         return '\n'.join(lines)
 
-    def _end_career(self, banked: float, worked: str,
+    def _banked_line(self, banked: Optional[float]) -> str:
+        """The index as banked, or why there is not one."""
+        if banked is None:
+            return "none yet: nothing closed, nothing past commitment"
+        return f"{banked:.1f}  {self.career.index_band()}"
+
+    def _end_career(self, banked: Optional[float], worked: str,
                     summary: List[str]) -> str:
         """
         The end of the last tour, which is the end of the Bell System.
@@ -299,7 +304,8 @@ this shift and the next one starts on a fresh board."""
         the machine did not stop on the first of January either.
         """
         career = self.career
-        career.index_history.append(round(banked, 1))
+        if banked is not None:
+            career.index_history.append(round(banked, 1))
         career.finished = True
         career.save()
         self.resumed = False
@@ -321,7 +327,7 @@ this shift and the next one starts on a fresh board."""
             f"{career.reports_wrong} wrong)",
             f"  Came back           {career.repeat_reports}",
             f"  Missed commitments  {career.missed_commitments}",
-            f"  Service index       {banked:.1f}  {career.index_band()}",
+            f"  Service index       {self._banked_line(banked)}",
             f"  Signed off on       {len(career.qualifications)} of "
             f"{len(QUALIFICATIONS)}",
         ])

@@ -519,22 +519,34 @@ class BureauCommands(SessionState):
                   if report is not waiting]
         untested = [report for report in others if not report.tested
                     and not report.sheath_repaired]
+        # The command that got us here has not been charged to the shift
+        # yet, and a crew that is back by the time it has been is back.
+        later = self.shift_minutes + self._uncharged_minutes()
+        out = {job.report for job in self.desk.force.busy(later)}
+        # A crew that rolled to the wrong force found nothing: that report
+        # has nothing to close on, whoever is back.
         closable = [report for report in others
-                    if report.status == 'DISP'
-                    and report.number not in {
-                        job.report for job in self.desk.force.busy(
-                            self.shift_minutes)}]
-        soonest = self.desk.force.soonest_free(force, self.shift_minutes)
-        wait = (max(1, soonest.back_at() - self.shift_minutes)
-                if soonest else 0)
+                    if report.status == 'DISP' and report.field_finding
+                    and report.number not in out]
+        soonest = self.desk.force.soonest_free(force, later)
+        wait = max(0, soonest.back_at() - later) if soonest else 0
         if closable:
             return (f"Next: {closable[0].number} has been worked and can be "
                     f"closed. 'report close {closable[0].number} ...'")
         if untested:
             return (f"Next: {untested[0].number} has not been measured. "
                     f"'mlt {untested[0].number}'")
+        if not wait:
+            return (f"Next: a crew is in by the time this is done. Dispatch "
+                    f"{waiting.number} again.")
         return (f"Next: nothing else wants you. 'sleep {wait * 60}' waits "
                 f"until a crew is in, then dispatch {waiting.number} again.")
+
+    def _uncharged_minutes(self) -> int:
+        """What the command now running will cost the shift clock."""
+        charged = sum(report.desk_minutes for report in self.reports_all())
+        return 1 + max(0, charged - self._charged_total)
+
     def _close_report(self, token: str, rest: List[str]) -> str:
         """Close a report against a disposition code and judge the call."""
         report = self.desk.find(token)

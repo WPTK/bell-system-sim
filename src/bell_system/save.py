@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Optional
 
 from .cable import WetSection
 from .field import Assignment, CREWS
-from .reports import LineRecord, ReportDesk, TroubleReport
+from .reports import STATUS_CLOSED, LineRecord, ReportDesk, TroubleReport
 
 # Bumped whenever the shape below changes in a way that makes an older file
 # wrong rather than merely incomplete. An unrecognised version is discarded,
@@ -130,6 +130,13 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     # Written since reports began ageing on the shift clock. A shift saved
     # before that has been aged by exactly the desk time it charged.
     report.desk_booked = stored.get('desk_booked', report.desk_minutes)
+    # Nor were overdue reports flagged while they were open. Left alone,
+    # the first age() after loading would find every one of them late at
+    # once and answer with a burst of misses and escalations for lateness
+    # the old shift already had, so those are marked as known.
+    if 'desk_booked' not in stored and report.status != STATUS_CLOSED:
+        report.missed_commitment = (report.missed_commitment
+                                    or report.overdue())
     report.test_notes = list(stored['test_notes'])
     report.closed_at = _moment(stored['closed_at'])
     return report

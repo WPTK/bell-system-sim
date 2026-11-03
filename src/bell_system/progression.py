@@ -68,9 +68,10 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         # per setting and at 0.4 an ordinary player - one who measures every
         # line and names the fault right about six times in seven - scored
         # EXCELLENT in 89 shifts out of 100. A band nearly everybody is in
-        # is not a band. At 0.7 the same player has a median of 94.9 and
+        # is not a band. At 0.7 the same player has a median of 95.0 and
         # sits on the SATISFACTORY/EXCELLENT line, a careful player is still
-        # EXCELLENT 99 times in 100, and a careless one still never is.
+        # EXCELLENT in all 200 shifts played, and a careless one never is
+        # (re-measured with commitments and the unworked board counted).
         index_penalty=0.7,
         missed_commitment_scale=0.25,
         interruption_rate=0.06,
@@ -106,6 +107,37 @@ MISSED_COMMITMENT_WEIGHT = 20
 # somebody would come and nobody has. It is lost in full on either setting,
 # which is what keeps a board nobody works from scoring as a perfect one.
 UNWORKED_BACKLOG_WEIGHT = 50
+
+
+def score_index(closed: int, wrong: int, repeats: int, missed: int,
+                backlog: int, difficulty: 'Difficulty') -> float:
+    """
+    Score a record out of 100. Career.service_index is this with the
+    career's own counts; tools/index_calibration.py calls it with a played
+    shift's, so the two cannot drift apart.
+
+    Every report whose fate is decided is either closed or still open past
+    its commitment. A career that has closed nothing but is sitting on an
+    overdue board has a score, and it is not 100.
+    """
+    decided = closed + backlog
+    if not decided:
+        return 100.0
+
+    wrong_rate = wrong / closed if closed else 0.0
+    repeat_rate = min(1.0, repeats / closed) if closed else 0.0
+    missed_rate = min(1.0, missed / decided)
+    backlog_rate = backlog / decided
+
+    penalty = (
+        wrong_rate * WRONG_DISPOSITION_WEIGHT
+        + repeat_rate * REPEAT_REPORT_WEIGHT
+        + missed_rate * MISSED_COMMITMENT_WEIGHT
+        * difficulty.missed_commitment_scale
+        + backlog_rate * UNWORKED_BACKLOG_WEIGHT
+    ) * difficulty.index_penalty
+
+    return max(0.0, round(100.0 - penalty, 1))
 
 
 class Qualification(NamedTuple):
@@ -324,29 +356,18 @@ class Career:
         moved. The handoff record prints closed and carried beside it for
         exactly that reason.
         """
-        closed = self.reports_closed
-        backlog = self.open_overdue()
-        # Every report whose fate is decided: closed, or still open past
-        # its commitment. A career that has closed nothing but is sitting on
-        # an overdue board has a score, and it is not 100.
-        decided = closed + backlog
-        if not decided:
-            return 100.0
+        return score_index(self.reports_closed, self.reports_wrong,
+                           self.repeat_reports, self.missed_commitments,
+                           self.open_overdue(), self.difficulty)
 
-        wrong_rate = self.reports_wrong / closed if closed else 0.0
-        repeat_rate = min(1.0, self.repeat_reports / closed) if closed else 0.0
-        missed_rate = min(1.0, self.missed_commitments / decided)
-        backlog_rate = backlog / decided
+    def scored(self) -> bool:
+        """
+        Whether there is anything yet for the index to be a score of.
 
-        penalty = (
-            wrong_rate * WRONG_DISPOSITION_WEIGHT
-            + repeat_rate * REPEAT_REPORT_WEIGHT
-            + missed_rate * MISSED_COMMITMENT_WEIGHT
-            * self.difficulty.missed_commitment_scale
-            + backlog_rate * UNWORKED_BACKLOG_WEIGHT
-        ) * self.difficulty.index_penalty
-
-        return max(0.0, round(100.0 - penalty, 1))
+        Nothing closed and nothing open past its commitment is not a perfect
+        record, it is no record, and it is not banked as one.
+        """
+        return bool(self.reports_closed + self.open_overdue())
 
     def office_contribution(self, component: str = 'customer_reports') -> float:
         """
@@ -398,7 +419,8 @@ class Career:
 
     def end_shift(self) -> None:
         """Close the shift, banking the index and advancing the count."""
-        self.index_history.append(round(self.service_index(), 1))
+        if self.scored():
+            self.index_history.append(round(self.service_index(), 1))
         self.shift += 1
         self.save()
 

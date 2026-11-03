@@ -365,3 +365,158 @@ class TestSavesFromBefore:
         career = Career(str(path))
         assert career.shift == 3
         assert 0 < career.service_index() <= 100
+
+
+class TestNoDecisionsIsNoScore:
+    """A tour with nothing closed and nothing late has no index to bank."""
+
+    def test_a_career_with_no_record_is_unscored(self):
+        assert not Career().scored()
+
+    def test_closing_or_lateness_scores_it(self):
+        closed = Career()
+        closed.reports_closed = 1
+        late = Career()
+        late.open_overdue = lambda: 1
+        assert closed.scored() and late.scored()
+
+    def test_an_unscored_shift_adds_nothing_to_the_history(self):
+        career = Career()
+        career.end_shift()
+        assert career.index_history == []
+        assert career.shift == 2
+
+    def test_a_scored_shift_does(self):
+        career = Career()
+        career.reports_closed = 3
+        career.reports_correct = 3
+        career.end_shift()
+        assert career.index_history == [100.0]
+
+    def test_a_first_tour_of_looking_banks_nothing(self, terminal):
+        for report in terminal.desk.pending():
+            report.commitment += timedelta(days=3)
+        before = terminal.career.shift
+        terminal.execute_command('report')
+        said = terminal.execute_command(RELIEVE)
+        assert terminal.career.shift == before + 1
+        assert terminal.career.index_history == []
+        assert 'none yet' in said
+        assert '100.0' not in said
+
+    def test_a_tour_that_left_the_board_to_rot_banks_the_real_score(
+            self, terminal):
+        for report in terminal.desk.pending():
+            report.minutes_spent += 10000
+        terminal.execute_command('report')
+        terminal.execute_command(RELIEVE)
+        assert len(terminal.career.index_history) == 1
+        assert terminal.career.index_history[0] < 95
+
+
+class TestOldSavesDoNotBurstOnLoad:
+    """Reports already late in an old save are known, not newly missed."""
+
+    def test_already_overdue_reports_are_flagged_quietly(self, terminal):
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        open_numbers = {report.number for report in terminal.desk.pending()}
+        for entry in captured['board']['reports']:
+            del entry['desk_booked']
+            if entry['number'] in open_numbers:
+                entry['minutes_spent'] = 99999
+                entry['missed_commitment'] = False
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        assert save.restore(fresh, captured)
+        late = [report for report in fresh.desk.pending() if report.overdue()]
+        assert len(late) == len(open_numbers)
+        assert all(report.missed_commitment for report in late)
+        before = fresh.career.missed_commitments
+        assert fresh.desk.age(30, fresh.shift_minutes) == []
+        fresh.execute_command('report')
+        assert fresh.career.missed_commitments == before
+        assert not any(message.kind == 'escalation'
+                       for message in fresh.switchroom.log)
+
+    def test_a_current_save_keeps_its_own_flags(self, terminal):
+        report = terminal.desk.pending()[0]
+        report.minutes_spent += 99999
+        assert not report.missed_commitment
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        assert save.restore(fresh, captured)
+        assert not fresh.desk.find(report.number).missed_commitment
+
+
+class TestTheSuggestedWaitIsTheRealOne:
+    """'Next:' is worked out against the clock as the command will leave it."""
+
+    def block_cable_crews(self, terminal, minutes=600):
+        for number in ('TR-90001', 'TR-90002'):
+            terminal.desk.force.send('Cable repair', number, minutes,
+                                     terminal.shift_minutes)
+
+    def test_sleeping_the_suggested_time_brings_a_crew_in(self, terminal):
+        self.block_cable_crews(terminal)
+        report = terminal.desk.pending()[0]
+        report.record.fault = 'WET'
+        for other in terminal.desk.pending()[1:]:
+            other.tested = True
+        said = terminal.execute_command(
+            f'report dispatch {report.number} cable')
+        seconds = int(said.split("'sleep ")[1].split("'")[0])
+        returns = min(job.back_at()
+                      for job in terminal.desk.force.out.values()
+                      if job.crew.force == 'Cable repair')
+        terminal.execute_command(f'sleep {seconds}')
+        assert terminal.shift_minutes >= returns
+        # Not a dispatch's twelve minutes more than it had to be.
+        assert terminal.shift_minutes - returns <= 2
+
+    def test_a_crew_back_before_the_command_ends_is_not_waited_for(
+            self, terminal):
+        self.block_cable_crews(terminal, minutes=1)
+        for key, job in terminal.desk.force.out.items():
+            terminal.desk.force.out[key] = job._replace(travel=0, work=1)
+        report = terminal.desk.pending()[0]
+        report.record.fault = 'WET'
+        said = terminal.execute_command(
+            f'report dispatch {report.number} cable')
+        assert 'Nobody free' not in said or "'sleep 0'" not in said
+
+
+class TestOnlyWorkedReportsCanBeClosed:
+    """A crew sent to the wrong place found nothing, so there is nothing to close."""
+
+    def setup_two(self, terminal, wrong):
+        first, second = terminal.desk.pending()[:2]
+        first.record.fault = 'WET'
+        second.record.fault = 'WET'
+        terminal.execute_command(
+            f"report dispatch {first.number} "
+            f"{'central office' if wrong else 'cable'}")
+        for key, job in list(terminal.desk.force.out.items()):
+            if job.report == first.number:
+                del terminal.desk.force.out[key]
+        for number in ('TR-90001', 'TR-90002'):
+            terminal.desk.force.send('Cable repair', number, 600,
+                                     terminal.shift_minutes)
+        return first, second
+
+    def test_a_wrong_force_dispatch_is_not_suggested_for_closing(
+            self, terminal):
+        first, second = self.setup_two(terminal, wrong=True)
+        assert first.status == 'DISP' and not first.field_finding
+        said = terminal.execute_command(
+            f'report dispatch {second.number} cable')
+        assert 'can be closed' not in said
+
+    def test_a_right_one_still_is(self, terminal):
+        first, second = self.setup_two(terminal, wrong=False)
+        assert first.status == 'DISP' and first.field_finding
+        said = terminal.execute_command(
+            f'report dispatch {second.number} cable')
+        assert f'{first.number} has been worked and can be closed' in said
