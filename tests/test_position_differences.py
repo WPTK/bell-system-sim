@@ -28,6 +28,11 @@ from bell_system.data.trouble import (
 from bell_system.npc import CRAFT, _CHATTER, _POSITION_CHATTER
 from bell_system.reports import MAX_PENDING, OPENING_BACKLOG, ReportDesk
 from bell_system.screens.position import _COUNTERS
+from bell_system.special_services import (
+    LOOP_REMOTE_MINUTES,
+    LOOP_VISIT_MINUTES,
+    PLACES,
+)
 from bell_system.terminal import BellSystemTerminal
 
 SHIFT_START = datetime(1983, 11, 14, 8, 0)
@@ -448,7 +453,7 @@ class TestNothingChangedForASessionWithNoPosition:
 
 # The desks that play differently. The other eight are unchanged, and
 # TestTheFourDesks holds that. Each desk gets a PR; the set grows with them.
-FOUR_DESKS = ('noc',)
+FOUR_DESKS = ('noc', 'sarts')
 
 
 class TestTheFourDesks:
@@ -614,3 +619,227 @@ class TestTheNocQueue:
         terminal.execute_command('trouble triage ' + major['id'])
         output = terminal.execute_command('trouble resolve ' + major['id'])
         assert 'Trouble Ticket Resolved' in output
+
+
+def failing_circuit(terminal, place='FACILITY', access='SMAS'):
+    """Make one circuit fail at a known place, and return it."""
+    inventory = terminal.special_services
+    circuit = next(iter(inventory.circuits.values()))
+    circuit.impaired = True
+    circuit.access = access
+    circuit.status = 'TRBL'
+    circuit.fault_place = place
+    circuit.out_minutes = 0
+    terminal.shift_minutes = 0
+    inventory.accrue(terminal.career.shift, 0)
+    return circuit
+
+
+class TestTheSartsRepair:
+    """
+    A repair verb for a failing circuit, and an outage clock behind it.
+
+    Reading is what pays: the loops say where, and a guess costs a trip and
+    the minutes the customer sits out.
+    """
+
+    def test_the_verb_is_the_sarts_desks_alone(self, at_desk):
+        for role in ROLE_KEYS:
+            if role == 'sarts':
+                continue
+            output = at_desk(role).execute_command('sarts repair 1')
+            assert 'not at this position' in output, role
+            assert 'SARTS' in output, role
+
+    def test_the_field_desk_still_reads_the_inventory(self, at_desk):
+        """It shares the sarts command; only the repair verb is refused."""
+        output = at_desk('field').execute_command('sarts trouble')
+        assert 'not at this position' not in output
+
+    def test_every_impaired_circuit_has_a_place_and_no_other_does(
+            self, terminal):
+        for circuit in terminal.special_services.circuits.values():
+            if circuit.impaired:
+                assert circuit.fault_place in PLACES, circuit.circuit_id
+            else:
+                assert circuit.fault_place is None, circuit.circuit_id
+
+    def test_a_place_does_not_move_the_rest_of_the_inventory(self):
+        """The place has its own generator, so no later draw shifted."""
+        from bell_system.special_services import SartsInventory
+        one = SartsInventory('NWRKNJ01', random.Random(3))
+        two = SartsInventory('NWRKNJ01', random.Random(3))
+        assert list(one.circuits) == list(two.circuits)
+        assert ([c.fault_place for c in one.circuits.values()]
+                == [c.fault_place for c in two.circuits.values()])
+
+    def test_the_loops_bracket_the_trouble(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'FACILITY')
+        output = terminal.execute_command(f'sarts repair {circuit.circuit_id}')
+        verdicts = [line.split()[-1] for line in output.split('\n')
+                    if line.startswith('  Loop at')]
+        assert verdicts == ['PASS', 'FAIL', 'FAIL']
+
+    @pytest.mark.parametrize('place,expected', [
+        ('OFFICE', ['FAIL', 'FAIL', 'FAIL']),
+        ('FACILITY', ['PASS', 'FAIL', 'FAIL']),
+        ('PREMISES', ['PASS', 'PASS', 'FAIL']),
+    ])
+    def test_each_place_reads_differently(self, at_desk, place, expected):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, place)
+        output = terminal.execute_command(f'sarts repair {circuit.circuit_id}')
+        assert [line.split()[-1] for line in output.split('\n')
+                if line.startswith('  Loop at')] == expected
+
+    def test_reading_the_loops_always_finds_the_place(self, at_desk):
+        """The invariant a guessing bot cannot meet: read, then send."""
+        terminal = at_desk('sarts')
+        for circuit in terminal.special_services.circuits.values():
+            circuit.impaired = True
+            circuit.status = 'TRBL'
+            circuit.fault_place = random.Random(circuit.circuit_id).choice(
+                list(PLACES))
+        for circuit in list(terminal.special_services.circuits.values()):
+            truth = circuit.fault_place
+            output = terminal.execute_command(
+                f'sarts repair {circuit.circuit_id}')
+            verdicts = [line.split()[-1] for line in output.split('\n')
+                        if line.startswith('  Loop at')]
+            place = list(PLACES)[verdicts.index('FAIL')]
+            assert place == truth
+            terminal.execute_command(
+                f'sarts repair {circuit.circuit_id} {place.lower()}')
+            assert circuit.status == 'IS' and circuit.fault_place is None
+
+    def test_the_right_force_clears_it(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'PREMISES')
+        output = terminal.execute_command(
+            f'sarts repair {circuit.circuit_id} premises')
+        assert 'back in service' in output
+        assert circuit.status == 'IS' and not circuit.impaired
+
+    def test_the_wrong_force_finds_nothing_and_costs_the_trip(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        before = terminal.shift_minutes
+        output = terminal.execute_command(
+            f'sarts repair {circuit.circuit_id} facility')
+        assert 'found nothing' in output
+        assert circuit.status == 'TRBL' and circuit.fault_place == 'OFFICE'
+        assert terminal.shift_minutes - before >= PLACES['FACILITY'][1]
+        assert circuit.out_minutes >= PLACES['FACILITY'][1]
+
+    def test_a_relay_loop_is_cheap_and_a_jack_needs_a_visit(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, access='SMAS')
+        terminal.execute_command(f'sarts repair {circuit.circuit_id}')
+        by_relay = terminal.shift_minutes
+        circuit = failing_circuit(terminal, access='JACK')
+        terminal.execute_command(f'sarts repair {circuit.circuit_id}')
+        by_visit = terminal.shift_minutes
+        assert by_visit > by_relay
+        assert by_visit >= LOOP_VISIT_MINUTES
+        assert LOOP_REMOTE_MINUTES <= by_relay < LOOP_VISIT_MINUTES
+
+    def test_a_circuit_that_has_not_failed_is_sent_back_to_the_test(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal)
+        circuit.status = 'IS'
+        circuit.impaired = False
+        output = terminal.execute_command(
+            f'sarts repair {circuit.circuit_id}')
+        assert 'not held in trouble' in output
+        assert f'sarts test {circuit.circuit_id}' in output
+
+    def test_a_place_that_is_not_one_is_refused_without_a_trip(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal)
+        before = terminal.shift_minutes
+        output = terminal.execute_command(
+            f'sarts repair {circuit.circuit_id} moon')
+        assert 'not a place' in output
+        assert terminal.shift_minutes - before <= 1
+
+    def test_a_failed_test_points_at_the_verb(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal)
+        circuit.status = 'IS'
+        output = terminal.execute_command(f'sarts test {circuit.circuit_id}')
+        assert f'sarts repair {circuit.circuit_id}' in output
+
+
+class TestTheOutageClock:
+    """The pressure: a circuit in trouble is out for as long as it stays."""
+
+    def test_a_circuit_in_trouble_accrues_shift_minutes(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal)
+        terminal.shift_minutes = 30
+        terminal.execute_command('sarts trouble')
+        assert circuit.out_minutes >= 30
+
+    def test_a_circuit_in_service_accrues_nothing(self, at_desk):
+        terminal = at_desk('sarts')
+        failing_circuit(terminal)
+        healthy = [c for c in terminal.special_services.circuits.values()
+                   if c.status == 'IS']
+        terminal.shift_minutes = 90
+        terminal.execute_command('sarts trouble')
+        assert all(c.out_minutes == 0 for c in healthy)
+
+    def test_a_repaired_circuit_stops_the_clock(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        stopped = circuit.out_minutes
+        terminal.shift_minutes += 200
+        terminal.execute_command('sarts trouble')
+        assert circuit.out_minutes == stopped
+
+    def test_a_circuit_the_test_finds_is_not_charged_for_before(
+            self, at_desk):
+        """Out from when it is found, not from the start of the tour."""
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal)
+        circuit.status = 'IS'
+        circuit.out_minutes = 0
+        terminal.shift_minutes = 120
+        terminal.execute_command(f'sarts test {circuit.circuit_id}')
+        assert circuit.out_minutes == 0
+
+    def test_it_is_the_shift_clock_and_not_the_wall_clock(self, at_desk):
+        from datetime import timedelta
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal)
+        terminal.clock._session_start -= timedelta(hours=9)
+        terminal.execute_command('sarts trouble')
+        assert circuit.out_minutes <= 2
+
+    def test_a_new_tour_starts_the_count_again(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal)
+        terminal.shift_minutes = 50
+        terminal.execute_command('sarts trouble')
+        assert circuit.out_minutes >= 50
+        terminal.career.shift += 1
+        terminal.shift_minutes = 5
+        terminal.execute_command('sarts trouble')
+        assert 5 <= circuit.out_minutes < 50
+
+    def test_the_tally_counts_the_minutes(self, at_desk):
+        terminal = at_desk('sarts')
+        failing_circuit(terminal)
+        terminal.shift_minutes = 40
+        rows = dict(terminal.position_tally())
+        assert int(rows['circuit-minutes out of service']) >= 40
+
+    def test_the_board_fits_the_terminal(self, at_desk):
+        terminal = at_desk('sarts')
+        failing_circuit(terminal)
+        output = terminal.execute_command('sarts trouble')
+        assert max(len(line) for line in output.split('\n')) <= 74

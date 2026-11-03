@@ -4403,3 +4403,29 @@ TRIAGE
      4 and 2 minutes. These figures are the simulation's own. Reading a
      ticket costs a minute too, so the order you read in is part of it.
 """
+
+
+# The command only the SARTS technician's desk has.
+MAN_PAGES["sarts"] += """
+REPAIR
+     sarts repair <circuit id>
+     sarts repair <circuit id> office | facility | premises
+
+     The SARTS (Switched Access Remote Test) Technician desk only. For a
+     circuit held in trouble: the first form loops it back at this
+     office, at the far end of the facility and at the customer's end,
+     and prints what each read. Each loop reads everything between it
+     and this office, so the trouble is in the stretch after the last
+     loop that passed. The second form sends the force for that place.
+     The right place clears the circuit; the wrong one finds nothing,
+     costs the shift the trip and leaves the circuit out.
+
+     Every minute a circuit is held in trouble is counted against the
+     tour, by the shift clock and by nothing else, and sarts trouble
+     shows it. Looping a circuit on SMAS or DACS access is done by relay
+     and costs 3 minutes; one on manual jack access needs a visit and
+     costs 15. The force costs 10 minutes at the office, 20 on the
+     facility and 15 at the customer's end. These figures are the
+     simulation's own. Engineering and Operations notes only that
+     special services troubles may be traced to interoffice facilities.
+"""

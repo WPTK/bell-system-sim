@@ -300,6 +300,13 @@ def _circuits_in_trouble(terminal: Any) -> Tuple[str, str]:
             str(len(terminal.special_services.in_trouble())))
 
 
+def _circuit_minutes_out(terminal: Any) -> Tuple[str, str]:
+    """Shift minutes special services circuits spent held in trouble."""
+    inventory = terminal.special_services
+    inventory.accrue(terminal.career.shift, terminal.shift_minutes)
+    return 'circuit-minutes out of service', str(inventory.minutes_out())
+
+
 def _tests_run(terminal: Any) -> Tuple[str, str]:
     """Measurements and plant tests taken."""
     counts = terminal.command_counts
@@ -348,6 +355,7 @@ _COUNTERS: Dict[str, Any] = {
     'found_in_records': _found_in_records,
     'orders_raised': _orders_raised,
     'circuits_in_trouble': _circuits_in_trouble,
+    'circuit_minutes_out': _circuit_minutes_out,
     'tests_run': _tests_run,
     'documents_set': _documents_set,
     'files_written': _files_written,

@@ -27,6 +27,8 @@ per-category circuit counts and the trouble rates are the simulation's own.
 import random
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
+from .data.positions import desk_only
+
 
 class ServiceCategory(NamedTuple):
     """One major category of special service."""
@@ -102,6 +104,23 @@ STATUS_IN_SERVICE = 'IS'
 STATUS_TROUBLE = 'TRBL'
 STATUS_OUT = 'OOS'
 
+# Where a failing special service can be bad, in the order a loop-back test
+# walks them: the equipment at this office, the interoffice facility
+# (Engineering and Operations notes that specials troubles "may be traced to
+# interoffice facilities"), and the customer's end. The shift minutes a
+# repair takes at each place are the simulation's own.
+PLACES: Dict[str, Tuple[str, int]] = {
+    'OFFICE': ('the equipment at this office', 10),
+    'FACILITY': ('the interoffice facility', 20),
+    'PREMISES': ("the customer's end", 15),
+}
+
+# Looping a circuit back at a point costs the shift this much when the
+# access arrangement can do it by relay, and much more when somebody has to
+# go and plug in at the jack. Also the simulation's own.
+LOOP_REMOTE_MINUTES = 3
+LOOP_VISIT_MINUTES = 15
+
 
 class Circuit:
     """One special services circuit as the test system sees it."""
@@ -119,6 +138,10 @@ class Circuit:
         # The electrical truth, revealed only by measuring it.
         self.impaired = impaired
         self.last_result: Optional[str] = None
+        # Where the impairment sits, which only a loop-back test shows.
+        self.fault_place: Optional[str] = None
+        # Shift minutes held in trouble this tour.
+        self.out_minutes = 0
 
     @property
     def service(self) -> ServiceCategory:
@@ -195,7 +218,42 @@ class SartsInventory:
                 status=status,
                 impaired=impaired,
             )
+            if impaired:
+                # Its own generator, keyed on the circuit, so that giving a
+                # fault a place leaves every later draw of the inventory
+                # exactly where it was.
+                circuit.fault_place = random.Random(
+                    f"place:{circuit.circuit_id}").choices(
+                        list(PLACES), weights=(3, 4, 3))[0]
             self.circuits[circuit.circuit_id] = circuit
+
+    # -- the outage clock ---------------------------------------------------
+
+    _tour = 0
+    _clocked_to = 0
+
+    def accrue(self, tour: int, now: int) -> None:
+        """
+        Charge every circuit held in trouble for the shift minutes since the
+        last look.
+
+        Called before anything that changes a status, so the minutes a
+        circuit was out are exact. A new tour starts the count again, as it
+        starts the shift clock again.
+        """
+        if tour != self._tour or now < self._clocked_to:
+            self._tour = tour
+            self._clocked_to = 0
+            for circuit in self.circuits.values():
+                circuit.out_minutes = 0
+        span = now - self._clocked_to
+        for circuit in self.in_trouble():
+            circuit.out_minutes += span
+        self._clocked_to = now
+
+    def minutes_out(self) -> int:
+        """Circuit-minutes out of service this tour, repaired or not."""
+        return sum(circuit.out_minutes for circuit in self.circuits.values())
 
     # -- access ----------------------------------------------------------
 
@@ -277,14 +335,16 @@ class SartsConsole:
                 return "sarts: usage: sarts test <circuit id>"
             return self.test(rest[0])
         if action == 'trouble':
-            return self.inventory(STATUS_TROUBLE)
+            return self.trouble_board()
+        if action == 'repair':
+            return self.repair(rest)
         if action == 'access':
             return self.access()
         if action in ('categories', 'services'):
             return self.categories()
         return (f"sarts: unknown option '{args[0]}'\n"
-                "Options: status, list, circuit, test, trouble, access, "
-                "categories")
+                "Options: status, list, circuit, test, trouble, repair, "
+                "access, categories")
 
     # -- screens ---------------------------------------------------------
 
@@ -293,8 +353,14 @@ class SartsConsole:
         """Return the terminal's special services inventory."""
         return self.terminal.special_services
 
+    def clock(self) -> None:
+        """Bring the outage clock up to the shift clock."""
+        self.inventory_state.accrue(self.terminal.career.shift,
+                                    self.terminal.shift_minutes)
+
     def status(self) -> str:
         """Render the test position's overall picture."""
+        self.clock()
         inventory = self.inventory_state
         office = self.terminal.home_office
         trouble = inventory.in_trouble()
@@ -308,6 +374,7 @@ class SartsConsole:
             f"  Circuits on this position   {len(inventory.circuits):>6}",
             f"  Reported in trouble         {len(trouble):>6}",
             f"  Reachable without a visit   {inventory.remotely_testable():>6}",
+            f"  Circuit-minutes out, tour   {inventory.minutes_out():>6}",
             '',
             'ACCESS ARRANGEMENTS',
             *[f"  {code:<6}{count:>4}   {ACCESS_ARRANGEMENTS[code].split('.')[0]}."
@@ -321,6 +388,8 @@ class SartsConsole:
             "  sarts list        The inventory",
             "  sarts trouble     Circuits reported in trouble",
             "  sarts test <id>   Reach a circuit and measure it",
+            "  sarts repair <id> Loop a failing circuit back, then send "
+            "a force",
             "  sarts categories  What counts as a special service",
         ])
 
@@ -394,6 +463,7 @@ class SartsConsole:
         from .data.testlines import TEST_LINES
         from .loop_testing import access_test_line, tone_header
 
+        self.clock()
         circuit = self.inventory_state.find(token)
         if circuit is None:
             return f"sarts: no circuit matching '{token}'"
@@ -453,7 +523,144 @@ class SartsConsole:
             lines.append("")
             lines.append("  Circuit held in trouble. A special service out of")
             lines.append("  limits should not go back to the customer.")
+            lines.append(f"  sarts repair {circuit.circuit_id}")
         return '\n'.join(lines)
+
+    # -- the circuits in trouble, and fixing them ---------------------------
+
+    def trouble_board(self) -> str:
+        """
+        The circuits held in trouble, with how long each has been out.
+
+        Every minute on this board is the customer's, and the shift clock
+        is what counts it. The ACCESS column is the part worth reading: it
+        decides what finding the trouble costs.
+        """
+        self.clock()
+        circuits = [c for c in self.inventory_state.listing()
+                    if c.status == STATUS_TROUBLE]
+        if not circuits:
+            return "No circuits held in trouble."
+        lines = [
+            "Special Services Circuits Held In Trouble",
+            f"Shift time {self.terminal.shift_time()}",
+            '=' * 74,
+            f"{'#':>3} {'CIRCUIT':<14}{'ACCESS':<7}{'OUT':>6}  "
+            f"{'LOOP':<10}CUSTOMER",
+            '-' * 74,
+        ]
+        for position, circuit in enumerate(circuits, 1):
+            cost = (LOOP_REMOTE_MINUTES if circuit.reachable()
+                    else LOOP_VISIT_MINUTES)
+            how = 'by relay' if circuit.reachable() else 'a visit'
+            lines.append(
+                f"{position:>3} {circuit.circuit_id:<14}{circuit.access:<7}"
+                f"{circuit.out_minutes:>5}m  {cost:>2}m {how:<6} "
+                f"{circuit.customer[:22]}")
+        lines.append('-' * 74)
+        out = self.inventory_state.minutes_out()
+        lines.append(f"{len(circuits)} circuit(s), {out} circuit-minutes "
+                     f"out this tour.")
+        lines.append("'sarts repair <circuit>' loops one back.")
+        return '\n'.join(lines)
+
+    def repair(self, rest: List[str]) -> str:
+        """
+        Find where a failing circuit is bad, then send the force for it.
+
+        ``sarts repair <id>`` loops the circuit back at each point the
+        arrangement can reach and prints what each loop read: the first
+        loop that fails brackets the trouble. ``sarts repair <id> <place>``
+        sends the force for that place. The right one clears it; the wrong
+        one finds nothing and the circuit stays out while the clock runs.
+
+        The SSC desk's own verb. Special services are tested from one
+        position, and the position's job is to say where to send people.
+        """
+        refusal = desk_only(self.terminal.position, 'sarts', 'sarts repair')
+        if refusal:
+            return refusal
+        if not rest:
+            return ("sarts: usage: sarts repair <circuit id> [office | "
+                    "facility | premises]")
+        self.clock()
+        circuit = self.inventory_state.find(rest[0])
+        if circuit is None:
+            return f"sarts: no circuit matching '{rest[0]}'"
+        if circuit.status != STATUS_TROUBLE:
+            return (f"{circuit.circuit_id} is not held in trouble.\n"
+                    f"A circuit comes to repair once it has failed a "
+                    f"measurement: sarts test {circuit.circuit_id}")
+        if len(rest) == 1:
+            return self.loop_back(circuit)
+        place = rest[1].upper()
+        if place not in PLACES:
+            return (f"sarts repair: '{rest[1]}' is not a place to send "
+                    f"anyone.\nPlaces: office, facility, premises.")
+        return self.send_force(circuit, place)
+
+    def spend(self, minutes: int) -> None:
+        """Let the shift clock run, and charge the circuits for it."""
+        self.terminal._pass_time(minutes)
+        self.clock()
+
+    def loop_back(self, circuit: Circuit) -> str:
+        """Loop a failing circuit back at each point and print the reads."""
+        visit = not circuit.reachable()
+        self.spend(LOOP_VISIT_MINUTES if visit else LOOP_REMOTE_MINUTES)
+        failing_from = list(PLACES).index(circuit.fault_place or 'OFFICE')
+        points = (
+            ("this office, at the access point", 'OFFICE'),
+            (f"the far end of the facility, {circuit.to_clli}", 'FACILITY'),
+            ("the customer's end", 'PREMISES'),
+        )
+        lines = [
+            f"SARTS Loop-back - {circuit.circuit_id}",
+            f"{circuit.customer}   {circuit.service.name}",
+            f"{self.terminal.clock.timestamp()}",
+            '=' * 74,
+        ]
+        if visit:
+            lines += [f"  {circuit.access}: somebody went to the jack and "
+                      f"looped it by hand.", '']
+        for index, (where, _) in enumerate(points):
+            lines.append(f"  Loop at {where:<48}"
+                         f"{'FAIL' if index >= failing_from else 'PASS'}")
+        lines += [
+            '',
+            "  Each loop reads everything between it and this office. The",
+            "  trouble is in the stretch after the last loop that passed.",
+            f"  Out {circuit.out_minutes} minutes this tour.",
+            f"  sarts repair {circuit.circuit_id} <office | facility | "
+            f"premises>",
+        ]
+        return '\n'.join(lines)
+
+    def send_force(self, circuit: Circuit, place: str) -> str:
+        """Send the force for a place; it clears the circuit or finds nothing."""
+        where, minutes = PLACES[place]
+        self.spend(minutes)
+        if place != circuit.fault_place:
+            return '\n'.join([
+                f"{circuit.circuit_id}: the force went to {where} and found "
+                f"nothing.",
+                f"That took {minutes} minutes of the shift. The circuit is "
+                f"still out",
+                f"({circuit.out_minutes} minutes this tour); the loops read "
+                f"as they did.",
+            ])
+        circuit.impaired = False
+        circuit.fault_place = None
+        circuit.status = STATUS_IN_SERVICE
+        circuit.last_result = (f"{self.terminal.clock.time()} cleared at "
+                               f"{place.lower()}")
+        return '\n'.join([
+            f"{circuit.circuit_id}: the force cleared the trouble at "
+            f"{where}.",
+            f"It measures clean and is back in service for "
+            f"{circuit.customer}.",
+            f"Out {circuit.out_minutes} minutes this tour.",
+        ])
 
     def access(self) -> str:
         """Explain the access arrangements a circuit can sit behind."""
