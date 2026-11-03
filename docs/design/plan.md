@@ -6,10 +6,8 @@ Built from the three audits on this branch:
 - `session-2-playtest.md` (S2): the code and a playtest.
 - `session-3-research-blueprint.md` (S3): outside research and a blueprint.
 
-Status: **approved by Bill on 2 November 2026, with the recommended option
-taken on each of the six decisions in section 8.** So A10 (assignment form)
-is deferred and A11 (toll-fraud thread) is built last in phase 8, detection
-only. Paths are
+Status: **approved by Bill. The six decisions are settled (2 November 2026,
+section 8).** Paths are
 under `src/bell_system/` unless they start with `docs/`, `tools/` or
 `tests/`.
 
@@ -77,26 +75,26 @@ Priority is not order; order is the phase.
 | **C1** | Age every pending report on shift minutes, not only when worked | S2 §8 P1 (row 1); S2 §1.6 | P1 | 1 | 0 | reports.py, screens/shift.py | Sixteen shift hours of `sleep` on a board of 9 leaves reports past commitment. | in flight |
 | **C2** | Field crews return on the shift clock | S2 §8 P1 (row 2); S2 §1.1 | P1 | 1 | 0 | field.py, screens/bureau.py | `shift` after a dispatch shows a return time in shift terms and `sleep` advances it. | in flight |
 | **C3** | Zero work is not EXCELLENT; `handoff relieve` needs minimum work | S2 §8 P1 (row 3); S2 §1.8 | P1 | 1 | 0 | progression.py, screens/turnover.py | Thirteen `handoff relieve` with no work does not end EXCELLENT and the first relieve is refused. | in flight |
-| **C4** | Split difficulty into named assists; fun counts missed commitments, softer | S3 C5 P1; S2 §8 P1 (row 1, last clause); S2 §4 | P1 | 5 | 1 | settings.py, progression.py | Each assist overrides its profile value, `set` lists departures, and with the commitments assist on, fun counts misses at the reduced weight (test in tests/test_settings.py). | #8 |
+| **C4** | Split difficulty into named assists; the commitments assist is a named setting | S3 C5 P1; S2 §8 P1 (row 1, last clause); S2 §4 | P1 | 5 | 1 | settings.py, progression.py | Each assist overrides its profile value, `set` lists departures, and `assist.commitments_count` overrides the profile in both directions (PR 46 already counts misses, 0.25 on fun and 1.0 on craft); test in tests/test_settings.py. | #8 |
 | **C5** | One Career schema bump for every new field, and `offer_available` | S3 Part 3 step 1 | P1 | 1 | 1 | progression.py, save.py | An old `career.json` loads; the new fields (`fault_sightings`, `commendations`, `finds`, `groups`, `rapport`, `beats_seen`, `practicals_passed`, `assignment`, `Difficulty.annotation_sightings`) default and round-trip. | #9 |
 | **C6** | Save what the player writes (home overlay and `moo.scores`), 64 KB cap | S2 §8 P2; S3 C10 P2; S2 §6 | P2 | 4 | 1 | save.py, filesystem.py | A file written with `echo > ~/note` and the moo scoreboard survive a restart; a write past 64 KB is refused with a message. | #10 |
 | **C7** | Make the qualification ladder reachable in 13 tours | S2 §1.7; S2 §8 P2 (competence tracks); S3 Part 1 C2 | P1 | 1 | 1 | progression.py, tools/index_calibration.py | Re-measured after Phase 0: a skill-0.9 craft bot signs off all six by tour 13 and a skill-0.6 bot does not reach Toll (bars are a proposal). | #11 |
-| **C8** | Fading reading notes in fun, counted per fault type | S3 C1 P1; S1 §3.2 P1 (row 1) | P1 | 1 | 2 | screens/testing.py, loop_testing.py, data/trouble.py | Fun shows a one-line reading note on sightings 1-2, the crew class only on 3-4, numbers only after; craft shows no note; the count survives a restart. | #12 |
+| **C8** | Fading reading notes in fun, counted per fault type | S3 C1 P1; S1 §3.2 P1 (row 1) | P1 | 1 | 2 | screens/testing.py, loop_testing.py, data/trouble.py | Fun shows a one-line reading note on sightings 1-2, the crew class only on 3-4, numbers only after; with `assist.annotate` on the notes stay; craft shows no note; the count survives a restart. | #12 |
 | **C9** | First report teaches: the customer says one thing, the pair another | S1 §2.4 (1); S1 §3.2 P2 (FIRST_TOUR) | P2 | 1 | 2 | reports.py, screens/guidance.py, data/trouble.py | The first report of a new career has symptom text that does not match its fault class, and Halloran has the player `report callback` before `mlt` (test_guidance). | #13 |
 | **C10** | Each sign-off after Loop adds a verb that changes the board | S1 §3.2 P1 (row 2); S1 §1.1 | P1 | 1 | 3 | screens/frame.py, screens/remote.py, screens/trunks.py, screens/toll.py, data/man_pages.py | For each of the five sign-offs there is a command that changes `ReportDesk` state, refused before the sign-off and working after it, and listed in `qual`. | #14 |
-| **C11** | Qualification practical: `qual take <key>` after the count floor | S3 C3 P1; S3 R4 P2 | P1 | 1 | 3 | screens/practical.py (new), data/practicals.py (new), screens/session.py, screens/bureau.py, terminal.py | Past the floor the sign-off is withheld until `qual take` passes; a failed attempt says what was missed; passes are saved. | #15 |
+| **C11** | Qualification practical: `qual take <key>` after the count floor | S3 C3 P1; S3 R4 P2 | P1 | 1 | 3 | screens/practical.py (new), data/practicals.py (new), screens/session.py, screens/bureau.py, terminal.py | Past the floor the sign-off is withheld until `qual take` passes, in fun as well as craft; `hint` costs nothing during a practical; a failed attempt says what was missed; passes are saved. | #15 |
 | **C12** | Point at `cosmos jumper` when the MLT cannot tell CO_EQUIP, FCG, NONE apart | S2 §8 P2; S2 §1.3 | P2 | 1 | 2 | screens/guidance.py, data/hints.py | On an ambiguous craft reading, `report next` and `hint` name the frame lookup once the player holds the frame sign-off. | #16 |
 | **C13** | KPIs: MTTR, commitments met %, first-time-right dispatch %, repeat rate, backlog age; per-tour index; PROVISIONAL label under 5 closes; board-cleared meter | S2 §4; S2 §8 P1 (row 6) and P2 (last row); S1 §3.2 P2 (index) | P1 | 1 | 5 | progression.py, reports.py, screens/bureau.py, screens/turnover.py | `qual` shows the five KPIs and a per-tour index; the label reads PROVISIONAL until 5 closes; a scripted career gives the expected KPI values. | #17 |
 | **C14** | Commendations beside the index: named, earned, never lost | S3 C2 P1; S3 R2 P1 | P1 | 1 | 5 | progression.py, data/commendations.py (new), screens/guidance.py, screens/bureau.py | Handoff prints commendations earned that tour, `qual` lists all, and a perfect tour earns "first clean tour" once. | #18 |
 | **C15** | Tour goals on the briefing, struck at handoff | S3 C6 P1 | P1 | 1 | 4 | screens/shift.py, screens/turnover.py, data/tours.py | The briefing lists 2-3 goals from tours.py; handoff prints each as met or missed; goals never change the index. | #19 |
 | **C16** | Regulars get a multi-tour arc with a resolution before 1 January | S3 C4 P1; S1 §3.2 P2; S2 §8 P2 | P1 | 2 | 7 | data/regulars.py, reports.py, screens/bureau.py, screens/records.py | Each of the four regulars has beats on named tours; `custdb` shows the latest note; a table test shows all four end resolved or abandoned by tour 13. | #20 |
-| **C17** | Consequences in a person's voice: overdue chase, customer's second call, post-close call | S3 C8 P2; S1 §3.3 P2 (TELSAM); S2 §8 P1 (row 1) | P2 | 2 | 6 | npc.py, data/consequences.py (new) | A repeat shows the customer's second call in 1-2 lines by class of service; an overdue out-of-service report gets an mreyes line; a clean close can draw a call-back. | #21 |
+| **C17** | Consequences in a person's voice: customer's second call, post-close call | S3 C8 P2; S1 §3.3 P2 (TELSAM); S2 §8 P1 (row 1) | P2 | 2 | 6 | npc.py, data/consequences.py (new) | A repeat shows the customer's second call in 1-2 lines by class of service; a clean close can draw a call-back. | #21 |
 | **C18** | NPC message order: arc beat, then board-driven, then random; tour windows | S1 §3.2 P2 (chatter); S3 R6 P3 | P2 | 2 | 6 | npc.py, data/tours.py | A message tagged for tours 5-8 never appears on tour 2; with a beat due, the beat is picked over the random pool. | #22 |
 | **C19** | Netnews advances one item per tour | S2 §8 P2; S2 §6 | P2 | 3 | 4 | screens/games.py, data/tours.py | `readnews` on tour 1 and tour 9 lists different items, and no item is dated after the tour's date. | #23 |
-| **C20** | Four desks play differently: one verb and one pressure each (repair, office, NOC, special services) | S1 §3.2 P2 (positions); S2 §8 P2 (positions); S3 R5 P3, A18 P3 | P2 | 1 | 9 | data/positions.py, screens/position.py, special_services.py, screens/tickets.py, screens/remote.py | Each of the four has a command only it can use and a pressure only it feels (NOC: a triage queue on the clock; SARTS: a repair verb for a failing circuit); test_position_differences covers them. | #24 |
+| **C20** | Four desks play differently: one verb and one pressure each (repair, office, NOC, special services) | S1 §3.2 P2 (positions); S2 §8 P2 (positions); S3 R5 P3, A18 P3 | P2 | 1 | 9 | data/positions.py, screens/position.py, special_services.py, screens/tickets.py, screens/remote.py | Four desks (repair, office, NOC, special services) each have a command only they can use and a pressure only they feel (NOC: a triage queue on the clock; SARTS: a repair verb for a failing circuit); the other eight are unchanged; test_position_differences covers both. | #24 |
 | **C21** | Dispatch to a place, not only a force | S3 C9 P2; S1 §4 (3) | P2 | 1 | 8 | reports.py, loop_testing.py, cable.py, data/man_pages.py | `report dispatch N <force> <section>` repairs on the right section and returns the crew's finding on the wrong one; the old form still works in fun. | #25 |
 | **C22** | Callbacks with two or three questions, each costing a callback | S3 A13 P2; S2 §1.3 | P2 | 2 | 8 | screens/bureau.py, data/callbacks.py (new) | `report callback N <topic>` answers one question for COST_CALLBACK and the answer narrows the fault set in the test. | #26 |
-| **C23** | The ending reads the career (arcs, finds, rapport, commendations, assignment) | S2 §8 P1 (row 5); S3 C11 P2; S1 §2 | P1 | 3 | 10 | screens/turnover.py, npc.py | A table-driven test gives four career shapes four different epilogues. | #27 |
+| **C23** | The ending reads the career (arcs, finds, rapport, commendations, assignment) | S2 §8 P1 (row 5); S3 C11 P2; S1 §2 | P1 | 3 | 10 | screens/turnover.py, npc.py | A table-driven test gives four career shapes four different epilogues; the epilogue names the player's own office's company from `data/companies.py`, and a failed audit changes the words, not the length of the career. | #27 |
 | **C24** | Soften the "qualification governed what you could touch" claim; record the code 5/8 simplification | S1 §4 caveats | P2 | 5 | 1 | README.md, SOURCES.md, progression.py | README states qualification as the simulation's mechanic, and SOURCES.md has a row for the 5/8 simplification. | #28 |
 | **C25** | `--simple`: rename it as a Unix sandbox or give it roles | S1 §3.1 P2; S2 §1.5, §8 P3 | P3 | 5 | - | simple_terminal.py, cli.py, README.md | README describes `--simple` as what it is. | #43 |
 | **C26** | Backlog past board depth: a "view all" aged list | S2 §7; S2 §8 P3 | P3 | 1 | - | screens/position.py | With 20 pending, `report all` lists every report by age. | #43 |
@@ -113,7 +111,7 @@ Priority is not order; order is the phase.
 | ID | Row | Sources | P | Pil | Ph | Files | Acceptance test | Issue |
 | --- | --- | --- | --- | ---: | ---: | --- | --- | --- |
 | **A1** | Thirteen tour definitions with dates, themes, kinds and set pieces | S1 §3.3 P1 (calendar); S3 A4 P1, C7 P2; S2 §5 | P1 | 3 | 4 | data/tours.py (new), screens/shift.py, screens/turnover.py, npc.py | tours.py holds 13 entries with unique themes, dates matching `clock` (tour 13 = 31 Dec), and every beat tagged sourced or the simulation's own; `shift` on tour 5 shows tour 5's briefing. | #29 |
-| **A2** | The audit: at tour 13, dispositions are audited and open reports pass "with your name on them" | S1 §3.3 P1; S2 §5, §8 P1 (row 5); S3 C11 | P1 | 3 | 4 | screens/turnover.py, npc.py | Tour 13 prints an audit whose counts match `report closed` and the open board; a zero-work career fails it. | #30 |
+| **A2** | The audit: at tour 13, dispositions are audited and open reports pass "with your name on them" | S1 §3.3 P1; S2 §5, §8 P1 (row 5); S3 C11 | P1 | 3 | 4 | screens/turnover.py, npc.py | Tour 13 prints an audit whose counts match `report closed` and the open board; a zero-work career fails it, and a failed audit never ends the career early. | #30 |
 | **A3** | The Practices binder in `/usr/bsp`: tables the player applies | S3 A1 P1 | P1 | 1 | 2 | data/practices.py (new), filesystem.py, data/hints.py | `ls /usr/bsp` is not empty after tour 1; every sheet carries a header saying its number is the simulation's own; hint level 3 cites a sheet. | #31 |
 | **A4** | Finds and fragments: `finds`, and files only `grep` reveals | S3 A2 P1 | P1 | 4 | 7 | filesystem.py, screens/shell.py, screens/finds.py (new), terminal.py | Reading a fragment file records it; `finds` lists titles by number; a fragment appears in `grep` results only once its tour is reached. | #32 |
 | **A5** | The predecessor thread, gated by groups; resolve `mreyes-root` at 03:47 | S3 A3 P1; S1 §3.3 P2 (sulog); S2 §8 P2 (sulog, Alvarez) | P1 | 4 | 7 | filesystem.py, data/homes.py, screens/shell.py | Each of the first five sign-offs makes at least one new file readable; the sulog entry is explained by a file readable only after sign-off 4 (test_things_to_find). | #33 |
@@ -121,8 +119,8 @@ Priority is not order; order is the phase.
 | **A7** | Root-cause cases across reports and trouble patterning; Marker 2 is the first | S3 A8 P2; S1 §3.3 P2 (Marker 2, patterning); S2 §8 P2 (cascades) | P2 | 4 | 8 | reports.py, cable.py, screens/plant.py, screens/bureau.py, filesystem.py | A planted cause spawns 3-5 member reports, `report show` prints "see also", one action clears them, and Marker 2 fires on tour 9 or 10 in the scripted run. | #35 |
 | **A8** | Cascades with a clock; pressure alarms before reports | S2 §8 P2 (cascades); S1 §3.3 P2 (pressure) | P2 | 1 | 8 | cable.py, weather.py, screens/shift.py | An unrepaired wet binder adds a pair per shift hour, faster in rain; a pressure alarm appears before the first report in a seeded run. | #36 |
 | **A9** | Transient troubles and retest (no new close code) | S3 A9 P2; S1 §3.3 P2 (hold for retest) | P2 | 1 | 8 | reports.py, loop_testing.py, save.py | A transient report reads faulty on the first `mlt` and clean on one an hour later; closing it 8 after the retest is not a repeat. | #37 |
-| **A10** | The assignment form: stay with the operating company or move to AT&T | S3 A7 P2 | P2 | 3 | 10 | screens/turnover.py, progression.py, data/companies.py | Pending decision D5. If built: `assignment` records a choice and the epilogue reflects it. | #38 |
-| **A11** | A toll-fraud thread for the Toll sign-off (detection and history only) | S3 A10 P2 | P2 | 4 | 8 | data/fraud.py (new), screens/tnds.py, screens/traffic.py | Pending decision D6. If built: `traffic` shows the anomaly, `mail` reports it, nothing in the text works as instructions. | #39 |
+| **A10** | ~~The assignment form: stay with the operating company or move to AT&T~~ **Won't do** | S3 A7 P2 | P2 | 3 | 10 | screens/turnover.py, progression.py, data/companies.py | None. Won't do (D5): the epilogue uses the player's own office's company (C23). | #38 |
+| **A11** | A toll-fraud thread for the Toll sign-off (detection and history only) | S3 A10 P2 | P2 | 4 | 8 | data/fraud.py (new), screens/tnds.py, screens/traffic.py | Built last in phase 8 (D6): `traffic` shows the anomaly, `mail` reports it, detection and history only, no tones, plot marked invented, nothing in the text works as instructions. | #39 |
 | **A12** | Who is on tonight: NPC shifts, `who`, mail and order wire follow | S3 A12 P2 | P2 | 2 | 6 | npc.py, screens/unix.py | On a night tour `who` omits day-only staff and the order wire only offers people on shift. | #40 |
 | **A13** | Legacy: a finished career seeds the next, and `career new` | S3 A11 P2; S3 R7 P3 | P2 | 4 | 11 | progression.py, filesystem.py, screens/turnover.py | A second career finds the first player's notes in the predecessor's home directory. | #41 |
 | **A14** | The tour ledger against the office (simulated peers) | S3 A6 P2; S1 §3.3 P3 (league table) | P2 | 1 | 11 | tools/index_calibration.py, data/peers.py (new), screens/turnover.py | Handoff prints MTTR and first-pass accuracy with their place among peers, labelled the simulation's own. | #42 |
@@ -295,7 +293,7 @@ Cases that cross reports: root causes, cascades, transients, dispatch to a place
 - **Rows:** C21, C22, A7, A8, A9, A11
 - **Starts after:** Phases 6 and 7
 - **Can run alongside:** Phase 9 only.
-- **PRs:** Three PRs, in order, all in `reports.py`. 8a: A9, C21. 8b: A7, A8. 8c: C22, and A11 if D6 says build.
+- **PRs:** Three PRs, in order, all in `reports.py`. 8a: A9, C21. 8b: A7, A8. 8c: C22, then A11 last.
 
 ### Gamify phase 9: Positions
 
@@ -313,7 +311,7 @@ The epilogue reads what you did.
 - **Rows:** C23, A10
 - **Starts after:** Phases 6, 7 and 8
 - **Can run alongside:** Phase 9 may still be running.
-- **PRs:** One PR: C23. A10 only if D5 says build.
+- **PRs:** One PR: C23.
 
 ### Gamify phase 11: Replay and ledger
 
@@ -366,54 +364,35 @@ Tours 4, 6, 11 and 13 fall on a weekend. `clock.py` already notes that a
 craftsperson worked every day, so this is not a defect; A1 should not
 write "Monday" copy for them.
 
-## 7. Phase 0: in flight
+## 7. Phase 0
 
-Not filed as issues. Two fix sessions are doing these. R1, R2 and C1 to C3
-stay in the table above so nothing is counted twice.
+Not filed as issues. R1, R2 and C1 to C3 stay in the table above so nothing
+is counted twice.
 
-- Reports age on shift minutes, not only when worked (C1).
-- Field crews return on the shift clock (C2).
-- A career with zero work is no longer EXCELLENT, and `handoff relieve`
-  requires minimum work (C3).
-- The fake "28,943 customers / $257,288" text in `screens/tickets.py` is
-  removed (R1).
-- Stale docs fixed: `docs/manual.txt`, `docs/overview.md` (tutorial),
-  `docs/faq.md`, `docs/command_reference.txt` (R2; issue #3, PR #4).
+- Merged: PR #4, the stale docs (R2; issue #3). PR #47, the Python 3.9 CI
+  pin to `ubuntu-24.04`, which is not a plan row but cleared a failing check.
+- In CI: PR #46, "Make time matter" (issue #45). It covers C1, C2, C3 and R1:
+  - Reports age on shift minutes, not only when worked (C1).
+  - Field crews return on the shift clock (C2).
+  - A career with zero work is no longer EXCELLENT, and `handoff relieve`
+    requires minimum work (C3).
+  - The fake outcome numbers in `screens/tickets.py` are removed (R1).
 
-Two things to check when these land. C4 assumes missed commitments may not
-yet count in fun; if phase 0 already does that, C4 shrinks. C17 assumes the
-overdue chase from mreyes is not in phase 0.
+PR #46 also counts overdue reports once (0.25 weight on fun, 1.0 on craft)
+and adds one mreyes escalation line per overdue report. So C4 shrinks to the
+named `assist.commitments_count` setting, and C17 no longer carries the
+overdue chase.
 
-## 8. Decisions for Bill
+## 8. Decisions (settled 2026-11-02)
 
-Six, each blocks the rows named. A recommendation is first.
+Bill took the recommended answer on all six.
 
-1. **How far does fun mode fade?** (blocks R3, C8)
-   - Recommended: to numbers only after a fault's fourth sighting, with an
-     assist (`assist.annotate`) that keeps the notes for anyone who wants them.
-   - Or stop at the crew class, so fun never fully removes a hint.
-2. **Can the audit hurt?** (blocks A2, C23)
-   - Recommended: it gives a verdict and shapes the epilogue. Nothing is
-     lost and the career still ends on 31 December. This keeps the README's quiet tone.
-   - Or a failed audit ends the career early.
-3. **Do practicals gate sign-offs in fun mode too?** (blocks C11)
-   - Recommended: yes, with `hint` free. The verbs in C10 mean nothing if the
-     sign-off can be had by counting.
-   - Or craft only, and fun keeps the count.
-4. **Four real desks, or relabel the other eight?** (blocks C20)
-   - Recommended: build four (repair, office, NOC, special services) and leave
-     the other eight alone for now.
-   - Or relabel the eight as transfers you may take after tour 3, as S1
-     proposed. That changes what the README promises.
-5. **The assignment form** (blocks A10)
-   - Recommended: not now. The epilogue can use the company of the player's
-     own office, which `data/companies.py` already sources.
-   - Or invent a form offering the operating company or AT&T, marked as the
-     simulation's own. How craft were actually told is unsourced.
-6. **The toll-fraud thread** (blocks A11)
-   - Recommended: build it last in phase 8, detection and history only, no
-     tones and nothing that works as instructions, plot marked invented.
-   - Or skip it and leave Toll with its verb and practical alone.
+1. **Fade (R3, C8):** fun fades to numbers only after a fault's fourth sighting, and `assist.annotate` keeps the notes for anyone who wants them.
+2. **The audit (A2, C23):** it gives a verdict and shapes the epilogue, and never ends the career early.
+3. **Practicals (C11):** they gate sign-offs in fun as well as craft, with `hint` free.
+4. **Desks (C20):** build four (repair, office, NOC, special services) and leave the other eight alone.
+5. **Assignment form (A10):** none. Won't do. The epilogue uses the player's own office's company from `data/companies.py`.
+6. **Toll fraud (A11):** last in phase 8, detection and history only, no tones, plot marked invented.
 
 ## 9. Tracking
 
@@ -422,7 +401,7 @@ Six, each blocks the rows named. A recommendation is first.
 - Labels: `design`, `gamification`, `P1`, `P2`, `P3`, and one per pillar
   (`pillar: system`, `pillar: people`, `pillar: ending`, `pillar: machine`,
   `pillar: period`).
-- One issue per P1 and P2 row outside phase 0 (38 issues). Each carries the ID,
-  files, acceptance test and the phase it starts after.
+- One issue per P1 and P2 row outside phase 0 (38 filed; A10 is closed as
+  won't-do). Each carries the ID, files, acceptance test and the phase it
+  starts after.
 - P3 rows: checklist in #43.
-- A10 and A11 have issues but are blocked on D5 and D6.
