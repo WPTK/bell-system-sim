@@ -123,7 +123,7 @@ src/bell_system/        # The installable package
 ├── __main__.py        # python -m bell_system
 ├── cli.py             # Argument parsing, the bell-system console script
 ├── terminal.py        # Main 12-role simulation (BellSystemTerminal)
-├── simple_terminal.py # Simplified 4-role interface (SimpleTerminal)
+├── simple_terminal.py # Plain Unix V7 sandbox (SimpleTerminal)
 ├── screens/           # One module per subsystem's screens
 └── data/              # Manual page text and other static data
 
@@ -131,7 +131,7 @@ tests/                  # pytest suite
 ├── conftest.py        # Shared fixtures, state isolation
 ├── test_cli.py        # Command line entry point
 ├── test_terminal.py   # 12-role terminal behaviour
-├── test_simple_terminal.py  # 4-role terminal behaviour
+├── test_simple_terminal.py  # plain Unix sandbox behaviour
 └── test_integrity.py  # Source integrity: imports, aliases, dispatch table
 
 docs/                   # Documentation

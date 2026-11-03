@@ -183,12 +183,15 @@ class TestWhereYouAreInTheTour:
             worked.execute_command('shift')
 
     def test_it_counts_the_board(self, worked):
+        # shift(1) counts the board as the command runs, and then costs a
+        # minute like anything else, in which a report can arrive. So it is
+        # the board before the command that the listing has to agree with,
+        # not the board after it.
+        on_the_board = len(worked.desk.pending())
         listing = worked.execute_command('shift')
-        # Read back off the same output: running shift(1) costs a minute
-        # like anything else, and a report can arrive in it.
         counted = next(int(row.split()[-1]) for row in listing.split('\n')
                        if row.strip().startswith('On the board'))
-        assert counted == len(worked.desk.pending())
+        assert counted == on_the_board
 
     def test_it_names_who_is_out(self, worked):
         assert 'OUT NOW' in worked.execute_command('shift')

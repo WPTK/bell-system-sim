@@ -61,6 +61,6 @@ def raw_terminal(isolated_state):
 
 @pytest.fixture
 def simple(isolated_state):
-    """A constructed simplified four-role terminal."""
+    """A constructed plain Unix sandbox terminal."""
     from bell_system.simple_terminal import SimpleTerminal
     return SimpleTerminal()
