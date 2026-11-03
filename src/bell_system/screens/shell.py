@@ -14,6 +14,7 @@ file, ``wc`` prints lines, words and characters in that order, ``head`` and
 the next.
 """
 
+import fnmatch
 from typing import FrozenSet, List, Optional
 
 from ..filesystem import (
@@ -24,8 +25,7 @@ from ..filesystem import (
     normalise,
 )
 from ..save import home_size
-from .session import SessionState
-
+from .finds import FindsCommands
 
 # How many sign-offs the wire chief wants behind somebody before he puts
 # them in the group that owns /usr/adm/sulog. The simulation's own figure:
@@ -33,7 +33,7 @@ from .session import SessionState
 ADM_GROUP_QUALIFICATIONS = 3
 
 
-class ShellCommands(SessionState):
+class ShellCommands(FindsCommands):
     """
     Navigation, file reading and text handling.
 
@@ -54,9 +54,13 @@ class ShellCommands(SessionState):
         Content may be a callable, so a file can render live state - the
         line records under /usr/lmos are the reports actually on the board.
 
-        A file whose mode denies the rest of the machine also reads as
-        None, and callers turn that into a refusal by looking at the mode
-        themselves. There is exactly one such file, and it is the su log.
+        A file whose mode denies this position also reads as None, and
+        callers turn that into a refusal by looking at the mode themselves
+        (``_refusal``).
+
+        Reading is not finding: the commands that show a file to the player
+        call ``_note_read`` themselves, because ``_read`` is also how the
+        machine reads its own files.
         """
         node = self._node(path)
         if node is None or node.is_dir or not self._may_read(path):
@@ -91,6 +95,48 @@ class ShellCommands(SessionState):
             groups.add('adm')
         return frozenset(groups)
 
+    def _refusal(self, name: str, command: str) -> str:
+        """Say why a file could not be read."""
+        node = self._node(name)
+        if node is not None and node.is_dir:
+            return f"{command}: {name}: is a directory"
+        if node is not None and not self._may_read(name):
+            return f"{command}: {name}: permission denied"
+        return f"{command}: {name}: no such file or directory"
+
+    def _operands(self, args: List[str]) -> List[str]:
+        """
+        Return the files a command was given, with patterns expanded.
+
+        The shell does this and the command never sees the pattern, which
+        is why ``grep pwba /usr/adm/*`` reads every file in the directory.
+        ``*``, ``?`` and ``[`` match within one name and never across a
+        slash, a leading dot has to be typed, and a pattern that matches
+        nothing is passed on as typed, as sh did. Only files match:
+        a command cannot read a directory.
+        """
+        base = self.current_directory.rstrip('/') + '/'
+        names: List[str] = []
+        for arg in args:
+            if arg.startswith('-') or not any(c in arg for c in '*?['):
+                names.append(arg)
+                continue
+            wanted = normalise(arg, self.current_directory).split('/')[1:]
+            found = []
+            for path, node in sorted(self.filesystem.items()):
+                parts = path.split('/')[1:]
+                if node.is_dir or len(parts) != len(wanted):
+                    continue
+                if all(fnmatch.fnmatchcase(part, piece)
+                       and (piece.startswith('.') or not part.startswith('.'))
+                       for part, piece in zip(parts, wanted)):
+                    shown = path
+                    if not arg.startswith('/') and path.startswith(base):
+                        shown = path[len(base):]
+                    found.append(shown)
+            names.extend(found or [arg])
+        return names
+
     def _gather(self, args: List[str], command: str) -> tuple:
         """
         Return (text, error) for commands that read files or standard input.
@@ -98,20 +144,17 @@ class ShellCommands(SessionState):
         With no file arguments a command reads what the previous stage of the
         pipeline produced, which is what makes a pipeline work.
         """
-        files = [a for a in args if not a.startswith('-')]
+        files = self._operands([a for a in args if not a.startswith('-')])
         if not files:
             return getattr(self, '_pipe_input', '') or '', None
         chunks = []
         for name in files:
             text = self._read(name)
             if text is None:
-                node = self._node(name)
-                if node is not None and node.is_dir:
-                    return None, f"{command}: {name}: is a directory"
-                if node is not None and not self._may_read(name):
-                    return None, f"{command}: {name}: permission denied"
-                return None, f"{command}: {name}: no such file or directory"
+                return None, self._refusal(name, command)
             chunks.append(text)
+        for name in files:
+            self._note_read(name)
         return ''.join(chunks), None
 
     # -- moving around ---------------------------------------------------
@@ -187,7 +230,7 @@ class ShellCommands(SessionState):
     def cmd_cat(self, args: Optional[List[str]] = None) -> str:
         """Concatenate and print files."""
         text, error = self._gather(args or [], 'cat')
-        return error if error else text.rstrip('\n')
+        return error if error else self._with_find_notice(text.rstrip('\n'))
 
     def cmd_more(self, args: Optional[List[str]] = None) -> str:
         """
@@ -201,10 +244,11 @@ class ShellCommands(SessionState):
             return error
         lines = text.rstrip('\n').split('\n')
         if len(lines) <= 23:
-            return '\n'.join(lines)
-        return ('\n'.join(lines[:23])
-                + f"\n--More--({len(lines) - 23} more lines; "
-                  f"cat(1) prints the rest)")
+            return self._with_find_notice('\n'.join(lines))
+        return self._with_find_notice(
+            '\n'.join(lines[:23])
+            + f"\n--More--({len(lines) - 23} more lines; "
+              f"cat(1) prints the rest)")
 
     def cmd_head(self, args: Optional[List[str]] = None) -> str:
         """Print the first lines of a file."""
@@ -216,7 +260,8 @@ class ShellCommands(SessionState):
         text, error = self._gather(args, 'head')
         if error:
             return error
-        return '\n'.join(text.rstrip('\n').split('\n')[:count])
+        return self._with_find_notice(
+            '\n'.join(text.rstrip('\n').split('\n')[:count]))
 
     def cmd_tail(self, args: Optional[List[str]] = None) -> str:
         """Print the last lines of a file."""
@@ -228,7 +273,8 @@ class ShellCommands(SessionState):
         text, error = self._gather(args, 'tail')
         if error:
             return error
-        return '\n'.join(text.rstrip('\n').split('\n')[-count:])
+        return self._with_find_notice(
+            '\n'.join(text.rstrip('\n').split('\n')[-count:]))
 
     def cmd_file(self, args: Optional[List[str]] = None) -> str:
         """Say what kind of thing each argument is."""
@@ -261,30 +307,50 @@ class ShellCommands(SessionState):
         Print lines matching a pattern.
 
         ``-i`` ignores case, ``-n`` numbers the lines, ``-v`` inverts the
-        match, ``-c`` counts instead of printing.
+        match, ``-c`` counts instead of printing, ``-l`` names the files
+        that match and ``-h`` leaves the names off. Given more than one
+        file, as it is by a pattern like ``/usr/adm/*``, it puts the file's
+        name in front of each line, and a file it cannot read costs a line
+        of complaint and not the whole search.
         """
         args = args or []
         flags = ''.join(a[1:] for a in args if a.startswith('-'))
         rest = [a for a in args if not a.startswith('-')]
         if not rest:
-            return "grep: usage: grep [-inv] pattern [file]..."
+            return "grep: usage: grep [-chilnv] pattern [file]..."
 
-        pattern, files = rest[0], rest[1:]
-        text, error = self._gather(files, 'grep')
-        if error:
-            return error
-
+        pattern = rest[0]
         needle = pattern.lower() if 'i' in flags else pattern
-        found = []
-        for number, line in enumerate(text.rstrip('\n').split('\n'), 1):
-            subject = line.lower() if 'i' in flags else line
-            hit = needle in subject
-            if hit == ('v' not in flags):
-                found.append(f"{number}:{line}" if 'n' in flags else line)
+        names = self._operands(rest[1:])
+        if names:
+            sources = [(name, self._read(name)) for name in names]
+        else:
+            sources = [('', getattr(self, '_pipe_input', '') or '')]
+        labelled = len(names) > 1 and 'h' not in flags
 
-        if 'c' in flags:
-            return str(len(found))
-        return '\n'.join(found)
+        found: List[str] = []
+        problems: List[str] = []
+        for name, text in sources:
+            if text is None:
+                problems.append(self._refusal(name, 'grep'))
+                continue
+            hits = []
+            for number, line in enumerate(text.rstrip('\n').split('\n'), 1):
+                subject = line.lower() if 'i' in flags else line
+                if (needle in subject) == ('v' not in flags):
+                    hits.append(f"{number}:{line}" if 'n' in flags else line)
+            if hits and name:
+                self._note_read(name)
+            label = f"{name}:" if labelled else ''
+            if 'l' in flags:
+                if hits:
+                    found.append(name)
+            elif 'c' in flags:
+                found.append(f"{label}{len(hits)}")
+            else:
+                found.extend(f"{label}{hit}" for hit in hits)
+
+        return self._with_find_notice('\n'.join(found + problems))
 
     def cmd_wc(self, args: Optional[List[str]] = None) -> str:
         """Count lines, words and characters."""

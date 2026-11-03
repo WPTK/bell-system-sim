@@ -24,6 +24,7 @@ words for a thing that really was about to happen.
 """
 
 from .clock import DIVESTITURE as _DIVESTITURE
+from .data.finds import FRAGMENTS, Fragment
 from .data.homes import HOMES
 from .data.practices import SHEETS, index as _binder_index, render as _sheet
 from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
@@ -1530,6 +1531,36 @@ for _role, _files in HOMES.items():
     for _name, _text in _files.items():
         FILESYSTEM[f'/usr/users/{_role}/{_name}'] = _file(
             _text, owner=_role, group='craft')
+
+
+# The fragments that are on the machine from the first tour. Those that
+# arrive on a later tour are put in by deliver_fragments (screens/finds.py),
+# the way the netnews is. A fragment with no text is a file that ships
+# already and is only given the owner, group or mode its layer needs.
+def fragment_node(fragment: Fragment, held: Optional[Node] = None) -> Node:
+    """
+    Build the node for a fragment.
+
+    Args:
+        fragment: The fragment, from data/finds.py
+        held: The node already at its path, if the file ships already; only
+            what the fragment names is changed on it
+    """
+    if held is not None:
+        return held._replace(
+            owner=fragment.owner or held.owner,
+            group=fragment.group or held.group,
+            mode=fragment.mode or held.mode)
+    return _file(fragment.text or '', fragment.owner or 'root',
+                 fragment.group or 'other', fragment.mode or '-rw-r--r--')
+
+
+for _fragment in FRAGMENTS:
+    if _fragment.text is None:
+        FILESYSTEM[_fragment.path] = fragment_node(
+            _fragment, FILESYSTEM[_fragment.path])
+    elif _fragment.tour <= 1:
+        FILESYSTEM[_fragment.path] = fragment_node(_fragment)
 
 
 # What a player writes, and so what is kept between sessions: anything under

@@ -659,6 +659,7 @@ class GuidanceCommands(SessionState):
         ('ls', 'List a directory (-l for the long form)'),
         ('cat', 'Read a file'),
         ('grep', 'Search a file for a pattern'),
+        ('finds', 'What you have turned up'),
         ('wc', 'Count lines, words and characters'),
         ('man', 'The manual page for any command'),
     )

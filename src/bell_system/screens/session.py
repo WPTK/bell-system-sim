@@ -364,6 +364,18 @@ class SessionState:
         """File the articles the feed has brought in by this tour."""
         raise NotImplementedError
 
+    def deliver_fragments(self) -> None:
+        """Put the files that have arrived by this tour on the machine."""
+        raise NotImplementedError
+
+    def _note_read(self, path: str) -> None:
+        """Record that a file has been put in front of the player."""
+        raise NotImplementedError
+
+    def _with_find_notice(self, text: str) -> str:
+        """Add the one-time note about finds to a command's output."""
+        raise NotImplementedError
+
     def tour_script(self) -> Optional[Any]:
         """This tour's entry in data/tours.py, if the calendar fits."""
         raise NotImplementedError

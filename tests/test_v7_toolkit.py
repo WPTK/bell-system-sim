@@ -342,6 +342,8 @@ class TestSuAndTheLog:
         assert 'Sorry' in terminal.execute_command('su root')
 
     def test_the_attempt_lands_in_the_log(self, terminal):
+        # The first find is noted on the output; this compares lengths.
+        terminal.career.finds = ['sulog']
         before = terminal.execute_command('cat /usr/adm/sulog')
         terminal.execute_command('su root')
         after = terminal.execute_command('cat /usr/adm/sulog')

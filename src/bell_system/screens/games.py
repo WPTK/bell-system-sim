@@ -210,6 +210,7 @@ class GameCommands(SessionState):
                 continue
             self.filesystem.setdefault(group, _dir(owner='uucp', group='uucp'))
             self.filesystem[path] = _file(self._news_text(item), owner='uucp')
+        self.deliver_fragments()
 
     @staticmethod
     def _news_text(item: NewsItem) -> str:
@@ -274,7 +275,8 @@ class GameCommands(SessionState):
             index = int(args[0]) - 1
             if not 0 <= index < len(articles):
                 return f"readnews: no article {args[0]}"
-            return self._read(articles[index]) or ''
+            self._note_read(articles[index])
+            return self._with_find_notice(self._read(articles[index]) or '')
         elif args and args[0] == '-g':
             groups: Dict[str, int] = {}
             for path in articles:
