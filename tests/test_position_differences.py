@@ -1366,8 +1366,41 @@ class TestTheOfficeAlarmPanel:
             self, at_desk):
         terminal = symptom_desk(at_desk, 'CARRIER_LOSS', 'TRUNK_DEGRADED')
         output = terminal.execute_command('connect work AL-711')
-        assert ids(terminal) == ['AL-710']
+        assert ids(terminal) == ['AL-710', 'AL-711']
         assert 'only a symptom' in output and 'AL-710' in output
+        assert 'clears the cause' in output
+
+    def test_working_a_symptom_costs_the_minutes_and_clears_nothing(
+            self, at_desk):
+        terminal = symptom_desk(at_desk, 'CARRIER_LOSS', 'TRUNK_DEGRADED')
+        row = next(r for r in terminal.lamp_panel()
+                   if r[0]['id'] == 'AL-711')
+        before = terminal.shift_minutes
+        health = dict(terminal.system_health)
+        terminal.execute_command('connect work AL-711')
+        assert row[4] <= terminal.shift_minutes - before <= row[4] + 1
+        assert terminal.system_health == health
+        book = terminal.lamp_book()
+        assert (book['cleared'], book['held'], book['rose']) == ([], [], [])
+        rows = dict(terminal.position_tally())
+        assert rows['alarms cleared at the cause'] == '0'
+
+    def test_a_symptom_worked_late_is_not_recorded_as_held(self, at_desk):
+        terminal = symptom_desk(at_desk, 'CARRIER_LOSS', 'TRUNK_DEGRADED')
+        terminal.shift_minutes = 10 * LAMP_MINUTES
+        owed = terminal.alarms_overdue()
+        terminal.execute_command('connect work AL-711')
+        assert terminal.lamp_book()['held'] == []
+        assert terminal.lamp_book()['rose'] == []
+        assert terminal.alarms_overdue() == owed == 2
+
+    def test_a_symptom_is_cleared_with_its_cause_after_being_worked(
+            self, at_desk):
+        terminal = symptom_desk(at_desk, 'CARRIER_LOSS', 'TRUNK_DEGRADED')
+        terminal.execute_command('connect work AL-711')
+        terminal.execute_command('connect work AL-710')
+        assert ids(terminal) == []
+        assert sorted(terminal.lamp_book()['cleared']) == ['AL-710', 'AL-711']
 
     def test_a_cause_with_nothing_to_explain_says_nothing_of_the_kind(
             self, at_desk):
@@ -1411,8 +1444,39 @@ class TestTheOfficeAlarmsCostTheIndex:
                        if a['severity'] == 'CRITICAL']
         terminal.shift_minutes = 0
         assert not terminal.lamp_held(critical)
-        terminal.shift_minutes = 2 * LAMP_MINUTES
+        terminal.shift_minutes = LAMP_MINUTES - 1
+        assert not terminal.lamp_held(critical)
+        terminal.shift_minutes = LAMP_MINUTES
         assert terminal.lamp_held(critical)
+
+    def test_an_alarm_is_held_a_full_span_after_its_lamp_reached_the_top(
+            self, at_desk):
+        terminal = office_desk(at_desk)
+        for alarm in terminal.active_alarms:
+            top = next(m for m in range(0, 20 * LAMP_MINUTES)
+                       if (setattr(terminal, 'shift_minutes', m)
+                           or terminal.lamp(alarm)[0] == 'CRITICAL'))
+            terminal.shift_minutes = top
+            assert not terminal.lamp_held(alarm), alarm['id']
+            terminal.shift_minutes = top + LAMP_MINUTES - 1
+            assert not terminal.lamp_held(alarm), alarm['id']
+            terminal.shift_minutes = top + LAMP_MINUTES
+            assert terminal.lamp_held(alarm), alarm['id']
+
+    def test_a_handoff_before_the_tour_is_out_banks_the_lamps(self, at_desk):
+        terminal = office_desk(at_desk)
+        terminal.shift_minutes = 14
+        assert terminal.alarms_overdue() == 0
+        seen = []
+        real = terminal.career.service_index
+
+        def banked():
+            seen.append(terminal.alarms_overdue())
+            return real()
+
+        terminal.career.service_index = banked
+        terminal._end_shift()
+        assert seen and seen[0] == 4
 
     def test_a_minor_alarm_has_longer_than_a_critical_one(self, at_desk):
         terminal = office_desk(at_desk)
@@ -1653,8 +1717,9 @@ class TestTheOfficeAcrossAResume:
         fresh.career.reports_closed = terminal.career.reports_closed
         # The geography is not saved; it is the same console.
         fresh._watched = list(terminal.watched_offices())
-        fresh.take_position('switch')
         assert save.restore(fresh, captured)
+        with redirect_stdout(io.StringIO()):
+            fresh.take_position('switch')
         return fresh
 
     def at_tour(self, at_desk, tour=4):
@@ -1662,6 +1727,13 @@ class TestTheOfficeAcrossAResume:
         terminal.career.shift = tour
         terminal.deal_alarms()
         return terminal
+
+    @staticmethod
+    def a_cause(terminal):
+        """A standing alarm at home that is not a symptom of another."""
+        return next(a for a in terminal.active_alarms
+                    if terminal.alarm_cause(a, terminal.active_alarms)
+                    is None)
 
     def test_a_resume_deals_the_alarms_that_were_standing(self, at_desk):
         terminal = self.at_tour(at_desk)
@@ -1690,14 +1762,17 @@ class TestTheOfficeAcrossAResume:
     def test_a_cleared_alarm_does_not_come_back(self, at_desk):
         terminal = self.at_tour(at_desk)
         dealt = ids(terminal)
-        gone = terminal.active_alarms[0]
+        gone = self.a_cause(terminal)
         terminal.execute_command(f"connect work {gone['id']}")
         fresh = self.resumed(terminal, self.capture(terminal))
-        assert ids(fresh) == [i for i in dealt if i != gone['id']]
+        assert ids(fresh) == ids(terminal)
+        assert gone['id'] not in ids(fresh)
+        assert set(dealt) - set(ids(fresh)) == set(
+            terminal.lamp_book()['cleared'])
         for key in ('critical_alarms', 'major_alarms', 'minor_alarms',
                     'overall_status'):
             assert fresh.system_health[key] == terminal.system_health[key]
-        assert fresh.lamp_book()['cleared'] == [gone['id']]
+        assert fresh.lamp_book()['cleared'] == terminal.lamp_book()['cleared']
 
     def test_a_late_clear_is_still_charged_after_a_resume(self, at_desk):
         terminal = self.at_tour(at_desk)
@@ -1717,7 +1792,8 @@ class TestTheOfficeAcrossAResume:
         home = terminal.home_office['clli']
         office, alarm = next(
             (o, a) for o in terminal.watched_offices()
-            if o['clli'] != home for a in terminal.office_alarms(o))
+            if o['clli'] != home for a in terminal.office_alarms(o)
+            if terminal.alarm_cause(a, terminal.office_alarms(o)) is None)
         terminal.execute_command(f"connect work {alarm['id']}")
         fresh = self.resumed(terminal, self.capture(terminal))
         assert alarm['id'] not in [a['id']
@@ -1726,11 +1802,14 @@ class TestTheOfficeAcrossAResume:
     def test_the_lamp_that_rose_is_remembered(self, at_desk):
         terminal = self.at_tour(at_desk)
         terminal.shift_minutes = 10 * LAMP_MINUTES
-        rose = next(a for a, lamp, *_ in terminal.lamp_panel()
-                    if lamp != a['severity'])
+        rose = next(a for a, lamp, office, *_ in terminal.lamp_panel()
+                    if lamp != a['severity']
+                    and terminal.alarm_cause(
+                        a, terminal.office_alarms(office)) is None)
         terminal.execute_command(f"connect work {rose['id']}")
         fresh = self.resumed(terminal, self.capture(terminal))
-        assert fresh.lamp_book()['rose'] == [rose['id']]
+        assert rose['id'] in fresh.lamp_book()['rose']
+        assert fresh.lamp_book()['rose'] == terminal.lamp_book()['rose']
 
     def test_no_record_damaged_or_other_tour_brings_nothing_back(
             self, at_desk):

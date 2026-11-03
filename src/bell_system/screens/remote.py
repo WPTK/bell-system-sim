@@ -274,18 +274,24 @@ class RemoteCommands(SessionState):
         """Shift minutes an alarm has been ripening, from its own start."""
         ripe = random.Random(
             f"lamp:{self.career.shift}:{alarm['id']}").randrange(LAMP_MINUTES)
-        return self.shift_minutes + ripe
+        return self.tour_minute() + ripe
 
     def lamp_held(self, alarm: Alarm) -> bool:
         """
         Whether an alarm has stood at the top lamp for a whole span.
 
         Left that long it is a commitment missed, which the service index
-        counts at the handoff. Read only, and the first tour is a grace.
+        counts at the handoff: a full LAMP_MINUTES after the lamp reached
+        the top, not the moment it did. The point in the span an alarm
+        ripens at staggers only the climb; one dealt at the top lamp is not
+        climbing, so its span runs from the start of the tour. Read only,
+        and the first tour is a grace.
         """
         if self.career.shift == 1:
             return False
         base = LAMPS.index(alarm['severity'])
+        if base == len(LAMPS) - 1:
+            return self.tour_minute() >= LAMP_MINUTES
         return self._lamp_age(alarm) >= (len(LAMPS) - base) * LAMP_MINUTES
 
     def alarms_overdue(self) -> int:
@@ -402,17 +408,20 @@ class RemoteCommands(SessionState):
                 "",
                 "An alarm that reads another alarm's system is that alarm's "
                 "symptom:",
-                "clear the cause and it clears too, for no more time.",
+                "clear the cause and it clears too, for no more time. Work "
+                "only the",
+                "symptom and the time is spent and it stays where it is.",
                 "",
                 f"An alarm nobody works lights one lamp higher every "
                 f"{LAMP_MINUTES} shift",
                 "minutes, from its own point in them. Acknowledging does "
                 "not stop it:",
-                "only clearing does. One left a whole span at the top lamp "
-                "is a missed",
-                "commitment on the index (this building only), and clearing "
-                "it late does",
-                "not take that back. These figures are the simulation's own.",
+                "only clearing does. One that has stood a whole span at the "
+                "top lamp",
+                "is a missed commitment on the index (this building only), "
+                "and clearing",
+                "it late does not take that back. These figures are the "
+                "simulation's own.",
             ]
             return '\n'.join(lines)
         wanted = args[0].upper()
@@ -427,6 +436,22 @@ class RemoteCommands(SessionState):
         freed = self.alarm_symptoms(alarm, standing)
         # Looked at as it was when the alarm was chosen, before the clearing
         # takes its minutes: the alarm cleared was the one the panel showed.
+        if cause is not None:
+            # A symptom does not clear while its cause stands: the time is
+            # spent and the alarm is where it was, so nothing is written to
+            # the book (it was not cleared, so it cannot have been held or
+            # risen when it was).
+            self._pass_time(cost)
+            return '\n'.join([
+                f"{alarm['id']}: only a symptom. {cause['id']} on "
+                f"{cause['system']} is still standing,",
+                "and this does not clear until it does.",
+                f"That was {cost} minutes of the shift"
+                + ("." if home else ", with the console's two for the other "
+                   "building."),
+                f"{alarm['id']} is still on the panel; 'connect work "
+                f"{cause['id']}' clears the cause.",
+            ])
         book = self.lamp_book()
         for gone in [alarm] + freed:
             if self.lamp(gone)[0] != gone['severity']:
@@ -452,9 +477,6 @@ class RemoteCommands(SessionState):
             lines.append("It was the cause of " + ', '.join(
                 f"{gone['id']} ({gone['type']})" for gone in freed)
                 + ", which cleared with it for no more time.")
-        if cause is not None:
-            lines.append(f"It was only a symptom: {cause['id']} on "
-                         f"{cause['system']} is still standing.")
         return '\n'.join(lines)
 
     def _connect_listing(self) -> str:

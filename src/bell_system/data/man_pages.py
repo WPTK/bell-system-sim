@@ -4504,13 +4504,16 @@ ALARM PANEL
      match the two: a trunk group failing on the trunks riding a carrier,
      a carrier dropping in step with a microwave span, parity errors when
      backup power sags. Clear the cause and everything it explains clears
-     with it, for no more time. Clear only a symptom and the cause is
-     still standing.
+     with it, for no more time. Work only a symptom and the minutes are
+     spent and nothing clears: it stays on the panel until its cause is
+     cleared.
 
-     An alarm in your own building left a whole span (40 minutes) at the
-     top lamp is a missed commitment, counted on the service index at the
-     handoff whether or not you ever looked at the panel. One cleared
-     before then is not; one cleared after it still is, and stays on the
+     An alarm in your own building that has stood a whole span (40
+     minutes) at the top lamp is a missed commitment, counted on the
+     service index at the handoff whether or not you ever looked at the
+     panel. The span runs from when the lamp reached the top, so one
+     dealt at the top lamp is held from minute 40. One cleared before
+     then is not; one cleared after it still is, and stays on the
      index. The other buildings' lamps rise and show on the panel but
      are not on the index. Each tour deals the alarms again, the same ones
      for the same tour however many times the shift is resumed. The first
