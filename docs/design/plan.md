@@ -383,6 +383,8 @@ and adds one mreyes escalation line per overdue report. So C4 shrinks to the
 named `assist.commitments_count` setting, and C17 no longer carries the
 overdue chase.
 
+Phase 1 is starting now, stacked on PR #46's branch. It merges after #46 does.
+
 ## 8. Decisions (settled 2026-11-02)
 
 Bill took the recommended answer on all six.
