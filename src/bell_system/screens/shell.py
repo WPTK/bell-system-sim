@@ -740,16 +740,22 @@ class ShellCommands(FindsCommands):
         return ''
 
     def cmd_touch(self, args: Optional[List[str]] = None) -> str:
-        """Create a file if it does not exist."""
+        """Create a file, or mark one the position owns as written now."""
         args = args or []
         if not args:
             return "touch: usage: touch file ..."
         for name in args:
             path = normalise(name, self.current_directory)
-            if path not in self.filesystem:
+            existing = self.filesystem.get(path)
+            if existing is None:
                 error = self.write_file(path, '')
-                if error:
-                    return error
+            elif not self._owns(existing):
+                error = f"touch: {name}: not owner"
+            else:
+                error = self.store_node(
+                    path, existing._replace(mtime=self.clock.now()), 'touch')
+            if error:
+                return error
         return ''
 
     def cmd_chmod(self, args: Optional[List[str]] = None) -> str:

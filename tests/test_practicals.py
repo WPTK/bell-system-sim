@@ -90,6 +90,7 @@ def test_the_refusal_short_of_the_floor_still_counts_closures(terminal):
 
 def test_qual_lists_a_ready_practical(terminal):
     ready(terminal, 'frame')
+    terminal.settings.set('game.prompts', 'on')
     shown = terminal.execute_command('qual')
     assert 'Count met. Practical: qual take frame' in shown
     assert "Next: Main Distributing Frame. 'qual take frame'." in shown

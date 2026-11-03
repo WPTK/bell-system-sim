@@ -290,7 +290,7 @@ SHIFT DISTRIBUTION
         shifts = [
             ("Day Shift (08:00-16:00)", random.randint(18, 25)),
             ("Evening Shift (16:00-24:00)", random.randint(12, 18)),
-            ("Night Shift (24:00-08:00)", random.randint(6, 12))
+            ("Night Shift (00:00-08:00)", random.randint(6, 12))
         ]
 
         for shift_name, operators in shifts:

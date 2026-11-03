@@ -804,8 +804,18 @@ class SartsConsole:
             return ("sarts: usage: sarts repair <circuit id> [office | "
                     "facility | premises]")
         self.clock()
-        # A bare number is a row of the board this verb is worked from.
-        circuit = self.inventory_state.find(rest[0], self.board())
+        # A bare number is a row of the board this verb is worked from. One
+        # the board has shrunk past is still a row number, not the start of
+        # an identifier: it does not fall back to a circuit whose id happens
+        # to contain it.
+        board = self.board()
+        token = rest[0]
+        if (token.isdigit() and token[0] != '0'
+                and len(board) < int(token)
+                <= len(self.inventory_state.listing())):
+            return (f"sarts: no row {token} on the board; it holds "
+                    f"{len(board)} now. 'sarts trouble' lists them.")
+        circuit = self.inventory_state.find(token, board)
         if circuit is None:
             return f"sarts: no circuit matching '{rest[0]}'"
         if circuit.status != STATUS_TROUBLE:

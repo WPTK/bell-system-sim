@@ -3239,3 +3239,27 @@ class TestTheNocQueueAcrossAResume:
         terminal.restore_triage(terminal.triage_state())
         assert terminal.triage_book()['taken'] == {major['id']: 5}
         assert terminal.triage_book()['earlier'] == {'taken': 0, 'lapsed': 0}
+
+
+class TestSartsRepairByRow:
+
+    def test_a_row_past_a_shrunken_board_is_not_an_identifier(self, at_desk):
+        terminal = at_desk('sarts')
+        terminal.special_services = SartsInventory('NWRKNJ01', random.Random(5))
+        board = [c for c in terminal.special_services.listing()
+                 if c.status == 'TRBL']
+        assert len(board) >= 1
+        past = len(board) + 1
+        assert past <= len(terminal.special_services.listing())
+        said = terminal.execute_command(f'sarts repair {past}')
+        assert f'no row {past} on the board' in said
+        assert 'Loop-back' not in said
+
+    def test_an_identifier_still_works_whole_or_as_a_zero_led_number(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        terminal.special_services = SartsInventory('NWRKNJ01', random.Random(5))
+        first = next(c for c in terminal.special_services.listing()
+                     if c.status == 'TRBL')
+        said = terminal.execute_command(f'sarts repair {first.circuit_id}')
+        assert f'SARTS Loop-back - {first.circuit_id}' in said

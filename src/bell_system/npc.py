@@ -57,7 +57,7 @@ CHANNEL_NAMES: Dict[str, str] = {
 WATCH_LABELS: Dict[str, str] = {
     'day': 'Day Shift (08:00-16:00)',
     'evening': 'Evening Shift (16:00-24:00)',
-    'night': 'Night Shift (24:00-08:00)',
+    'night': 'Night Shift (00:00-08:00)',
 }
 
 

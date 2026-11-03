@@ -867,7 +867,8 @@ class BureauCommands(SessionState):
         if nxt is None:
             lines.append("Fully qualified. Every system on this terminal is "
                          "open to you.")
-        else:
+        elif self.settings.is_on('game.prompts'):
+            # "Next:" is the guidance 'game.prompts' turns off.
             short = career.reports_until_next()
             lines.append(f"Next: {nxt.name} in {short} correct closure"
                          f"{'' if short == 1 else 's'}." if short else

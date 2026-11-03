@@ -118,7 +118,7 @@ class RecordsCommands(SessionState):
                 rows.append(f"  Closed by you   {closed}")
             rows.append('')
             rows.extend(f"  {line}" for line in wrap(note_at(known, tour), 58))
-        if card.is_chronic():
+        if self._chronic(card):
             rows.append("  CHRONIC - this line has reported often enough "
                         "that the")
             rows.append("            fix is probably not where the last one "
@@ -155,6 +155,18 @@ class RecordsCommands(SessionState):
                 return card
         return None
 
+    def _chronic(self, card: LineCard) -> bool:
+        """
+        Whether the card is flagged CHRONIC: it has reported often, and the
+        story has not closed it. A regular whose trouble was resolved or
+        abandoned keeps its count and loses the flag, since the card also
+        says it is over.
+        """
+        known = REGULARS.get(card.record.regular or '')
+        if known is not None and status_at(known, self.career.shift) != OPEN:
+            return False
+        return card.is_chronic()
+
     def _custdb_index(self) -> str:
         """List the lines that have a record on this position."""
         cards = self.lmos_console.lmos.line_cards()
@@ -165,7 +177,7 @@ class RecordsCommands(SessionState):
         rows = ["CUSTOMER LINE RECORDS ON THIS POSITION", '',
                 f"  {'NUMBER':<16}{'REPORTS':>8}  NAME"]
         for number, card in sorted(cards.items()):
-            flag = ' CHRONIC' if card.is_chronic() else ''
+            flag = ' CHRONIC' if self._chronic(card) else ''
             if card.record.regular:
                 ended = status_at(REGULARS[card.record.regular],
                                   self.career.shift)

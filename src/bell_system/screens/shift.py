@@ -202,9 +202,12 @@ class ShiftCommands(SessionState):
         self.emit(f"  Reports on your board: {len(pending)}")
         if pending:
             oldest = pending[0]
+            # age_label() is signed; the board says which side of the
+            # commitment it is on, as the turnover sheet does.
             self.emit(f"  Nearest commitment:    {oldest.number} "
-                      f"({oldest.record.telephone_number}) in "
-                      f"{oldest.age_label()}")
+                      f"({oldest.record.telephone_number}) "
+                      f"{oldest.age_label().lstrip('-')} "
+                      f"{'past' if oldest.overdue() else 'remaining'}")
         self.emit(f"  Difficulty:            {difficulty.name}")
         self.emit(f"  Service index:         "
                   f"{self.career.service_index():.1f} of 100 "
@@ -630,13 +633,19 @@ class ShiftCommands(SessionState):
             # The favour is asked at the door, so it waits until the nearest
             # report is close enough to its commitment for an hour to matter.
             login = favour_due(self.career.rapport, ledger, self.is_in)
+            # A report is helped once: a second favour on it would stack an
+            # hour on an hour, so one that already has its hour is passed
+            # over for the next.
             waiting = sorted((r for r in self.desk.customers()
-                              if not r.overdue()), key=lambda r: r.commitment)
+                              if not r.overdue()
+                              and f'favoured:{r.number}' not in ledger),
+                             key=lambda r: r.commitment)
             window = timedelta(minutes=FAVOUR_MINUTES)
             if login and waiting and waiting[0].due_in() <= window:
                 target = waiting[0]
                 target.commitment += timedelta(minutes=FAVOUR_MINUTES)
                 self.career.beats_seen.append(f'favour:{login}')
+                self.career.beats_seen.append(f'favoured:{target.number}')
                 changed = True
                 spoken.append(render_message(room.favour(
                     self.clock.now(), login, target.number,
