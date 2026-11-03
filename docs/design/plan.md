@@ -407,3 +407,9 @@ Bill took the recommended answer on all six.
   won't-do). Each carries the ID, files, acceptance test and the phase it
   starts after.
 - P3 rows: checklist in #43.
+
+## 10. The final step
+
+All issues must be closed to bring this event to an end. This does not
+replace anything else that still needs to be worked; it is the last check
+after everything above is done.
