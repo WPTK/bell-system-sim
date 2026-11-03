@@ -307,6 +307,12 @@ class TroubleReport:
         # that reads the condition reads the new one.
         self.clears_after: Optional[int] = None
         self.clears_at: Optional[int] = None
+        # What the last measurement of the line read, and whether the
+        # trouble has since gone by itself. What a prompt or a verdict says
+        # of a measured line is said of the line as it was measured, since
+        # the player has not measured it again.
+        self.last_read: Optional[str] = None
+        self.cleared_alone = False
         # The shared cause this report is one of the symptoms of, if it is
         # (cases.py). The key of the case, not the case.
         self.case: Optional[str] = None
@@ -356,6 +362,11 @@ class TroubleReport:
             self.record.fault = 'NONE'
             self.clears_at = None
             self.clears_after = None
+            self.cleared_alone = True
+
+    def read_fault(self) -> str:
+        """The condition the player last saw the line in, else its own."""
+        return self.last_read or self.record.fault
 
     def age(self, minutes: int) -> None:
         """
@@ -782,6 +793,7 @@ class ReportDesk:
     def record_test(self, report: TroubleReport, note: str,
                     minutes: int = COST_MLT) -> None:
         """Note a measurement against a report and charge the time."""
+        report.last_read = report.record.fault
         report.tested = True
         report.test_notes.append(note)
         if report.status == STATUS_PENDING:

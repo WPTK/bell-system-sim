@@ -182,7 +182,7 @@ class BureauCommands(SessionState):
         ``count`` False asks what the next reading would say without having
         read it yet.
         """
-        fault = report.record.fault
+        fault = report.read_fault()
         sighting = report.sighting
         if sighting is None:
             # A practical's report is Halloran's, not a sighting of the

@@ -194,6 +194,8 @@ def _report_out(report: TroubleReport) -> Dict[str, Any]:
     written['first_dispatch_judged'] = report.first_dispatch_judged
     written['clears_after'] = report.clears_after
     written['clears_at'] = report.clears_at
+    written['last_read'] = report.last_read
+    written['cleared_alone'] = report.cleared_alone
     written['case'] = report.case
     written['record'] = _record_out(report.record)
     written['received'] = _stamp(report.received)
@@ -241,6 +243,8 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     # the usual kind, which stays until it is fixed.
     report.clears_after = stored.get('clears_after')
     report.clears_at = stored.get('clears_at')
+    report.last_read = stored.get('last_read')
+    report.cleared_alone = bool(stored.get('cleared_alone', False))
     # Written since one cause could stand behind several reports.
     case = stored.get('case')
     report.case = case if isinstance(case, str) else None

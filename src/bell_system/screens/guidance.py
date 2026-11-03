@@ -165,7 +165,7 @@ class GuidanceCommands(SessionState):
         if not report.dispatched_to and self._reads_clean(report):
             return self._clean_reading(report)
         if not report.dispatched_to:
-            fault = report.record.fault
+            fault = report.read_fault()
             force = ('' if self._reading_stage(report, count=False)
                      == STAGE_NUMBERS else self._dispatch_for(fault))
             # The splicers ask where, and the prompt says so; where is the
@@ -209,7 +209,7 @@ class GuidanceCommands(SessionState):
             return False
         record = report.record
         return reading_is_clean(measure_loop(
-            record.telephone_number, record.fault, name_fault=False))
+            record.telephone_number, report.read_fault(), name_fault=False))
 
     def _clean_reading(self, report) -> NextAction:
         """
