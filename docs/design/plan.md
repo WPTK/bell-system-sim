@@ -6,7 +6,10 @@ Built from the three audits on this branch:
 - `session-2-playtest.md` (S2): the code and a playtest.
 - `session-3-research-blueprint.md` (S3): outside research and a blueprint.
 
-Status: **proposed. Nothing here is approved until Bill says so.** Paths are
+Status: **approved by Bill on 2 November 2026, with the recommended option
+taken on each of the six decisions in section 8.** So A10 (assignment form)
+is deferred and A11 (toll-fraud thread) is built last in phase 8, detection
+only. Paths are
 under `src/bell_system/` unless they start with `docs/`, `tools/` or
 `tests/`.
 
