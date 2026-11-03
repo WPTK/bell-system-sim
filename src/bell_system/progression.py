@@ -62,7 +62,7 @@ _KNOWN_KEYS = frozenset((
     'schema', 'difficulty', 'shift', 'reports_closed', 'reports_correct',
     'reports_wrong', 'repeat_reports', 'missed_commitments', 'qualifications',
     'index_history', 'office', 'finished', 'assignment', 'audit_verdict',
-    'audit_late', 'tour_index_history',
+    'audit_late', 'tour_index_history', 'seed',
 )) | frozenset(_LIST_FIELDS) | frozenset(_COUNT_FIELDS)
 
 
@@ -500,6 +500,10 @@ class Career:
         # started surviving the session and refused to load into the wrong
         # office.
         self.office: Dict[str, str] = {}
+        # What makes this career's tours its own: the cases, the leaks and
+        # the toll counts are drawn from it and the tour number. None until
+        # the first session gives one, and kept after.
+        self.seed: Optional[str] = None
         # Set when the last tour has been signed off. There is nobody to
         # relieve you twice on the last day of the Bell System.
         self.finished = False
@@ -979,6 +983,9 @@ class Career:
         self.audit_verdict = verdict if isinstance(verdict, str) else ''
         self.audit_late = _whole(stored.get('audit_late'), 0, 0)
 
+        seed = stored.get('seed')
+        self.seed = seed if isinstance(seed, str) else None
+
         office = stored.get('office')
         if isinstance(office, dict):
             self.office = {str(key): str(value)
@@ -1028,6 +1035,7 @@ class Career:
             'index_history': self.index_history[-40:],
             'tour_index_history': self.tour_index_history[-40:],
             'office': self.office,
+            'seed': self.seed,
             'finished': self.finished,
             'assignment': self.assignment,
             'audit_verdict': self.audit_verdict,

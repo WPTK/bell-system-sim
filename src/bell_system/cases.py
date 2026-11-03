@@ -6,9 +6,10 @@ The desk holds the cases and owns the rules; it knows nothing of the
 terminal. The terminal asks for a plan when a tour opens, and asks once the
 shift clock has moved for whatever reports have come due.
 
-A plan is made from the tour number alone, with a generator of its own, so
-it takes nothing from the one the board is dealt from: which kind, how many
-reports, and at which minute of the tour each one comes in.
+A plan is made from the career's seed and the tour, with a generator of its
+own, so it takes nothing from the one the board is dealt from: which kind,
+which condition it is, how many reports, and at which minute of the tour
+each one comes in. Two careers are dealt different tours.
 """
 
 import random
@@ -17,6 +18,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .cable import BINDERS_PER_UNIT, PAIRS_PER_BINDER
 from .data.cases import CASE_KINDS, CaseKind
+from .seeding import stream
 
 if TYPE_CHECKING:  # pragma: no cover - avoids an import cycle at runtime
     from .reports import ReportDesk, TroubleReport
@@ -38,9 +40,14 @@ MARKER_LEDGER = 'case:marker2'
 class Case:
     """One shared cause, and the reports it has thrown so far."""
 
-    def __init__(self, ident: str, kind: str, where: str, due: List[int]):
+    def __init__(self, ident: str, kind: str, where: str, due: List[int],
+                 fault: str = ''):
         self.ident = ident
         self.kind = kind
+        # The condition on every member's line. Left out, the first the kind
+        # has, which is what a case saved before there was a choice was.
+        self.fault = fault if fault in CASE_KINDS[kind].faults else next(
+            iter(CASE_KINDS[kind].faults))
         # What the members share, in the words of a "see also" line: the
         # line link frame such as 2-5, or a cable number.
         self.where = where
@@ -60,10 +67,14 @@ class Case:
         """What its members share, as a see-also line says it."""
         return self.spec.place.format(where=self.where)
 
+    def found(self) -> str:
+        """What the crew that clears it says it found."""
+        return self.spec.faults[self.fault]
+
     def out(self) -> Dict[str, Any]:
         """Write the case for the save."""
         return {'ident': self.ident, 'kind': self.kind, 'where': self.where,
-                'due': list(self.due), 'members': list(self.members),
+                'fault': self.fault, 'due': list(self.due), 'members': list(self.members),
                 'cleared': self.cleared, 'opened': self.opened}
 
     @classmethod
@@ -72,20 +83,22 @@ class Case:
         if stored['kind'] not in CASE_KINDS:
             raise ValueError(f"no such case kind {stored['kind']!r}")
         case = cls(str(stored['ident']), stored['kind'],
-                   str(stored['where']), [int(m) for m in stored['due']])
+                   str(stored['where']), [int(m) for m in stored['due']],
+                   str(stored.get('fault', '')))
         case.members = [str(number) for number in stored['members']]
         case.cleared = bool(stored['cleared'])
         case.opened = bool(stored['opened'])
         return case
 
 
-def plan(tour: int, seen: List[str]) -> Optional[Case]:
+def plan(tour: int, seen: List[str], seed: str = '') -> Optional[Case]:
     """
     Decide what, if anything, this tour's trouble is standing behind.
 
     Args:
         tour: Which tour of the career is opening
         seen: The career's ledger of things said once
+        seed: The career's seed, which makes its tours its own
 
     Returns:
         A case with its reports still to come, or None
@@ -93,19 +106,20 @@ def plan(tour: int, seen: List[str]) -> Optional[Case]:
     if tour in MARKER_TOURS and MARKER_LEDGER not in seen:
         kind = 'marker'
     elif (tour >= FIRST_CASE_TOUR
-          and random.Random(f"case:{tour}").random() < CASE_SHARE):
+          and stream(seed, 'case', tour).random() < CASE_SHARE):
         kind = 'dig'
     else:
         return None
-    chance = random.Random(f"{kind}:{tour}")
+    chance = stream(seed, kind, tour)
     spec = CASE_KINDS[kind]
+    fault = chance.choice(list(spec.faults))
     count = chance.randint(*spec.members)
     due = [chance.randint(*spec.window) for _ in range(count)]
     if spec.shared == 'frame':
         where = f"{chance.randint(0, 3)}-{chance.randint(0, 7)}"
     else:
         where = f"{chance.randint(1, 88):04d}"
-    return Case(f"CASE-{tour}-{kind}", kind, where, due)
+    return Case(f"CASE-{tour}-{kind}", kind, where, due, fault)
 
 
 def arrivals(desk: 'ReportDesk', shift_minutes: int, now: datetime,
@@ -134,7 +148,7 @@ def _deal(desk: 'ReportDesk', case: Case, now: datetime,
     line records and not only in a list somebody keeps.
     """
     spec = case.spec
-    report = desk.receive(now, slack_minutes, fault=spec.fault)
+    report = desk.receive(now, slack_minutes, fault=case.fault)
     record = report.record
     if spec.shared == 'frame':
         # The line link frame is the first two places of the equipment
@@ -223,7 +237,7 @@ def clear(desk: 'ReportDesk', report: 'TroubleReport', name_fault: bool
         others.append(other.number)
     lines = []
     if name_fault:
-        lines.append(case.spec.found)
+        lines.append(case.found())
     if others:
         lines.append(
             f"That was the cause of {len(others) + 1} reports. "

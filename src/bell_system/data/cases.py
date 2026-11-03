@@ -16,9 +16,9 @@ attendant is shown what other failures bear on a circuit, and that a
 crossbar marker that cannot finish times out and leaves lines that cannot
 complete calls (XB-III; E&O p. 802 [819]).
 
-The simulation's own: that there are two kinds of case here, how many
-reports each throws, when in a tour they arrive, and all of the story
-around Marker 2. The sequence relay, the number 2, the "third trial" and
+The simulation's own: that there are two kinds of case here, which of two or
+three conditions each one turns out to be, how many reports each throws,
+when in a tour they arrive, and all of the story around Marker 2. The sequence relay, the number 2, the "third trial" and
 the eleven seconds are the story's and not the sources': SD_26030-01 has
 none of them (docs/design/source-mining.md section 1), and nothing here
 claims it does.
@@ -31,9 +31,12 @@ class CaseKind(NamedTuple):
     """One sort of shared cause, and everything particular to it."""
 
     key: str
-    # The condition on every member's line. The force that clears the case
-    # is the force that clears this condition (data.trouble.FAULTS).
-    fault: str
+    # The conditions a case of this kind may turn out to be, each with what
+    # the crew that clears it says it found. Every member of one case has the
+    # one condition, drawn when the case is planned. The force that clears
+    # the case is the force that clears it (data.trouble.FAULTS), and a
+    # field finding is the one place a case may say what was wrong.
+    faults: Dict[str, str]
     # What the members have in common: 'frame', the line link frame their
     # line equipment is on, or 'cable'.
     shared: str
@@ -44,9 +47,6 @@ class CaseKind(NamedTuple):
     # arrive between.
     members: Tuple[int, int]
     window: Tuple[int, int]
-    # What the crew that clears it says it found. A field finding is the
-    # one place a case may say what was wrong.
-    found: str
     # Who says what when the third report comes in, and when the cause is
     # cleared. The sender is a key of npc.CRAFT; nothing here tells the
     # player what to do about it.
@@ -57,12 +57,18 @@ class CaseKind(NamedTuple):
 
 CASE_KINDS: Dict[str, CaseKind] = {
     'marker': CaseKind(
-        key='marker', fault='FCG', shared='frame',
+        key='marker', shared='frame',
+        faults={
+            'FCG': 'Marker 2 in aisle 4 has failed outright and was timing '
+                   'out on every call it took. It is busied out and the '
+                   'other marker has the frame.',
+            'CO_EQUIP': 'Marker 2 in aisle 4 has failed outright and was '
+                        'timing out on every call it took, and the line '
+                        'link appearances it was holding are fouled. It is '
+                        'busied out and the other marker has the frame.',
+        },
         place='line link frame {where}',
         members=(3, 5), window=(25, 170),
-        found='Marker 2 in aisle 4 has failed outright and was timing out '
-              'on every call it took. It is busied out and the other marker '
-              'has the frame.',
         sender='rjohnson',
         opened=("That frame is in my aisle. Marker 2 took eleven seconds on",
                 "a third trial this morning, and I have three off the one",
@@ -71,15 +77,26 @@ CASE_KINDS: Dict[str, CaseKind] = {
                 "Two years I have been saying it."),
     ),
     'dig': CaseKind(
-        key='dig', fault='OPEN', shared='cable',
+        key='dig', shared='cable',
+        # All three are loop trouble from a cable hit on the route, and the
+        # force that clears each is Outside plant, not the sheath splicers:
+        # a cable that is cut or crushed is not a wet one.
+        faults={
+            'OPEN': 'A trench crew has cut the cable and the pairs were '
+                    'hanging in the ditch. Joined up and closed.',
+            'SHORT': 'A trench crew has crushed the cable under a bucket '
+                     'and the pairs were touching. Cut out, joined up and '
+                     'closed.',
+            'GROUND': 'A trench crew has torn the sheath off the cable and '
+                      'bare pairs were lying in the wet ditch. Joined up '
+                      'and closed.',
+        },
         place='cable {where}',
         members=(3, 4), window=(30, 150),
-        found='A trench crew has cut the cable and the pairs were hanging in '
-              'the ditch. Spliced and closed.',
         sender='lokafor',
         opened=("Somebody is digging on the route. I can hear the machine",
                 "from here."),
-        closed=("Spliced and closed. They did not call it in.",
+        closed=("Joined up and closed. They did not call it in.",
                 "They never do."),
     ),
 }

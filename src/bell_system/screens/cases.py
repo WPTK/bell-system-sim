@@ -8,7 +8,6 @@ which are the player's to say: which cable and which binder group, in the
 words the assignment record uses for them.
 """
 
-import random
 import re
 from typing import List, Optional, Tuple
 
@@ -18,6 +17,7 @@ from ..cable import (
 from ..cases import MARKER_LEDGER, arrivals, case_of, plan
 from ..npc import Message
 from ..plantjobs import find_job, work
+from ..seeding import stream
 from ..reports import DISPATCH_FORCES, TroubleReport, valid_force
 from .session import SessionState
 
@@ -149,7 +149,8 @@ class CaseCommands(SessionState):
         or not; only what arrives later is the case's.
         """
         self._plant_leak()
-        case = plan(self.career.shift, self.career.beats_seen)
+        case = plan(self.career.shift, self.career.beats_seen,
+                    self.career.seed or '')
         # A cause a tour left behind is still a cause while any report of
         # it is open: one right trip clears the run on the next tour as it
         # did on the one it began. It throws no more reports of its own,
@@ -168,11 +169,12 @@ class CaseCommands(SessionState):
         reported, which the contactor will alarm on before a customer does.
         """
         tour = self.career.shift
-        if tour < FIRST_LEAK_TOUR or random.Random(
-                f"leak:{tour}").random() >= LEAK_SHARE:
+        seed = self.career.seed or ''
+        if tour < FIRST_LEAK_TOUR or stream(
+                seed, 'leak', tour).random() >= LEAK_SHARE:
             return
         self.desk.plant.begin_leak(
-            self.clock.now(), random.Random(f"leak-site:{tour}"))
+            self.clock.now(), stream(seed, 'leak-site', tour))
 
     def _case_events(self) -> List[Message]:
         """

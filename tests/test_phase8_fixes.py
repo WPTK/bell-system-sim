@@ -287,3 +287,148 @@ class TestThePressureAlarmOpensAJob:
         fresh = BellSystemTerminal()
         assert save.restore(fresh, captured)
         assert fresh.desk.jobs == []
+
+
+class TestACaseSaysTheForceThatClearsIt:
+    """Its words and its fault agree, whichever of its conditions it is."""
+
+    def test_the_dig_does_not_point_at_the_splicers(self):
+        from bell_system.data.cases import CASE_KINDS
+        spec = CASE_KINDS['dig']
+        words = ' '.join(list(spec.faults.values()) + list(spec.opened)
+                         + list(spec.closed)).lower()
+        assert 'splic' not in words
+
+    def test_every_condition_of_a_kind_is_cleared_by_one_force(self):
+        from bell_system.data.cases import CASE_KINDS
+        from bell_system.data.trouble import FAULTS
+        for spec in CASE_KINDS.values():
+            forces = {FAULTS[fault].dispatch for fault in spec.faults}
+            assert len(forces) == 1, (spec.key, forces)
+
+    def test_the_dig_is_outside_plant_work(self):
+        from bell_system.data.cases import CASE_KINDS
+        from bell_system.data.trouble import FAULTS
+        assert {FAULTS[f].dispatch for f in CASE_KINDS['dig'].faults} == {
+            'Outside plant'}
+
+    def test_each_kind_has_more_than_one_condition(self):
+        from bell_system.data.cases import CASE_KINDS
+        assert all(len(spec.faults) >= 2 for spec in CASE_KINDS.values())
+
+    @pytest.mark.parametrize('fault', ['OPEN', 'SHORT', 'GROUND'])
+    def test_outside_plant_clears_a_dig_of_any_condition(
+            self, terminal, fault):
+        from bell_system.cases import Case
+        terminal.career.shift = 5
+        terminal.desk.depth_limit = 40
+        case = Case('CASE-5-dig', 'dig', '0007', [10, 20, 30], fault)
+        terminal.desk.cases = [case]
+        terminal.shift_minutes = 100
+        terminal._case_events()
+        members = [terminal.desk.reports[n] for n in case.members]
+        assert len(members) == 3
+        assert {m.record.fault for m in members} == {fault}
+        shown = terminal.execute_command(
+            f'report dispatch {members[0].number} outside plant')
+        assert case.cleared, shown
+        assert all(m.sheath_repaired for m in members[1:])
+
+    def test_a_case_saved_before_the_choice_reads_as_it_was(self):
+        from bell_system.cases import Case
+        stored = Case('CASE-5-dig', 'dig', '0007', [10]).out()
+        stored.pop('fault')
+        assert Case.read(stored).fault == 'OPEN'
+        assert Case.read({**stored, 'fault': 'GROUND'}).fault == 'GROUND'
+
+
+class TestACareerIsDealtItsOwnTours:
+    """The case plan, the leaks and the toll counts take the career's seed."""
+
+    def test_the_same_seed_and_tour_deal_the_same_case(self):
+        from bell_system.cases import plan
+        for tour in range(4, 13):
+            first, second = plan(tour, [], 'abc'), plan(tour, [], 'abc')
+            assert (first and first.out()) == (second and second.out())
+
+    def test_two_seeds_deal_different_cases(self):
+        from bell_system.cases import plan
+        dealt = {}
+        for seed in ('one', 'two', 'three', 'four', 'five', 'six'):
+            dealt[seed] = [
+                (case.kind, case.fault, case.where, tuple(case.due))
+                if case else None
+                for case in (plan(t, [], seed) for t in range(4, 13)
+                             if t not in (9, 10))]
+        assert len({tuple(plans) for plans in dealt.values()}) == len(dealt)
+
+    def test_a_dig_is_not_the_same_dig_in_every_career(self):
+        from bell_system.cases import plan
+        digs = set()
+        for seed in range(40):
+            for tour in range(4, 8):
+                case = plan(tour, [], str(seed))
+                if case and case.kind == 'dig':
+                    digs.add((case.fault, case.where))
+        assert len({fault for fault, _ in digs}) == 3
+        assert len({where for _, where in digs}) > 10
+
+    def test_both_kinds_draw_from_more_than_one_condition(self):
+        from bell_system.cases import MARKER_TOURS, plan
+        seen = {'marker': set(), 'dig': set()}
+        for seed in range(60):
+            for tour in (*MARKER_TOURS, 5, 6, 7):
+                case = plan(tour, [], str(seed))
+                if case:
+                    seen[case.kind].add(case.fault)
+        assert len(seen['marker']) == 2 and len(seen['dig']) == 3
+
+    def test_the_leaks_differ_between_careers(self, terminal):
+        sites = set()
+        for seed in range(30):
+            terminal.career.seed = str(seed)
+            terminal.career.shift = 3
+            terminal.desk.plant.sections = [
+                s for s in terminal.desk.plant.sections if not s.latent]
+            terminal._plant_leak()
+            leaking = [s for s in terminal.desk.plant.sections if s.latent]
+            sites.add(tuple((s.cable, s.binder) for s in leaking))
+        assert len(sites) > 3
+
+    def test_the_toll_counts_differ_between_careers(self):
+        from bell_system.data import fraud
+        counts = {tuple(fraud.figures(9, str(seed)).values())
+                  for seed in range(20)}
+        assert len(counts) > 10
+        assert fraud.figures(9, 'a') == fraud.figures(9, 'a')
+
+    def test_a_new_career_is_given_a_seed_and_keeps_it(
+            self, isolated_state, monkeypatch):
+        from bell_system.terminal import BellSystemTerminal
+        monkeypatch.delenv('BELL_SYSTEM_SEED')
+        first = BellSystemTerminal()
+        assert first.career.seed
+        again = BellSystemTerminal()
+        assert again.career.seed == first.career.seed
+
+    def test_two_new_careers_are_given_different_seeds(
+            self, tmp_path, monkeypatch):
+        from bell_system.terminal import BellSystemTerminal
+        monkeypatch.delenv('BELL_SYSTEM_SEED')
+        seeds = set()
+        for name in ('one', 'two', 'three'):
+            monkeypatch.setenv('BELL_SYSTEM_HOME', str(tmp_path / name))
+            seeds.add(BellSystemTerminal().career.seed)
+        assert len(seeds) == 3
+
+    def test_a_career_from_before_is_given_one(self, isolated_state,
+                                               monkeypatch):
+        import json
+        from bell_system.terminal import BellSystemTerminal
+        monkeypatch.delenv('BELL_SYSTEM_SEED')
+        first = BellSystemTerminal()
+        path = first.career.path
+        stored = json.loads(open(path).read())
+        stored.pop('seed')
+        open(path, 'w').write(json.dumps(stored))
+        assert BellSystemTerminal().career.seed

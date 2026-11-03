@@ -21,6 +21,7 @@ from ..data.trouble import (
     NSPMP_WEIGHTS,
 )
 from ..cases import see_also
+from ..seeding import new_seed
 from ..plantjobs import PREFIX as JOB_PREFIX, listing as job_listing
 from ..clock import career_progress
 from ..console import article as _a, sentence_case as _lower, wrap
@@ -106,6 +107,9 @@ class BureauCommands(SessionState):
         # craftsperson turned up at a differently named building every
         # session and every line record they had ever seen belonged to
         # somewhere else.
+        if self.career.seed is None:
+            self.career.seed = new_seed()
+            self.career.save()
         if self.career.office.keys() >= HOME_OFFICE_FIELDS:
             self.home_office = dict(self.career.office)
         else:
