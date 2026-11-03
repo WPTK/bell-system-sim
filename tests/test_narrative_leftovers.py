@@ -6,12 +6,13 @@ temporary one for every test (``isolated_state`` in conftest).
 """
 
 import re
+from datetime import datetime
 
 from bell_system import save
 from bell_system.data.homes import HOMES
 from bell_system.data.tours import TOURS
 from bell_system.field import CREWS
-from bell_system.filesystem import GROUP, NEWS_MISC_88, PASSWD
+from bell_system.filesystem import FILESYSTEM, GROUP, NEWS_MISC_88, PASSWD
 from bell_system.npc import CRAFT, Switchroom
 from bell_system.progression import QUALIFICATIONS
 from bell_system.terminal import BellSystemTerminal
@@ -94,6 +95,38 @@ class TestI8OneTerminalEach:
         listing = terminal.execute_command('ls /dev').split()
         for person in CRAFT.values():
             assert f'tty{person.tty}' in listing, person.login
+
+
+class TestI11MessageIdsRunInDateOrder:
+    """A site numbers its articles as it posts them."""
+
+    def test_each_sites_ids_rise_with_the_dates(self):
+        posted = []
+        for path, node in FILESYSTEM.items():
+            if path.startswith('/usr/spool/news/') and not node.is_dir:
+                text = node.content
+                ident = re.search(r'^Message-ID: <(\d+)@(\w+)\.UUCP>$', text,
+                                  re.M)
+                date = re.search(r'^Date: (.+) EST$', text, re.M)
+                assert ident and date, path
+                stamp = datetime.strptime(date.group(1), '%A, %d-%b-%y %H:%M:%S')
+                posted.append((ident.group(2), int(ident.group(1)), stamp))
+        for tour in TOURS:
+            if tour.news is not None:
+                item = tour.news
+                serial = int(item.message_id[1:].split('@')[0])
+                posted.append((item.posting, serial, item.posted))
+        assert len(posted) > 15
+        for site in {site for site, _, _ in posted}:
+            ordered = sorted((serial, stamp) for s, serial, stamp in posted
+                             if s == site)
+            stamps = [stamp for _, stamp in ordered]
+            assert stamps == sorted(stamps), (site, ordered)
+
+    def test_the_references_point_at_an_earlier_id(self):
+        text = FILESYSTEM['/usr/spool/news/net.sources/44'].content
+        assert 'References: <44@mhuxco.UUCP>' in text
+        assert 'Message-ID: <45@mhuxco.UUCP>' in text
 
 
 class TestI9SandovalsOldAccount:

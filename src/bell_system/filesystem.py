@@ -1276,7 +1276,7 @@ NEWS_NEWS_51 = _article(
     'hgillam@cbosgd.uucp (H Gillam)',
     'net.news',
     'Reply paths stay in reply format until January 1',
-    '<1140@cbosgd.UUCP>', 'Tuesday, 8-Nov-83 14:07:52 EST',
+    '<1107@cbosgd.UUCP>', 'Tuesday, 8-Nov-83 14:07:52 EST',
     """The Path line is not documentation. Until the first of January it has
 to be something you could hand to uux and have arrive, which means
 host!host!host!user with no gaps and no editorialising in the middle.
@@ -1390,7 +1390,7 @@ NEWS_GAMES_17 = _article(
     'lokafor@mhuxco.uucp (L Okafor)',
     'net.games',
     'Re: moo strategy, and a scoreboard that lies',
-    '<46@mhuxco.UUCP>', 'Wednesday, 9-Nov-83 23:37:41 EST',
+    '<42@mhuxco.UUCP>', 'Wednesday, 9-Nov-83 23:37:41 EST',
     """> Is there a way to do it in five every time?
 
 No, but there is a way to stop doing it in eleven.
