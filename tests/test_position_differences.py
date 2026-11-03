@@ -3258,3 +3258,11 @@ class TestTheLeftoversFromPhaseNine:
         assert set(save.TICKET_KEYS) <= set(made)
         assert set(made) - set(save.TICKET_KEYS) <= {
             'resolution_time', 'actual_duration'}
+
+    def test_the_man_page_says_the_noc_refuses_an_untaken_ticket(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        text = MAN_PAGES['trouble']
+        rows = text.split('\n')
+        at = next(i for i, row in enumerate(rows)
+                  if row.lstrip().startswith('resolve ID'))
+        assert 'taken' in ' '.join(rows[at:at + 2])
