@@ -82,6 +82,29 @@ class PositionCommands(SessionState):
         self.position = get_position(role_key)
         self.desk.fault_bias = dict(self.position.fault_bias)
         self.desk.depth_limit = self.board_depth()
+        if self.position.key == 'noc':
+            self._count_triage()
+
+    _triage_counted = False
+
+    def _count_triage(self) -> None:
+        """
+        Open the NOC's windows with the tour, and put them on the index.
+
+        A ticket nobody is on past its window is the NOC's version of a
+        report left open past its commitment, and the service index already
+        counts those through career.open_overdue. Adding the tickets to
+        that count is what makes ignoring the queue cost something without
+        anyone looking, and the handoff already prints the result.
+        """
+        queue: Any = self  # The ticket commands, mixed into the same class.
+        queue.triage_book()
+        if self._triage_counted:
+            return
+        self._triage_counted = True
+        reports = self.career.open_overdue
+        self.career.open_overdue = (
+            lambda: reports() + len(queue.triage_overdue()))
 
     def board_depth(self) -> int:
         """
@@ -409,9 +432,8 @@ def _tickets_worked(terminal: Any) -> Tuple[str, str]:
 
 def _tickets_past_window(terminal: Any) -> Tuple[str, str]:
     """Tickets whose triage window closed with nobody on them."""
-    terminal.triage_queue()  # Looking is when a passed window is noticed.
     return ('tickets past their response window',
-            str(len(terminal.triage_book()['lapsed'])))
+            str(terminal.triage_lapsed()))
 
 
 def _customers_rang_back(terminal: Any) -> Tuple[str, str]:

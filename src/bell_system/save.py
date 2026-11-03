@@ -308,6 +308,7 @@ def capture(terminal: Any) -> Dict[str, Any]:
             'assigned_tickets': sorted(terminal._assigned_tickets),
             'tour_desk_start': terminal._tour_desk_start,
             'board_reviewed': terminal._board_reviewed,
+            'triage': terminal.triage_state(),
         },
     }
 
@@ -382,6 +383,9 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     # been worked, which is the kinder way to be wrong about a resumed shift.
     terminal._tour_desk_start = tour.get('tour_desk_start', 0)
     terminal._board_reviewed = tour.get('board_reviewed', True)
+    # The NOC's windows. The ticket pool is dealt again on a resume, so what
+    # the book has not seen opens from now; see restore_triage.
+    terminal.restore_triage(tour.get('triage'))
     return True
 
 

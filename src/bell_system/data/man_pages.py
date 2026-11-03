@@ -4399,7 +4399,10 @@ TRIAGE
      Windows run on the shift clock, which moves with what you type and
      what you run, and not with a stopwatch. They open with the tour:
      CRITICAL 15 minutes, MAJOR 30, MINOR 60. A ticket nobody is on when
-     its window closes goes up a level of escalation. The calls cost 6,
+     its window closes goes up a level of escalation, and it counts as a
+     missed commitment on the service index whether or not you looked:
+     one taken late counts when you take it, one still waiting counts at
+     the handoff. The first tour is a grace throughout. The calls cost 6,
      4 and 2 minutes. These figures are the simulation's own. Reading a
      ticket costs a minute too, so the order you read in is part of it.
 """
