@@ -352,6 +352,10 @@ class SessionState:
         """Let shift minutes go by that nobody spent on a report."""
         raise NotImplementedError
 
+    def _advance_shift(self) -> List[str]:
+        """Charge the shift for the work just done and fire what is due."""
+        raise NotImplementedError
+
     def generate_shift_events(self) -> None:
         """Build the schedule of events this tour will bring due."""
         raise NotImplementedError

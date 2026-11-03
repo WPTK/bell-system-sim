@@ -202,7 +202,8 @@ POSITIONS: Dict[str, Position] = {
                'customers_rang_back'),
         verb='trouble advise',
         pressure='Customers holding: each one rings again after a wait '
-                 'that runs on the shift clock.',
+                 'that runs on the shift clock, and a third ring counts '
+                 'as a missed commitment.',
     ),
 
     'radio': Position(

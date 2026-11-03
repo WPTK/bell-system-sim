@@ -15,7 +15,7 @@ import random
 import statistics
 from collections import Counter
 from contextlib import redirect_stdout
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -42,6 +42,15 @@ from bell_system.special_services import (
 from bell_system.terminal import BellSystemTerminal
 
 SHIFT_START = datetime(1983, 11, 14, 8, 0)
+
+
+def skew_the_wall_clock(terminal, monkeypatch, hours=9):
+    """Make the session clock run hours ahead, as a long lunch would."""
+    real = terminal.clock.now
+    monkeypatch.setattr(terminal.clock, 'now',
+                        lambda: real() + timedelta(hours=hours))
+
+
 ROLE_KEYS = [key for key, _ in BELL_SYSTEM_ROLES.values()]
 
 
@@ -597,13 +606,12 @@ class TestTheNocQueue:
         assert terminal.triage_lapsed() == 0
 
     def test_the_clock_is_the_shift_clock_and_not_the_wall_clock(
-            self, at_desk):
+            self, at_desk, monkeypatch):
         """Anti-pillar: no outcome turns on how fast anybody types."""
-        from datetime import timedelta
         terminal = at_desk('noc')
         (critical,) = put_tickets(terminal, ('CRITICAL', 900))
         due = terminal.triage_due(critical)
-        terminal.clock._session_start -= timedelta(hours=9)
+        skew_the_wall_clock(terminal, monkeypatch)
         terminal.triage_sweep()
         assert terminal.triage_due(critical) == due
         assert critical['escalation_level'] == 1
@@ -859,11 +867,10 @@ class TestTheOutageClock:
         terminal.execute_command(f'sarts test {circuit.circuit_id}')
         assert circuit.out_minutes == 0
 
-    def test_it_is_the_shift_clock_and_not_the_wall_clock(self, at_desk):
-        from datetime import timedelta
+    def test_it_is_the_shift_clock_and_not_the_wall_clock(self, at_desk, monkeypatch):
         terminal = at_desk('sarts')
         circuit = failing_circuit(terminal)
-        terminal.clock._session_start -= timedelta(hours=9)
+        skew_the_wall_clock(terminal, monkeypatch)
         terminal.execute_command('sarts trouble')
         assert out_now(terminal, circuit) <= 2
 
@@ -897,7 +904,8 @@ def hold(terminal, *waits):
     Put customers on hold with known waits, and return their reports.
 
     Each wait is (out of service, shift minutes already waited). The
-    reports are the board's own; only their fault and elapsed time are set.
+    reports are the board's own; only their fault, elapsed time and what
+    has been learned about them are set, and the book starts empty.
     """
     while len(terminal.desk.customers()) < len(waits):
         terminal.desk.receive(terminal.clock.now())
@@ -910,18 +918,27 @@ def hold(terminal, *waits):
         report.record.fault = 'OPEN' if out else 'NONE'
         report.minutes_spent = waited
         report.tested = False
+        report.found = None
+        report.field_finding = None
         report.dispatched_to = None
+        report.crew = None
         report.test_notes = []
-    terminal.patience_book()['told'].clear()
+    terminal._patience_book = None
     return chosen
+
+
+def ring_messages(terminal):
+    """The attendant's ring notices on the log."""
+    return [m for m in terminal.switchroom.log if m.kind == 'ring']
 
 
 class TestTheRepairDeskHolds:
     """
     The repair desk's customers ring again, and advise is the answer.
 
-    Reading pays: a report that has been tested gives the desk something
-    to say, and a call with nothing to say costs more and settles less.
+    Reading pays: a report with a finding or a crew out gives the desk
+    something to say, and a call with nothing to say costs more and settles
+    less.
     """
 
     def test_the_verb_is_the_repair_desks_alone(self, at_desk):
@@ -933,8 +950,11 @@ class TestTheRepairDeskHolds:
             assert 'Customer Service Interface' in output, role
 
     def test_the_other_trouble_verbs_are_not_taken_from_anyone(self, at_desk):
-        output = at_desk('noc').execute_command('trouble list')
-        assert 'not at this position' not in output
+        # Pinned: only advise is the repair desk's. The rest of the verb
+        # stays open at every desk, this one included.
+        for role in ('noc', 'custserv'):
+            output = at_desk(role).execute_command('trouble list')
+            assert 'not at this position' not in output, role
 
     def test_a_line_out_of_service_rings_sooner(self, at_desk):
         terminal = at_desk('custserv')
@@ -963,11 +983,10 @@ class TestTheRepairDeskHolds:
             self, at_desk):
         terminal = at_desk('custserv')
         (down,) = hold(terminal, (True, 45))  # Two rings.
-        down.tested = True
-        down.test_notes = ['loop reads open at the pair']
+        down.field_finding = 'OPEN'
         before = terminal.shift_minutes
         output = terminal.execute_command(f'trouble advise {down.number}')
-        assert 'loop reads open at the pair' in output
+        assert 'it has been found: OPEN.' in output
         spent = terminal.shift_minutes - before
         assert spent >= 3 + 2 * 2
         assert terminal.patience(down)[0] == 0
@@ -979,7 +998,7 @@ class TestTheRepairDeskHolds:
         before = terminal.shift_minutes
         output = terminal.execute_command(f'trouble advise {down.number}')
         assert 'nothing to tell' in output
-        assert f'report test {down.number}' in output
+        assert 'report next' in output
         assert terminal.shift_minutes - before >= 3 + 2 * 1 + 3
         # Thirty minutes and the eight-minute call: half of 38 is still owed.
         assert terminal.patience_book()['told'][down.number] == 38 - 19
@@ -1003,11 +1022,18 @@ class TestTheRepairDeskHolds:
         assert 'no customer holding' in output
         assert terminal.shift_minutes - before <= 1
 
-    def test_it_is_the_shift_clock_and_not_the_wall_clock(self, at_desk):
-        from datetime import timedelta
+    def test_a_customer_is_found_by_the_number_they_rang_from(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 20))
+        telephone = down.record.telephone_number
+        output = terminal.execute_command(f'trouble advise {telephone}')
+        assert f'{down.number}: rang {telephone}' in output
+
+    def test_it_is_the_shift_clock_and_not_the_wall_clock(
+            self, at_desk, monkeypatch):
         terminal = at_desk('custserv')
         (down,) = hold(terminal, (True, 5))
-        terminal.clock._session_start -= timedelta(hours=9)
+        skew_the_wall_clock(terminal, monkeypatch)
         assert terminal.patience(down)[0] == 0
 
     def test_a_passing_shift_is_what_brings_the_ring(self, at_desk):
@@ -1023,10 +1049,13 @@ class TestTheRepairDeskHolds:
         terminal.career.shift = 1
         terminal.career.reports_closed = 0
         assert terminal.patience(down)[0] == 0
+        assert terminal.ring_sweep() == []
+        assert terminal.career.missed_commitments == 0
 
     def test_the_tally_keeps_a_ring_when_the_report_closes(self, at_desk):
         terminal = at_desk('custserv')
         (down,) = hold(terminal, (True, 45))
+        terminal.execute_command('trouble list')  # The clock moves; they ring.
         rows = dict(terminal.position_tally())
         assert rows['customer ringbacks'] == '2'
         down.status = 'CLOSED'
@@ -1038,6 +1067,225 @@ class TestTheRepairDeskHolds:
         hold(terminal, (True, 45), (False, 10))
         output = terminal.execute_command('trouble advise')
         assert max(len(line) for line in output.split('\n')) <= 74
+
+
+class TestTheRepairDeskCostsTheIndex:
+    """
+    A customer left holding costs something, whether or not anyone looks.
+
+    The clock moving is what rings them: the attendant says so on the next
+    prompt, and a third ring is a missed commitment through the same path a
+    late report takes.
+    """
+
+    def test_a_ring_is_said_without_anyone_looking(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 15))
+        assert ring_messages(terminal) == []
+        terminal._pass_time(10)
+        terminal.ring_sweep()
+        (message,) = ring_messages(terminal)
+        assert message.about == down.number
+        assert 'ring 1' in ' '.join(message.lines)
+        assert 'second call' not in ' '.join(message.lines)
+
+    def test_the_notice_comes_with_the_next_prompt(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 15))
+        terminal._pass_time(10)
+        pieces = terminal._advance_shift()
+        assert any(down.number in piece for piece in pieces)
+
+    def test_a_ring_is_counted_once(self, at_desk):
+        terminal = at_desk('custserv')
+        hold(terminal, (True, 15))
+        terminal._pass_time(10)
+        terminal.ring_sweep()
+        terminal.ring_sweep()
+        assert len(ring_messages(terminal)) == 1
+        assert terminal.rings_total() == 1
+
+    def test_the_third_ring_is_one_missed_commitment(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        before = terminal.career.missed_commitments
+        terminal._pass_time(40)
+        terminal.ring_sweep()
+        assert terminal.career.missed_commitments == before
+        terminal._pass_time(25)
+        terminal.ring_sweep()
+        assert terminal.career.missed_commitments == before + 1
+        assert 'writing in' in ' '.join(ring_messages(terminal)[-1].lines)
+        terminal._pass_time(500)
+        terminal.ring_sweep()
+        assert terminal.career.missed_commitments == before + 1
+        assert terminal.patience(down)[0] == 3
+
+    def test_a_clock_skipping_straight_to_three_still_costs_once(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        hold(terminal, (True, 0))
+        before = terminal.career.missed_commitments
+        terminal._pass_time(500)
+        terminal.ring_sweep()
+        assert terminal.career.missed_commitments == before + 1
+        assert terminal.rings_total() == 3
+
+    def test_the_cost_runs_through_the_command_prompt(self, at_desk):
+        terminal = at_desk('custserv')
+        hold(terminal, (True, 0))
+        before = terminal.career.missed_commitments
+        terminal._pass_time(500)
+        terminal.execute_command('trouble list')
+        assert terminal.career.missed_commitments == before + 1
+        assert len(terminal.patience_book()['missed']) == 1
+
+    def test_a_call_in_time_is_a_cost_not_paid(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        down.field_finding = 'OPEN'
+        terminal._pass_time(50)
+        terminal.execute_command(f'trouble advise {down.number}')
+        terminal._pass_time(10)
+        terminal.ring_sweep()
+        assert terminal.career.missed_commitments == 0
+
+    def test_other_desks_have_no_customers_to_ring(self, at_desk):
+        terminal = at_desk('noc')
+        terminal._pass_time(600)
+        before = terminal.career.missed_commitments
+        assert terminal.ring_sweep() == []
+        assert ring_messages(terminal) == []
+        assert terminal.career.missed_commitments == before
+
+    def test_the_first_tour_is_never_charged(self, at_desk):
+        terminal = at_desk('custserv')
+        hold(terminal, (True, 0))
+        terminal.career.shift = 1
+        terminal.career.reports_closed = 0
+        terminal._pass_time(600)
+        late = terminal.career.missed_commitments
+        terminal.ring_sweep()
+        assert terminal.career.missed_commitments == late
+        assert terminal.patience_book()['missed'] == []
+        assert ring_messages(terminal) == []
+
+
+class TestTheRepairDeskBookIsHonest:
+    """What the review found: saved, per tour, read only, finding first."""
+
+    def test_a_new_tour_is_a_new_book(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 10))
+        terminal.patience_book()['told'][down.number] = 10
+        terminal.patience_book()['rings'][down.number] = 2
+        terminal.career.shift += 1
+        book = terminal.patience_book()
+        assert book['tour'] == terminal.career.shift
+        assert book['told'] == {} and book['rings'] == {}
+        assert terminal.rings_total() == 0
+
+    def test_looking_does_not_change_who_rang(self, at_desk):
+        terminal = at_desk('custserv')
+        hold(terminal, (True, 500), (False, 100))
+        terminal.ring_sweep()
+        before = terminal.patience_state()
+        terminal.patience_queue()
+        terminal.rings_total()
+        terminal.position_tally()
+        terminal.patience(terminal.desk.customers()[0])
+        terminal.execute_command('trouble advise')
+        assert terminal.patience_state()['rings'] == before['rings']
+        assert terminal.patience_state()['seen'] == before['seen']
+
+    def test_a_test_alone_is_nothing_yet(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 45))
+        down.tested = True
+        down.test_notes = ['loop reads open at the pair']
+        output = terminal.execute_command('trouble advise')
+        assert 'nothing yet' in output
+        before = terminal.patience_book()['told'].get(down.number, 0)
+        said = terminal.execute_command(f'trouble advise {down.number}')
+        assert 'nothing to tell' in said
+        assert terminal.patience_book()['told'][down.number] > before
+
+    def test_a_finding_or_a_crew_is_a_status(self, at_desk):
+        terminal = at_desk('custserv')
+        found, sent = hold(terminal, (True, 10), (True, 10))
+        found.field_finding = 'OPEN'
+        sent.dispatched_to = 'splicer'
+        output = terminal.execute_command('trouble advise')
+        assert output.count('status') >= 2
+        assert 'nothing yet' not in output
+
+
+class TestTheRepairDeskAcrossAResume:
+    """The book is saved with the tour, so a resume does not ring at once."""
+
+    def capture(self, terminal):
+        import json
+        from bell_system import save
+        return json.loads(json.dumps(save.capture(terminal)))
+
+    def resumed(self, terminal, captured):
+        from bell_system import save
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        fresh.take_position('custserv')
+        assert save.restore(fresh, captured)
+        return fresh
+
+    def test_a_call_made_before_the_save_still_counts(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 60))
+        down.field_finding = 'OPEN'
+        terminal.execute_command(f'trouble advise {down.number}')
+        told = terminal.patience_book()['told'][down.number]
+        fresh = self.resumed(terminal, self.capture(terminal))
+        back = fresh.patience_book()
+        assert back['tour'] == terminal.career.shift
+        assert back['told'] == terminal.patience_book()['told']
+        assert back['told'][down.number] == told
+        # No instant rings on the first command after the resume.
+        before = fresh.career.missed_commitments
+        fresh.execute_command('trouble list')
+        assert fresh.rings_total() == 0
+        assert fresh.career.missed_commitments == before
+
+    def test_rings_already_made_are_not_made_again(self, at_desk):
+        terminal = at_desk('custserv')
+        hold(terminal, (True, 0))
+        terminal._pass_time(500)
+        terminal.ring_sweep()
+        missed = terminal.career.missed_commitments
+        captured = self.capture(terminal)
+        fresh = self.resumed(terminal, captured)
+        fresh.career.missed_commitments = missed
+        fresh.ring_sweep()
+        assert fresh.career.missed_commitments == missed
+        assert fresh.rings_total() == 3
+
+    def test_no_record_damaged_or_other_tour_forgives_the_wait(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        hold(terminal, (True, 400))
+        for junk in (None, 7, 'x', {'tour': 99, 'told': {}},
+                     {'tour': terminal.career.shift + 1, 'told': {}}):
+            captured = self.capture(terminal)
+            if junk is None:
+                del captured['tour']['patience']
+            else:
+                captured['tour']['patience'] = junk
+            fresh = self.resumed(terminal, captured)
+            before = fresh.career.missed_commitments
+            fresh.execute_command('trouble list')
+            customers = fresh.desk.customers()
+            assert customers, junk
+            for report in customers:
+                assert fresh.patience(report)[0] == 0, junk
+            assert fresh.career.missed_commitments == before, junk
 
 
 def reading_costs(loop):
@@ -1299,11 +1547,10 @@ class TestTheOutageCostsTheIndex:
                                  f'premises')
         assert terminal.outages_overdue() == 1
 
-    def test_it_is_the_shift_clock_and_not_the_wall_clock(self, at_desk):
-        from datetime import timedelta
+    def test_it_is_the_shift_clock_and_not_the_wall_clock(self, at_desk, monkeypatch):
         terminal = at_desk('sarts')
         failing_circuit(terminal)
-        terminal.clock._session_start -= timedelta(hours=9)
+        skew_the_wall_clock(terminal, monkeypatch)
         assert terminal.outages_overdue() == 0
 
     def test_the_handoff_counts_what_ran_past(self, at_desk):

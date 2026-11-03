@@ -310,6 +310,7 @@ def capture(terminal: Any) -> Dict[str, Any]:
             'board_reviewed': terminal._board_reviewed,
             'triage': terminal.triage_state(),
             'sarts': terminal.special_services.state(),
+            'patience': terminal.patience_state(),
         },
     }
 
@@ -387,6 +388,8 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     # The NOC's windows. The ticket pool is dealt again on a resume, so what
     # the book has not seen opens from now; see restore_triage.
     terminal.restore_triage(tour.get('triage'))
+    # The repair desk's customers, and what they have been told.
+    terminal.restore_patience(tour.get('patience'))
     # The special services inventory is dealt again as well, and the desk is
     # not chosen yet when a shift loads. The saved circuits go back, and the
     # outage clock starts from now.
