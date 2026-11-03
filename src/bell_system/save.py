@@ -190,6 +190,8 @@ def _report_out(report: TroubleReport) -> Dict[str, Any]:
     written['sighting'] = report.sighting
     written['frame_looked_up'] = report.frame_looked_up
     written['first_dispatch_judged'] = report.first_dispatch_judged
+    written['clears_after'] = report.clears_after
+    written['clears_at'] = report.clears_at
     written['record'] = _record_out(report.record)
     written['received'] = _stamp(report.received)
     written['commitment'] = _stamp(report.commitment)
@@ -232,6 +234,10 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     # before is taken to have had its first dispatch if it ever had a crew.
     report.first_dispatch_judged = stored.get(
         'first_dispatch_judged', stored.get('dispatched_to') is not None)
+    # Written since trouble could go by itself. A report from before is
+    # the usual kind, which stays until it is fixed.
+    report.clears_after = stored.get('clears_after')
+    report.clears_at = stored.get('clears_at')
     # Nor were overdue reports flagged while they were open. Left alone,
     # the first age() after loading would find every one of them late at
     # once and answer with a burst of misses and escalations for lateness

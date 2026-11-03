@@ -110,6 +110,21 @@ CONTROLS: Dict[str, Tuple[float, int]] = {
     'reroute': (0.7, 8),
 }
 
+# Trouble that comes and goes. Three of the loop faults are the kind a
+# customer can report and a test an hour later cannot find: a ground or a
+# cross that moves with the weather or a swinging drop, foreign voltage that
+# stops when the neighbour's equipment does. A share of those reports are
+# dealt as transient, and what makes one is the report number, not the dice
+# the board is dealt from, so that giving the desk this changes no seeded
+# board. The condition is there until it has been tested and then goes of
+# its own accord somewhere inside the window, counted in the report's own
+# elapsed minutes from the first test. The share and the window are the
+# simulation's own working figures (SOURCES.md): E&O attests that trouble
+# can clear before it is found, not how often or how fast.
+TRANSIENT_FAULTS = ('GROUND', 'CROSS', 'FEMF')
+TRANSIENT_SHARE = 0.25
+TRANSIENT_WINDOW = (20, 50)
+
 # Reports open at the start of a shift, and the most that may be open at once.
 OPENING_BACKLOG = (3, 5)
 MAX_PENDING = 9
@@ -118,6 +133,22 @@ STATUS_PENDING = 'PEND'
 STATUS_TESTED = 'TESTED'
 STATUS_DISPATCHED = 'DISP'
 STATUS_CLOSED = 'CLOSED'
+
+
+def transient_after(number: str, fault: str) -> Optional[int]:
+    """
+    Return how long after its first test a report's trouble clears, or None.
+
+    None is nearly always the answer: the trouble stays until it is fixed.
+    Decided from the report number alone, so it is the same every time it
+    is asked and takes nothing from the generator the board is dealt from.
+    """
+    if fault not in TRANSIENT_FAULTS:
+        return None
+    chance = random.Random(f"{number}:transient")
+    if chance.random() >= TRANSIENT_SHARE:
+        return None
+    return chance.randint(*TRANSIENT_WINDOW)
 
 
 def hours_minutes(minutes: int) -> str:
@@ -262,6 +293,13 @@ class TroubleReport:
         # The sign-off whose practical this report was staged for. Such a
         # report is never the customer's: it is not closed, it is handed in.
         self.practical: Optional[str] = None
+        # Trouble that goes by itself: minutes after the first test that it
+        # does (None for the usual kind), and the elapsed minute it will go
+        # at, which is only known once somebody has tested it. When the
+        # minute comes the line's condition becomes NONE, and everything
+        # that reads the condition reads the new one.
+        self.clears_after: Optional[int] = None
+        self.clears_at: Optional[int] = None
 
     # -- derived ---------------------------------------------------------
 
@@ -295,6 +333,19 @@ class TroubleReport:
         """
         self.minutes_spent += minutes
         self.desk_minutes += minutes if desk is None else desk
+        self._settle()
+
+    def arm(self) -> None:
+        """Start the clock on trouble that goes by itself, at the first test."""
+        if self.clears_after is not None and self.clears_at is None:
+            self.clears_at = self.minutes_spent + self.clears_after
+
+    def _settle(self) -> None:
+        """Let trouble that was going to clear clear, once its time is up."""
+        if self.clears_at is not None and self.minutes_spent >= self.clears_at:
+            self.record.fault = 'NONE'
+            self.clears_at = None
+            self.clears_after = None
 
     def age(self, minutes: int) -> None:
         """
@@ -305,6 +356,7 @@ class TroubleReport:
         your own desk time alone, which is what spend() is for.
         """
         self.minutes_spent += minutes
+        self._settle()
 
     def age_label(self) -> str:
         """Return the time remaining, or how far past commitment it is."""
@@ -574,6 +626,8 @@ class ReportDesk:
             commitment=self._commitment(condition, now, slack_minutes),
             repeat_of=repeat_of,
         )
+        if fault is None and record is None and drawn is None:
+            report.clears_after = transient_after(report.number, condition)
         self.reports[report.number] = report
         self.order.append(report.number)
         if condition == 'WET':
@@ -716,6 +770,7 @@ class ReportDesk:
         report.test_notes.append(note)
         if report.status == STATUS_PENDING:
             report.status = STATUS_TESTED
+        report.arm()
         report.spend(minutes)
 
     def dispatch(self, report: TroubleReport, force: str,
@@ -809,6 +864,9 @@ class ReportDesk:
         report.dispatched_to = force
         report.crew = crew.name
         report.travel_minutes = travel
+        # A crew that went to trouble that was there has cleared it; it
+        # does not then go by itself between the repair and the close.
+        report.clears_at = report.clears_after = None
         # The repair and the drive are the field force's time, not yours,
         # but both run against the customer's commitment.
         report.spend(repair + travel + COST_DISPATCH, desk=COST_DISPATCH)
@@ -891,6 +949,10 @@ class ReportDesk:
         Returns:
             Whether the report was closed correctly
         """
+        # The line is judged as it was when the close was made. Nothing
+        # that was going to clear goes between the close and the verdict.
+        report.clears_at = report.clears_after = None
+        truth = report.record.fault
         report.spend(COST_CLOSE)
         report.status = STATUS_CLOSED
         report.disposition = disposition
@@ -901,7 +963,6 @@ class ReportDesk:
         if report.overdue():
             report.missed_commitment = True
 
-        truth = report.record.fault
         if disposition == 8:
             correct = truth == 'NONE'
         else:
