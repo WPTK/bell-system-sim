@@ -86,6 +86,7 @@ from .screens.shell import ShellCommands
 from .screens.switching import SwitchingCommands
 from .screens.testing import TestingCommands
 from .screens.tickets import TicketCommands
+from .screens.triage import TriageCommands
 from .screens.tnds import TndsCommands
 from .screens.toll import TollCommands
 from .screens.tools import ToolCommands
@@ -140,6 +141,7 @@ class BellSystemTerminal(
     TspsCommands,
     TrafficCommands,
     TicketCommands,
+    TriageCommands,
     TrunkCommands,
     TollCommands,
     TestingCommands,
