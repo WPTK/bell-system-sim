@@ -41,7 +41,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from .cable import WetSection
-from .field import Assignment, CREWS
+from .field import Assignment, CREWS, POOL_CREW
 from .filesystem import (
     PLAYER_LIMIT,
     Node,
@@ -50,7 +50,9 @@ from .filesystem import (
     player_changes,
 )
 from .jsonfile import read_json, write_text_atomically
-from .reports import STATUS_CLOSED, LineRecord, ReportDesk, TroubleReport
+from .reports import (
+    CONTROLS, STATUS_CLOSED, LineRecord, ReportDesk, TroubleReport,
+)
 
 # Bumped whenever the shape below changes in a way that makes an older file
 # wrong rather than merely incomplete. An unrecognised version is discarded,
@@ -207,6 +209,7 @@ def _force_out(desk: ReportDesk) -> Dict[str, Any]:
     """Write where every crew is standing and who is out on what."""
     return {
         'at': dict(desk.force.at),
+        'loaned': desk.force.loaned,
         'out': {key: {'report': job.report, 'travel': job.travel,
                       'work': job.work, 'left': job.left}
                 for key, job in desk.force.out.items()},
@@ -215,7 +218,9 @@ def _force_out(desk: ReportDesk) -> Dict[str, Any]:
 
 def _force_in(desk: ReportDesk, stored: Dict[str, Any]) -> None:
     """Read the field force back."""
-    crews = {crew.key: crew for crew in CREWS}
+    crews = {crew.key: crew for crew in (*CREWS, POOL_CREW)}
+    loaned = stored.get('loaned')
+    desk.force.loaned = loaned if isinstance(loaned, str) else None
     desk.force.at = {key: where for key, where in stored['at'].items()
                      if key in crews}
     out = {}
@@ -263,6 +268,7 @@ def capture(terminal: Any) -> Dict[str, Any]:
             'sequence': desk._sequence,
             'closed_count': desk.closed_count,
             'repeat_count': desk.repeat_count,
+            'control': desk.control,
             'regulars': {key: _record_out(record)
                          for key, record in desk._regulars.items()},
         },
@@ -332,6 +338,10 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     desk._sequence = board['sequence']
     desk.closed_count = board['closed_count']
     desk.repeat_count = board['repeat_count']
+    # Absent from a shift saved before there were controls, and not a
+    # control the desk knows is as good as none.
+    control = board.get('control')
+    desk.control = control if control in CONTROLS else None
     desk._regulars = regulars
 
     desk.weather.regime = weather['regime']

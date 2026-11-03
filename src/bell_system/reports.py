@@ -88,6 +88,25 @@ LOAD_MINUTES_PER_PENDING = 25
 # Share of reports on which nothing is actually wrong with the line.
 NO_TROUBLE_SHARE = 0.18
 
+# What each sign-off's verb costs at the desk. Each is cheaper than the
+# truck it saves, which is the reward for holding the sign-off, and dearer
+# than the look that tells you it is needed.
+COST_FRAME_FIX = 15
+COST_OFFICE_CLEAR = 20
+COST_TRUNK_TRACE = 12
+COST_TOLL_CONTROL = 10
+
+# Network management controls a toll sign-off can hold on. Each thins the
+# no-trouble reports that congestion produces (the share is multiplied by
+# the first figure) and shortens, by the second, the commitment on every
+# report that arrives while it is on: the people it kept off the network
+# are the people who ring the bureau. A control is left on until it is
+# taken off, and E&O's own footnote is that they often are.
+CONTROLS: Dict[str, Tuple[float, int]] = {
+    'block': (0.4, 20),
+    'reroute': (0.7, 8),
+}
+
 # Reports open at the start of a shift, and the most that may be open at once.
 OPENING_BACKLOG = (3, 5)
 MAX_PENDING = 9
@@ -324,6 +343,8 @@ class ReportDesk:
         # same LineRecord object every time, so the trouble history piles
         # up on one card the way it did.
         self._regulars: Dict[str, LineRecord] = {}
+        # The network management control left on, if any. See CONTROLS.
+        self.control: Optional[str] = None
 
     # -- generation ------------------------------------------------------
 
@@ -444,7 +465,9 @@ class ReportDesk:
         that sets no bias, this is a flat draw exactly as it always was.
         """
         bias = self.fault_bias
-        if self.rng.random() < min(0.45, NO_TROUBLE_SHARE * bias.get('NONE', 1.0)):
+        relief = CONTROLS[self.control][0] if self.control else 1.0
+        if self.rng.random() < min(
+                0.45, NO_TROUBLE_SHARE * bias.get('NONE', 1.0) * relief):
             return 'NONE'
         if self.rng.random() < min(0.30, 0.07 * bias.get('ROH', 1.0)):
             return 'ROH'
@@ -464,7 +487,9 @@ class ReportDesk:
         base = (OUT_OF_SERVICE_COMMITMENT if fault in OUT_OF_SERVICE_FAULTS
                 else SERVICE_AFFECTING_COMMITMENT)
         load = len(self.pending()) * LOAD_MINUTES_PER_PENDING
-        return received + timedelta(minutes=base + load + slack_minutes)
+        held = CONTROLS[self.control][1] if self.control else 0
+        return received + timedelta(
+            minutes=base + load + slack_minutes - held)
 
     def receive(self, now: datetime, slack_minutes: int = 0,
                 fault: Optional[str] = None,

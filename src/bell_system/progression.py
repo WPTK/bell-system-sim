@@ -258,6 +258,12 @@ class Qualification(NamedTuple):
     requires_reports: int
     # Commands this qualification opens.
     unlocks: tuple
+    # The one thing it lets you do to the board, as typed, and what it does.
+    # The rest of unlocks is screens to read; this is the reward for the
+    # sign-off. Nothing here is gated separately: the command it hangs from
+    # is in unlocks, so the wire chief refuses it until the sign-off is held.
+    verb: str = ''
+    verb_effect: str = ''
 
 
 # Qualification follows the work: your own frame first, then the office, then
@@ -276,6 +282,9 @@ QUALIFICATIONS: List[Qualification] = [
         'centre.',
         requires_reports=1,
         unlocks=('cosmos', 'lmos'),
+        verb='cosmos fix <report>',
+        verb_effect='Clear a jumper or protector fault at the frame, no '
+                    'truck.',
     ),
     Qualification(
         'office', 'Central Office Switching',
@@ -283,6 +292,9 @@ QUALIFICATIONS: List[Qualification] = [
         'diagnostics.',
         requires_reports=2,
         unlocks=('switch', 'alarm', 'crossbar', '3a'),
+        verb='switch clear <report>',
+        verb_effect='Busy out and move a line off bad line equipment: a '
+                    'false cross or ground, cleared from the switch.',
     ),
     Qualification(
         'scc', 'Switching Control Center',
@@ -293,6 +305,9 @@ QUALIFICATIONS: List[Qualification] = [
         # "remote administration of offices from the control centre" and
         # paid out in two commands that stay in your own building.
         unlocks=('sarts', 'orderwire', 'connect'),
+        verb='connect pool <force>',
+        verb_effect='Draw a crew from the control centre pool when '
+                    'yours are out. One a tour, and it starts far away.',
     ),
     Qualification(
         'trunk', 'Interoffice Trunks',
@@ -300,6 +315,10 @@ QUALIFICATIONS: List[Qualification] = [
         'offices.',
         requires_reports=6,
         unlocks=('trunk', 'routing', 'dialtone', 'testcall'),
+        verb='trunk trace <report>',
+        verb_effect='Test the trunks the customer calls take and busy out '
+                    'the bad one, which is what a no-trouble report on '
+                    'calls not completing usually is.',
     ),
     Qualification(
         'toll', 'Toll Network',
@@ -316,6 +335,10 @@ QUALIFICATIONS: List[Qualification] = [
         # ask for the quicker ladder without changing the scoring.
         requires_reports=10,
         unlocks=('toll', 'tnds', 'traffic'),
+        verb='toll control <block|reroute|off>',
+        verb_effect='Hold calls off a congested route to thin the board. '
+                    'It stays on, and what it costs you stays with it, '
+                    'until you take it off.',
     ),
 ]
 

@@ -21,6 +21,8 @@ from ..data.signaling import (
 )
 
 
+from ..reports import CONTROLS, COST_TOLL_CONTROL
+from ..verbs import hold_calls
 from .session import SessionState
 
 
@@ -41,6 +43,8 @@ class TollCommands(SessionState):
         this shows, against the routing engine's own picture of it.
         """
         args = args or []
+        if args and args[0].lower() == 'control':
+            return self._toll_control(args[1:])
         network = self.toll_network
         toll_offices = [office for office in network.offices.values()
                         if office.switch_class <= 4]
@@ -125,10 +129,54 @@ class TollCommands(SessionState):
             '',
             "  toll hierarchy    The homing chain, class by class",
             "  toll load         Trunk group occupancy",
+            "  toll control <block|reroute|off>   Hold calls off a route",
             "  routing trace <from> <to>   Offer a call and follow it",
             "  testcall <from> <to>        Prove a trunk end to end",
         ])
         return '\n'.join(lines)
+    def _toll_control(self, args: List[str]) -> str:
+        """
+        Put a network management control on, or take it off.
+
+        Engineering and Operations lists the manual controls (code blocking,
+        rerouting) and says in a footnote that they "may be applied too
+        slowly and are often left in effect too long". Both halves are
+        here. A control thins the calls that never complete, so the bureau
+        hears from fewer of the people they happen to; it also keeps real
+        customers off the network, and those are the ones who ring the
+        bureau with a shorter patience than before. It stays on until it is
+        taken off, across the tour and the shift file, and the cost of
+        leaving it stays with it.
+        """
+        held = self.desk.control
+        word = args[0].lower() if args else ''
+        if word not in CONTROLS and word != 'off':
+            state = f"{held} is on" if held else "none is on"
+            listing = '\n'.join(
+                f"  {name:<9}no-trouble reports x{relief:g}, commitments "
+                f"{minutes} minutes shorter"
+                for name, (relief, minutes) in CONTROLS.items())
+            return (f"toll control: {state}.\n\n{listing}\n\n"
+                    "  toll control <block|reroute>   put one on\n"
+                    "  toll control off               take it off")
+        if word == 'off' and not held:
+            return "toll control: none is on."
+        if word == held:
+            return f"toll control: {held} is already on."
+        hold_calls(self.desk, word)
+        self._pass_time(COST_TOLL_CONTROL)
+        if word == 'off':
+            return (f"{held} control removed. Calls are being offered to "
+                    f"the route again.\n"
+                    f"{COST_TOLL_CONTROL} minutes charged.")
+        relief, minutes = CONTROLS[word]
+        return (f"{word} control applied. Calls to the route are being "
+                f"held off.\n"
+                f"New no-trouble reports will come at {relief:g} of the "
+                f"rate, and every new report\n"
+                f"will carry a commitment {minutes} minutes shorter until "
+                f"you take it off.\n"
+                f"{COST_TOLL_CONTROL} minutes charged.")
     def cmd_dialtone(self, args: Optional[List[str]] = None) -> str:
         """Call-progress tone reference and dial tone speed testing."""
         args = args or []

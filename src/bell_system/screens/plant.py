@@ -17,7 +17,7 @@ import random
 from typing import Dict, List, NamedTuple, Optional
 
 from ..data.trouble import DISPATCH_FORCES
-from ..field import CREWS, LOCATIONS
+from ..field import LOCATIONS
 from ..reports import hours_minutes
 from ..data.signaling import PROGRESS_TONES
 from ..data.switching import SWITCHING_SYSTEMS
@@ -542,7 +542,7 @@ microwave(1), radio(1), trace(1)
         rows = ["FIELD FORCE", self.clock.timestamp(), '=' * 62, '',
                 f"  {'WHO':<16}{'TITLE':<32}STATE",
                 '  ' + '-' * 60]
-        for crew in CREWS:
+        for crew in force.roster():
             job = force.out.get(crew.key)
             if job is None:
                 state = f"free, {LOCATIONS[force.at[crew.key]].standing}"

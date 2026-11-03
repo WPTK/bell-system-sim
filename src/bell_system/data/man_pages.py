@@ -4271,3 +4271,74 @@ SEE ALSO
      set(1), switch(1), crossbar(1), western(1), company(1)
 """,
 }
+
+
+# The verb each sign-off adds, set down after the page of the command it hangs
+# from. Appended here, and not written into the pages above, so that the
+# list of verbs reads in one place. See bell_system.verbs.
+_VERB_SECTIONS = {
+    "cosmos": """
+QUALIFICATION VERB
+     cosmos fix <report>
+
+     Held with the Main Distributing Frame sign-off. Goes down to the
+     frame and puts right what cosmos jumper showed: a jumper run to the
+     wrong horizontal, a protector unit left operated, a leg off the
+     terminal. The trouble is cleared without a truck, the cross-connect
+     record agrees with the plant afterwards, and the report is ready to
+     close. It costs 15 minutes. On a line with nothing wrong at the frame
+     it costs the 2 minutes of looking and changes nothing.
+""",
+    "switch": """
+QUALIFICATION VERB
+     switch clear <report>
+
+     Held with the Central Office Switching sign-off. Runs a diagnostic on
+     the line equipment of a reported line. A false cross or ground found
+     there is cleared from the switch: the line is busied out and moved to
+     a spare appearance, and the loop is not touched. It costs 20 minutes.
+     A line whose line equipment is clean costs the 2 minutes of looking.
+     Works only on the board of the office you are sitting in.
+""",
+    "connect": """
+QUALIFICATION VERB
+     connect pool <force>
+
+     Held with the Switching Control Center sign-off. The control centre
+     keeps one crew in a pool. This lends it to the wire centre for the
+     rest of the tour as an extra crew for the category you name, for the
+     times everybody who answers that category is already out. It starts
+     at the far end of the district, so the first trip is a long one. One
+     a tour, and it costs 12 minutes to ask for. 'force' shows where the
+     crew is.
+""",
+    "trunk": """
+QUALIFICATION VERB
+     trunk trace <report>
+
+     Held with the Interoffice Trunks sign-off. Tests the trunks the
+     customer's calls take. A line that measures good, whose customer says
+     calls do not complete, often has nothing wrong with it: the calls
+     reached a trunk group with a bad member in it. The trace finds the
+     member, busies it out, and leaves the report with nothing to find. It
+     costs 12 minutes. On any other report the trunks test good, which
+     costs the 2 minutes of looking and is an answer of its own.
+""",
+    "toll": """
+QUALIFICATION VERB
+     toll control <block|reroute|off>
+
+     Held with the Toll Network sign-off. Puts a network management control
+     on, which holds calls off a route. Fewer calls that never complete
+     means fewer no-trouble reports reach the bureau: block cuts them to
+     four in ten of what they were, reroute to seven in ten. It also keeps
+     real customers off the network, and every report that arrives while
+     it is on carries a commitment shorter by 20 minutes for block and 8
+     for reroute. It stays on, through the end of the tour and across a
+     saved shift, until it is taken off with toll control off. Engineering
+     and Operations notes that manual controls are often left in effect
+     too long. It costs 10 minutes to put on and 10 to take off.
+""",
+}
+for _command, _section in _VERB_SECTIONS.items():
+    MAN_PAGES[_command] += _section

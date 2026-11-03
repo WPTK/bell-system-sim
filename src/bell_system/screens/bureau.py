@@ -763,6 +763,10 @@ class BureauCommands(SessionState):
             lines.append(f"  [{mark}] {qualification.name}")
             lines.append(f"      {qualification.description}")
             lines.append(f"      Opens: {', '.join(qualification.unlocks)}")
+            if qualification.verb:
+                lines.append(f"      Adds:  {qualification.verb}")
+                lines.extend(f"             {chunk}" for chunk in
+                             wrap(qualification.verb_effect, 56))
             if not held:
                 needed = (qualification.requires_reports
                           * difficulty.reports_per_qualification

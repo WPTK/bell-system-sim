@@ -208,6 +208,10 @@ class SessionState:
         """Render an affected office for display."""
         raise NotImplementedError
 
+    def _office_clear(self, args: List[str]) -> str:
+        """Clear a false cross or ground from the switch side."""
+        raise NotImplementedError
+
     def _difficulty(self) -> Difficulty:
         """Return the active difficulty profile."""
         raise NotImplementedError

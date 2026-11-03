@@ -71,6 +71,9 @@ class SwitchingCommands(SessionState):
         # Update switching system states
         self._update_switching_states()
 
+        if args and args[0].lower() == 'clear':
+            return self._office_clear(args[1:])
+
         if not args:
             current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
 
@@ -133,7 +136,8 @@ Commands:
   switch diagnostics <id>   Run comprehensive diagnostics
   switch performance <id>   Real-time performance monitoring
   switch maintenance <id>   Maintenance schedule and status
-  switch cutover <id>       Cutover operations (5ESS only)"""
+  switch cutover <id>       Cutover operations (5ESS only)
+  switch clear <report>     Move a line off bad line equipment"""
 
             return status_output
 
