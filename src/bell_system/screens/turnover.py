@@ -368,12 +368,15 @@ this shift and the next one starts on a fresh board."""
                 verdict = 'met' if met else 'missed'
             else:
                 # Unworked time ages the board before the tour is struck, so
-                # nothing is ticked until it is.
+                # nothing is ticked until it is. A blank box would read as
+                # missed, so the preview marks every goal as undecided.
                 met = False
                 verdict = f"so far {counts[goal.metric]}"
-            rows.append(f"  [{'x' if met else ' '}] {goal.text:<46}{verdict}")
+            box = 'x' if met else ('?' if not final else ' ')
+            rows.append(f"  [{box}] {goal.text:<46}{verdict}")
         if not final:
-            rows.append("  Unworked time will still age the board at handoff.")
+            rows.append("  [?] judged at sign-off. Unworked time will still "
+                        "age the board at handoff.")
         return rows
 
     def _goal_section(self, final: bool) -> str:

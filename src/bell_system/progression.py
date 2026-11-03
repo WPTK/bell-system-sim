@@ -209,8 +209,9 @@ ASSISTS: List[Assist] = [
         {'off': 0, 'fade': 4, 'on': ANNOTATE_ALWAYS},
         'Whether the test and the crews keep naming the fault',
         'off prints the numbers and nothing else from the first sighting; '
-        'fade names a fault type for its first four sightings and then '
-        'leaves the reading to you; on never stops.',
+        'fade names a fault type for its first two sightings, the crew class '
+        'for the next two, and then leaves the reading to you; on never '
+        'stops.',
     ),
 ]
 
@@ -316,7 +317,7 @@ def compute_kpis(counts: Mapping[str, int], backlog: int,
             so a tour's own figures leave them out of what it decided
     """
     closed = counts.get('closed', 0)
-    decided = closed - carried_closed + backlog
+    decided = max(0, closed - carried_closed + backlog)
     missed = min(counts.get('missed', 0), decided)
     repairs = counts.get('repairs', 0)
     dispatches = counts.get('dispatches', 0)
@@ -732,8 +733,11 @@ class Career:
         Reports open past commitment that this tour is answerable for.
 
         One that was already past it when the tour opened was charged at the
-        handoff before, and stays charged to that tour; it is the next
-        handoff's to hand over, not this tour's to be scored on a second time.
+        handoff before, and stays charged to that tour; this tour's KPIs and
+        index do not charge it a second time. It is still on the board at
+        the next handoff, though, and :meth:`bank_tour` counts every report
+        then past commitment, carried or not, against "first clean tour":
+        a board handed over late is not a clean one, on purpose.
         """
         still_late = set(self.overdue_numbers())
         carried = sum(1 for number in self.carried_late if number in still_late)
@@ -748,13 +752,15 @@ class Career:
         enough reports for a rate to mean something.
         """
         tour = self.tour_counts()
-        return score_index(tour['closed'], tour['wrong'], tour['repeats'],
-                           tour['missed'], self._tour_backlog(),
-                           self.difficulty)
+        return score_index(tour['closed'] - tour['carried_closed'],
+                           tour['wrong'], tour['repeats'], tour['missed'],
+                           self._tour_backlog(), self.difficulty)
 
     def tour_scored(self) -> bool:
         """Whether the tour has anything yet for its index to be a score of."""
-        return bool(self.tour_counts()['closed'] + self._tour_backlog())
+        tour = self.tour_counts()
+        return bool(tour['closed'] - tour['carried_closed']
+                    + self._tour_backlog())
 
     def tour_provisional(self) -> bool:
         """Whether the tour's index rests on too few closes to be believed."""
@@ -954,7 +960,7 @@ class Career:
         # A record from before the marks existed has no tour to measure
         # from. Its current tour starts here and its totals are not
         # mistaken for one tour's work.
-        if 'tour_mark' not in stored:
+        if not isinstance(stored.get('tour_mark'), dict):
             self.tour_mark = self._counters()
 
         difficulty = stored.get('difficulty')

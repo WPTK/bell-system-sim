@@ -24,7 +24,7 @@ from ..data.trouble import (
 from ..clock import career_progress
 from ..console import article as _a, sentence_case as _lower, wrap
 from ..lmos import LmosConsole
-from ..loop_testing import STAGE_NUMBERS, post_mortem, reading_stage
+from ..loop_testing import names_fault, post_mortem, reading_stage
 from ..npc import (
     Switchroom,
 )
@@ -202,7 +202,9 @@ class BureauCommands(SessionState):
         fault = report.record.fault
         sighting = report.sighting
         if sighting is None:
-            if count:
+            # A practical's report is Halloran's, not a sighting of the
+            # fault for the career, so it never moves the count.
+            if count and not report.practical:
                 sighting = report.sighting = self.career.sight_fault(fault)
             else:
                 sighting = self.career.fault_sightings.get(fault, 0) + 1
@@ -308,7 +310,7 @@ class BureauCommands(SessionState):
     def _show_report_board(self) -> str:
         """Render the pending list, nearest commitment first."""
         self._board_reviewed = True
-        pending = self.desk.pending()
+        pending = self.desk.listing()
         office = self.home_office
         header = (
             f"Repair Service Bureau - Pending Trouble Reports\n"
@@ -363,7 +365,8 @@ class BureauCommands(SessionState):
         """Render one report in full: the line record and everything done to it."""
         report = self.desk.find(token)
         if report is None:
-            return f"report: no report matching '{token}'"
+            return (self.desk.stale_position(token)
+                    or f"report: no report matching '{token}'")
         self._board_reviewed = True
 
         record = report.record
@@ -455,10 +458,13 @@ class BureauCommands(SessionState):
             '-' * 74,
         ]
         for fault in FAULTS.values():
-            lines.append(
-                f"{fault.code:<10} {fault.name:<26} {fault.where:<9} "
-                f"{fault.dispatch}"
-            )
+            row = (f"{fault.code:<10} {fault.name:<26} {fault.where:<9} "
+                   f"{fault.dispatch}")
+            if fault.dispatch.startswith('None') and fault.code != 'NONE':
+                # Nobody is sent, so it reads like nothing found; it is
+                # still a finding, and closes as one.
+                row += "\n" + f"{'':<10} close 5 {fault.code}, not 8"
+            lines.append(row)
         lines.extend([
             '-' * 74,
             '',
@@ -478,7 +484,8 @@ class BureauCommands(SessionState):
         """Send a repair force out and report what they found."""
         report = self.desk.find(token)
         if report is None:
-            return f"report: no report matching '{token}'"
+            return (self.desk.stale_position(token)
+                    or f"report: no report matching '{token}'")
         if report.status == 'CLOSED':
             return f"{report.number} is already closed."
 
@@ -489,11 +496,11 @@ class BureauCommands(SessionState):
 
         # A crew that goes to the wrong place reads nothing, so only a
         # dispatch that finds something is a sighting.
-        name_fault = self._reading_stage(report, count=False) != STAGE_NUMBERS
+        name_fault = names_fault(self._reading_stage(report, count=False))
         repaired = sum(r.sheath_repaired for r in self.desk.reports.values())
-        finding = self.desk.dispatch(report, canonical, self.shift_minutes,
-                                     name_fault)
-        if not report.first_dispatch_judged and report.dispatched_to:
+        finding, went = self.desk.send_crew(
+            report, canonical, self.shift_minutes, name_fault)
+        if went and not report.first_dispatch_judged:
             # The first crew sent is the judgement; whatever follows it is
             # not. Nobody sent, or nobody needed, is not a dispatch.
             report.first_dispatch_judged = True
@@ -505,9 +512,9 @@ class BureauCommands(SessionState):
         # Only a crew that went reads the plant. A report another report's
         # splice repaired carries a finding but nobody was sent, and one
         # splice must not burn a sighting for every pair in the sheath.
-        if report.field_finding and report.dispatched_to is not None:
+        if report.field_finding and went:
             self._reading_stage(report)
-        if report.dispatched_to is None:
+        if not went:
             # Nobody went: either the force is all out, or the sheath is
             # already repaired. Either way there is no field call coming.
             if report.sheath_repaired:
@@ -583,7 +590,8 @@ class BureauCommands(SessionState):
         """Close a report against a disposition code and judge the call."""
         report = self.desk.find(token)
         if report is None:
-            return f"report: no report matching '{token}'"
+            return (self.desk.stale_position(token)
+                    or f"report: no report matching '{token}'")
         if report.status == 'CLOSED':
             return f"{report.number} is already closed."
         if report.practical:
@@ -697,7 +705,8 @@ class BureauCommands(SessionState):
         """Call the customer back and get more out of them than the card has."""
         report = self.desk.find(token)
         if report is None:
-            return f"report: no report matching '{token}'"
+            return (self.desk.stale_position(token)
+                    or f"report: no report matching '{token}'")
         if report.status == 'CLOSED':
             return f"{report.number} is already closed."
 

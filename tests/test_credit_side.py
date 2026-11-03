@@ -526,8 +526,9 @@ class TestTheFirstDispatchIsJudgedOnce:
         terminal.execute_command(f'report dispatch {report.number} cable')
         assert report.first_dispatch_judged
         self.fill(terminal, report)
-        terminal.execute_command(f'report dispatch {report.number} outside')
-        assert report.dispatched_to is None
+        refused = terminal.execute_command(
+            f'report dispatch {report.number} outside')
+        assert 'Nobody free' in refused
         terminal.desk.force.out.clear()
         terminal.execute_command(f'report dispatch {report.number} outside')
         assert report.dispatched_to
@@ -613,3 +614,33 @@ class TestSmallThings:
     def test_an_unknown_commendation_prints_no_lone_heading(self, terminal):
         assert terminal.commendation_lines(['from_a_later_version']) == []
         assert terminal.commendation_lines([]) == []
+
+    def test_a_tour_index_leaves_out_carried_closes_like_the_kpis(self):
+        carried = Career()
+        carried.open_overdue = lambda: 1
+        carried.overdue_numbers = lambda: ['TR-1']
+        close_clean(carried, 5)
+        carried.end_shift()
+        carried.open_overdue = lambda: 0
+        carried.overdue_numbers = lambda: []
+        carried.record_closure(True, 60, True, 'TR-1')
+        # Only the carried report closed: nothing of this tour's own.
+        assert not carried.tour_scored()
+        close_clean(carried, 4)
+        own = Career()
+        close_clean(own, 4)
+        assert carried.tour_index() == own.tour_index()
+
+    def test_nothing_decided_is_never_negative(self):
+        kpis = compute_kpis({'closed': 1, 'carried_closed': 3}, backlog=0,
+                            ages=[], carried_closed=3)
+        assert kpis.commitments_met is None
+
+    def test_a_tour_mark_that_is_not_a_mapping_is_started_afresh(
+            self, tmp_path):
+        path = career_path(str(tmp_path))
+        with open(path, 'w') as handle:
+            handle.write('{"shift": 3, "reports_closed": 9, '
+                         '"kpi": {"closed": 9}, "tour_mark": 5}')
+        career = Career(path)
+        assert career.tour_counts()['closed'] == 0

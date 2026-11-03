@@ -72,7 +72,7 @@ source ~/.bashrc
 **A:** Qualification governs what you may work on. You start signed off on Loop and Station plus whatever your position carries, and earn the rest a sign-off at a time: correct closures offer one at every 3 (Fun) or 12 (I Hate Myself), and a practical, `qual take <name>`, is what signs it. `help` marks the commands you cannot use yet with an asterisk, and `qual` shows your craft record and how many correct closes the next sign-off needs. `man <command>` documents any command, signed off or not.
 
 ### Q: What is the difference between the difficulties?
-**A:** `set game.difficulty fun` is forgiving: loop testing names the fault for the first four sightings of each kind (`set assist.annotate on` keeps it doing so), you may close a report you never measured, and commitments are not counted. `set game.difficulty craft` ("I Hate Myself") prints only the numbers, requires a measurement before a close, brings wrongly closed lines back as repeats, and counts missed commitments. Difficulty changes how forgiving the scoring is and nothing else.
+**A:** `set game.difficulty fun` is forgiving: loop testing names the fault for the first two sightings of each kind, then the crew class only for two more (`set assist.annotate on` keeps the notes), you may close a report you never measured, and commitments are not counted. `set game.difficulty craft` ("I Hate Myself") prints only the numbers, requires a measurement before a close, brings wrongly closed lines back as repeats, and counts missed commitments. Difficulty changes how forgiving the scoring is and nothing else.
 
 ### Q: Are the error messages authentic?
 **A:** Yes, error messages and system responses are modeled after actual Bell System and UNIX V7 patterns from the period.

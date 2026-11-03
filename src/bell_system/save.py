@@ -365,6 +365,7 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     desk.order = order
     desk._sequence = board['sequence']
     desk.closed_count = board['closed_count']
+    desk.listed = None
     desk.repeat_count = board['repeat_count']
     desk.control = control
     desk._regulars = regulars
