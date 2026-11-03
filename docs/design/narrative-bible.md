@@ -72,6 +72,7 @@ these changes this table first.
 | W16 | A regular's card says what has happened to the line and the people on it, never what the next report off it will be. Fault, force and close code stay in `mlt` and the field finding. | Established (C16) | `data/regulars.py` arcs; `tests/test_regulars_arc.py` |
 | W17 | Trouble can go by itself. A ground, a cross or foreign voltage may clear between two tests, and the second reading is then true of the plant as it is: this is W1 kept, not broken. A close judged after it is judged against the line as it then stands. | Established (A9) | `reports.py` `transient_after`; `tests/test_board_cases.py` |
 | W18 | One cause can stand behind several reports. A case says where its reports are alike (a line link frame, a cable) and never what is wrong with any of them, who clears it or how to close it; only `mlt` and the crew's finding say that. One right trip clears the run, and reports that had not yet come in do not come. | Established (A7) | `cases.py`, `data/cases.py`; `tests/test_board_cases.py` |
+| W19 | A customer ringing back says what they noticed and never what is wrong. Their answer to a question is true of the line and fits more than one condition; a condition is named only by `mlt` and the field. Each question costs a call. | Established (C22) | `data/callbacks.py`; `tests/test_board_cases.py` `TestCallbackQuestions` |
 
 ## 4. Voices
 

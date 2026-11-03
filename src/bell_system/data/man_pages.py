@@ -1772,7 +1772,7 @@ SYNOPSIS
      report [board]
      report next
      report show <number>
-     report callback <number>
+     report callback <number> [topic]
      report dispatch <number> <force> [cable/binder]
      report close <number> <5|8> [fault]
      report closed | faults | forces
@@ -1793,7 +1793,9 @@ OPTIONS
      next              The one report that most wants working, and what it
                        wants. The same decision the standing prompt makes
      show <n>          The line record, the symptom and everything done so far
-     callback <n>      Telephone the customer for more than the card carries
+     callback <n>      Telephone the customer for more than the card carries.
+                       Name a topic (start, others, hear) to ask the one
+                       question; each call costs the same minutes
      dispatch <n> <f>  Send a repair force. The wrong force costs time.
                        Cable repair also wants the cable and binder group
                        to open, as 81/8, where the job is run that way;

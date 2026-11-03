@@ -752,3 +752,123 @@ class TestThePressureAlarm:
         fresh.career.reports_closed = terminal.career.reports_closed
         assert save.restore(fresh, captured)
         assert fresh.desk.plant.sections[0].wet_minutes == 0
+
+
+# -- C22: a callback with questions -----------------------------------------
+
+def _called(terminal, fault, *topic, symptom=None):
+    """Ring back a report on a line in ``fault`` and return what came back."""
+    report = terminal.desk.receive(terminal.clock.now(), fault=fault,
+                                   symptom=symptom)
+    said = terminal.execute_command(
+        'report callback ' + ' '.join([report.number, *topic]))
+    return report, said
+
+
+def _minutes_on(terminal, command):
+    """What a command takes off a fresh report's clock, whatever its own."""
+    report = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
+    before = report.minutes_spent
+    terminal.execute_command(command.format(n=report.number))
+    return report.minutes_spent - before
+
+
+class TestCallbackQuestions:
+    """C22: one question a call, each costing a callback, none naming it."""
+
+    def test_each_question_costs_a_callback(self, terminal):
+        from bell_system.reports import COST_CALLBACK
+        idle = _minutes_on(terminal, 'report show {n}')
+        for topic in ('start', 'others', 'hear'):
+            cost = _minutes_on(terminal, 'report callback {n} ' + topic)
+            assert cost - idle == COST_CALLBACK, topic
+        assert _minutes_on(terminal, 'report callback {n}') - idle ==             COST_CALLBACK
+
+    def test_an_answer_is_marked_with_the_question_asked(self, terminal):
+        _, said = _called(terminal, 'WET', 'others')
+        assert 'Asked: others' in said
+
+    def test_the_bare_call_is_what_it_was(self, terminal):
+        from bell_system.data.callbacks import GENERAL
+        _, said = _called(terminal, 'GROUND')
+        assert 'Asked' not in said
+        assert GENERAL['GROUND'] in ' '.join(said.replace('"', '').split())
+
+    def test_the_bare_call_says_what_else_can_be_asked(self, terminal):
+        _, said = _called(terminal, 'OPEN')
+        assert 'You could also ask: start, others, hear' in said
+
+    def test_a_question_that_is_not_one_costs_nothing(self, terminal):
+        idle = _minutes_on(terminal, 'report show {n}')
+        assert _minutes_on(terminal, 'report callback {n} weather') == idle
+        report = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
+        said = terminal.execute_command(
+            f'report callback {report.number} weather')
+        assert 'no such question' in said and 'start, others, hear' in said
+
+    def test_asking_a_closed_report_costs_nothing(self, terminal):
+        report = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
+        report.status = 'CLOSED'
+        said = terminal.execute_command(
+            f'report callback {report.number} start')
+        assert 'already closed' in said
+
+    def test_no_answer_is_given_by_every_condition(self):
+        from bell_system.data.callbacks import TOPICS
+        for topic in TOPICS.values():
+            assert len(set(topic.heard.values())) > 1, topic.key
+
+    def test_every_condition_has_an_answer_to_every_question(self):
+        from bell_system.data.callbacks import GENERAL, TOPICS
+        for topic in TOPICS.values():
+            assert set(topic.heard) == set(GENERAL), topic.key
+
+    def test_the_true_condition_is_always_among_those_an_answer_fits(self):
+        from bell_system.data.callbacks import GENERAL, TOPICS, asked, narrowed
+        for key in TOPICS:
+            for fault in GENERAL:
+                said = asked(key, fault, 'Cannot call out')
+                assert fault in narrowed(key, said), (key, fault)
+
+    def test_a_question_narrows_the_set(self):
+        from bell_system.data.callbacks import GENERAL, TOPICS, asked, narrowed
+        for key in TOPICS:
+            for fault in GENERAL:
+                said = asked(key, fault, 'Cannot call out')
+                assert len(narrowed(key, said)) < len(GENERAL), (key, fault)
+
+    def test_two_questions_tell_more_than_one(self):
+        """The set after two answers is smaller than after either alone."""
+        from bell_system.data.callbacks import asked, narrowed
+        fault = 'WET'
+        one = set(narrowed('start', asked('start', fault, '')))
+        two = one & set(narrowed('hear', asked('hear', fault, '')))
+        assert fault in two and len(two) < len(one)
+
+    def test_no_answer_names_a_fault_a_force_or_a_close_code(self):
+        from bell_system.data.callbacks import CADENCE_HEARD, TOPICS
+        from bell_system.data.trouble import FAULTS
+        said = [text for topic in TOPICS.values()
+                for text in topic.heard.values()]
+        said += list(CADENCE_HEARD.values())
+        names = {fault.name.lower() for fault in FAULTS.values()}
+        names |= {fault.dispatch.lower() for fault in FAULTS.values()}
+        for text in said:
+            low = text.lower()
+            assert not any(name in low for name in names), text
+            assert 'close' not in low and 'code' not in low, text
+
+    def test_a_call_about_calls_that_do_not_complete_is_heard_in_the_cadence(
+            self, terminal):
+        _, said = _called(terminal, 'CO_EQUIP', 'hear',
+                          symptom='Calls do not complete')
+        assert 'twice as fast' in ' '.join(said.split())
+        _, said = _called(terminal, 'NONE', 'hear',
+                          symptom='Calls do not complete')
+        assert 'the slow one' in ' '.join(said.split())
+
+    def test_the_same_words_are_said_on_any_report_of_the_same_kind(
+            self, terminal):
+        _, first = _called(terminal, 'WET', 'start')
+        _, second = _called(terminal, 'WET', 'start')
+        assert first.split('"')[1:-1] == second.split('"')[1:-1]

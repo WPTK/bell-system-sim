@@ -381,6 +381,11 @@ class SessionState:
         """The binder groups of a 600-pair cable."""
         raise NotImplementedError
 
+    def _report_callback(self, token: str, topic: Optional[str] = None
+                         ) -> str:
+        """Ring a customer back, with a question or without."""
+        raise NotImplementedError
+
     def _plant_case(self) -> None:
         """Decide whether this tour's trouble has a shared cause."""
         raise NotImplementedError

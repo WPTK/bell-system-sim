@@ -7,7 +7,6 @@ from collections import (
     deque,
 )
 from typing import (
-    Dict,
     List,
     Optional,
 )
@@ -39,7 +38,6 @@ from ..progression import (
 )
 from ..reports import (
     CLASSES_OF_SERVICE,
-    COST_CALLBACK,
     ReportDesk,
     TroubleReport,
     disposition_name,
@@ -57,37 +55,11 @@ from .session import SessionState
 # prose rather than a table, so it breaks a little short of the rule.
 POST_MORTEM_WIDTH = 70
 
-# What a customer says, wrapped. Narrower than the post-mortem because it
-# is indented and quoted, which is how a note of a call reads on paper.
-CALLBACK_WIDTH = 64
-
 # What a stored home office has to carry to be usable. Anything short of
 # this is treated as absent and drawn again, which is what happens to a
 # career record written before the office was kept.
 HOME_OFFICE_FIELDS = frozenset(
     {'npa', 'nxx', 'city', 'state', 'switch_type', 'clli'})
-
-# What a customer says they hear when a call will not go through, for the
-# two conditions where the answer is in the cadence and not in the words.
-# Busy is 60 interruptions a minute and reorder is 120; they are the same
-# 480 and 620 Hz, so the description says how fast and never says which.
-# tone(1) writes both, which is the one question on this board that has to
-# be answered by ear.
-CADENCE_HEARD: Dict[str, str] = {
-    'CO_EQUIP': "I dial and I get the busy signal, but it is going about "
-                "twice as fast as a busy usually goes. It does it on every "
-                "number I try, including my sister's, and she is not on "
-                "the telephone.",
-    'NONE': "I get the busy signal. The ordinary one, the slow one. It is "
-            "just that I get it rather a lot lately, and I did wonder.",
-    # Not a cadence at all, which is the point of having a third: the
-    # office took the call and then did nothing with it, so there is
-    # nothing to hear. Somebody comparing two tones has to notice that
-    # neither of them is what this customer is describing.
-    'FCG': "I dial the whole number and then there is nothing. Not a busy, "
-           "not a ringing. It goes quiet and it stays quiet until I hang "
-           "up.",
-}
 
 
 class BureauCommands(SessionState):
@@ -290,8 +262,9 @@ class BureauCommands(SessionState):
             return self._close_report(rest[0], rest[1:])
         if action == 'callback':
             if not rest:
-                return "report: usage: report callback <number>"
-            return self._report_callback(rest[0])
+                return "report: usage: report callback <number> [topic]"
+            return self._report_callback(
+                rest[0], rest[1] if len(rest) > 1 else None)
 
         return self.dead_end(
             f"report: unknown option '{args[0]}'\n"
@@ -727,69 +700,7 @@ class BureauCommands(SessionState):
             lines.append('')
             lines.append(parting)
         return '\n'.join(lines)
-    def _report_callback(self, token: str) -> str:
-        """Call the customer back and get more out of them than the card has."""
-        report = self.desk.find(token)
-        if report is None:
-            return (self.desk.stale_position(token)
-                    or f"report: no report matching '{token}'")
-        if report.status == 'CLOSED':
-            return f"{report.number} is already closed."
 
-        report.spend(COST_CALLBACK)
-        fault = FAULTS[report.record.fault]
-        # The chief's next line is about this call, and the board one that
-        # would otherwise follow the command is no longer true to say.
-        self._tour_nudges.add('board')
-        detail = {
-            'OPEN': "It went dead all at once. There was work in the street "
-                    "last week.",
-            'SHORT': "Nothing at all when I pick it up, and my daughter says "
-                     "she gets a busy signal every time.",
-            'GROUND': "There is a hum, worse when it rains, and sometimes it "
-                      "rings once by itself.",
-            'CROSS': "I can hear two other people talking. They can hear me "
-                     "as well.",
-            'WET': "It has been getting worse all week, since the storm. The "
-                   "neighbours have it too.",
-            'FCG': "I get nothing when I dial. The dial tone is there and "
-                   "then it just sits.",
-            'FEMF': "There is a loud buzz, and I felt something off the set "
-                    "once. The power line runs right past.",
-            'ROH': "No, I have not had any trouble calling out. People say "
-                   "they cannot reach me.",
-            'CO_EQUIP': "It never rings. I have tried a different telephone "
-                        "and it does the same thing.",
-            'NONE': "It happened twice on Tuesday and it has been fine since. "
-                    "Perhaps it fixed itself.",
-        }.get(report.record.fault, fault.description)
-
-        # The one question on this board that a screen cannot ask you. On
-        # a report about calls not completing the customer describes a
-        # rhythm instead of the trouble: busy and reorder are the same 480
-        # and 620 Hz and differ only in how fast they are interrupted, so
-        # the words cannot separate them and the ear can. It replaces the
-        # ordinary answer rather than joining it, because a customer who
-        # is telling you about a cadence is not also telling you about
-        # last Tuesday.
-        heard = CADENCE_HEARD.get(report.record.fault)
-        by_ear = heard is not None and 'complete' in report.symptom.lower()
-        said = heard if by_ear else detail
-
-        lines = [f"Call back on {report.record.telephone_number} "
-                 f"({report.record.name}).", '']
-        lines.extend(f"  {line}" for line in
-                     wrap(f'"{said}"', CALLBACK_WIDTH))
-        if by_ear:
-            lines.extend(['', "tone(1) will make both of those if you want "
-                              "to hear them side by side."])
-        lines.extend(['', f"{COST_CALLBACK} minutes charged. "
-                          f"{report.age_label()} "
-                          f"{'past' if report.overdue() else 'remaining'}."])
-        nudge = self.first_tour_nudge('callback')
-        if nudge:
-            lines.extend(['', nudge])
-        return '\n'.join(lines)
     def cmd_qual(self, args: Optional[List[str]] = None) -> str:
         """Show the craft record: difficulty, qualifications and service index."""
         args = args or []
