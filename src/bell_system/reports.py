@@ -881,6 +881,13 @@ class ReportDesk:
             if named is not None:
                 return named
 
+        if report.cleared_alone and force.lower() == FAULTS[
+                report.read_fault()].dispatch.lower():
+            # The force the reading called for, sent after the trouble had
+            # gone by itself. They went for good cause and find the line
+            # good; that is a trip, and it is not a wrong one.
+            return self._gone_before_they_came(report, force, now)
+
         if force.lower() != wanted.lower():
             # The right force draws its repair time here; so does this one,
             # so that what is drawn after does not tell the two apart.
@@ -935,6 +942,29 @@ class ReportDesk:
         cleared = fault.name.lower() if name_fault else 'the trouble'
         return (f"{went}\n{crew.name} reports {cleared} located "
                 f"and cleared. {repair} minutes on the job.", True)
+
+    def _gone_before_they_came(self, report: TroubleReport, force: str,
+                               now: int) -> Tuple[str, bool]:
+        """
+        A crew sent on a reading that was true, to trouble that has since
+        cleared: the trip is charged, nothing is found, and it is not a
+        wrong dispatch because the force was the one the reading asked for.
+        """
+        repair = self.rng.randint(*FAULTS['NONE'].typical_minutes)
+        crew, travel, came_from = self.force.send(
+            force, report.number, repair, now)
+        if crew is None:
+            return self._nobody_free(report, force, now), False
+        report.dispatched_to = force
+        report.crew = crew.name
+        report.travel_minutes = travel
+        report.spend(repair + travel + COST_DISPATCH, desk=COST_DISPATCH)
+        report.status = STATUS_DISPATCHED
+        report.field_finding = 'NONE'
+        return (f"{crew.name} ({crew.title.lower()}) rolled from "
+                f"{came_from}, {travel} minutes.\n{crew.name} reports the "
+                f"line tests good. It has cleared since it was reported. "
+                f"{repair} minutes on the job.", True)
 
     def _named_job(self, report: TroubleReport, force: str,
                    section: Tuple[int, int], now: int,

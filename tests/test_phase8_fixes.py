@@ -432,3 +432,76 @@ class TestACareerIsDealtItsOwnTours:
         stored.pop('seed')
         open(path, 'w').write(json.dumps(stored))
         assert BellSystemTerminal().career.seed
+
+
+def _cleared(terminal):
+    """A ground the player has measured, which then goes by itself."""
+    report = _alone(terminal, fault='GROUND')
+    terminal.execute_command(f'mlt {report.number}')
+    report.age(report.clears_at - report.minutes_spent + 5)
+    assert report.cleared_alone and report.record.fault == 'NONE'
+    return report
+
+
+class TestAClearedLineIsJudgedAsOne:
+    """A9: trouble that went by itself is not 'nothing was wrong'."""
+
+    def test_a_close_5_gets_a_verdict_of_its_own(self, terminal):
+        report = _cleared(terminal)
+        shown = ' '.join(terminal.execute_command(
+            f'report close {report.number} 5 GROUND').split())
+        assert 'cleared by itself before the close' in shown
+        assert 'Nothing was actually wrong' not in shown
+
+    def test_it_does_not_teach_the_readings_of_a_clean_line(self, terminal):
+        report = _cleared(terminal)
+        shown = terminal.execute_command(
+            f'report close {report.number} 5 GROUND')
+        assert 'would have read' not in shown
+
+    def test_a_line_that_was_always_clean_still_says_so(self, terminal):
+        report = _alone(terminal, fault='NONE')
+        terminal.execute_command(f'mlt {report.number}')
+        shown = terminal.execute_command(
+            f'report close {report.number} 5 GROUND')
+        assert 'Nothing was actually wrong' in shown
+
+    def test_a_close_8_after_it_cleared_is_right(self, terminal):
+        report = _cleared(terminal)
+        shown = terminal.execute_command(f'report close {report.number} 8')
+        assert 'matches what was on the line' in shown
+
+    def test_a_dispatch_on_the_reading_is_not_a_wrong_one(self, terminal):
+        report = _cleared(terminal)
+        judged = []
+        terminal.career.record_dispatch = (
+            lambda right, *a, **k: judged.append(right))
+        shown = terminal.execute_command(
+            f'report dispatch {report.number} outside plant')
+        assert judged == [True]
+        assert 'tests good' in shown and 'found nothing at their end' \
+            not in shown
+
+    def test_the_wrong_force_for_the_reading_still_is(self, terminal):
+        report = _cleared(terminal)
+        judged = []
+        terminal.career.record_dispatch = (
+            lambda right, *a, **k: judged.append(right))
+        terminal.execute_command(f'report dispatch {report.number} station')
+        assert judged == [False]
+
+    def test_the_trip_is_still_charged(self, terminal):
+        report = _cleared(terminal)
+        spent = report.minutes_spent
+        terminal.execute_command(
+            f'report dispatch {report.number} outside plant')
+        assert report.minutes_spent > spent
+
+    def test_the_manual_says_trouble_can_go_by_itself(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        page = ' '.join(MAN_PAGES['report'].split())
+        assert 'clear by itself' in page
+
+    def test_a_home_file_says_so_in_a_voice(self):
+        from bell_system.data.homes import HOMES
+        assert 'goes by itself' in HOMES['sysop']['notes']

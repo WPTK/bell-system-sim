@@ -510,9 +510,12 @@ class BureauCommands(SessionState):
             # The first crew sent is the judgement; whatever follows it is
             # not. Nobody sent, or nobody needed, is not a dispatch.
             report.first_dispatch_judged = True
+            # Judged on what the line read when it was measured: a dispatch
+            # on a true reading is not a wrong one because the trouble went
+            # by itself while the crew was on the road.
             self.career.record_dispatch(
                 canonical.lower()
-                == FAULTS[report.record.fault].dispatch.lower()
+                == FAULTS[report.read_fault()].dispatch.lower()
                 and self._is_own_section(report, section),
                 sum(r.sheath_repaired for r in self.desk.reports.values())
                 - repaired if report.tested else 0)
@@ -658,7 +661,15 @@ class BureauCommands(SessionState):
             lines.append("The close out matches what was on the line.")
         else:
             truth = FAULTS[report.record.fault]
-            if report.record.fault == 'NONE':
+            if report.cleared_alone:
+                # It was there when it was measured and gone when it was
+                # judged, so neither "nothing was wrong" nor "there was" is
+                # the whole of it.
+                lines.append("That trouble cleared by itself before the "
+                             "close. What you measured was there when you "
+                             "measured it, and the close is judged against "
+                             "the line as it then stood.")
+            elif report.record.fault == 'NONE':
                 lines.append("Nothing was actually wrong with that line.")
             else:
                 # Where the trouble was decides how the sentence reads. A
@@ -677,8 +688,9 @@ class BureauCommands(SessionState):
             # you what to read next time, and they are the readings this
             # player actually had in front of them: measure_loop is seeded
             # from the line and the fault, so it quotes rather than invents.
-            taught = post_mortem(report.record.telephone_number,
-                                 report.record.fault, found, report.tested)
+            taught = ('' if report.cleared_alone else post_mortem(
+                report.record.telephone_number, report.record.fault, found,
+                report.tested))
             if taught:
                 lines.append('')
                 lines.extend(wrap(taught, POST_MORTEM_WIDTH))

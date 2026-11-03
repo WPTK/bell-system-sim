@@ -1804,6 +1804,9 @@ OPTIONS
      close <n> 5 <c>   Trouble found. Name the condition you found
      close <n> 8       No trouble found
      closed            What has been closed this session, and how it was judged
+     jobs              The plant jobs the cable pressure alarm has opened. A
+                       job has no customer: dispatch to it by its number,
+                       as PJ-001, naming the cable and binder group
      faults            The trouble conditions and what each measures like
      forces            The repair forces a report may be dispatched to
 
@@ -1818,6 +1821,12 @@ DISPOSITION CODES
      Closing a faulty line as code 8 does not fail loudly. It closes, and
      then the customer calls back. That repeat is what the measurement plan
      was counting.
+
+     Some trouble does not wait for a crew. A ground, a cross or foreign
+     voltage can clear by itself between one test and the next, and a line
+     that read faulty an hour ago may read clean now. A close is judged
+     against the line as it stands when it is made, and a crew sent after
+     the trouble has gone finds nothing.
 
 REFERRING TO A REPORT
      A report answers to its number (TR-04471), to the telephone number on
