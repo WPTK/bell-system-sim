@@ -131,6 +131,7 @@ class SessionState:
     network_metrics: Dict[str, Any]
     system_health: SystemHealth
     active_alarms: List[Alarm]
+    alarm_deck: List[Dict[str, Any]]
 
     # -- geography -------------------------------------------------------
     nanpa_data: Dict[str, Any]

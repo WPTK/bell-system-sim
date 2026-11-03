@@ -77,6 +77,8 @@ class PositionCommands(SessionState):
             self._count_outages()
         if self.position.key == 'switch':
             self._count_lamps()
+            office: Any = self  # The office commands, mixed into the class.
+            office.deal_alarms()
 
     _triage_counted = False
 

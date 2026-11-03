@@ -4476,8 +4476,12 @@ ADVISE
 """
 
 
-# The command only the Switching Station Technician's desk has.
-MAN_PAGES["connect"] += """
+# A section of a page that only one desk is shown: the commands that desk
+# alone has. man appends it at that desk and nowhere else, so the other
+# desks' pages stay about what they can do. Keyed on the command, then the
+# position key.
+DESK_SECTIONS = {
+    "connect": {"switch": """
 ALARM PANEL
      connect work
      connect work ALARM
@@ -4485,18 +4489,32 @@ ALARM PANEL
      The Switching Station Technician desk only. With no argument, the
      panel: every alarm standing on every office this console watches,
      the lamp it now shows, how many shift minutes until the lamp rises,
-     and what clearing it would cost. Naming an alarm clears it at its
-     cause, and the shift loses the minutes.
+     what clearing it would cost, and a line saying what it reads.
+     Naming an alarm clears it at its cause, and the shift loses the
+     minutes.
 
      An alarm nobody works lights one lamp higher every 40 shift minutes,
      from its own point in them, so they do not all rise together. The
      lamp sets the cost: 3 minutes at MINOR, 5 at MAJOR, 8 at CRITICAL,
      and 2 more for a building you are not in. alarm ack does not stop
-     the rising; only clearing does. An alarm in your own building left a
-     whole span (40 minutes) at the top lamp is a missed commitment,
-     counted on the service index at the handoff whether or not you ever
-     looked at the panel, and one cleared before then is not. The other
-     buildings' lamps rise and show on the panel but are not on the
-     index. The first tour is a grace. The clock is the shift clock and
-     not a stopwatch. These figures are the simulation's own.
-"""
+     the rising; only clearing does.
+
+     Some alarms are only a symptom of another. A symptom's reads line
+     names the system of the alarm that explains it, which is how to
+     match the two: a trunk group failing on the trunks riding a carrier,
+     a carrier dropping in step with a microwave span, parity errors when
+     backup power sags. Clear the cause and everything it explains clears
+     with it, for no more time. Clear only a symptom and the cause is
+     still standing.
+
+     An alarm in your own building left a whole span (40 minutes) at the
+     top lamp is a missed commitment, counted on the service index at the
+     handoff whether or not you ever looked at the panel. One cleared
+     before then is not; one cleared after it still is, and stays on the
+     index. The other buildings' lamps rise and show on the panel but
+     are not on the index. Each tour deals the alarms again, the same ones
+     for the same tour however many times the shift is resumed. The first
+     tour is a grace. The clock is the shift clock and not a stopwatch.
+     These figures are the simulation's own.
+"""},
+}

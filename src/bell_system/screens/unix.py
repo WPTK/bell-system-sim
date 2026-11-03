@@ -11,6 +11,7 @@ from typing import Any, List, Optional
 
 from ..console import clear_screen
 from ..constants import BSP_CATEGORIES
+from ..data.man_pages import DESK_SECTIONS
 from ..filesystem import FILESYSTEM, Node
 from ..npc import CRAFT
 from .session import SessionState
@@ -151,7 +152,9 @@ class UnixCommands(SessionState):
 
         command = args[0].lower()
         if command in self.man_pages:
-            return self.man_pages[command]
+            # A section only this desk is shown comes after the page.
+            section = DESK_SECTIONS.get(command, {}).get(self.position.key, '')
+            return self.man_pages[command] + section
         else:
             return f"No manual entry for {command}"
     def _initialize_filesystem(self) -> None:

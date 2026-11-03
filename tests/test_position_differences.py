@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from bell_system.constants import BELL_SYSTEM_ROLES
+from bell_system.data.man_pages import MAN_PAGES
 from bell_system.data.positions import NEUTRAL, POSITIONS, get as get_position
 from bell_system.data.trouble import (
     FAULTS,
@@ -1087,14 +1088,18 @@ class TestTheRepairDeskHolds:
         assert max(len(line) for line in output.split('\n')) <= 74
 
 
-def office_desk(at_desk):
+def office_desk(at_desk, tour=None):
     """
     The office desk with four known alarms standing at home.
 
-    The deal is chance (each alarm is 30 per cent likely), so the home
-    office's list is replaced with one that is not.
+    The tour's deal is seeded but not one a test can name, so the home
+    office's list is replaced with one it can. A test that changes the
+    tour afterwards gets that tour's own deal, not these.
     """
     terminal = at_desk('switch')
+    if tour is not None:
+        terminal.career.shift = tour
+        terminal.deal_alarms()
     terminal.active_alarms[:] = [
         {'id': f'AL-70{index}', 'type': 'TEST', 'severity': severity,
          'system': f'SYS-{index}', 'description': 'A standing alarm',
@@ -1105,6 +1110,26 @@ def office_desk(at_desk):
         terminal.system_health[f'{severity.lower()}_alarms'] = sum(
             1 for a in terminal.active_alarms if a['severity'] == severity)
     return terminal
+
+
+def symptom_desk(at_desk, *kinds):
+    """The office desk with one standing alarm of each type named, at home."""
+    from bell_system.screens.remote import ALARM_CANDIDATES
+    systems = {'TRUNK_DEGRADED': 'TG-004', 'CARRIER_LOSS': 'T1-PENTAGON',
+               'RADIO_FADE': 'TH3-CHI-007', 'MEMORY_PARITY': '3A-CCU-D',
+               'POWER_SUPPLY': 'PWR-NYC-002'}
+    terminal = at_desk('switch')
+    terminal.active_alarms[:] = [
+        dict(next(c for c in ALARM_CANDIDATES if c['type'] == kind),
+             id=f'AL-71{index}', system=systems[kind], acknowledged=False,
+             timestamp=terminal.clock.now())
+        for index, kind in enumerate(kinds)]
+    terminal._recount_health()
+    return terminal
+
+
+def ids(terminal):
+    return [alarm['id'] for alarm in terminal.active_alarms]
 
 
 class TestTheOfficeAlarmPanel:
@@ -1250,6 +1275,78 @@ class TestTheOfficeAlarmPanel:
         output = terminal.execute_command('connect work')
         assert max(len(line) for line in output.split('\n')) <= 74
 
+    def test_the_grace_is_the_first_tour_and_not_the_first_close(
+            self, at_desk):
+        terminal = office_desk(at_desk, tour=1)
+        terminal.career.reports_closed = 1
+        terminal.shift_minutes = 10 * LAMP_MINUTES
+        assert terminal.alarms_overdue() == 0
+        for alarm, lamp, *_ in terminal.lamp_panel():
+            assert lamp == alarm['severity']
+        later = office_desk(at_desk, tour=2)
+        later.career.reports_closed = 0
+        later.shift_minutes = 10 * LAMP_MINUTES
+        assert later.alarms_overdue() == 4
+
+    def test_a_symptom_reads_the_system_of_its_cause(self, at_desk):
+        terminal = symptom_desk(at_desk, 'TRUNK_DEGRADED', 'CARRIER_LOSS',
+                                'POWER_SUPPLY')
+        output = terminal.execute_command('connect work')
+        assert 'reads: Failures are all on trunks riding T1-PENTAGON' in output
+        # The cause itself, and an alarm nothing explains, read their own.
+        assert 'reads: Loss of carrier signal' in output
+        assert 'reads: Backup power supply voltage low' in output
+
+    def test_a_symptom_matches_the_nearest_cause_standing(self, at_desk):
+        terminal = symptom_desk(at_desk, 'TRUNK_DEGRADED', 'RADIO_FADE')
+        trunk = terminal.active_alarms[0]
+        assert terminal.alarm_reads(trunk, terminal.active_alarms) == (
+            'Failures are all on trunks riding TH3-CHI-007')
+
+    def test_clearing_the_cause_clears_what_it_explains_for_no_more_time(
+            self, at_desk):
+        terminal = symptom_desk(at_desk, 'RADIO_FADE', 'CARRIER_LOSS',
+                                'TRUNK_DEGRADED', 'POWER_SUPPLY')
+        cost = next(r[4] for r in terminal.lamp_panel()
+                    if r[0]['id'] == 'AL-710')
+        before = terminal.shift_minutes
+        output = terminal.execute_command('connect work AL-710')
+        assert ids(terminal) == ['AL-713']
+        assert cost <= terminal.shift_minutes - before <= cost + 1
+        assert 'cause of AL-711 (CARRIER_LOSS), AL-712 (TRUNK_DEGRADED)' in output
+        assert sorted(terminal.lamp_book()['cleared']) == [
+            'AL-710', 'AL-711', 'AL-712']
+        counts = terminal.system_health
+        assert (counts['critical_alarms'], counts['major_alarms'],
+                counts['minor_alarms']) == (0, 0, 1)
+
+    def test_clearing_only_a_symptom_leaves_the_cause_standing(
+            self, at_desk):
+        terminal = symptom_desk(at_desk, 'CARRIER_LOSS', 'TRUNK_DEGRADED')
+        output = terminal.execute_command('connect work AL-711')
+        assert ids(terminal) == ['AL-710']
+        assert 'only a symptom' in output and 'AL-710' in output
+
+    def test_a_cause_with_nothing_to_explain_says_nothing_of_the_kind(
+            self, at_desk):
+        terminal = symptom_desk(at_desk, 'POWER_SUPPLY', 'RADIO_FADE')
+        output = terminal.execute_command('connect work AL-710')
+        assert 'cause of' not in output and 'symptom' not in output
+
+    def test_the_summary_follows_what_is_standing(self, at_desk):
+        terminal = symptom_desk(at_desk, 'POWER_SUPPLY', 'RADIO_FADE',
+                                'CARRIER_LOSS')
+        terminal.system_health['overall_status'] = 'DEGRADED'
+        terminal.execute_command('connect work AL-710')
+        assert terminal.system_health['overall_status'] == 'OPERATIONAL'
+
+    def test_the_connect_page_shows_the_panel_only_at_the_office_desk(
+            self, at_desk):
+        for role in ROLE_KEYS:
+            page = at_desk(role).execute_command('man connect')
+            assert ('ALARM PANEL' in page) == (role == 'switch'), role
+        assert 'ALARM PANEL' not in MAN_PAGES['connect']
+
 
 class TestTheOfficeAlarmsCostTheIndex:
     """
@@ -1338,6 +1435,50 @@ class TestTheOfficeAlarmsCostTheIndex:
         assert rows['alarms held at the top lamp'] == '4'
 
 
+class TestALateClearStillCosts:
+    """An alarm cleared after it was held has gone from the panel, not
+    from the span it stood at the top lamp."""
+
+    def test_clearing_it_late_leaves_the_count_where_it_was(self, at_desk):
+        terminal = office_desk(at_desk)
+        base = terminal.career.open_overdue()
+        terminal.shift_minutes = 2 * LAMP_MINUTES
+        (critical,) = [a for a in terminal.active_alarms
+                       if a['severity'] == 'CRITICAL']
+        assert terminal.lamp_held(critical)
+        held = terminal.alarms_overdue()
+        assert held >= 1
+        terminal.execute_command(f"connect work {critical['id']}")
+        assert terminal.lamp_book()['held'] == [critical['id']]
+        assert terminal.alarms_overdue() >= held
+        assert terminal.career.open_overdue() >= base + held
+
+    def test_clearing_it_in_time_is_not_recorded(self, at_desk):
+        terminal = office_desk(at_desk)
+        terminal.shift_minutes = 0
+        for alarm in list(terminal.active_alarms):
+            terminal.execute_command(f"connect work {alarm['id']}")
+        assert terminal.lamp_book()['held'] == []
+
+    def test_a_cause_cleared_late_records_the_symptoms_it_freed(
+            self, at_desk):
+        terminal = symptom_desk(at_desk, 'RADIO_FADE', 'CARRIER_LOSS')
+        terminal.shift_minutes = 10 * LAMP_MINUTES
+        terminal.execute_command('connect work AL-710')
+        assert sorted(terminal.lamp_book()['held']) == ['AL-710', 'AL-711']
+        assert terminal.alarms_overdue() == 2
+
+    def test_another_buildings_clear_is_never_recorded(self, at_desk):
+        terminal = office_desk(at_desk)
+        terminal.shift_minutes = 10 * LAMP_MINUTES
+        home = terminal.home_office['clli']
+        office, alarm = next(
+            (o, a) for o in terminal.watched_offices()
+            if o['clli'] != home for a in terminal.office_alarms(o))
+        terminal.execute_command(f"connect work {alarm['id']}")
+        assert terminal.lamp_book()['held'] == []
+
+
 class TestTheOfficeBookIsHonest:
     """What the review found: per tour, read only."""
 
@@ -1373,78 +1514,198 @@ class TestTheOfficeBookIsHonest:
         assert terminal.lamp_book()['rose'] == [rose['id']]
 
 
+class TestTheOfficeDealsEachTour:
+    """
+    Five alarms ever and a panel that is the same every tour would be a
+    puzzle solved once. The deal is seeded from the building and the tour.
+    """
+
+    def deal(self, terminal, tour):
+        terminal.career.shift = tour
+        terminal.deal_alarms()
+        return ids(terminal)
+
+    def test_a_tour_is_dealt_the_same_every_time(self, at_desk):
+        for tour in (2, 5, 9):
+            assert (self.deal(at_desk('switch'), tour)
+                    == self.deal(at_desk('switch'), tour))
+
+    def test_the_tours_are_not_all_dealt_alike(self, at_desk):
+        terminal = at_desk('switch')
+        deals = {tuple(self.deal(terminal, tour)) for tour in range(2, 14)}
+        assert len(deals) > 3
+
+    def test_the_building_always_has_a_panel_to_work(self, at_desk):
+        from bell_system.screens.remote import HOME_FLOOR
+        terminal = at_desk('switch')
+        for tour in range(1, 40):
+            assert len(self.deal(terminal, tour)) >= HOME_FLOOR, tour
+
+    def test_the_summary_is_counted_from_the_deal(self, at_desk):
+        terminal = at_desk('switch')
+        for tour in range(2, 12):
+            self.deal(terminal, tour)
+            health = terminal.system_health
+            for level, key in (('CRITICAL', 'critical_alarms'),
+                               ('MAJOR', 'major_alarms'),
+                               ('MINOR', 'minor_alarms')):
+                assert health[key] == sum(
+                    1 for a in terminal.active_alarms
+                    if a['severity'] == level)
+            assert health['overall_status'] == (
+                'OPERATIONAL' if len(terminal.active_alarms) < 3
+                else 'DEGRADED')
+
+    def test_a_new_tour_is_dealt_when_the_panel_is_next_read(self, at_desk):
+        terminal = at_desk('switch')
+        terminal.career.shift = 2
+        terminal.deal_alarms()
+        terminal.career.shift = 3
+        panel = {row[0]['id'] for row in terminal.lamp_panel()
+                 if row[2]['clli'] == terminal.home_office['clli']}
+        assert panel == set(ids(terminal))
+        assert panel == set(self.deal(at_desk('switch'), 3))
+
+    def test_the_other_buildings_are_dealt_again_too(self, at_desk):
+        terminal = at_desk('switch')
+        home = terminal.home_office['clli']
+        others = [o for o in terminal.watched_offices()
+                  if o['clli'] != home]
+        seen = set()
+        for tour in range(2, 14):
+            terminal.career.shift = tour
+            seen.add(tuple(sorted(
+                a['id'] for o in others for a in terminal.office_alarms(o))))
+        assert len(seen) > 3
+
+    def test_a_lamp_ripens_differently_on_a_different_tour(self, at_desk):
+        terminal = at_desk('switch')
+        alarm = {'id': 'AL-4474', 'severity': 'MINOR'}
+        starts = set()
+        for tour in range(2, 14):
+            terminal.career.shift = tour
+            starts.add(terminal.lamp(alarm)[1])
+        assert len(starts) > 3
+
+    def test_the_other_desks_keep_the_deal_they_were_given(self, at_desk):
+        terminal = at_desk('noc')
+        before = [dict(a) for a in terminal.active_alarms]
+        terminal.career.shift = 7
+        terminal.office_alarms(terminal.home_office)
+        assert terminal.active_alarms == before
+
+
 class TestTheOfficeAcrossAResume:
-    """The alarms are dealt again on a resume; a cleared one stays cleared."""
+    """The same alarms are dealt again on a resume, and a cleared one stays
+    cleared."""
 
     def capture(self, terminal):
         import json
         from bell_system import save
         return json.loads(json.dumps(save.capture(terminal)))
 
-    def resumed(self, terminal, captured, alarms):
+    def resumed(self, terminal, captured):
         from bell_system import save
         fresh = BellSystemTerminal()
         fresh.career.shift = terminal.career.shift
         fresh.career.reports_closed = terminal.career.reports_closed
+        # The geography is not saved; it is the same console.
+        fresh._watched = list(terminal.watched_offices())
         fresh.take_position('switch')
-        # The deal is chance; put the same ones back, as the deal would.
-        fresh.active_alarms[:] = [dict(a) for a in alarms]
-        for severity in ('CRITICAL', 'MAJOR', 'MINOR'):
-            fresh.system_health[f'{severity.lower()}_alarms'] = sum(
-                1 for a in fresh.active_alarms if a['severity'] == severity)
         assert save.restore(fresh, captured)
         return fresh
 
+    def at_tour(self, at_desk, tour=4):
+        terminal = at_desk('switch')
+        terminal.career.shift = tour
+        terminal.deal_alarms()
+        return terminal
+
+    def test_a_resume_deals_the_alarms_that_were_standing(self, at_desk):
+        terminal = self.at_tour(at_desk)
+        fresh = self.resumed(terminal, self.capture(terminal))
+        assert ids(fresh) == ids(terminal)
+
+    def test_a_held_alarm_is_still_held_and_the_count_is_the_same(
+            self, at_desk):
+        terminal = self.at_tour(at_desk)
+        terminal.shift_minutes = 10 * LAMP_MINUTES
+        before = terminal.alarms_overdue()
+        assert before == len(terminal.active_alarms)
+        fresh = self.resumed(terminal, self.capture(terminal))
+        assert fresh.shift_minutes == terminal.shift_minutes
+        assert fresh.alarms_overdue() == before
+
+    def test_a_fresh_alarm_does_not_appear_already_held(self, at_desk):
+        terminal = self.at_tour(at_desk)
+        terminal.shift_minutes = 2 * LAMP_MINUTES
+        held = {a['id'] for a in terminal.active_alarms
+                if terminal.lamp_held(a)}
+        fresh = self.resumed(terminal, self.capture(terminal))
+        assert {a['id'] for a in fresh.active_alarms
+                if fresh.lamp_held(a)} == held
+
     def test_a_cleared_alarm_does_not_come_back(self, at_desk):
-        terminal = office_desk(at_desk)
-        dealt = [dict(a) for a in terminal.active_alarms]
+        terminal = self.at_tour(at_desk)
+        dealt = ids(terminal)
         gone = terminal.active_alarms[0]
-        key = {'CRITICAL': 'critical_alarms', 'MAJOR': 'major_alarms',
-               'MINOR': 'minor_alarms'}[gone['severity']]
         terminal.execute_command(f"connect work {gone['id']}")
-        fresh = self.resumed(terminal, self.capture(terminal), dealt)
-        assert gone['id'] not in [a['id'] for a in fresh.active_alarms]
-        assert len(fresh.active_alarms) == len(dealt) - 1
-        assert fresh.system_health[key] == terminal.system_health[key]
+        fresh = self.resumed(terminal, self.capture(terminal))
+        assert ids(fresh) == [i for i in dealt if i != gone['id']]
+        for key in ('critical_alarms', 'major_alarms', 'minor_alarms',
+                    'overall_status'):
+            assert fresh.system_health[key] == terminal.system_health[key]
         assert fresh.lamp_book()['cleared'] == [gone['id']]
+
+    def test_a_late_clear_is_still_charged_after_a_resume(self, at_desk):
+        terminal = self.at_tour(at_desk)
+        terminal.shift_minutes = 10 * LAMP_MINUTES
+        for alarm in list(terminal.active_alarms):
+            terminal.execute_command(f"connect work {alarm['id']}")
+        owed = terminal.alarms_overdue()
+        assert owed > 0
+        fresh = self.resumed(terminal, self.capture(terminal))
+        assert fresh.active_alarms == []
+        assert fresh.lamp_book()['held'] == terminal.lamp_book()['held']
+        assert fresh.alarms_overdue() == owed
 
     def test_a_cleared_alarm_in_another_building_does_not_come_back(
             self, at_desk):
-        terminal = office_desk(at_desk)
+        terminal = self.at_tour(at_desk)
         home = terminal.home_office['clli']
         office, alarm = next(
             (o, a) for o in terminal.watched_offices()
             if o['clli'] != home for a in terminal.office_alarms(o))
         terminal.execute_command(f"connect work {alarm['id']}")
-        fresh = self.resumed(terminal, self.capture(terminal),
-                             terminal.active_alarms)
+        fresh = self.resumed(terminal, self.capture(terminal))
         assert alarm['id'] not in [a['id']
                                    for a in fresh.office_alarms(office)]
 
     def test_the_lamp_that_rose_is_remembered(self, at_desk):
-        terminal = office_desk(at_desk)
+        terminal = self.at_tour(at_desk)
         terminal.shift_minutes = 10 * LAMP_MINUTES
         rose = next(a for a, lamp, *_ in terminal.lamp_panel()
                     if lamp != a['severity'])
         terminal.execute_command(f"connect work {rose['id']}")
-        fresh = self.resumed(terminal, self.capture(terminal),
-                             terminal.active_alarms)
+        fresh = self.resumed(terminal, self.capture(terminal))
         assert fresh.lamp_book()['rose'] == [rose['id']]
 
     def test_no_record_damaged_or_other_tour_brings_nothing_back(
             self, at_desk):
-        terminal = office_desk(at_desk)
-        dealt = [dict(a) for a in terminal.active_alarms]
-        terminal.execute_command(f"connect work {dealt[0]['id']}")
-        for junk in (None, 7, 'x', {'tour': 99, 'cleared': ['AL-700']},
-                     {'tour': terminal.career.shift, 'cleared': 4}):
+        terminal = self.at_tour(at_desk)
+        dealt = ids(terminal)
+        terminal.execute_command(f"connect work {dealt[0]}")
+        for junk in (None, 7, 'x', {'tour': 99, 'cleared': ['AL-4472']},
+                     {'tour': terminal.career.shift, 'cleared': 4,
+                      'held': 'x'}):
             captured = self.capture(terminal)
             if junk is None:
                 del captured['tour']['lamps']
             else:
                 captured['tour']['lamps'] = junk
-            fresh = self.resumed(terminal, captured, dealt)
-            assert len(fresh.active_alarms) == len(dealt), junk
+            fresh = self.resumed(terminal, captured)
+            assert ids(fresh) == dealt, junk
+            assert fresh.lamp_book()['held'] == []
 
 
 class TestTheRepairDeskCostsTheIndex:

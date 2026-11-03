@@ -427,6 +427,10 @@ class BellSystemTerminal(
             {"id": "AL-4476", "type": "RADIO_FADE", "severity": "MAJOR", "system": "TH3-CHI-007", "description": "Microwave path experiencing excessive fade"}
         ]
 
+        # The office desk is dealt from this deck each tour, seeded from the
+        # tour (see RemoteCommands.deal_alarms), so a resume agrees.
+        self.alarm_deck: List[Dict[str, Any]] = possible_alarms
+
         # Randomly select active alarms based on time and conditions
         self.active_alarms: List[Alarm] = []
         for candidate in possible_alarms:
