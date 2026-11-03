@@ -12,7 +12,7 @@ from typing import Any, List, Optional
 from ..console import clear_screen
 from ..constants import BSP_CATEGORIES
 from ..filesystem import FILESYSTEM, Node
-from ..npc import CRAFT
+from ..npc import CRAFT, on_shift
 from .session import SessionState
 
 
@@ -253,7 +253,10 @@ class UnixCommands(SessionState):
             User listing with terminals and login information
         """
         output = ""
+        now = self.clock.now()
         for user in self.users:
+            if not on_shift(user['user'], now):
+                continue
             person = CRAFT.get(user['user'])
             title = f"  {person.title}" if person else ""
             output += (f"{user['user']:<10} tty{user['tty']:<4} "

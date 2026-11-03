@@ -47,6 +47,25 @@ CHANNEL_NAMES: Dict[str, str] = {
 }
 
 
+# The three watches of a day, by the hour on the clock: the bands the shift
+# briefing already uses (``screens/shift.py`` ``_get_shift_hours``).
+WATCHES = ('day', 'evening', 'night')
+WATCH_LABELS: Dict[str, str] = {
+    'day': 'Day Shift (08:00-16:00)',
+    'evening': 'Evening Shift (16:00-24:00)',
+    'night': 'Night Shift (24:00-08:00)',
+}
+
+
+def watch_at(when: datetime) -> str:
+    """Which watch of the day this moment falls in."""
+    if 8 <= when.hour < 16:
+        return 'day'
+    if 16 <= when.hour < 24:
+        return 'evening'
+    return 'night'
+
+
 class Craft(NamedTuple):
     """One of the other people working the network tonight."""
 
@@ -57,6 +76,10 @@ class Craft(NamedTuple):
     tty: str
     # How this person tends to come at you.
     manner: str
+    # The watches they are on. Most of the building is staffed round the
+    # clock; a few are a day job. The simulation's own, set from what each
+    # job was (narrative-bible.md section 4); nothing says otherwise.
+    watches: Tuple[str, ...] = WATCHES
 
 
 CRAFT: Dict[str, Craft] = {
@@ -93,7 +116,8 @@ CRAFT: Dict[str, Craft] = {
         'wfinch', 'Finch, W.', 'Station Installer',
         'FIELD_SUP', '06',
         'Drop, protector and set: everything the customer can see. Rings in '
-        'from the kitchen phone as often as from a terminal box.'),
+        'from the kitchen phone as often as from a terminal box.',
+        watches=('day', 'evening')),
     'jsandoval': Craft(
         'jsandoval', 'Sandoval, J.', 'Cable Splicer',
         'FIELD_SUP', '11',
@@ -103,12 +127,14 @@ CRAFT: Dict[str, Craft] = {
         'abright', 'Bright, A.', 'Lineman',
         'FIELD_SUP', '12',
         'Aerial and buried plant between the office and the drop. Calls in '
-        'from wherever the ladder is.'),
+        'from wherever the ladder is.',
+        watches=('day',)),
     'jhaverty': Craft(
         'jhaverty', 'Haverty, J.', 'Chief Operator',
         'TSPS_NEWARK', '10',
         'Runs a room of operator positions. Everything she brings you is a '
-        'call somebody is still holding.'),
+        'call somebody is still holding.',
+        watches=('day',)),
     'adm': Craft(
         'adm', 'ADM', 'System accounting',
         'CENTRAL_OFF', '08',
@@ -117,7 +143,8 @@ CRAFT: Dict[str, Craft] = {
     'tnakamura': Craft(
         'tnakamura', 'Nakamura, T.', 'Transmission Engineer',
         'TRANS_CTR', '05',
-        'Carrier and toll. Talks in dB and will correct you if you do not.'),
+        'Carrier and toll. Talks in dB and will correct you if you do not.',
+        watches=('day',)),
     'carot': Craft(
         'carot', 'CAROT', 'Centralized Automatic Reporting On Trunks',
         'CAROT_CENTER', '11',
@@ -461,6 +488,19 @@ _SIGN_OFF_REMARKS: Dict[int, Tuple[str, ...]] = {
 }
 
 
+
+def on_shift(login: str, when: datetime) -> bool:
+    """
+    Whether this person is on the watch the clock is in.
+
+    Anyone who is not a person on the roster (a machine, a name from an
+    older save) is always on: nothing here has the standing to say they are
+    not.
+    """
+    person = CRAFT.get(login)
+    return person is None or watch_at(when) in person.watches
+
+
 # The story, said once each, in the order they are due. The simulation's own;
 # the people and what is known of them are narrative-bible.md sections 4 and
 # 5, and each beat keeps to its speaker's profile there. Two lines at most,
@@ -558,11 +598,18 @@ def adjust_rapport(rapport: Dict[str, int], ledger: List[str], login: str,
     return True
 
 
-def favour_due(rapport: Dict[str, int], ledger: List[str]) -> Optional[str]:
-    """The first person at the threshold who has not yet done their favour."""
+def favour_due(rapport: Dict[str, int], ledger: List[str],
+               when: Optional[datetime] = None) -> Optional[str]:
+    """
+    The first person at the threshold who has not yet done their favour.
+
+    Given a time, only somebody on the watch it is: a favour waits for the
+    person to be in.
+    """
     for login in FAVOURS:
         if (rapport.get(login, 0) >= FAVOUR_AT
-                and f'favour:{login}' not in ledger):
+                and f'favour:{login}' not in ledger
+                and (when is None or on_shift(login, when))):
             return login
     return None
 
@@ -653,6 +700,9 @@ class Switchroom:
         if tour is not None:
             pool = tuple(item for item in pool
                          if len(item) < 4 or heard_on(item[3], tour))
+        # Only whoever is on the watch it is can say anything: the order
+        # wire, the mail and the write(1) traffic all come from somebody.
+        pool = tuple(item for item in pool if on_shift(item[1], now))
         picked = self._pick(pool, 'chatter')
         if picked is None:
             return None
@@ -699,6 +749,8 @@ class Switchroom:
         """The first arc beat that fits this tour and has not been said."""
         for beat in self.arcs:
             if beat.key in seen or not heard_on(beat.window, tour):
+                continue
+            if not on_shift(beat.sender, now):
                 continue
             about = '{number}' in ''.join(beat.lines)
             if about and recall is None:
@@ -1089,6 +1141,9 @@ class Switchroom:
         call was still coming in as the cable splicer whoever went.
         """
         sender = self.FORCE_SENDERS.get(force, 'lokafor')
+        if not on_shift(sender, now):
+            # Called out, nobody; the splicer is out in it at any hour.
+            sender = 'lokafor'
         if crew:
             for login, person in CRAFT.items():
                 if person.name == crew:

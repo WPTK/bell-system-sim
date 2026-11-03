@@ -78,6 +78,8 @@ for that person must pass the Never column.
 Sample lines are quoted from the code and are the standard. Wrapping is
 normalised to one line.
 
+**Who is on (Provisional, phase 6c, A12).** The building is staffed round the clock, with four day jobs, the simulation's own: Nakamura, Haverty and Bright on the day watch (08:00-16:00), Finch on day and evening. Everyone else, and both machines, are on all three. Reyes (03:47) and Halloran (06:15) must stay on nights for T2. Off watch a person is absent from `who`, `write` and the mail and order-wire traffic. A crew the bureau dispatches still calls in, because a callout is not an offer. `npc.py` `Craft.watches`.
+
 ### Halloran, E.: wire chief  (`ehalloran`, CENTRAL_OFF, tty01)
 
 **Canon:** Established (`npc.py` `CRAFT`, `_SIGN_OFF_REMARKS`, `last_word`; `data/hints.py`). He/him in the code.

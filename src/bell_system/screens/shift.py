@@ -20,11 +20,14 @@ from ..data.tours import Tour
 from ..npc import (
     CRAFT,
     FAVOUR_MINUTES,
+    WATCH_LABELS,
     Message,
     adjust_rapport,
     favour_due,
+    on_shift,
     rapport_with,
     render as render_message,
+    watch_at,
 )
 from ..progression import (
     QUALIFICATIONS,
@@ -221,13 +224,7 @@ class ShiftCommands(SessionState):
                       "worked the hard way.")
     def _get_shift_hours(self) -> str:
         """Get current shift description."""
-        hour = self.clock.now().hour
-        if 8 <= hour < 16:
-            return "Day Shift (08:00-16:00)"
-        elif 16 <= hour < 24:
-            return "Evening Shift (16:00-24:00)"
-        else:
-            return "Night Shift (24:00-08:00)"
+        return WATCH_LABELS[watch_at(self.clock.now())]
     def cmd_events(self, args: List[str]) -> str:
         """Bell System operational events and shift activity"""
         if not args:
@@ -563,7 +560,8 @@ class ShiftCommands(SessionState):
                     report.record.class_of_service, closed),
                     after=room.rng.randint(2, 5))
         if not quiet:
-            login = favour_due(self.career.rapport, self.career.beats_seen)
+            login = favour_due(self.career.rapport, self.career.beats_seen,
+                               self.clock.now())
             waiting = sorted((r for r in self.desk.customers()
                               if not r.overdue()), key=lambda r: r.commitment)
             if login and waiting:
@@ -748,6 +746,8 @@ class ShiftCommands(SessionState):
                 '-' * 66,
             ]
             for person in CRAFT.values():
+                if not on_shift(person.login, self.clock.now()):
+                    continue
                 lines.append(f"{person.login:<12} tty{person.tty:<2} "
                              f"{person.name:<16} {person.location}")
             lines.append('-' * 66)
@@ -756,7 +756,7 @@ class ShiftCommands(SessionState):
 
         login = args[0].lower()
         found = CRAFT.get(login)
-        if found is None:
+        if found is None or not on_shift(login, self.clock.now()):
             return f"write: {args[0]} is not logged on."
         if login == 'carot':
             return ("write: CAROT is a test system, not a terminal. It prints "
