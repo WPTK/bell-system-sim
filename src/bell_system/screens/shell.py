@@ -137,12 +137,15 @@ class ShellCommands(FindsCommands):
             names.extend(found or [arg])
         return names
 
-    def _gather(self, args: List[str], command: str) -> tuple:
+    def _gather(self, args: List[str], command: str,
+                note: bool = False) -> tuple:
         """
         Return (text, error) for commands that read files or standard input.
 
         With no file arguments a command reads what the previous stage of the
-        pipeline produced, which is what makes a pipeline work.
+        pipeline produced, which is what makes a pipeline work. ``note`` is
+        for the commands that print the text of what they read: only those
+        make a find, and wc, od and sum read a file without reading it.
         """
         files = self._operands([a for a in args if not a.startswith('-')])
         if not files:
@@ -153,8 +156,9 @@ class ShellCommands(FindsCommands):
             if text is None:
                 return None, self._refusal(name, command)
             chunks.append(text)
-        for name in files:
-            self._note_read(name)
+        if note:
+            for name in files:
+                self._note_read(name)
         return ''.join(chunks), None
 
     # -- moving around ---------------------------------------------------
@@ -229,8 +233,8 @@ class ShellCommands(FindsCommands):
 
     def cmd_cat(self, args: Optional[List[str]] = None) -> str:
         """Concatenate and print files."""
-        text, error = self._gather(args or [], 'cat')
-        return error if error else self._with_find_notice(text.rstrip('\n'))
+        text, error = self._gather(args or [], 'cat', note=True)
+        return error if error else text.rstrip('\n')
 
     def cmd_more(self, args: Optional[List[str]] = None) -> str:
         """
@@ -239,16 +243,15 @@ class ShellCommands(FindsCommands):
         There is no interactive pager here: the terminal this runs in scrolls
         on its own, so more(1) prints the file and says how long it was.
         """
-        text, error = self._gather(args or [], 'more')
+        text, error = self._gather(args or [], 'more', note=True)
         if error:
             return error
         lines = text.rstrip('\n').split('\n')
         if len(lines) <= 23:
-            return self._with_find_notice('\n'.join(lines))
-        return self._with_find_notice(
-            '\n'.join(lines[:23])
-            + f"\n--More--({len(lines) - 23} more lines; "
-              f"cat(1) prints the rest)")
+            return '\n'.join(lines)
+        return ('\n'.join(lines[:23])
+                + f"\n--More--({len(lines) - 23} more lines; "
+                  f"cat(1) prints the rest)")
 
     def cmd_head(self, args: Optional[List[str]] = None) -> str:
         """Print the first lines of a file."""
@@ -257,11 +260,10 @@ class ShellCommands(FindsCommands):
         for arg in args:
             if arg.startswith('-') and arg[1:].isdigit():
                 count = int(arg[1:])
-        text, error = self._gather(args, 'head')
+        text, error = self._gather(args, 'head', note=True)
         if error:
             return error
-        return self._with_find_notice(
-            '\n'.join(text.rstrip('\n').split('\n')[:count]))
+        return '\n'.join(text.rstrip('\n').split('\n')[:count])
 
     def cmd_tail(self, args: Optional[List[str]] = None) -> str:
         """Print the last lines of a file."""
@@ -270,11 +272,10 @@ class ShellCommands(FindsCommands):
         for arg in args:
             if arg.startswith('-') and arg[1:].isdigit():
                 count = int(arg[1:])
-        text, error = self._gather(args, 'tail')
+        text, error = self._gather(args, 'tail', note=True)
         if error:
             return error
-        return self._with_find_notice(
-            '\n'.join(text.rstrip('\n').split('\n')[-count:]))
+        return '\n'.join(text.rstrip('\n').split('\n')[-count:])
 
     def cmd_file(self, args: Optional[List[str]] = None) -> str:
         """Say what kind of thing each argument is."""
@@ -339,7 +340,8 @@ class ShellCommands(FindsCommands):
                 subject = line.lower() if 'i' in flags else line
                 if (needle in subject) == ('v' not in flags):
                     hits.append(f"{number}:{line}" if 'n' in flags else line)
-            if hits and name:
+            # -c and -l report on a file without showing it.
+            if hits and name and not set('cl') & set(flags):
                 self._note_read(name)
             label = f"{name}:" if labelled else ''
             if 'l' in flags:
@@ -350,7 +352,7 @@ class ShellCommands(FindsCommands):
             else:
                 found.extend(f"{label}{hit}" for hit in hits)
 
-        return self._with_find_notice('\n'.join(found + problems))
+        return '\n'.join(found + problems)
 
     def cmd_wc(self, args: Optional[List[str]] = None) -> str:
         """Count lines, words and characters."""

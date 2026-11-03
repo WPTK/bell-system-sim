@@ -32,8 +32,8 @@ class FindsCommands(SessionState):
     reading commands are what call ``_note_read``.
     """
 
-    # Set when the first find is made and said at the next output that is
-    # not part of a pipeline, so that it is not swallowed by a grep.
+    # Set when the first find is made, and said by the REPL after the output
+    # of the command that made it (take_find_notice).
     _find_pending: str = ''
 
     def _note_read(self, path: str) -> None:
@@ -58,12 +58,17 @@ class FindsCommands(SessionState):
         if first:
             self._find_pending = FIRST_FIND
 
-    def _with_find_notice(self, text: str) -> str:
-        """Add the one-time note to a command's output, if it is due."""
-        if not self._find_pending or getattr(self, '_in_pipeline', False):
-            return text
+    def take_find_notice(self) -> str:
+        """
+        Return the one-time note, once, when the first find has been made.
+
+        The REPL asks for it after it has printed a command's output, so it
+        is said on the screen and never in the output: not in a file the
+        output was sent to, not fed to the next stage of a pipeline, and not
+        counted by head. Nothing else calls it.
+        """
         notice, self._find_pending = self._find_pending, ''
-        return f"{text}\n{notice}" if text else notice
+        return notice
 
     def deliver_fragments(self) -> None:
         """
@@ -99,7 +104,7 @@ class FindsCommands(SessionState):
                    for number, fragment in enumerate(FRAGMENTS, 1)}
 
         if args:
-            if not args[0].isdigit():
+            if not args[0].isdecimal():
                 return "finds: usage: finds [number]"
             for fragment in found:
                 if numbers[fragment.key] == int(args[0]):

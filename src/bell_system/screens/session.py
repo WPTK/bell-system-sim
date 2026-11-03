@@ -230,7 +230,8 @@ class SessionState:
         """Return a file's text, or None if it is not a readable file."""
         raise NotImplementedError
 
-    def _gather(self, args: List[str], command: str) -> tuple:
+    def _gather(self, args: List[str], command: str,
+                note: bool = False) -> tuple:
         """Return (text, error) for a command reading files or stdin."""
         raise NotImplementedError
 
@@ -372,8 +373,8 @@ class SessionState:
         """Record that a file has been put in front of the player."""
         raise NotImplementedError
 
-    def _with_find_notice(self, text: str) -> str:
-        """Add the one-time note about finds to a command's output."""
+    def take_find_notice(self) -> str:
+        """Return the one-time note about finds, once, if it is due."""
         raise NotImplementedError
 
     def tour_script(self) -> Optional[Any]:

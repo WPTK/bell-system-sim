@@ -1563,6 +1563,14 @@ for _fragment in FRAGMENTS:
         FILESYSTEM[_fragment.path] = fragment_node(_fragment)
 
 
+# Files that turn up on a later tour. They are the machine's and not the
+# player's, so they are not saved with the player: they come back on their
+# tour, and one under a home directory would otherwise be kept as if written.
+ARRIVING = frozenset(
+    fragment.path for fragment in FRAGMENTS
+    if fragment.text is not None and fragment.tour > 1)
+
+
 # What a player writes, and so what is kept between sessions: anything under
 # the users' home directories, and the moo scoreboard, which is the one file
 # outside them the games ask you to write to. Everything else on the machine
@@ -1594,6 +1602,7 @@ def player_changes(tree: Dict[str, Node]) -> Tuple[Dict[str, Node], List[str]]:
     """
     changed = {path: node for path, node in tree.items()
                if is_player_path(path) and FILESYSTEM.get(path) != node
+               and path not in ARRIVING
                and (node.is_dir or isinstance(node.content, str))}
     removed = sorted(path for path in FILESYSTEM
                      if is_player_path(path) and path not in tree)

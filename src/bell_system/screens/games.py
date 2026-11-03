@@ -276,7 +276,7 @@ class GameCommands(SessionState):
             if not 0 <= index < len(articles):
                 return f"readnews: no article {args[0]}"
             self._note_read(articles[index])
-            return self._with_find_notice(self._read(articles[index]) or '')
+            return self._read(articles[index]) or ''
         elif args and args[0] == '-g':
             groups: Dict[str, int] = {}
             for path in articles:

@@ -55,11 +55,11 @@ TESTLOG = """10/31 closed 5 ntf 1 board 11
 11/02 closed 4 ntf 1 board 8
 11/03 closed 6 ntf 2 board 8
 11/04 closed 5 ntf 2 board 7
-11/07 closed 6 ntf 4 board 9
-11/08 closed 7 ntf 5 board 8
-11/09 closed 8 ntf 6 board 5
-11/10 closed 9 ntf 8 board 2
-11/11 closed 6 ntf 6 board 0 clear
+11/07 closed 6 ntf 3 board 9
+11/08 closed 7 ntf 4 board 8
+11/09 closed 8 ntf 5 board 5
+11/10 closed 9 ntf 5 board 2
+11/11 closed 7 ntf 4 board 1
 """
 
 # -- the places nobody browses ------------------------------------------
@@ -68,10 +68,8 @@ SCRATCH = """franklin st, october. for the log, so i do not do it twice.
 
   10/04  crew 1   nothing at the pole                 ntf
   10/05  crew 2   nothing at the pole                 ntf
-  10/06  crew 3   water in the splice, pair 18
-  10/07  crew 4   same splice. closed it behind crew 3
-
-one crew on the 4th.
+  10/06  crew 3   spliced
+  10/07  crew 4   spliced, same place
 """
 
 TRIAL = """marker 2, aisle 4, third trial, seconds. my watch and the timing
@@ -92,8 +90,7 @@ reviewed by E.H., 12/12.
   shiftlog    keep
   uucplog     keep
   testlog     keep
-  sulog       keep. looked at it and left it as it is.
-  lmoslog     keep. same.
+  sulog       keep.
 """
 
 TRANSFER = """accounts on mhuxco, for the operating company. from the wire chief.
@@ -106,7 +103,7 @@ TRANSFER = """accounts on mhuxco, for the operating company. from the wire chief
   lokafor gvasquez ehalloran
   tnakamura wfinch jsandoval
   abright jhaverty
-  alvarez                        no login. their files are under sysop.
+  alvarez                        no login. the files are under sysop.
                                  leave them.
 """
 
@@ -121,7 +118,7 @@ FRAGMENTS: Tuple[Fragment, ...] = (
     Fragment('testlog', 'The position test log', '/usr/adm/testlog',
              text=TESTLOG, owner='sysop', group='craft'),
     Fragment('testlogc', 'testlog.c', '/usr/src/cmd/testlog.c'),
-    Fragment('scratch', 'Scratch left in /tmp', '/tmp/.f', tour=2,
+    Fragment('scratch', 'A file in /tmp', '/tmp/.f', tour=2,
              text=SCRATCH, owner='sysop', group='craft'),
     Fragment('marker', 'Marker 2, as Johnson found it',
              '/usr/users/rjohnson/marker.notes'),

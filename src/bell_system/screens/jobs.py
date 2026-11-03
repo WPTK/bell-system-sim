@@ -301,6 +301,7 @@ class JobCommands(SessionState):
         text = self._read('/usr/adm/uucplog')
         if text is None:
             return "uulog: cannot open /usr/adm/uucplog"
+        self._note_read('/usr/adm/uucplog')
         for item in args:
             if item.startswith('-s') and item[2:]:
                 site = item[2:]
