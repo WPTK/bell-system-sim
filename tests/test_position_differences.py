@@ -2735,8 +2735,11 @@ class TestTheNocQueueIsHonest:
         terminal._assigned_tickets.add(given['id'])
         terminal.execute_command(
             f"trouble assign {named['id']} Outside Plant")
-        resolved['status'] = 'RESOLVED'
-        closed['status'] = 'CLOSED'
+        # A resolved ticket leaves the active list, as `trouble resolve`
+        # does it; a status alone never takes one out (see the leftovers).
+        for done, status in ((resolved, 'RESOLVED'), (closed, 'CLOSED')):
+            done['status'] = status
+            terminal.active_tickets.remove(done)
         waiting = [t['id'] for t in terminal.triage_queue()]
         assert waiting == [free['id']]
         terminal.shift_minutes = 500
@@ -3182,3 +3185,28 @@ class TestTheNocQueueAcrossAResume:
         terminal.restore_triage(terminal.triage_state())
         assert terminal.triage_book()['taken'] == {major['id']: 5}
         assert terminal.triage_book()['earlier'] == {'taken': 0, 'lapsed': 0}
+
+
+class TestTheLeftoversFromPhaseNine:
+    """Issue 84: the five that the third round left."""
+
+    def test_trouble_update_cannot_take_a_ticket_out_of_the_queue(
+            self, at_desk):
+        terminal = at_desk('noc')
+        tickets = put_tickets(terminal, ('MAJOR', 900), ('MINOR', 100),
+                              ('CRITICAL', 300))
+        for ticket, status in zip(tickets,
+                                  ('CLOSED', 'RESOLVED', 'IN_PROGRESS')):
+            terminal.execute_command(
+                f"trouble update {ticket['id']} {status}")
+        assert len(terminal.triage_queue()) == 3
+        # And so a window still runs on them, with nobody on them.
+        terminal.shift_minutes = 500
+        terminal.career.shift = 2
+        assert terminal.triage_lapsed() == 3
+
+    def test_taking_a_ticket_still_empties_the_queue_of_it(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.execute_command('trouble triage ' + major['id'])
+        assert terminal.triage_queue() == []

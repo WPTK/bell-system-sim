@@ -198,18 +198,18 @@ class TriageCommands(SessionState):
 
     def triage_queue(self) -> List[TroubleTicket]:
         """
-        Open tickets nobody is on, soonest window first.
+        Tickets nobody is on, soonest window first.
 
-        Only a ticket that is OPEN and that nobody has been given is
-        waiting: one the control centre handed to a position, one that
-        `trouble assign` named a team for, one taken here, and anything
-        resolved or closed is not. Pure: it changes nothing. A window that
-        has passed is noticed by triage_sweep.
+        A ticket is waiting until somebody is given it: the control centre
+        hands it to a position, `trouble assign` names a team for it, or
+        it is taken here. Its status is not part of that, so `trouble
+        update` cannot empty the queue; a resolved ticket leaves the
+        active list and so leaves the queue. Pure: it changes nothing. A
+        window that has passed is noticed by triage_sweep.
         """
         book = self.triage_book()
         queue = [t for t in self.active_tickets
-                 if t['status'] == 'OPEN'
-                 and t['id'] not in self._assigned_tickets
+                 if t['id'] not in self._assigned_tickets
                  and t['id'] not in book['taken']]
         queue.sort(key=lambda t: (self.triage_due(t), -t['customer_impact'],
                                   t['id']))
