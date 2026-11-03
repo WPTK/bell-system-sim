@@ -635,3 +635,11 @@ def test_a_saved_practical_nobody_knows_is_an_ordinary_report(terminal):
     assert save.restore(terminal, stored)
     assert terminal.desk.reports[report.number].practical is None
     assert terminal._practical_open() is None
+
+
+def test_the_audit_does_not_count_the_staged_report(terminal):
+    ready(terminal, 'frame')
+    terminal.execute_command('qual take frame')
+    _, report = staged(terminal)
+    assert report.number not in terminal.career_audit().open_numbers
+    assert report.number not in [r.number for r in terminal.desk.customers()]

@@ -588,6 +588,16 @@ class ReportDesk:
         ]
         return sorted(open_reports, key=lambda report: report.due_in())
 
+    def customers(self) -> List[TroubleReport]:
+        """
+        Open reports that are a customer's, nearest commitment first.
+
+        A practical's report is Halloran's: it is never late, never closed
+        and never carried, so no count of the board or audit of it should
+        include it.
+        """
+        return [report for report in self.pending() if not report.practical]
+
     def closed(self) -> List[TroubleReport]:
         """Return closed reports, most recently closed first."""
         done = [

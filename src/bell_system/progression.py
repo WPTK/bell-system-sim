@@ -45,14 +45,15 @@ SCHEMA = 2
 
 # Career attributes that are a list of names, in the order they happened.
 _LIST_FIELDS = ('commendations', 'finds', 'groups', 'beats_seen',
-                'practicals_passed', 'offered')
+                'practicals_passed', 'offered', 'audit_open')
 # Career attributes that are a count for each of a set of names.
 _COUNT_FIELDS = ('fault_sightings', 'rapport')
 # Every key save() writes. Anything else in the file is a later version's.
 _KNOWN_KEYS = frozenset((
     'schema', 'difficulty', 'shift', 'reports_closed', 'reports_correct',
     'reports_wrong', 'repeat_reports', 'missed_commitments', 'qualifications',
-    'index_history', 'office', 'finished', 'assignment',
+    'index_history', 'office', 'finished', 'assignment', 'audit_verdict',
+    'audit_late',
 )) | frozenset(_LIST_FIELDS) | frozenset(_COUNT_FIELDS)
 
 
@@ -414,6 +415,13 @@ class Career:
         # the plan's assignment form was dropped, and the epilogue reads the
         # office's own company instead.
         self.assignment: str = ''
+        # What the audit at the end of the last tour found, kept so that the
+        # last day can be read again: the verdict, the reports that went
+        # over open with the craftsperson's name on them, and how many of
+        # those were past commitment. Empty until the career is signed off.
+        self.audit_verdict: str = ''
+        self.audit_open: List[str] = []
+        self.audit_late: int = 0
         # What a later version wrote that this one does not understand, held
         # so that saving does not delete it. See load().
         self._unknown: Dict[str, Any] = {}
@@ -677,6 +685,9 @@ class Career:
                                   if key in QUALIFICATIONS_BY_KEY]
         assignment = stored.get('assignment')
         self.assignment = assignment if isinstance(assignment, str) else ''
+        verdict = stored.get('audit_verdict')
+        self.audit_verdict = verdict if isinstance(verdict, str) else ''
+        self.audit_late = _whole(stored.get('audit_late'), 0, 0)
 
         office = stored.get('office')
         if isinstance(office, dict):
@@ -728,6 +739,8 @@ class Career:
             'office': self.office,
             'finished': self.finished,
             'assignment': self.assignment,
+            'audit_verdict': self.audit_verdict,
+            'audit_late': self.audit_late,
             **{field: getattr(self, field)
                for field in _LIST_FIELDS + _COUNT_FIELDS},
         }

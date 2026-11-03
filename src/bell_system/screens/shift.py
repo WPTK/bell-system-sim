@@ -7,10 +7,14 @@ from collections import (
     deque,
 )
 from typing import (
+    Any,
+    Dict,
     List,
+    Mapping,
     Optional,
 )
-from ..data.shift_events import build as build_shift_events
+from ..data import tours
+from ..data.tours import Tour
 from ..npc import (
     CRAFT,
     Message,
@@ -52,17 +56,53 @@ class ShiftCommands(SessionState):
                 "special_instructions": "Monitor trunk TG-047 for blocking threshold"
             }
         }
+    def tour_script(self) -> Optional[Tour]:
+        """
+        Return this tour's entry in data/tours.py, if it applies.
+
+        It does not on a calendar other than the one it was written for: a
+        player who moved the epoch gets the routine and no set pieces.
+        """
+        return tours.script(self.career.shift, self.clock.tour_day())
+
+    def tour_brief(self, counts: Optional[Mapping[str, int]] = None
+                   ) -> List[str]:
+        """
+        The tour's theme, its briefing and its goals, as printed lines.
+
+        Shared by the briefing a shift opens with and by shift(1), so the
+        two cannot disagree about what today is for. Given the tour's
+        counts, each goal says how far along it is.
+        """
+        entry = self.tour_script()
+        if entry is None:
+            return []
+        lines = [f"Tour {entry.number} of {len(tours.TOURS)}: "
+                 f"{entry.theme} ({entry.kind})"]
+        lines.extend(f"  {line}" for line in entry.briefing)
+        lines.append("  Goals, struck at handoff and never scored:")
+        for goal in entry.goals:
+            progress = f"  (so far {counts[goal.metric]})" if counts else ''
+            lines.append(f"    - {goal.text}{progress}")
+        if counts:
+            lines.append("  Unworked time will still age the board at "
+                         "handoff.")
+        return lines
+
     def generate_shift_events(self) -> None:
         """
-        Put the shift's scheduled work, tests and known conditions on the
-        board.
+        Put the tour's scheduled work, tests and known conditions on the
+        board, and the news the feed has brought in.
 
-        The catalogue is reference data and lives in data/shift_events.py;
-        what is here is when to ask for it. Re-run at every shift change,
-        which is why it is safe to call again once a position is taken.
+        The catalogue is reference data and lives in data/tours.py; what is
+        here is when to ask for it. Re-run at every shift change, which is
+        why it is safe to call again once a position is taken. The board is
+        the same for the same tour at the same office, because a saved shift
+        rebuilds it and the events that have fired are remembered by number.
         """
-        self.shift_events = build_shift_events(
-            self.clock.now().hour, self.clock.now().month)
+        self.shift_events = tours.build(
+            self.career.shift, self.home_office, self.clock.tour_day())
+        self.deliver_news()
     def show_shift_briefing(self) -> None:
         """
         Display role-specific shift briefing.
@@ -90,6 +130,12 @@ class ShiftCommands(SessionState):
             self.emit(f"Resumed: {self.shift_time()} already worked, "
                       f"{len(self.desk.pending())} on the board")
         self.emit(f"{'='*60}")
+        brief = self.tour_brief()
+        if brief:
+            self.emit()
+            for line in brief:
+                self.emit(line)
+            self.emit()
 
         # Role-specific briefings
         role_briefings = {
@@ -214,6 +260,10 @@ class ShiftCommands(SessionState):
             output.append(f"Priority:    {found_event['priority']}")
             output.append(f"Status:      {found_event['status']}")
             output.append(f"Title:       {found_event['title']}")
+            origin = found_event['origin']
+            output.append("Origin:      " + (
+                found_event['source'] if origin == tours.OWN
+                else f"{origin.title()} - {found_event['source']}"))
             output.append("")
             output.append("Description:")
             output.append(f"  {found_event['description']}")
@@ -539,6 +589,40 @@ class ShiftCommands(SessionState):
     def shift_time(self) -> str:
         """Return how far into the shift the work has got, as hours:minutes."""
         return f"{self.shift_minutes // 60}:{self.shift_minutes % 60:02d}"
+    def _due_events(self) -> List[Dict[str, Any]]:
+        """Return the events whose time the working shift has reached."""
+        reached = EPOCH_HOUR * 60 + self.shift_minutes
+        due_now = []
+        for event in self.shift_events:
+            if event['id'] in self._fired_events:
+                continue
+            try:
+                hour, minute = event['time'].split(':')
+                due = int(hour) * 60 + int(minute)
+            except (ValueError, KeyError):
+                continue
+            if due <= reached:
+                due_now.append(event)
+        return due_now
+
+    def settle_fired_events(self) -> None:
+        """
+        Make a resumed shift's fired events agree with the board it rebuilt.
+
+        A save written before the tour script kept the old event numbers.
+        Left alone, every event already due on the new board would fire at
+        once as a burst, and the old numbers would sit in the set for
+        nothing. Numbers that are not on the board are dropped, and what is
+        already due is taken to have fired: the player has been through it.
+        """
+        on_board = {event['id'] for event in self.shift_events}
+        self._fired_events = {fired for fired in self._fired_events
+                              if fired in on_board or fired == 'SHIFT-END'}
+        for event in self._due_events():
+            self._fired_events.add(event['id'])
+            if event.get('status') == 'PENDING':
+                event['status'] = 'ACTIVE'
+
     def _fire_due_events(self) -> List[str]:
         """
         Bring shift events due as the working shift reaches their time.
@@ -548,19 +632,8 @@ class ShiftCommands(SessionState):
         against the real-time clock, which would leave every afternoon event
         unreachable in a session anybody would actually sit through.
         """
-        reached = EPOCH_HOUR * 60 + self.shift_minutes
         notices: List[str] = []
-        for event in self.shift_events:
-            if event['id'] in self._fired_events:
-                continue
-            try:
-                hour, minute = event['time'].split(':')
-                due = int(hour) * 60 + int(minute)
-            except (ValueError, KeyError):
-                continue
-            if due > reached:
-                continue
-
+        for event in self._due_events():
             self._fired_events.add(event['id'])
             if event.get('status') == 'PENDING':
                 event['status'] = 'ACTIVE'

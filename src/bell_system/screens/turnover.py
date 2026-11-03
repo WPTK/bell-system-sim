@@ -18,13 +18,18 @@ of it, and the board is still on the machine afterwards, because the
 machine did not stop on the first of January either.
 """
 
-from typing import List, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from .. import save
 from ..clock import career_progress, days_to_divestiture
 from ..console import wrap
 from ..constants import SHIFT_LENGTH_MINUTES
-from ..npc import render as render_message
+from ..npc import (
+    AUDIT_EXCEPTIONS,
+    AUDIT_FAILED,
+    AUDIT_PASSED,
+    render as render_message,
+)
 from ..progression import QUALIFICATIONS
 from ..reports import hours_minutes
 from ..verbs import control_standing
@@ -43,6 +48,82 @@ LAST_TOUR_NOTICE = (
 )
 
 
+# The memo of 1 November says only that disposition codes "are audited after
+# transfer" and that open reports go over "with your name on them". How an
+# audit would weigh a record is not in any document consulted, so the
+# thresholds below are the simulation's own. Ten per cent of dispositions
+# not matching the line is a finding; a quarter is a failure.
+AUDIT_FINDING_RATE = 0.10
+AUDIT_FAILURE_RATE = 0.25
+
+
+class Audit(NamedTuple):
+    """What the audit at the end of the last tour found."""
+
+    closed: int
+    correct: int
+    wrong: int
+    repeats: int
+    open_numbers: List[str]
+    late: int
+    verdict: str
+    reasons: List[str]
+
+
+def audit(closed: int, wrong: int, repeats: int,
+          open_numbers: List[str], late: int) -> Audit:
+    """
+    Judge a career's dispositions and the board it hands over.
+
+    Reads counts only, the same ones ``report closed`` ends on and the board
+    as it stands, so the audit cannot disagree with either. It gives a
+    verdict and the words that go with it. It never ends the career: the
+    thirteenth tour closes it on 31 December whatever this says.
+
+    Args:
+        closed: Reports closed over the career
+        wrong: How many did not match what was on the line. Read from the
+            career's own count and held between none and all of them, so a
+            damaged record cannot make the audit's figures negative
+        repeats: Reports that came back after a wrong close. Shown, not
+            weighed: the verdict reads dispositions and the board
+        open_numbers: Reports on the board at transfer, which go over with
+            the craftsperson's name on them
+        late: How many of those are past their commitment
+    """
+    wrong = max(0, min(wrong, closed))
+    rate = wrong / closed if closed else 0.0
+    failed: List[str] = []
+    findings: List[str] = []
+    if not closed:
+        failed.append("Nothing was closed, so there is no disposition to "
+                      "stand behind and the board goes over as you left it.")
+    if closed and rate > AUDIT_FAILURE_RATE:
+        failed.append(f"{wrong} of {closed} dispositions did not match "
+                      f"the line.")
+    if closed and late > closed:
+        failed.append(f"More went over past commitment ({late}) than you "
+                      f"closed ({closed}).")
+    if AUDIT_FINDING_RATE < rate <= AUDIT_FAILURE_RATE:
+        findings.append(f"{wrong} of {closed} dispositions did not match "
+                        f"the line.")
+    if late and not failed:
+        findings.append(f"{late} went over past commitment.")
+    if failed:
+        verdict, reasons = AUDIT_FAILED, failed
+    elif findings:
+        verdict, reasons = AUDIT_EXCEPTIONS, findings
+    elif wrong:
+        verdict, reasons = AUDIT_PASSED, [
+            f"{wrong} of {closed} did not match the line, inside what the "
+            f"audit lets stand."]
+    else:
+        verdict, reasons = AUDIT_PASSED, [
+            "Every disposition on record matched the line."]
+    return Audit(closed, closed - wrong, wrong, repeats, open_numbers, late,
+                 verdict, reasons)
+
+
 class TurnoverCommands(SessionState):
     """
     The turnover record, the shift summary and the end of a career.
@@ -53,7 +134,7 @@ class TurnoverCommands(SessionState):
     def cmd_handoff(self, args: List[str]) -> str:
         """Bell System shift handoff briefing and turnover record."""
         previous = self.shift_handoff["previous_shift"]
-        pending_reports = self.desk.pending()
+        pending_reports = self.desk.customers()
         overdue_reports = [r for r in pending_reports if r.overdue()]
         untested_reports = [r for r in pending_reports if not r.tested]
         open_now = [t for t in self.active_tickets if t['status'] != 'RESOLVED']
@@ -111,7 +192,7 @@ Service Index:            {self.career.service_index():.1f} \
 Qualifications Held:      {len(self.career.qualifications)} of \
 {len(QUALIFICATIONS)}
 {self._tour_account()}
-"""
+{self._goal_section(final=False)}"""
 
         if pending_reports:
             output += ("\nREPORTS CARRIED TO THE NEXT SHIFT\n" + "=" * 40)
@@ -155,7 +236,151 @@ this shift and the next one starts on a fresh board."""
             if not self._tour_has_work():
                 return self._nothing_to_hand_over()
             return self._end_shift()
+        if self.clock.last_tour(self.career.shift):
+            found = self.stored_audit()
+            if found is not None:
+                lines = self.audit_lines(found, final=True)
+            elif not self.career.finished:
+                lines = self.audit_lines(self.career_audit(), final=False)
+            else:
+                lines = []
+            if lines:
+                output += '\n\n' + '\n'.join(lines)
         return output
+
+    def stored_audit(self) -> Optional[Audit]:
+        """
+        The audit the career was signed off with, or None before that.
+
+        Read from what ``_end_career`` kept, so the last day can be read
+        again once it is over. The verdict is the stored one; the figures
+        beside it are the career's own, which no longer move.
+        """
+        career = self.career
+        if not career.finished or not career.audit_verdict:
+            return None
+        found = audit(career.reports_closed, career.reports_wrong,
+                      career.repeat_reports, list(career.audit_open),
+                      career.audit_late)
+        return found._replace(verdict=career.audit_verdict)
+
+    def career_audit(self) -> Audit:
+        """
+        The audit of the career as it stands.
+
+        The figures are the ones ``report closed`` ends on, and the open
+        board is the one ``report`` shows, so the three agree.
+        """
+        pending = self.desk.customers()
+        career = self.career
+        return audit(career.reports_closed, career.reports_wrong,
+                     career.repeat_reports,
+                     [report.number for report in pending],
+                     sum(1 for report in pending if report.overdue()))
+
+    def audit_lines(self, found: Audit, final: bool) -> List[str]:
+        """
+        The audit as printed.
+
+        Args:
+            found: What :meth:`career_audit` returned
+            final: False for the look ahead the handoff gives on the last
+                day, which can still be changed by working the board
+        """
+        heading = 'THE AUDIT' if final else 'THE AUDIT, AS THINGS STAND'
+        rows = [
+            heading,
+            '-' * 66,
+            f"  Dispositions on record   {found.closed}",
+            f"    matched the line       {found.correct}",
+            f"    did not match          {found.wrong}",
+            f"  Came back as repeats     {found.repeats}",
+            f"  Handed over open         {len(found.open_numbers)}"
+            + (f", {found.late} past commitment" if found.late else ''),
+        ]
+        if found.open_numbers:
+            shown = ', '.join(found.open_numbers[:6])
+            more = len(found.open_numbers) - 6
+            rows.append(f"    your name is on them   {shown}"
+                        + (f" and {more} more" if more > 0 else ''))
+        if final:
+            rows.append(f"  Verdict                  {found.verdict}")
+            for reason in found.reasons:
+                rows.extend(f"    {line}" for line in wrap(reason, 60))
+        else:
+            # The board is aged by the hours nobody worked before the audit
+            # reads it, so a verdict given now could be taken back. The
+            # counts are shown and the verdict waits for sign-off.
+            rows.append("  Verdict                  struck at sign-off")
+            rows.append("    Unworked time will still age the board first.")
+        rows.append("  The memo says dispositions are audited and open "
+                    "reports go over with")
+        rows.append("  your name on them. How the audit weighs them is the "
+                    "simulation's own.")
+        if not final:
+            rows.append("  Working the board changes these. Nothing here "
+                        "ends the career early.")
+        return rows
+
+    def _audit_again(self) -> str:
+        """The stored audit as text to append, or nothing before sign-off."""
+        found = self.stored_audit()
+        if found is None:
+            return ''
+        return '\n\n' + '\n'.join(self.audit_lines(found, final=True))
+
+    def goal_counts(self) -> Dict[str, int]:
+        """
+        Read off the figures a tour's goals ask about.
+
+        The tour's own tally, and the board as it stands. Reading only: a
+        goal is never a reason for anything to change, and never moves the
+        index.
+        """
+        closed, correct, missed, repeats = self._tour_worked()
+        pending = self.desk.customers()
+        return {
+            'closed': closed, 'correct': correct, 'wrong': closed - correct,
+            'missed': missed, 'repeats': repeats, 'carried': len(pending),
+            'late': sum(1 for report in pending if report.overdue()),
+            'unmeasured': sum(1 for report in pending if not report.tested),
+        }
+
+    def goal_lines(self, final: bool) -> List[str]:
+        """
+        The tour's goals, each marked met or missed.
+
+        Args:
+            final: Whether the tour is being handed over. Until it is, a
+                goal is shown as it stands and may still go either way.
+        """
+        entry = self.tour_script()
+        if entry is None:
+            return []
+        counts = self.goal_counts()
+        rows = []
+        for goal in entry.goals:
+            if final:
+                met = goal.met(counts)
+                verdict = 'met' if met else 'missed'
+            else:
+                # Unworked time ages the board before the tour is struck, so
+                # nothing is ticked until it is.
+                met = False
+                verdict = f"so far {counts[goal.metric]}"
+            rows.append(f"  [{'x' if met else ' '}] {goal.text:<46}{verdict}")
+        if not final:
+            rows.append("  Unworked time will still age the board at handoff.")
+        return rows
+
+    def _goal_section(self, final: bool) -> str:
+        """The goals under their heading, or nothing on a tour with none."""
+        rows = self.goal_lines(final)
+        if not rows:
+            return ''
+        return '\n'.join(['TOUR GOALS', '=' * 40, *rows,
+                          'Not scored. The service index is the only score.',
+                          ''])
 
     def _tour_has_work(self) -> bool:
         """
@@ -174,7 +399,7 @@ this shift and the next one starts on a fresh board."""
 
     def _nothing_to_hand_over(self) -> str:
         """Refuse a sign-off on a tour nobody has done anything in."""
-        pending = len(self.desk.pending())
+        pending = len(self.desk.customers())
         if pending:
             on_it = ('there is 1 report' if pending == 1
                      else f"there are {pending} reports")
@@ -209,6 +434,7 @@ this shift and the next one starts on a fresh board."""
         worked = self.shift_time()
         carried = self.desk.pending()
         summary = self.tour_summary(*self._tour_worked())
+        goals = self._goal_section(final=True)
         if self.clock.last_tour(self.career.shift):
             if self.career.finished:
                 return (
@@ -216,8 +442,9 @@ this shift and the next one starts on a fresh board."""
                     "you twice on the last\nday of the Bell System, and "
                     "there is no shift after this one to open.\n\n"
                     "The board is still there if you want it. "
-                    "'qual' has the career record.")
-            return self._end_career(banked, worked, summary)
+                    "'qual' has the career record."
+                    + self._audit_again())
+            return self._end_career(banked, worked, summary, goals)
         self.career.end_shift()
         self.current_shift = self.career.shift
         # The tour that was saved is over. The next command writes the new
@@ -263,6 +490,8 @@ this shift and the next one starts on a fresh board."""
             for sentence in summary:
                 lines.extend(f"  {line}" for line in wrap(sentence, 64))
             lines.append('')
+        if goals:
+            lines.extend([goals, ''])
         lines.extend([
             f"  Service index banked      {self._banked_line(banked)}",
             f"  Reports closed to date    {self.career.reports_closed}",
@@ -271,7 +500,7 @@ this shift and the next one starts on a fresh board."""
             f"  Shift events              {len(self.shift_events)} scheduled",
             '',
             f"Shift {self.career.shift} begins. "
-            f"{len(self.desk.pending())} pending. "
+            f"{len(self.desk.customers())} pending. "
             f"{self.clock.date()}.",
         ])
         if self.career.index_history:
@@ -296,7 +525,7 @@ this shift and the next one starts on a fresh board."""
         return f"{banked:.1f}  {self.career.index_band()}"
 
     def _end_career(self, banked: Optional[float], worked: str,
-                    summary: List[str]) -> str:
+                    summary: List[str], goals: str = '') -> str:
         """
         The end of the last tour, which is the end of the Bell System.
 
@@ -309,6 +538,10 @@ this shift and the next one starts on a fresh board."""
         career = self.career
         if banked is not None:
             career.index_history.append(round(banked, 1))
+        found = self.career_audit()
+        career.audit_verdict = found.verdict
+        career.audit_open = list(found.open_numbers)
+        career.audit_late = found.late
         career.finished = True
         career.save()
         self.resumed = False
@@ -320,6 +553,8 @@ this shift and the next one starts on a fresh board."""
         ]
         for sentence in summary:
             lines.extend(f"  {line}" for line in wrap(sentence, 64))
+        if goals:
+            lines.extend(['', goals])
         lines.extend([
             '',
             'THE CAREER',
@@ -337,9 +572,10 @@ this shift and the next one starts on a fresh board."""
         trend = self.sparkline(career.index_history, span=13)
         if trend:
             lines.append(f"  Every tour of it    {trend}")
+        lines.extend(['', *self.audit_lines(found, final=True)])
         lines.extend(['', render_message(self.switchroom.last_word(
             self.clock.now(), career.shift, career.reports_closed,
-            len(career.qualifications)), self._stamp())])
+            len(career.qualifications), found.verdict), self._stamp())])
         lines.append("The board is still on the machine. Nobody is coming "
                      "to take it off you tonight.")
         return '\n'.join(lines)
@@ -367,18 +603,21 @@ this shift and the next one starts on a fresh board."""
         and who is out. It fits on a screen.
         """
         del args
-        pending = self.desk.pending()
+        pending = self.desk.customers()
         overdue = [report for report in pending if report.overdue()]
         untested = [report for report in pending if not report.tested]
         with_field = [report for report in pending if report.dispatched_to]
         now = self.clock.now()
         left = max(0, SHIFT_LENGTH_MINUTES - self.shift_minutes)
         closed, correct, missed, repeats = self._tour_worked()
+        brief = self.tour_brief(self.goal_counts())
 
         rows = [
             f"Tour {self.career.shift}   {self.clock.date(now)}   "
             f"{days_to_divestiture(now)} days to divestiture",
             '=' * 62,
+            *brief,
+            *([''] if brief else []),
             f"  Worked              {self.shift_time()} of "
             f"{SHIFT_LENGTH_MINUTES // 60}:00",
             f"  Left                {left // 60}:{left % 60:02d}",

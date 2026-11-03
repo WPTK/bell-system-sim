@@ -301,11 +301,12 @@ class BellSystemTerminal(
         self._initialize_bell_system_infrastructure()
         self._initialize_enhanced_ticket_system()
 
-        # Generate initial shift events
-        self.generate_shift_events()
-
         # The repair service bureau's board, and the other craft on the wire.
         self._initialize_repair_bureau()
+
+        # The tour's scheduled work. After the bureau, because the events
+        # name the office the career was assigned to.
+        self.generate_shift_events()
 
         # And then, if there is one, the shift somebody put down. This runs
         # last because it writes over the board the bureau just opened, the
