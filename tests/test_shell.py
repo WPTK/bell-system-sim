@@ -128,11 +128,11 @@ class TestReading:
 
     def test_head_defaults_to_ten_lines(self, terminal):
         assert len(terminal.execute_command(
-            'head /etc/passwd').splitlines()) == 10
+            'head /usr/doc/divestiture').splitlines()) == 10
 
     def test_head_takes_a_count(self, terminal):
         assert len(terminal.execute_command(
-            'head -3 /etc/passwd').splitlines()) == 3
+            'head -3 /usr/doc/divestiture').splitlines()) == 3
 
     def test_tail_takes_the_end(self, terminal):
         tail = terminal.execute_command('tail -2 /usr/adm/messages')

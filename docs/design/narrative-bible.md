@@ -131,7 +131,7 @@ normalised to one line.
 
 ### Alvarez, R.: the predecessor, sysop position, evening tour  (no login, no tty)
 
-**Canon:** Established as two files (`data/homes.py` sysop `notes`; `filesystem.py` `TESTLOG_C`), signed "evening tour" since phase 7b (I10). Phase 7b adds the thread in `data/finds.py` and `data/homes.py` (`dead.letter`): a sent handover, a cut-off unsent letter to Halloran, a test log, Franklin Street scratch in `/tmp/.f`. Nothing about Alvarez names a pronoun, and none of it may; use the name or they.
+**Canon:** Established as two files (`data/homes.py` sysop `notes`; `filesystem.py` `TESTLOG_C`), signed "evening tour" since phase 7b (I10). Phase 7b adds, all the simulation's own and all Provisional: the position's test log `/usr/adm/testlog` (what `testlog.c` writes: a line a day of reports closed, how many no trouble found, and the board left); a Franklin Street scratch file `/tmp/.f`, which arrives on tour 2 and says only what the crews found; and the thread of the handover (`data/finds.py`, `data/homes.py` `dead.letter`): a sent handover, a cut-off unsent letter to Halloran, one layer to a sign-off (W15). Nothing else about Alvarez is shipped, and nothing about Alvarez names a pronoun; use the name or they.
 
 - **Does:** hands down practical advice in the first person, confesses a mistake to be useful, and signs off without a flourish. Slightly tired. Writes for whoever "has this position next".
 - **Never:** addresses the player by name or by sign-off; is angry at anyone.
@@ -298,7 +298,8 @@ PR can see what it must not contradict. All **Established**.
 | "Half a second" by satellite | `npc.py` radio chatter | Physics, not a dated fact; the figure is a round trip. Under Review for the wording |
 | Average TSPS call "under thirty seconds", "several hundred" a tour | `data/homes.py` tsps notes | [own]; no row: Under Review |
 | Fade margin, diversity switch, the Chester hop, TH-3 | `npc.py`, `data/homes.py` | Equipment years [sourced] `SOURCES.md` (TH-3); the hop is [own] |
-| The finds: sixteen files numbered in `data/finds.py` `FRAGMENTS`; Alvarez's handover, test log and scratch; Halloran's journal and list; Johnson's `.trial`; the seven-year retention list; the account transfer list | `data/finds.py`, `data/homes.py` | [own]; the log formats follow the Seventh Edition where it had them |
+| The finds: the numbered files in `data/finds.py` `FRAGMENTS` that `finds` lists once read. New in A4, all the simulation's own and Provisional: `/usr/adm/testlog` (Alvarez), `/tmp/.f` (tour 2), `/usr/users/rjohnson/.trial` (tour 5, Johnson's third-trial times, which rise by a second or so a season), `/usr/adm/.retain` (tour 8, the chief's retention list), `/usr/lib/.xfer` (tour 10, accounts for transfer) | `data/finds.py` | [own]; log formats follow the Seventh Edition where it had them. None says what is true about T1 or T2 |
+| The thread of the last holder, one file to a sign-off: `~sysop/dead.letter`, the sent handover, `/usr/adm/sulog`, `/usr/adm/lmoslog`, `~ehalloran/reopened` | `data/finds.py`, `data/homes.py` | [own]; the su log format follows the Seventh Edition. Shut by group, W15 |
 | The Okafor eleven | `screens/games.py`, `npc.py`, `filesystem.py` | [own] |
 
 ## 8. Inconsistencies found

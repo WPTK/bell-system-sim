@@ -1193,6 +1193,12 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                     output = self.execute_command(command_line)
                     if output:
                         self.emit(output)
+                    # Said here, where the output reaches the screen, and
+                    # not in the output: a pipe, a file or head would
+                    # otherwise take it for part of the text.
+                    notice = self.take_find_notice()
+                    if notice:
+                        self.emit(notice)
                     # After every command, because the thing this is
                     # insuring against is the window being closed rather
                     # than the session being ended politely.

@@ -2576,8 +2576,7 @@ DESCRIPTION
      The machine keeps files that are not part of the work: other people's
      notes, logs, things left behind. Reading one with cat(1) or turning
      it up with grep(1) puts it on this list, under the same number it
-     always has, so a gap in the numbers is a file not yet read. finds
-     does not search; ls(1), cat(1) and grep(1) do.
+     always has. finds does not search; ls(1), cat(1) and grep(1) do.
 
      finds followed by a number says where that find was made.
 

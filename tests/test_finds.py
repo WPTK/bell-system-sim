@@ -81,16 +81,72 @@ class TestFinds:
         assert 'usage' in raw_terminal.execute_command('finds memo')
 
     def test_the_first_find_is_noted_once(self, raw_terminal):
-        first = raw_terminal.execute_command('cat /usr/doc/divestiture')
-        second = raw_terminal.execute_command('cat /usr/users/sysop/notes')
-        assert first.endswith(FIRST_FIND)
-        assert FIRST_FIND not in second
+        raw_terminal.execute_command('cat /usr/doc/divestiture')
+        assert raw_terminal.take_find_notice() == FIRST_FIND
+        raw_terminal.execute_command('cat /usr/users/sysop/notes')
+        assert raw_terminal.take_find_notice() == ''
 
-    def test_the_note_is_not_lost_in_a_pipeline(self, raw_terminal):
-        piped = raw_terminal.execute_command(
-            'cat /usr/doc/divestiture | grep -c BELL')
-        assert FIRST_FIND not in piped
-        assert FIRST_FIND in raw_terminal.execute_command('cat /etc/passwd')
+    def test_the_note_is_not_in_the_output(self, raw_terminal):
+        said = raw_terminal.execute_command('cat /usr/doc/divestiture')
+        assert FIRST_FIND not in said
+        assert said == raw_terminal._read('/usr/doc/divestiture').rstrip(chr(10))
+
+    def test_head_counts_the_file_and_not_the_note(self, raw_terminal):
+        said = raw_terminal.execute_command('head -3 /usr/doc/divestiture')
+        assert len(said.splitlines()) == 3
+
+    def test_a_pipe_carries_the_file_and_not_the_note(self, raw_terminal):
+        said = raw_terminal.execute_command('cat /usr/doc/divestiture | wc -l')
+        assert said.split()[0] == str(len(
+            raw_terminal._read('/usr/doc/divestiture').splitlines()))
+
+    def test_the_note_is_never_written_into_a_file(self, raw_terminal):
+        assert raw_terminal.execute_command(
+            'cat /usr/doc/divestiture > memo.copy') == ''
+        copied = raw_terminal._read(
+            raw_terminal.current_directory + '/memo.copy')
+        assert copied.strip() == raw_terminal._read(
+            '/usr/doc/divestiture').strip()
+        assert FIRST_FIND not in copied
+
+    def test_the_note_waits_for_the_screen_after_a_redirect(
+            self, raw_terminal):
+        raw_terminal.execute_command('cat /usr/doc/divestiture > memo.copy')
+        assert raw_terminal.take_find_notice() == FIRST_FIND
+
+    def test_the_repl_says_it_after_the_output(
+            self, raw_terminal, monkeypatch, capsys):
+        lines = iter(['cat /usr/doc/divestiture', 'exit'])
+        monkeypatch.setattr('builtins.input', lambda *_: next(lines))
+        raw_terminal.run(role=1)
+        out = capsys.readouterr().out
+        assert out.index('RECORDS RETENTION') < out.index(FIRST_FIND)
+
+    def test_wc_od_and_sum_do_not_make_a_find(self, raw_terminal):
+        for command in ('wc /usr/doc/divestiture', 'od /usr/doc/divestiture',
+                        'sum /usr/doc/divestiture'):
+            raw_terminal.execute_command(command)
+        assert raw_terminal.career.finds == []
+
+    def test_grep_c_and_l_do_not_make_a_find(self, raw_terminal):
+        raw_terminal.execute_command('grep -c BELL /usr/doc/divestiture')
+        raw_terminal.execute_command('grep -l BELL /usr/doc/divestiture')
+        assert raw_terminal.career.finds == []
+
+    def test_uulog_dd_and_look_that_print_it_make_a_find(self, raw_terminal):
+        raw_terminal.execute_command('uulog')
+        assert 'uucplog' in raw_terminal.career.finds
+        raw_terminal.execute_command('dd if=/usr/doc/divestiture')
+        assert 'memo' in raw_terminal.career.finds
+        raw_terminal.execute_command('dd if=/usr/users/sysop/notes of=copy')
+        assert 'notes' not in raw_terminal.career.finds
+
+    def test_a_find_that_arrived_is_not_saved_with_the_player(
+            self, raw_terminal):
+        from bell_system.filesystem import player_changes
+        at_tour(raw_terminal, 5)
+        changed, _ = player_changes(raw_terminal.filesystem)
+        assert '/usr/users/rjohnson/.trial' not in changed
 
     def test_a_find_is_recorded_once(self, raw_terminal):
         for _ in range(3):

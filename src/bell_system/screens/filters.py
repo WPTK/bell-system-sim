@@ -208,6 +208,8 @@ class FilterCommands(SessionState):
             return f"look: cannot open {source}"
         found = [word for word in text.split('\n')
                  if word.lower().startswith(prefix)]
+        if found:
+            self._note_read(source)
         return '\n'.join(found) + '\n' if found else ''
 
     # -- splitting and checking -----------------------------------------
@@ -324,6 +326,7 @@ class FilterCommands(SessionState):
                   f"{full}+{1 if part else 0} records out")
         target = options.get('of')
         if target is None:
+            self._note_read(source)
             return data + ('\n' if data and not data.endswith('\n') else '') + counts
         error = self.write_file(
             normalise(target, self.current_directory), data)
