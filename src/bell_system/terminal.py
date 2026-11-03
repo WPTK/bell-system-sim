@@ -180,8 +180,15 @@ class BellSystemTerminal(
     _NANPA_CACHE: Optional[Dict[str, Any]] = None
     _NANPA_DEGRADED: bool = False
 
-    def __init__(self) -> None:
-        """Initialize the Bell System terminal simulation environment."""
+    def __init__(self, rng: Optional[random.Random] = None) -> None:
+        """
+        Initialize the Bell System terminal simulation environment.
+
+        Args:
+            rng: Source for the report board and the SARTS inventory. A player
+                leaves it out and gets a fresh board each time; a test or a
+                calibration run passes a seeded one to get the same board.
+        """
         # Settings and the clock come first: logging honours a setting, and
         # every piece of state initialised below stamps itself with the time.
         self.settings = Settings(settings_path(state_dir()))
@@ -302,7 +309,7 @@ class BellSystemTerminal(
         self._initialize_enhanced_ticket_system()
 
         # The repair service bureau's board, and the other craft on the wire.
-        self._initialize_repair_bureau()
+        self._initialize_repair_bureau(rng)
         # Who is in follows the tour being worked, not the hour on the
         # clock (npc.py ``on_shift``), so the room and the crews ask here.
         self.switchroom.present = lambda login, _when: self.is_in(login)
