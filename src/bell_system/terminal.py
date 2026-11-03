@@ -197,7 +197,7 @@ class BellSystemTerminal(
         # Which day of the run-up to divestiture this tour falls on. A
         # career walks the calendar from 14 November to the last working
         # day of the Bell System, so the countdown moves as it goes.
-        self.clock.set_tour(self.career.shift)
+        self.start_tour_clock()
 
         # Setup enhanced logging first
         self._setup_logging()

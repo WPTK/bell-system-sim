@@ -44,7 +44,7 @@ OVERDUE: Dict[str, str] = {
            "the house.",
     '1MR': "They are ringing from work. There is nobody at home to let "
            "anybody in.",
-    '1FB': "It is a shop. They have said they are losing the afternoon, "
+    '1FB': "It is a shop. They have said they are losing trade by the hour, "
            "and they have said it twice.",
     'PBX': "It is a switchboard. Nobody outside can reach any extension "
            "behind it.",
@@ -59,7 +59,7 @@ OVERDUE: Dict[str, str] = {
 SECOND_CALL: Dict[str, str] = {
     '1FR': "They say it is doing what it did before. What time can I give "
            "them to be home for it?",
-    '1MR': "They took the morning for it once already. What time can I "
+    '1MR': "They took time off for it once already. What time can I "
            "give them that they can plan around?",
     '1FB': "They run a business off it, and a second call is one they have "
            "to explain. When can I say?",

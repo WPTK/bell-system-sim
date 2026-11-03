@@ -439,7 +439,10 @@ this shift and the next one starts on a fresh board."""
         banked = self.career.service_index() if self.career.scored() else None
         worked = self.shift_time()
         carried = self.desk.pending()
-        summary = self.tour_summary(*self._tour_worked())
+        counts = self.career.tour_counts()
+        summary = self.tour_summary(
+            *self._tour_worked(),
+            unmeasured=max(0, counts['closed'] - counts['measured']))
         goals = self._goal_section(final=True)
         # Commendations are left for after the tour is banked, where the
         # whole tour's are printed once.
@@ -470,7 +473,7 @@ this shift and the next one starts on a fresh board."""
         self.desk.depth_limit = self.board_depth()
         self._tour_baseline = self._career_counters()
         # A new tour is a new day. Four days on, until the last one.
-        self.clock.set_tour(self.career.shift)
+        self.start_tour_clock()
 
         # A new shift starts with its own clock and its own schedule.
         self.shift_minutes = 0

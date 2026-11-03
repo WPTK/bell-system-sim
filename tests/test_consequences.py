@@ -124,7 +124,10 @@ class TestTheOverdueChase:
         notice = Switchroom(random.Random(1)).overdue_notice(
             NOW, LATE.number, LATE.telephone,
             LATE._replace(out_of_service=False))
-        assert 'past its commitment' in notice.lines[0]
+        assert notice.lines == Switchroom._gone_lines(
+            LATE._replace(out_of_service=False))
+        assert 'was due' in notice.lines[0]
+        assert 'neighbour' not in ' '.join(notice.lines)
 
     def test_a_chase_the_ledger_has_is_not_made_again(self):
         room = Switchroom(random.Random(1))

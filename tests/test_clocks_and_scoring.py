@@ -277,6 +277,7 @@ class TestOneClockForTheCrews:
         assert 'AM' not in said and 'EST' not in said
 
     def test_and_the_terminal_suggests_the_next_thing(self, terminal):
+        terminal.settings.set('game.prompts', 'on')
         for number in ('TR-00001', 'TR-00002'):
             terminal.desk.force.send('Cable repair', number, 600,
                                      terminal.shift_minutes)
@@ -286,6 +287,19 @@ class TestOneClockForTheCrews:
             f'report dispatch {report.number} cable')
         assert 'Nobody free' in said
         assert 'Next:' in said
+
+    def test_and_says_nothing_of_the_kind_unless_asked(self, terminal):
+        """Prompts are off unless asked for, and so is a hint on a refusal."""
+        for number in ('TR-00001', 'TR-00002'):
+            terminal.desk.force.send('Cable repair', number, 600,
+                                     terminal.shift_minutes)
+        report = terminal.desk.pending()[0]
+        report.record.fault = 'WET'
+        said = terminal.execute_command(
+            f'report dispatch {report.number} cable')
+        assert 'Nobody free' in said
+        assert 'stays on the board' in said
+        assert 'Next:' not in said
 
 
 class TestNoFakeOutcomes:
@@ -455,6 +469,7 @@ class TestTheSuggestedWaitIsTheRealOne:
     """'Next:' is worked out against the clock as the command will leave it."""
 
     def block_cable_crews(self, terminal, minutes=600):
+        terminal.settings.set('game.prompts', 'on')
         for number in ('TR-90001', 'TR-90002'):
             terminal.desk.force.send('Cable repair', number, minutes,
                                      terminal.shift_minutes)
@@ -492,6 +507,7 @@ class TestOnlyWorkedReportsCanBeClosed:
     """A crew sent to the wrong place found nothing, so there is nothing to close."""
 
     def setup_two(self, terminal, wrong):
+        terminal.settings.set('game.prompts', 'on')
         first, second = terminal.desk.pending()[:2]
         first.record.fault = 'WET'
         second.record.fault = 'WET'

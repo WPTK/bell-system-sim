@@ -14,7 +14,7 @@ a 12-hour clock available for readability.
 from datetime import date as Day, datetime, timedelta
 from typing import Optional
 
-from .settings import Settings
+from .settings import EPOCH_HOUR, Settings
 
 # Timestamps carry EST because the default epoch sits in November, inside
 # standard time. A user who moves the epoch into summer is choosing that.
@@ -77,8 +77,10 @@ class SimClock:
         self._session_start = started_at or datetime.now()
         # Days on from the epoch, set by which tour of the career this is.
         self._day_offset = 0
+        # Hours the tour's watch starts from the epoch's 08:00.
+        self._hour_offset = 0
 
-    def set_tour(self, tour: int) -> None:
+    def set_tour(self, tour: int, start_hour: int = EPOCH_HOUR) -> None:
         """
         Put the clock on the day this tour of the career falls on.
 
@@ -87,6 +89,11 @@ class SimClock:
         goes on rather than sitting at forty-eight forever. Past the last
         tour the date holds: there is no fourteenth tour, because there is
         no Bell System to work it in.
+
+        The tour opens on its watch's hour (``start_hour``): an evening tour
+        at 16:00 and a night one at 00:00, so the clock and the stamps on
+        messages agree with who is in the building. The date is the tour's
+        day either way.
         """
         tour = min(max(tour, 1), TOURS_TO_DIVESTITURE)
         # The last working day of the Bell System, in days from the epoch.
@@ -94,6 +101,7 @@ class SimClock:
         # the whole career with it.
         final = (DIVESTITURE.date() - self._settings.epoch().date()).days - 1
         self._day_offset = max(0, min((tour - 1) * DAYS_PER_TOUR, final))
+        self._hour_offset = start_hour - EPOCH_HOUR
 
     def tour_day(self) -> Day:
         """
@@ -127,7 +135,7 @@ class SimClock:
             return datetime.now()
         elapsed = datetime.now() - self._session_start
         return (self._settings.epoch() + elapsed
-                + timedelta(days=self._day_offset))
+                + timedelta(days=self._day_offset, hours=self._hour_offset))
 
     def elapsed(self) -> timedelta:
         """Return how long the session has been running."""

@@ -698,6 +698,27 @@ class ReportDesk:
         """Send a repair force and return what the field reports back."""
         return self.send_crew(report, force, now, name_fault)[0]
 
+    def _nobody_free(self, report: TroubleReport, force: str,
+                     now: int) -> str:
+        """
+        The refusal when every crew on a force is already out.
+
+        One text for every force, the right one or not. The job does not
+        vanish; it waits, and the wait is on the commitment. Anything that
+        differed with the force would tell the player which force the report
+        wants, with no measurement and no time passing.
+        """
+        waiting = self.force.soonest_free(force, now)
+        report.spend(COST_DISPATCH, desk=COST_DISPATCH)
+        if waiting is None:  # pragma: no cover - no crew for the category
+            return f"Nobody answers {force} from this position."
+        wait = max(0, waiting.back_at() - now)
+        return (f"Nobody free on {force.lower()}. "
+                f"{waiting.crew.name} is on {waiting.report} and is "
+                f"back in {hours_minutes(wait)}, "
+                f"{hours_minutes(waiting.back_at())} into the tour.\n"
+                f"{report.number} stays on the board.")
+
     def send_crew(self, report: TroubleReport, force: str,
                   now: int = 0, name_fault: bool = True) -> Tuple[str, bool]:
         """
@@ -737,9 +758,7 @@ class ReportDesk:
             crew, travel, came_from = self.force.send(
                 force, report.number, COST_WRONG_DISPATCH, now)
             if crew is None:
-                report.spend(COST_DISPATCH, desk=COST_DISPATCH)
-                return (f"Nobody free on {force.lower()}, which is just as "
-                        f"well: the trouble is not theirs.", False)
+                return self._nobody_free(report, force, now), False
             report.dispatched_to = force
             report.spend(COST_WRONG_DISPATCH + COST_DISPATCH + travel,
                          desk=COST_DISPATCH + COST_WRONG_DISPATCH_DESK)
@@ -757,18 +776,7 @@ class ReportDesk:
         crew, travel, came_from = self.force.send(
             force, report.number, repair, now)
         if crew is None:
-            # Everybody who answers this category is already out. The job
-            # does not vanish; it waits, and the wait is on the commitment.
-            waiting = self.force.soonest_free(force, now)
-            report.spend(COST_DISPATCH, desk=COST_DISPATCH)
-            if waiting is None:  # pragma: no cover - no crew for the category
-                return f"Nobody answers {force} from this position.", False
-            wait = max(0, waiting.back_at() - now)
-            return (f"Nobody free on {force.lower()}. "
-                    f"{waiting.crew.name} is on {waiting.report} and is "
-                    f"back in {hours_minutes(wait)}, "
-                    f"{hours_minutes(waiting.back_at())} into the tour.\n"
-                    f"{report.number} stays on the board.", False)
+            return self._nobody_free(report, force, now), False
 
         report.dispatched_to = force
         report.crew = crew.name

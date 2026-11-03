@@ -517,7 +517,8 @@ class BureauCommands(SessionState):
         if not went:
             # Nobody went: either the force is all out, or the sheath is
             # already repaired. Either way there is no field call coming.
-            if report.sheath_repaired:
+            if (report.sheath_repaired
+                    or not self.settings.is_on('game.prompts')):
                 return finding
             wait_note = self._while_you_wait(report, canonical)
             return finding + '\n\n' + wait_note

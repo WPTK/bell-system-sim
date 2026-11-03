@@ -57,8 +57,9 @@ METRICS = ('closed', 'correct', 'wrong', 'missed', 'repeats', 'carried',
 # What the briefing and a goal are written in, whatever else is going on.
 KINDS = ('build', 'crisis', 'relief', 'farewell')
 
-# The three watches of a day.
+# The three watches of a day, and the hour of the clock each starts at.
 WATCHES = ('day', 'evening', 'night')
+WATCH_START_HOUR: Dict[str, int] = {'day': 8, 'evening': 16, 'night': 0}
 
 
 class Beat(NamedTuple):
@@ -578,7 +579,7 @@ _FILLER: Tuple[Tuple[Any, ...], ...] = (
      ('Confirm the tape is shelved',)),
     ('14:05', 'TRAINING', 'LOW', 'SCHEDULED',
      'Craft refresher at {clli}',
-     'Refresher on the test desk, afternoon',
+     'Refresher on the test desk',
      'A refresher for craft at {city} on the test desk. Attendance is '
      'taken.',
      ('Sign the attendance sheet',)),
@@ -586,7 +587,7 @@ _FILLER: Tuple[Tuple[Any, ...], ...] = (
      'Dial tone speed test, {clli}',
      'Dial tone delay test, {switch}',
      'The dial tone speed test runs on the {switch} at {city} this '
-     'afternoon.',
+     'shift.',
      ('Read the result when it prints',)),
 )
 
@@ -604,6 +605,11 @@ def watch_of(tour: int) -> str:
     return TOURS[tour - 1].watch
 
 
+def start_hour(tour: int) -> int:
+    """The hour of the clock a tour opens on: its watch's, not always 08:00."""
+    return WATCH_START_HOUR[watch_of(tour)]
+
+
 def script(tour: int, today: date) -> Optional[Tour]:
     """
     Return the entry for a tour, if the calendar is the one it was written for.
@@ -618,13 +624,19 @@ def script(tour: int, today: date) -> Optional[Tour]:
     return entry if entry.day == today else None
 
 
-def _event(event_id: str, beat: Beat, office: Mapping[str, str]) -> Event:
-    """Turn a beat into an event record, naming the player's own office."""
+def _event(event_id: str, beat: Beat, office: Mapping[str, str],
+           offset: int = 0) -> Event:
+    """
+    Turn a beat into an event record, naming the player's own office.
+
+    Beats are written against the day watch; ``offset`` is the hours the
+    tour's watch starts from 08:00, so an evening tour's 09:15 reads 17:15.
+    """
     fill = {'city': office['city'], 'clli': office['clli'],
             'switch': office['switch_type']}
     return {
         'id': event_id,
-        'time': beat.at,
+        'time': f'{(int(beat.at[:2]) + offset) % 24:02d}{beat.at[2:]}',
         'type': beat.type,
         'title': beat.title.format(**fill),
         'priority': beat.priority,
@@ -665,7 +677,8 @@ def build(tour: int, office: Mapping[str, str],
               for (at, kind, priority, status, title, description, details,
                    actions) in drawn]
     ordered = sorted(beats + pieces, key=lambda beat: beat.at)
-    return [_event(f'EV-{tour:02d}{number:02d}', beat, office)
+    offset = start_hour(tour) - WATCH_START_HOUR['day']
+    return [_event(f'EV-{tour:02d}{number:02d}', beat, office, offset)
             for number, beat in enumerate(ordered, 1)]
 
 
