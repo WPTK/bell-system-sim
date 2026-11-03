@@ -5,6 +5,7 @@ Nothing here depends on chance. Where the building picks at random the
 tests either seed the generator or assert something true of every draw.
 """
 
+import json
 import random
 from datetime import datetime
 
@@ -15,6 +16,7 @@ from bell_system.data import tours
 from bell_system.data.consequences import Late
 from bell_system.npc import ArcBeat, Switchroom
 from bell_system.progression import QUALIFICATIONS
+from bell_system.settings import Settings
 
 NOW = datetime(1983, 11, 14, 9, 0)
 LATE = Late('TR-00001', '201-555-0100', '1FR', False, '08:30')
@@ -50,18 +52,60 @@ class TestNoUnaskedAdvice:
         assert 'Next:' in raw_terminal.execute_command('pwd')
 
     @pytest.mark.parametrize('tour', range(2, 14))
-    def test_a_working_tour_has_no_next_line_and_no_advice(
+    def test_working_a_report_through_says_nothing_unasked(
             self, raw_terminal, tour):
+        """
+        The real loop, with the other craft on: nothing in it is advice.
+
+        A refusal can still name a way out (bureau.py); that answers a
+        command you typed. This is the unasked kind.
+        """
         raw_terminal.career.shift = tour
         raw_terminal.career.qualifications = [q.key for q in QUALIFICATIONS]
         raw_terminal.career.set_difficulty('craft')
         raw_terminal.clock.set_tour(tour)
+        raw_terminal.settings.set('game.ambience', 'on')
         raw_terminal.desk.reports.clear()
         raw_terminal.desk.order.clear()
-        raw_terminal.desk.open_shift(raw_terminal.clock.now(), 0, count=4)
-        for _ in range(40):
-            assert 'Next:' not in raw_terminal.execute_command('pwd')
-        assert all(m.kind != 'hint' for m in raw_terminal.switchroom.log)
+        report = raw_terminal.desk.receive(
+            raw_terminal.clock.now(), 0, fault='CROSS')
+        for command in (
+                'report', f'mlt {report.number}',
+                f'report dispatch {report.number} outside',
+                f'report close {report.number} 5 CROSS'):
+            result = raw_terminal.execute_command(command)
+            assert 'Next:' not in result, command
+            assert 'Meanwhile:' not in result, command
+        assert all(m.kind != 'advice' for m in raw_terminal.switchroom.log)
+
+
+class TestSavedSettings:
+    """A file keeps what the player chose and not the default of its day."""
+
+    def test_only_departures_from_the_default_are_written(self, tmp_path):
+        path = tmp_path / 'settings.json'
+        settings = Settings(str(path))
+        settings.set('game.prompts', 'on')
+        assert json.loads(path.read_text()) == {'game.prompts': 'on'}
+
+    def test_putting_it_back_leaves_nothing_in_the_file(self, tmp_path):
+        path = tmp_path / 'settings.json'
+        settings = Settings(str(path))
+        settings.set('game.prompts', 'on')
+        settings.set('game.prompts', 'off')
+        assert json.loads(path.read_text()) == {}
+
+    def test_a_file_written_before_the_change_keeps_what_it_says(
+            self, tmp_path):
+        """The one thing a changed default cannot reach: an old file."""
+        path = tmp_path / 'settings.json'
+        path.write_text(json.dumps({'game.prompts': 'on'}))
+        assert Settings(str(path)).is_on('game.prompts')
+
+    def test_prompts_on_is_a_departure_from_the_period_machine(self):
+        settings = Settings()
+        settings.set('game.prompts', 'on')
+        assert settings.deviations() == ['game.prompts']
 
 
 class TestTourWindows:

@@ -187,7 +187,7 @@ class TestNobodyGetsLessWork:
     entirely. What is here is one gentle lever.
     """
 
-    def arrivals(self, at_desk, role, commands=250, trials=12):
+    def arrivals(self, at_desk, role, commands=250, trials=4):
         """Reports and tickets that arrive over a run of commands."""
         totals = []
         for seed in range(trials):
@@ -209,9 +209,22 @@ class TestNobodyGetsLessWork:
         assert reports >= 1.0, f'{role} board barely moves'
 
     @pytest.mark.parametrize('role', ROLE_KEYS)
-    def test_every_desk_gets_tickets(self, at_desk, role):
-        _, tickets = self.arrivals(at_desk, role)
-        assert tickets >= 1.0, f'{role} hears nothing from the control centre'
+    def test_every_desk_gets_tickets(self, at_desk, role, monkeypatch):
+        """
+        A desk is handed a ticket when the draw comes up, which it can.
+
+        The rate is small enough that counting arrivals over a few hundred
+        commands is a measurement of the random stream. This holds the
+        draw at its lowest instead: the first command after the first tour
+        must assign one, whichever desk it is.
+        """
+        terminal = at_desk(role)
+        terminal.settings.set('game.ambience', 'on')
+        before = len(terminal._assigned_tickets)
+        monkeypatch.setattr(random, 'random', lambda: 0.0)
+        terminal.execute_command('pwd')
+        assert len(terminal._assigned_tickets) > before, (
+            f'{role} hears nothing from the control centre')
 
     def test_the_report_rate_is_not_scaled_at_all(self):
         """

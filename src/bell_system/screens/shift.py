@@ -372,9 +372,11 @@ class ShiftCommands(SessionState):
         """
         Hold a message back so it lands a few commands from now.
 
-        A repeat is filed by the bureau with the code it was closed under and
-        nothing of the customer; the class of service and the new commitment
-        are on the report, and the customer's second call is made from them.
+        A repeat is filed by the bureau (``bureau.py``, ``_close_report``) with
+        the code it was closed under and nothing of the customer; the class of
+        service and the new commitment are on the report, and the customer's
+        second call is made from them here. This is a workaround for not
+        editing that call site, which is outside this phase's files.
         """
         if message.kind == 'repeat' and message.about:
             report = self.desk.find(message.about)
@@ -386,6 +388,7 @@ class ShiftCommands(SessionState):
                     report.record.class_of_service,
                     report.commitment.strftime('%H:%M'))
         self._queued_messages.append([after, message])
+
     def _drain_queue(self) -> List[str]:
         """Return any held messages that are now due."""
         due: List[str] = []
@@ -399,6 +402,7 @@ class ShiftCommands(SessionState):
                 remaining.append([countdown, message])
         self._queued_messages = remaining
         return due
+
     def _interrupt(self) -> str:
         """
         Advance the shift and return whatever the building has to say.
@@ -516,14 +520,29 @@ class ShiftCommands(SessionState):
             self.clock.now(), self.career.shift, position=self.role,
             overdue=overdue, seen=self.career.beats_seen,
             recall=self._last_closed())
-        if message is not None and message.beat:
-            self.career.beats_seen.append(message.beat)
-            self.career.save()
+        if message is not None:
+            ledger = self.career.beats_seen
+            if message.beat:
+                ledger.append(message.beat)
+                if message.about:
+                    ledger.append(f'about:{message.about}')
+            elif message.kind == 'chase' and message.about:
+                ledger.append(f'chased:{message.about}')
+            if message.beat or message.kind == 'chase':
+                self.career.save()
         return message
 
     def _last_closed(self):
-        """The report most recently closed, for a person who speaks of it."""
-        done = [r for r in self.desk.closed() if not r.practical and r.closed_at]
+        """
+        The report most recently closed, for a person who speaks of it.
+
+        One that an earlier beat already spoke of is not offered again, so
+        two beats never tell the same story twice.
+        """
+        spoken = self.career.beats_seen
+        done = [r for r in self.desk.closed()
+                if not r.practical and r.closed_at
+                and f'about:{r.number}' not in spoken]
         if not done:
             return None
         report = done[0]
@@ -535,23 +554,37 @@ class ShiftCommands(SessionState):
         """
         What the day's closed work does to how the crews feel about you.
 
-        Each report closed since the last call moves its crew's rapport one
-        step, up when the code was right and down when it was not, once per
-        person per tour. A correct one may bring a call back to the board
-        later. At the threshold one person does a favour, once.
+        Each report closed this tour moves its crew's rapport one step, up
+        when the code was right and down when it was not, once per person per
+        tour. A correct one may bring a call back to the board later. At the
+        threshold one person does a favour, once.
+
+        The ledger (``settled:``, ``rang:``, ``favour:`` in the career's
+        ``beats_seen``) is what makes each of those once across a save and a
+        resume; the room keeps nothing of its own. A report closed on an
+        earlier tour was settled on that tour or not at all, so it is only
+        marked here, never counted: the first tour has no people, and the
+        reports it closed must not move anyone in the second.
         """
         room = self.switchroom
+        ledger = self.career.beats_seen
         tour = self.career.shift
+        today = self.clock.tour_day()
         spoken: List[str] = []
         changed = False
         for report in self.desk.closed():
-            if report.number in room.settled or report.practical:
+            key = f'settled:{report.number}'
+            if key in ledger or report.practical:
                 continue
-            room.settled.add(report.number)
+            ledger.append(key)
+            changed = True
+            if report.closed_at is None or report.closed_at.date() < today:
+                continue
             changed |= adjust_rapport(
-                self.career.rapport, self.career.beats_seen,
+                self.career.rapport, ledger,
                 rapport_with(report.crew), tour, 1 if report.correct else -1)
-            if report.correct and not quiet and room.rings_back(report.number):
+            if (report.correct and not quiet
+                    and room.rings_back(report.number, ledger)):
                 closed = (report.closed_at.strftime('%H:%M')
                           if report.closed_at else '')
                 self._queue_message(room.call_back(
@@ -560,11 +593,13 @@ class ShiftCommands(SessionState):
                     report.record.class_of_service, closed),
                     after=room.rng.randint(2, 5))
         if not quiet:
-            login = favour_due(self.career.rapport, self.career.beats_seen,
-                               self.clock.now())
+            # The favour is asked at the door, so it waits until the nearest
+            # report is close enough to its commitment for an hour to matter.
+            login = favour_due(self.career.rapport, ledger, self.clock.now())
             waiting = sorted((r for r in self.desk.customers()
                               if not r.overdue()), key=lambda r: r.commitment)
-            if login and waiting:
+            window = timedelta(minutes=FAVOUR_MINUTES)
+            if login and waiting and waiting[0].due_in() <= window:
                 target = waiting[0]
                 target.commitment += timedelta(minutes=FAVOUR_MINUTES)
                 self.career.beats_seen.append(f'favour:{login}')
@@ -621,9 +656,16 @@ class ShiftCommands(SessionState):
         if not late:
             return []
         self.career.record_missed(len(late))
-        return [self.switchroom.overdue_notice(
-            self.clock.now(), report.number, report.record.telephone_number)
-            for report in late]
+        notices = []
+        for report in late:
+            self.career.beats_seen.append(f'chased:{report.number}')
+            notices.append(self.switchroom.overdue_notice(
+                self.clock.now(), report.number,
+                report.record.telephone_number,
+                Late(report.number, report.record.telephone_number,
+                     report.record.class_of_service, report.out_of_service,
+                     report.commitment.strftime('%H:%M'))))
+        return notices
 
     def _weather_events(self, was: int) -> List[str]:
         """

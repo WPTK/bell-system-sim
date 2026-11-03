@@ -54,36 +54,38 @@ OVERDUE: Dict[str, str] = {
 }
 
 # The customer's second call, after a close that was wrong and a report that
-# has come back. One line each.
+# has come back. One line each, and each ends on the question she has to
+# answer.
 SECOND_CALL: Dict[str, str] = {
-    '1FR': "They say it is doing what it did before, and they would like a "
-           "time to be at home for.",
-    '1MR': "They took the morning for it once already. They would like a "
-           "time they can plan around.",
-    '1FB': "They run a business off it. A second call is one they have to "
-           "explain to somebody.",
+    '1FR': "They say it is doing what it did before. What time can I give "
+           "them to be home for it?",
+    '1MR': "They took the morning for it once already. What time can I "
+           "give them that they can plan around?",
+    '1FB': "They run a business off it, and a second call is one they have "
+           "to explain. When can I say?",
     'PBX': "The attendant at the switchboard says every extension is doing "
-           "the same. They want a time.",
+           "the same. What time do I give them?",
     'COIN': "The pay station is taking coins and giving nothing again. "
-            "Somebody is going to ask me where they go.",
+            "Somebody will ask me where the coins go. What do I say?",
     'PVT': "Private line again. Both ends say the trouble is at the other "
-           "end. They are asking me which.",
+           "end. What do I tell them?",
 }
 
 # A call after a close that was right. Sometimes the customer rings to say
 # so, which is rarer than ringing to say the opposite and is why it is worth
-# the line. One line each.
+# the line. One line each, each a question she has to answer.
 CALL_BACK: Dict[str, str] = {
-    '1FR': "They rang to say it is working. They wanted somebody here to "
-           "know.",
-    '1MR': "They rang to say it is clear. They were home when it came back.",
-    '1FB': "The shop rang to say the line is back and they are taking calls "
-           "again.",
+    '1FR': "They rang to say it is working. Do I tell them it is closed?",
+    '1MR': "They rang to say it is clear; they were home when it came "
+           "back. Is it closed on your side?",
+    '1FB': "The shop rang to say the line is back and they are taking "
+           "calls again. May I tell them it is closed?",
     'PBX': "The switchboard rang to say every extension is back. They "
-           "asked who to thank.",
+           "asked who to thank. What do I say?",
     'COIN': "The owner of the pay station rang to say it is taking coins "
-            "and giving dial tone.",
-    'PVT': "Both ends of the private line rang separately to say it is up.",
+            "and giving dial tone. Do they need to do anything more?",
+    'PVT': "Both ends of the private line rang separately to say it is "
+           "up. Do I tell them it is closed?",
 }
 
 # How often a customer rings back after a close that was right. The

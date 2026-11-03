@@ -241,20 +241,20 @@ _CHATTER: Sequence[tuple] = (
     # Said on part of the countdown only (data/tours.py windows). The
     # simulation's own; each is a person looking at the same calendar.
     (CHANNEL_MAIL, 'ehalloran',
-     ['Work the oldest report first unless the plant gives you a reason.',
-      'When it does, write the reason on the report.'], EARLY),
+     ['Work the report nearest its commitment first, unless the plant gives',
+      'you a reason not to.'], EARLY),
     (CHANNEL_MAIL, 'ehalloran',
-     ['Anything still open at handoff goes over with your name on it.',
-      'Close what you can and leave a clear note on the rest.'], MIDDLE),
+     ['Anything still open at handoff goes over as it stands.',
+      'Close what you can.'], MIDDLE),
     (CHANNEL_ORDERWIRE, 'dpetrak',
      ['SCC to office. Routine. No action, and I expect to say the same',
       'thing to you in January under another name.'], LATE),
     (CHANNEL_WRITE, 'rjohnson',
      ['Wired up the last of the spare shelves today. Whoever has the frame',
-      'in January will find them where I left them.'], LATE),
+      'next will find them where I left them.'], LATE),
     (CHANNEL_ORDERWIRE, 'dpetrak',
-     ['SCC to office. Routine. No action. This is the last routine I log',
-      'under this name, and I am logging it the same as the others.'], LAST),
+     ['SCC to office. Routine. No action, logged the same as the others.'],
+     LAST),
 )
 
 
@@ -526,7 +526,7 @@ ARC_BEATS: Tuple[ArcBeat, ...] = (
     )),
     ArcBeat('reyes.2', CHANNEL_WRITE, 'mreyes', (9, 11), (
         '{number} on {tel}, closed {time}. They ask who has it in February.',
-        'I told them the card goes with the line. Is that right?',
+        'I said the trouble card for the line carries on. Is that right?',
     )),
     ArcBeat('alvarez.2', CHANNEL_WRITE, 'ehalloran', (10, 12), (
         'Alvarez rang this morning to ask how the position was going.',
@@ -560,10 +560,8 @@ FAVOURS: Dict[str, Tuple[str, ...]] = {
                 '{number}, due {until}. It is mine.'),
     'jsandoval': ('I told the customer an hour more.',
                   '{number}, due {until}.'),
-    'wfinch': ('I was at the door. They will give you another hour.',
-               '{number} is due {until}. They always wait.'),
-    'rjohnson': ('Held the other work on the frame an hour.',
-                 '{number} is due {until}.'),
+    'wfinch': ('I was at the door. They said an hour more is all right.',
+               '{number} is due {until}.'),
     'abright': ('Told the customer from the pole. An hour.',
                 '{number}, due {until}.'),
     'tnakamura': ('Sixty minutes added against {number}. It is now due '
@@ -636,10 +634,6 @@ class Switchroom:
         self._recent: List[tuple] = []
         # Reports the board has already been chased over, once each.
         self._chased: set = set()
-        # Closed reports whose people have been settled, and those that
-        # have already had their one chance of a call-back.
-        self.settled: set = set()
-        self._rang: set = set()
 
     # -- construction ----------------------------------------------------
 
@@ -739,7 +733,7 @@ class Switchroom:
         beat = self._arc_beat(now, tour, seen, recall)
         if beat is not None:
             return beat
-        board = self._board_driven(now, overdue)
+        board = self._board_driven(now, overdue, seen)
         if board is not None:
             return board
         return self.chatter(now, position=position, tour=tour)
@@ -767,11 +761,18 @@ class Switchroom:
             ))
         return None
 
-    def _board_driven(self, now: datetime,
-                      overdue: Sequence[Late]) -> Optional[Message]:
-        """Someone asking after a late report they have not yet asked after."""
+    def _board_driven(self, now: datetime, overdue: Sequence[Late],
+                      seen: Sequence[str] = ()) -> Optional[Message]:
+        """
+        Someone asking after a late report nobody has yet spoken of.
+
+        Said at most once per report, the career's ``chased:`` entries
+        making that true across a save, and never for one the attendant
+        already raised when its commitment passed (``overdue_notice``).
+        """
         for late in overdue:
-            if late.number not in self._chased:
+            if (late.number not in self._chased
+                    and f'chased:{late.number}' not in seen):
                 self._chased.add(late.number)
                 return self.chase(now, late)
         return None
@@ -1009,11 +1010,7 @@ class Switchroom:
         """
         if late.out_of_service:
             sender = 'mreyes'
-            lines = [
-                f'{late.number} on {late.telephone} was due {late.committed} '
-                f'and has gone. What do I tell them?',
-                consequences.overdue(late.class_of_service),
-            ]
+            lines = self._gone_lines(late)
         else:
             sender = 'ehalloran'
             lines = [
@@ -1027,21 +1024,39 @@ class Switchroom:
             about=late.number,
         ))
 
+    @staticmethod
+    def _gone_lines(late: Late) -> List[str]:
+        """Reyes on a line out of service past its time: theirs, then hers."""
+        return [
+            f'{late.number} on {late.telephone} was due {late.committed} '
+            f'and has gone. What do I tell them?',
+            consequences.overdue(late.class_of_service),
+        ]
+
     def overdue_notice(self, now: datetime, report_number: str,
-                       telephone_number: str) -> Message:
+                       telephone_number: str,
+                       late: Optional[Late] = None) -> Message:
         """
         The attendant, once, on a report that has just passed its commitment.
 
         Not random and not repeated: it is said when the commitment passes,
-        whoever was or was not working the report, and then not again.
+        whoever was or was not working the report, and then not again. Given
+        the report's class of service and whether the line is out, she says
+        what that customer said; the board-driven ``chase`` then leaves the
+        report alone, since she has already raised it.
         """
-        return self._deliver(Message(
-            channel=CHANNEL_WRITE, sender='mreyes', received=now,
-            lines=[
+        self._chased.add(report_number)
+        if late is not None and late.out_of_service:
+            lines = self._gone_lines(late)
+        else:
+            lines = [
                 f'{report_number} is past its commitment.',
                 f'{telephone_number} is on the line asking when. I told',
                 'them a time and it has gone. What do I tell them now?',
-            ],
+            ]
+        return self._deliver(Message(
+            channel=CHANNEL_WRITE, sender='mreyes', received=now,
+            lines=lines,
             kind='escalation', subject=f'{report_number} past commitment',
             about=report_number,
         ))
@@ -1080,7 +1095,9 @@ class Switchroom:
 
         The bureau files the notice when the report comes back and knows the
         number and the code; the class of service and the new commitment are
-        on the report. The earlier entry in the log is replaced, not added to.
+        on the report. This is a workaround: the fix is to pass them where
+        the notice is made (``bureau.py`` ``_close_report``), which is not
+        this phase's file. The earlier log entry is replaced, not added to.
         """
         assert message.about is not None
         again = message._replace(lines=self._repeat_lines(
@@ -1104,11 +1121,17 @@ class Switchroom:
             about=report_number,
         ))
 
-    def rings_back(self, report_number: str) -> bool:
-        """Whether this clean close draws a call. Decided once per report."""
-        if report_number in self._rang:
+    def rings_back(self, report_number: str, ledger: List[str]) -> bool:
+        """
+        Whether this clean close draws a call.
+
+        Decided once per report. The ledger is the career's ``beats_seen``,
+        which is what makes once true after a save and a resume.
+        """
+        key = f'rang:{report_number}'
+        if key in ledger:
             return False
-        self._rang.add(report_number)
+        ledger.append(key)
         return self.rng.random() < consequences.CALL_BACK_CHANCE
 
     def favour(self, now: datetime, login: str, report_number: str,
