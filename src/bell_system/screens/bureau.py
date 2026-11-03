@@ -31,6 +31,7 @@ from ..npc import (
 )
 from ..progression import (
     MISSED_COMMITMENT_WEIGHT,
+    UNWORKED_BACKLOG_WEIGHT,
     QUALIFICATIONS,
     QUALIFICATIONS_BY_KEY,
     REPEAT_REPORT_WEIGHT,
@@ -40,6 +41,7 @@ from ..reports import (
     CLASSES_OF_SERVICE,
     COST_CALLBACK,
     ReportDesk,
+    TroubleReport,
     disposition_name,
     valid_force,
 )
@@ -146,6 +148,10 @@ class BureauCommands(SessionState):
         self.desk = ReportDesk(npa, nxx, self.home_office['clli'],
                                wet_bias=career_progress(
                                    self.career.shift))
+        # The career's index counts reports left open past commitment, and
+        # the only place that is true is the board.
+        self.career.open_overdue = lambda: sum(
+            1 for report in self.desk.pending() if report.overdue())
         self.switchroom = Switchroom()
         self.special_services = SartsInventory(self.home_office['clli'])
         self.lmos_console = LmosConsole(self)
@@ -160,6 +166,11 @@ class BureauCommands(SessionState):
         # charged against a report is charged against the shift too.
         self.shift_minutes = 0
         self._charged_total = 0
+        # What the tour has to show for itself, for the handoff to ask. Desk
+        # time charged since the tour began, and whether the board has been
+        # looked at.
+        self._tour_desk_start = 0
+        self._board_reviewed = False
         self._fired_events: set = set()
 
         slack = self.career.difficulty.commitment_slack_minutes
@@ -284,6 +295,7 @@ class BureauCommands(SessionState):
                 f"Type: {action.command}")
     def _show_report_board(self) -> str:
         """Render the pending list, nearest commitment first."""
+        self._board_reviewed = True
         pending = self.desk.pending()
         office = self.home_office
         header = (
@@ -340,6 +352,7 @@ class BureauCommands(SessionState):
         report = self.desk.find(token)
         if report is None:
             return f"report: no report matching '{token}'"
+        self._board_reviewed = True
 
         record = report.record
         class_name = CLASSES_OF_SERVICE.get(record.class_of_service, 'Unknown')
@@ -462,11 +475,14 @@ class BureauCommands(SessionState):
             return (f"report: '{force}' is not a repair force.\n"
                     f"Forces: {', '.join(DISPATCH_FORCES)}")
 
-        finding = self.desk.dispatch(report, canonical, self.clock.now())
+        finding = self.desk.dispatch(report, canonical, self.shift_minutes)
         if report.dispatched_to is None:
             # Nobody went: either the force is all out, or the sheath is
             # already repaired. Either way there is no field call coming.
-            return finding
+            if report.sheath_repaired:
+                return finding
+            wait_note = self._while_you_wait(report, canonical)
+            return finding + '\n\n' + wait_note
         if report.field_finding:
             fault = FAULTS[report.field_finding]
             called_in = (
@@ -489,6 +505,36 @@ class BureauCommands(SessionState):
                 f"{'past' if report.overdue() else 'remaining'}).")
         nudge = self.first_tour_nudge('dispatch')
         return f"{sent}\n\n{nudge}" if nudge else sent
+    def _while_you_wait(self, waiting: TroubleReport, force: str) -> str:
+        """
+        Say what to do with the time until a crew is back.
+
+        "Nobody free" used to stop there, and the player either retyped the
+        command or gave up. The crew is back at a time on the same clock
+        the commitments run on, so there is always something that fills the
+        gap: a report that wants measuring, one that can be closed, or the
+        wait itself.
+        """
+        others = [report for report in self.desk.pending()
+                  if report is not waiting]
+        untested = [report for report in others if not report.tested
+                    and not report.sheath_repaired]
+        closable = [report for report in others
+                    if report.status == 'DISP'
+                    and report.number not in {
+                        job.report for job in self.desk.force.busy(
+                            self.shift_minutes)}]
+        soonest = self.desk.force.soonest_free(force, self.shift_minutes)
+        wait = (max(1, soonest.back_at() - self.shift_minutes)
+                if soonest else 0)
+        if closable:
+            return (f"Next: {closable[0].number} has been worked and can be "
+                    f"closed. 'report close {closable[0].number} ...'")
+        if untested:
+            return (f"Next: {untested[0].number} has not been measured. "
+                    f"'mlt {untested[0].number}'")
+        return (f"Next: nothing else wants you. 'sleep {wait * 60}' waits "
+                f"until a crew is in, then dispatch {waiting.number} again.")
     def _close_report(self, token: str, rest: List[str]) -> str:
         """Close a report against a disposition code and judge the call."""
         report = self.desk.find(token)
@@ -529,10 +575,13 @@ class BureauCommands(SessionState):
                         f"Codes: {', '.join(FAULTS)}\n"
                         "Type 'report faults' for what each one means.")
 
-        correct = self.desk.close(
-            report, disposition, found, self.clock.now(),
-            difficulty.count_missed_commitments)
-        self.career.record_closure(correct, report.missed_commitment)
+        was_late = report.missed_commitment
+        correct = self.desk.close(report, disposition, found,
+                                  self.clock.now())
+        if report.missed_commitment and not was_late:
+            # Ran past the commitment on the close itself.
+            self.career.record_missed()
+        self.career.record_closure(correct)
 
         lines = [
             f"{report.number} closed, code {disposition} - "
@@ -670,7 +719,8 @@ class BureauCommands(SessionState):
             f"({career.reports_correct} correct, {career.reports_wrong} wrong)",
             f"  Repeat reports      {career.repeat_reports}",
             f"  Missed commitments  {career.missed_commitments}"
-            + ('' if difficulty.count_missed_commitments else '  (not counted)'),
+            + ('' if difficulty.missed_commitment_scale >= 1.0
+               else '  (counted softly)'),
             f"  Customer reports    {career.service_index():.1f} of 100  "
             f"{career.index_band()}",
             f"  Worth to the office {career.office_contribution():.1f} of "
@@ -761,14 +811,18 @@ class BureauCommands(SessionState):
             f"  Wrong disposition   {WRONG_DISPOSITION_WEIGHT:>3}",
             f"  Repeat report       {REPEAT_REPORT_WEIGHT:>3}",
             f"  Missed commitment   {MISSED_COMMITMENT_WEIGHT:>3}"
-            + ('' if difficulty.count_missed_commitments
-               else '  (not counted on this setting)'),
+            + ('' if difficulty.missed_commitment_scale >= 1.0
+               else f"  (x{difficulty.missed_commitment_scale:g} on this "
+                    f"setting)"),
+            f"  Left open, overdue  {UNWORKED_BACKLOG_WEIGHT:>3}",
             f"  Difficulty factor   {difficulty.index_penalty:>3.1f} "
             f"({difficulty.name})",
             '',
-            "  Each is lost in proportion to the share of your closed reports",
-            "  it applies to, then scaled by the difficulty factor. Close every",
-            "  report wrongly and the whole 55 goes.",
+            "  Each is lost in proportion to the share of your reports it",
+            "  applies to, then scaled by the difficulty factor. Close every",
+            "  report wrongly and the whole 55 goes. A commitment is missed",
+            "  when the time passes, whether or not you were working the",
+            "  report, and a report still open past it is lost in full.",
             '',
             "  A wrong close weighs heaviest because it is the one that leaves",
             "  a customer out of service believing somebody has dealt with",

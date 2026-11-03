@@ -123,6 +123,7 @@ def play_shift(player: Player, difficulty, seed: int,
     desk.open_shift(SHIFT_START, difficulty.commitment_slack_minutes)
 
     now = SHIFT_START
+    minutes = 0
     counts = {'closed': 0, 'wrong': 0, 'repeats': 0, 'missed': 0,
               'dispatches': 0}
     repeated: set = set()
@@ -155,17 +156,18 @@ def play_shift(player: Player, difficulty, seed: int,
                          and binder_of(held.record.pair)
                          == binder_of(report.record.pair)]
                 report = group[0]
-            desk.dispatch(report, FAULTS[report.record.fault].dispatch, now)
+            desk.dispatch(report, FAULTS[report.record.fault].dispatch,
+                          minutes)
             counts['dispatches'] += 1
 
         disposition, found = player.close_as(
             report.record.fault, report.tested, rng)
-        correct = desk.close(report, disposition, found, now,
-                             difficulty.count_missed_commitments)
+        flagged = report.missed_commitment
+        correct = desk.close(report, disposition, found, now)
         counts['closed'] += 1
         if not correct:
             counts['wrong'] += 1
-        if report.missed_commitment:
+        if report.missed_commitment and not flagged:
             counts['missed'] += 1
         if desk.should_repeat(report, difficulty.repeat_report_chance):
             if report.number not in repeated:
@@ -173,7 +175,10 @@ def play_shift(player: Player, difficulty, seed: int,
                 desk.repeat(report, now, difficulty.commitment_slack_minutes)
                 counts['repeats'] += 1
 
-        now += timedelta(minutes=max(1, report.desk_minutes))
+        passed = max(1, report.desk_minutes)
+        now += timedelta(minutes=passed)
+        counts['missed'] += len(desk.age(passed, minutes))
+        minutes += passed
         if not desk.full() and rng.random() < 0.4:
             desk.receive(now, difficulty.commitment_slack_minutes)
 
@@ -188,7 +193,7 @@ def index_from(counts: Dict[str, int], difficulty) -> float:
     wrong = counts['wrong'] / closed
     repeat = min(1.0, counts['repeats'] / closed)
     missed = (min(1.0, counts['missed'] / closed)
-              if difficulty.count_missed_commitments else 0.0)
+              * difficulty.missed_commitment_scale)
     penalty = (wrong * WRONG_DISPOSITION_WEIGHT
                + repeat * REPEAT_REPORT_WEIGHT
                + missed * MISSED_COMMITMENT_WEIGHT) * difficulty.index_penalty
@@ -216,7 +221,7 @@ def report(shifts: int) -> None:
 
     for difficulty in DIFFICULTIES.values():
         print(f"{difficulty.name}  (penalty x{difficulty.index_penalty}, "
-              f"commitments {'counted' if difficulty.count_missed_commitments else 'not counted'})")
+              f"commitments counted x{difficulty.missed_commitment_scale:g})")
         print(f"  {'player':<10}{'median':>8}{'mean':>8}{'p10':>7}{'p90':>7}"
               f"   {'closed':>7}   bands")
         for player in PLAYERS:

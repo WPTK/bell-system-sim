@@ -761,6 +761,25 @@ class Switchroom:
             about=report_number,
         ))
 
+    def overdue_notice(self, now: datetime, report_number: str,
+                       telephone_number: str) -> Message:
+        """
+        The attendant, once, on a report that has just passed its commitment.
+
+        Not random and not repeated: it is said when the commitment passes,
+        whoever was or was not working the report, and then not again.
+        """
+        return self._deliver(Message(
+            channel=CHANNEL_WRITE, sender='mreyes', received=now,
+            lines=[
+                f'{report_number} is past its commitment.',
+                f'{telephone_number} is on the line asking when. I told',
+                'them a time and it has gone. What do I tell them now?',
+            ],
+            kind='escalation', subject=f'{report_number} past commitment',
+            about=report_number,
+        ))
+
     def repeat_notice(self, now: datetime, report_number: str,
                       original: str, telephone_number: str) -> Message:
         """Tell you a report you closed has come back."""

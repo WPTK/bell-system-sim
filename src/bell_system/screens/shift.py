@@ -461,7 +461,41 @@ class ShiftCommands(SessionState):
         was = self.shift_minutes
         self.shift_minutes += 1 + max(0, charged - self._charged_total)
         self._charged_total = charged
-        return self._weather_events(was) + self._fire_due_events()
+        late = self.desk.age(self.shift_minutes - was, was)
+        late_notices = [render_message(message, self._stamp())
+                        for message in self._report_late(late)]
+        return (late_notices + self._weather_events(was)
+                + self._fire_due_events())
+
+    def _pass_time(self, minutes: int) -> None:
+        """
+        Let shift minutes go by that nobody spent on a report.
+
+        Waiting and asking for a hint both move the clock, and a board does
+        not stop ageing because the craftsperson did. Whatever the attendant
+        has to say about a commitment that passed is held for the next
+        prompt, like any other message that arrives while you are busy.
+        """
+        was = self.shift_minutes
+        self.shift_minutes += minutes
+        late = self.desk.age(minutes, was)
+        for message in self._report_late(late):
+            self._queue_message(message, after=1)
+
+    def _report_late(self, late) -> List[Message]:
+        """
+        Count reports that have just passed their commitment and say so.
+
+        Counted here, when the commitment passes, rather than when the
+        report is closed: it is missed whether or not anybody ever gets
+        round to closing it. The attendant says so once per report.
+        """
+        if not late:
+            return []
+        self.career.record_missed(len(late))
+        return [self.switchroom.overdue_notice(
+            self.clock.now(), report.number, report.record.telephone_number)
+            for report in late]
 
     def _weather_events(self, was: int) -> List[str]:
         """

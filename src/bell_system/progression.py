@@ -23,7 +23,7 @@ only twenty points, which would tell them nothing.
 
 import json
 import os
-from typing import Dict, List, NamedTuple, Optional
+from typing import Callable, Dict, List, NamedTuple, Optional
 
 from .data.trouble import NSPMP_WEIGHTS
 
@@ -45,8 +45,9 @@ class Difficulty(NamedTuple):
     reports_per_qualification: int
     # How heavily a wrong disposition tells against the service index.
     index_penalty: float
-    # Whether missed commitment times are counted against you.
-    count_missed_commitments: bool
+    # How much of MISSED_COMMITMENT_WEIGHT a missed commitment costs: all of
+    # it where the job counts them, a share of it where it is forgiving.
+    missed_commitment_scale: float
     # How often the other craft interrupt you, as a share of commands.
     interruption_rate: float
     # Minutes of slack added to every repair commitment.
@@ -71,7 +72,7 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         # sits on the SATISFACTORY/EXCELLENT line, a careful player is still
         # EXCELLENT 99 times in 100, and a careless one still never is.
         index_penalty=0.7,
-        count_missed_commitments=False,
+        missed_commitment_scale=0.25,
         interruption_rate=0.06,
         commitment_slack_minutes=90,
     ),
@@ -85,7 +86,7 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         repeat_report_chance=0.85,
         reports_per_qualification=12,
         index_penalty=1.0,
-        count_missed_commitments=True,
+        missed_commitment_scale=1.0,
         interruption_rate=0.22,
         commitment_slack_minutes=0,
     ),
@@ -101,6 +102,10 @@ DEFAULT_DIFFICULTY = 'fun'
 WRONG_DISPOSITION_WEIGHT = 55
 REPEAT_REPORT_WEIGHT = 35
 MISSED_COMMITMENT_WEIGHT = 20
+# A report still open and past its commitment is a customer who has been told
+# somebody would come and nobody has. It is lost in full on either setting,
+# which is what keeps a board nobody works from scoring as a perfect one.
+UNWORKED_BACKLOG_WEIGHT = 50
 
 
 class Qualification(NamedTuple):
@@ -189,6 +194,10 @@ class Career:
         self.reports_wrong: int = 0
         self.repeat_reports: int = 0
         self.missed_commitments: int = 0
+        # Reports open and past commitment right now. Not part of the saved
+        # record: it is a fact about the board, so whoever holds the board
+        # supplies it, and a career with no board has none.
+        self.open_overdue: Callable[[], int] = lambda: 0
         self.qualifications: List[str] = ['loop']
         self.index_history: List[float] = []
         # The wire centre this career is assigned to. Chosen the first time
@@ -288,13 +297,18 @@ class Career:
         have been worth in the plan, which is where the published weight
         belongs.
 
-        The three ways to lose it are the three ways the work goes wrong: a
-        wrong disposition, a report that came back, and a commitment missed.
-        A wrong close weighs heaviest because it is the one that leaves a
-        customer out of service believing they have been dealt with.
+        The ways to lose it are the ways the work goes wrong: a wrong
+        disposition, a report that came back, a commitment missed, and a
+        report still sitting open past its commitment. A wrong close weighs
+        heaviest because it is the one that leaves a customer out of
+        service believing they have been dealt with. A commitment passes
+        whether or not anybody was working the report, so it is counted when
+        it passes, and counted softly on the forgiving setting and in full
+        on the other.
 
-        The 55/35/20 apportionment was the simulation's own and, for a long
-        time, untested. It has now been played: tools/index_calibration.py
+        The 55/35/20 apportionment (and the 50 for a board left to age) was
+        the simulation's own and, for a long time, untested. It has now been
+        played: tools/index_calibration.py
         works a few hundred shifts per setting with players who fail in one
         way each, and the ordering holds. A player who measures every line
         and then names the wrong fault scores worse than one who is merely
@@ -310,19 +324,26 @@ class Career:
         moved. The handoff record prints closed and carried beside it for
         exactly that reason.
         """
-        if not self.reports_closed:
+        closed = self.reports_closed
+        backlog = self.open_overdue()
+        # Every report whose fate is decided: closed, or still open past
+        # its commitment. A career that has closed nothing but is sitting on
+        # an overdue board has a score, and it is not 100.
+        decided = closed + backlog
+        if not decided:
             return 100.0
 
-        closed = self.reports_closed
-        wrong_rate = self.reports_wrong / closed
-        repeat_rate = min(1.0, self.repeat_reports / closed)
-        missed_rate = (min(1.0, self.missed_commitments / closed)
-                       if self.difficulty.count_missed_commitments else 0.0)
+        wrong_rate = self.reports_wrong / closed if closed else 0.0
+        repeat_rate = min(1.0, self.repeat_reports / closed) if closed else 0.0
+        missed_rate = min(1.0, self.missed_commitments / decided)
+        backlog_rate = backlog / decided
 
         penalty = (
             wrong_rate * WRONG_DISPOSITION_WEIGHT
             + repeat_rate * REPEAT_REPORT_WEIGHT
             + missed_rate * MISSED_COMMITMENT_WEIGHT
+            * self.difficulty.missed_commitment_scale
+            + backlog_rate * UNWORKED_BACKLOG_WEIGHT
         ) * self.difficulty.index_penalty
 
         return max(0.0, round(100.0 - penalty, 1))
@@ -356,15 +377,18 @@ class Career:
 
     # -- recording -------------------------------------------------------
 
-    def record_closure(self, correct: bool, missed_commitment: bool = False) -> None:
+    def record_closure(self, correct: bool) -> None:
         """Record a closed trouble report."""
         self.reports_closed += 1
         if correct:
             self.reports_correct += 1
         else:
             self.reports_wrong += 1
-        if missed_commitment:
-            self.missed_commitments += 1
+        self.save()
+
+    def record_missed(self, count: int = 1) -> None:
+        """Record reports that have gone past their commitment."""
+        self.missed_commitments += count
         self.save()
 
     def record_repeat(self) -> None:

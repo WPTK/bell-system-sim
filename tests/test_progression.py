@@ -56,9 +56,9 @@ class TestDifficulties:
         assert DIFFICULTIES['craft'].require_test_before_close
         assert not DIFFICULTIES['fun'].require_test_before_close
 
-    def test_only_craft_counts_missed_commitments(self):
-        assert DIFFICULTIES['craft'].count_missed_commitments
-        assert not DIFFICULTIES['fun'].count_missed_commitments
+    def test_craft_counts_missed_commitments_in_full_and_fun_softly(self):
+        assert DIFFICULTIES['craft'].missed_commitment_scale == 1.0
+        assert 0 < DIFFICULTIES['fun'].missed_commitment_scale < 1.0
 
     def test_only_fun_gives_slack_on_commitments(self):
         assert DIFFICULTIES['fun'].commitment_slack_minutes > 0
@@ -147,14 +147,14 @@ class TestServiceIndex:
 
         assert with_repeat.service_index() < without.service_index()
 
-    def test_missed_commitments_only_count_on_craft(self):
+    def test_missed_commitments_count_softly_on_fun_and_fully_on_craft(self):
         fun = Career(difficulty='fun')
-        fun.record_closure(correct=True, missed_commitment=True)
-        assert fun.service_index() == 100.0
-
+        fun.record_closure(correct=True)
+        fun.record_missed()
         craft = Career(difficulty='craft')
-        craft.record_closure(correct=True, missed_commitment=True)
-        assert craft.service_index() < 100.0
+        craft.record_closure(correct=True)
+        craft.record_missed()
+        assert craft.service_index() < fun.service_index() < 100.0
 
     def test_total_failure_actually_reaches_unsatisfactory(self):
         """

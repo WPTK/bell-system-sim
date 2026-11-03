@@ -118,7 +118,7 @@ class TestTheCrossConnectRecord:
         terminal.execute_command(
             f'cosmos jumper {frame.record.telephone_number}')
         terminal.execute_command(f'mlt {meter.record.telephone_number}')
-        assert frame.minutes_spent < meter.minutes_spent
+        assert frame.desk_minutes < meter.desk_minutes
 
     def test_a_line_this_centre_does_not_serve_is_reported(self, terminal):
         assert 'no assignment record' in terminal.execute_command(
@@ -178,7 +178,7 @@ class TestPlantTestNumbers:
         terminal.execute_command(
             f'testline mw {dialled.record.telephone_number}')
         terminal.execute_command(f'mlt {measured.record.telephone_number}')
-        assert dialled.minutes_spent < measured.minutes_spent
+        assert dialled.desk_minutes < measured.desk_minutes
 
     def test_the_quiet_termination_hears_a_ground(self):
         """
