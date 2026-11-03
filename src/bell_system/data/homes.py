@@ -37,10 +37,10 @@ the fit is not clean:
   field     The wire chief who sends crews out signs it, and the crews it
             names are ones field.CREWS has.
 
-field.CREWS also lists Nakamura as a switching equipment technician,
-where npc.CRAFT has him as the transmission engineer and Johnson as the
-switching technician. The notes follow npc.CRAFT, which is also where the
-.mailrc aliases come from.
+field.CREWS takes each crew's name and title from npc.CRAFT, so the roster,
+the crew list and these notes say the same thing about the same person.
+The notes follow npc.CRAFT, which is also where the .mailrc aliases come
+from.
 """
 
 from typing import Dict

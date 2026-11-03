@@ -27,6 +27,9 @@ making it the whole game.
 import random
 from typing import Callable, Dict, List, NamedTuple, Optional, Set, Tuple
 
+from .npc import CRAFT
+
+
 class Place(NamedTuple):
     """Somewhere a crew can be, and how long it takes them to leave it."""
 
@@ -63,19 +66,31 @@ class Crew(NamedTuple):
     note: str
 
 
+def _crew(login: str, force: str, note: str) -> Crew:
+    """
+    A crew that is somebody on the roster.
+
+    The name and the title are the roster's (``npc.CRAFT``) and are written
+    nowhere else, so the person who goes out is the person who rings in, with
+    the same job. The key is the login without its first-name initial.
+    """
+    person = CRAFT[login]
+    return Crew(login[1:], person.name, person.title, force, note)
+
+
 # The force this wire centre has. Titles are real; the people are not, and
 # the module docstring says so.
 CREWS: Tuple[Crew, ...] = (
-    Crew('okafor', 'Okafor, L.', 'Cable Splicer', 'Cable repair',
-         'Opens sheaths. The only one who can, and knows it.'),
-    Crew('sandoval', 'Sandoval, J.', 'Cable Splicer', 'Cable repair',
-         'Second splicer. Newer, and slower on a big sheath.'),
-    Crew('bright', 'Bright, A.', 'Lineman', 'Outside plant',
-         'Aerial and buried plant between the office and the drop.'),
-    Crew('finch', 'Finch, W.', 'Station Installer', 'Station',
-         'Drop, protector and set. Everything the customer can see.'),
-    Crew('nakamura', 'Nakamura, T.', 'Switching Equipment Technician',
-         'Central office', 'In the building. Travel time is the stairs.'),
+    _crew('lokafor', 'Cable repair',
+          'Opens sheaths. The only one who can, and knows it.'),
+    _crew('jsandoval', 'Cable repair',
+          'Second splicer. Newer, and slower on a big sheath.'),
+    _crew('abright', 'Outside plant',
+          'Aerial and buried plant between the office and the drop.'),
+    _crew('wfinch', 'Station',
+          'Drop, protector and set. Everything the customer can see.'),
+    _crew('rjohnson', 'Central office',
+          'In the building. Travel time is the stairs.'),
 )
 
 CREWS_BY_KEY: Dict[str, Crew] = {crew.key: crew for crew in CREWS}
@@ -188,11 +203,21 @@ class FieldForce:
             return 'FAR'
         return 'OFFICE' if crew.force == 'Central office' else 'GARAGE'
 
+    def where(self, crew: Crew) -> str:
+        """
+        Where a crew is standing: the place it was last put, else its home.
+
+        A shift saved by an older build knows the crews that build had and no
+        others, and ``save`` reads ``at`` back as it was written, so a crew
+        added or renamed since is not in it. It has not moved, so it is home.
+        """
+        return self.at.get(crew.key) or self._home(crew)
+
     # -- sending them ----------------------------------------------------
 
     def travel_minutes(self, crew: Crew) -> int:
         """How long this crew takes to reach a job from where they are."""
-        low, high = LOCATIONS[self.at[crew.key]].minutes
+        low, high = LOCATIONS[self.where(crew)].minutes
         return self.rng.randint(low, high)
 
     def send(self, force: str, report: str, work: int,
@@ -218,9 +243,9 @@ class FieldForce:
         if not available:
             return None, 0, ''
         # The nearest free crew goes, which is what a dispatcher would do.
-        available.sort(key=lambda crew: LOCATIONS[self.at[crew.key]].minutes[0])
+        available.sort(key=lambda crew: LOCATIONS[self.where(crew)].minutes[0])
         crew = available[0]
-        came_from = LOCATIONS[self.at[crew.key]].came_from
+        came_from = LOCATIONS[self.where(crew)].came_from
         travel = self.travel_minutes(crew)
         job = Assignment(crew, report, travel, work, now)
         self.out[crew.key] = job

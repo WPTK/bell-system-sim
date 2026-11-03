@@ -545,7 +545,7 @@ microwave(1), radio(1), trace(1)
         for crew in force.roster():
             job = force.out.get(crew.key)
             if job is None:
-                state = f"free, {LOCATIONS[force.at[crew.key]].standing}"
+                state = f"free, {LOCATIONS[force.where(crew)].standing}"
             else:
                 state = (f"out on {job.report}, back in "
                          f"{hours_minutes(job.back_at() - now)}")
