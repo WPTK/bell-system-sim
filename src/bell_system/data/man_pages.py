@@ -1519,6 +1519,25 @@ EXAMPLES
                      at a time and you watched it happen. Ctrl-C stops a
                      listing, as it did then. A pipe is never paced.
 
+ASSISTS
+     game.difficulty sets a bundle. An assist sets one part of it and
+     leaves the rest, and reads "profile" until you name a value. The
+     settings screen marks each one that is not on its profile with a +.
+
+     assist.test_first          profile | on | off
+                         on refuses a close on a line nobody has measured.
+     assist.commitments_count   profile | off | soft | full
+                         How much a missed commitment costs the index:
+                         nothing, a quarter, or all of it.
+     assist.repeat_reports      profile | off | soft | full
+                         How often a wrongly closed line calls back.
+     assist.commitment_slack    profile | on | off
+                         on adds ninety minutes to every commitment.
+     assist.pace                profile | quick | slow
+                         Correct closures for each sign-off: three or twelve.
+     assist.scoring             profile | gentle | strict
+                         Scales every penalty on the index by 0.7 or 1.0.
+
 SEE ALSO
      date(1), status(1), verbosity(1)
 """,

@@ -726,12 +726,18 @@ class BureauCommands(SessionState):
             '=' * 74,
             f"  Difficulty          {difficulty.name}",
             f"  {' ' * 18}  {difficulty.summary}",
+        ]
+        for number, chunk in enumerate(
+                wrap(', '.join(self.settings.assist_departures()), 52)):
+            lines.append(f"  {'Assists' if number == 0 else '':<18}  {chunk}")
+        lines += [
             f"  Shift               {career.shift}",
             f"  Reports closed      {career.reports_closed} "
             f"({career.reports_correct} correct, {career.reports_wrong} wrong)",
             f"  Repeat reports      {career.repeat_reports}",
             f"  Missed commitments  {career.missed_commitments}"
             + ('' if difficulty.missed_commitment_scale >= 1.0
+               else '  (not counted)' if difficulty.missed_commitment_scale <= 0
                else '  (counted softly)'),
             f"  Customer reports    {career.service_index():.1f} of 100  "
             f"{career.index_band()}",

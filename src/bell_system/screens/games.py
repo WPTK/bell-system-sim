@@ -13,6 +13,7 @@ moo were all in section 6 too. Nothing here needs any telephony.
 import random
 from typing import Dict, List, Optional, Tuple
 
+from ..filesystem import MOO_SCORES
 from ..npc import render as render_message
 from .session import SessionState
 
@@ -39,7 +40,6 @@ _BCD_PUNCH.update({
 
 # Where the office keeps its bulls and cows scores, and the number
 # everybody in the spool has an opinion about.
-MOO_SCORES = '/usr/games/lib/moo.scores'
 OKAFOR_ELEVEN = 11
 
 

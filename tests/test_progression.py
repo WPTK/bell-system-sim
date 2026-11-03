@@ -8,6 +8,7 @@ how a wrong close out scores.
 
 import importlib
 import json
+import os
 
 import pytest
 
@@ -444,3 +445,227 @@ class TestFirstTour:
     def test_the_module_is_gone(self):
         with pytest.raises(ModuleNotFoundError):
             importlib.import_module('bell_system.tutorial')
+
+
+class TestCareerSchema:
+    """One schema bump carries every field later work wants to keep."""
+
+    NEW_LISTS = ('commendations', 'finds', 'groups', 'beats_seen',
+                 'practicals_passed')
+    NEW_COUNTS = ('fault_sightings', 'rapport')
+
+    def test_a_record_from_before_the_bump_loads_with_defaults(self, tmp_path):
+        """The file the current version writes, which has no schema key."""
+        path = career_path(str(tmp_path))
+        with open(path, 'w') as handle:
+            json.dump({
+                'difficulty': 'craft', 'shift': 5, 'reports_closed': 40,
+                'reports_correct': 33, 'reports_wrong': 7,
+                'repeat_reports': 2, 'missed_commitments': 3,
+                'qualifications': ['loop', 'frame', 'office'],
+                'index_history': [91.0, 94.5], 'office': {'clli': 'X'},
+                'finished': False,
+            }, handle)
+        career = Career(path)
+        assert (career.shift, career.reports_closed) == (5, 40)
+        assert career.qualifications == ['loop', 'frame', 'office']
+        for field in self.NEW_LISTS:
+            assert getattr(career, field) == [], field
+        for field in self.NEW_COUNTS:
+            assert getattr(career, field) == {}, field
+        assert career.assignment == ''
+
+    def test_the_new_fields_round_trip(self, tmp_path):
+        path = career_path(str(tmp_path))
+        career = Career(path)
+        career.fault_sightings = {'OPEN': 3, 'WET': 1}
+        career.commendations = ['first clean tour']
+        career.finds = ['sulog', 'drawer']
+        career.groups = ['craft', 'adm']
+        career.rapport = {'mreyes': 2}
+        career.beats_seen = ['t2-sandoval']
+        career.practicals_passed = ['frame']
+        career.assignment = 'somewhere'
+        career.save()
+
+        again = Career(path)
+        assert again.fault_sightings == {'OPEN': 3, 'WET': 1}
+        assert again.commendations == ['first clean tour']
+        assert again.finds == ['sulog', 'drawer']
+        assert again.groups == ['craft', 'adm']
+        assert again.rapport == {'mreyes': 2}
+        assert again.beats_seen == ['t2-sandoval']
+        assert again.practicals_passed == ['frame']
+        assert again.assignment == 'somewhere'
+
+    def test_the_file_says_which_schema_wrote_it(self, tmp_path):
+        from bell_system.progression import SCHEMA
+        path = career_path(str(tmp_path))
+        Career(path).save()
+        with open(path) as handle:
+            assert json.load(handle)['schema'] == SCHEMA
+
+    def test_a_file_from_a_later_schema_still_loads(self, tmp_path):
+        """Unknown keys are ignored, as they were before the bump."""
+        path = career_path(str(tmp_path))
+        with open(path, 'w') as handle:
+            json.dump({'schema': 99, 'shift': 4, 'from_the_future': [1]},
+                      handle)
+        assert Career(path).shift == 4
+
+    def test_damaged_new_fields_fall_back_one_by_one(self, tmp_path):
+        path = career_path(str(tmp_path))
+        with open(path, 'w') as handle:
+            json.dump({
+                'shift': 3,
+                'finds': 'not a list',
+                'commendations': ['ok', 7, 'ok', None, 'also'],
+                'fault_sightings': {'OPEN': 2, 'WET': -4, 'FCG': 'x',
+                                    'ROH': True},
+                'rapport': [1, 2],
+                'practicals_passed': ['loop', 'warp_drive'],
+                'assignment': 12,
+            }, handle)
+        career = Career(path)
+        assert career.shift == 3
+        assert career.finds == []
+        assert career.commendations == ['ok', 'also']
+        assert career.fault_sightings == {'OPEN': 2, 'WET': 0}
+        assert career.rapport == {}
+        assert career.practicals_passed == ['loop']
+        assert career.assignment == ''
+
+    def test_a_career_never_shares_its_lists(self):
+        first, second = Career(), Career()
+        first.finds.append('x')
+        first.fault_sightings['OPEN'] = 1
+        assert second.finds == [] and second.fault_sightings == {}
+
+    def test_the_count_floor_is_offered_before_it_is_granted(self, tmp_path):
+        career = Career(career_path(str(tmp_path)), difficulty='fun')
+        career.reports_correct = 3
+        assert [q.key for q in career.offer_available()] == ['frame']
+        assert career.qualifications == ['loop']
+        career.grant_available()
+        assert 'frame' in career.qualifications
+
+
+class TestAssistsApplyToTheCareer:
+    def test_an_override_changes_the_count_floor(self, tmp_path):
+        career = Career(career_path(str(tmp_path)), difficulty='fun')
+        career.reports_correct = 3
+        assert [q.key for q in career.offer_available()] == ['frame']
+        career.set_assists({'reports_per_qualification': 12})
+        assert career.offer_available() == []
+        assert career.reports_until_next() == 9
+
+    def test_an_unknown_field_is_ignored(self):
+        career = Career()
+        career.set_assists({'warp_factor': 9})
+        assert career.difficulty == DIFFICULTIES[DEFAULT_DIFFICULTY]
+
+
+class TestWhatQualificationClaims:
+    """The ladder is the simulation's own and the documents say so."""
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def read(self, name):
+        with open(os.path.join(self.ROOT, name), encoding='utf-8') as handle:
+            return handle.read()
+
+    def test_the_readme_does_not_say_qualification_governed_the_job(self):
+        readme = self.read('README.md')
+        assert 'was governed by qualification' not in readme
+        ladder = readme.split('A career, and its last day')[1][:900]
+        assert "simulation's own" in ladder
+
+    def test_the_progression_module_does_not_either(self):
+        import bell_system.progression as module
+        assert 'actually governed' not in module.__doc__
+
+    def test_sources_records_the_close_code_simplification(self):
+        sources = self.read('SOURCES.md')
+        assert 'code 5' in sources and 'code 8' in sources
+        assert 'simplification' in sources.lower()
+
+
+class TestACareerKeepsWhatItDoesNotKnow:
+    def test_a_later_versions_keys_survive_a_save(self, tmp_path):
+        path = career_path(str(tmp_path))
+        with open(path, 'w') as handle:
+            json.dump({'schema': 99, 'shift': 4, 'from_the_future': {'a': [1]},
+                       'qualifications': ['loop', 'warp'],
+                       'practicals_passed': ['loop', 'warp_drive']}, handle)
+        career = Career(path)
+        assert career.qualifications == ['loop']
+        assert career.practicals_passed == ['loop']
+        career.record_closure(True)
+        with open(path) as handle:
+            written = json.load(handle)
+        assert written['from_the_future'] == {'a': [1]}
+        assert written['schema'] == 99
+        assert written['qualifications'] == ['loop', 'warp']
+        assert written['practicals_passed'] == ['loop', 'warp_drive']
+        assert written['reports_closed'] == 1
+
+    def test_this_versions_own_schema_is_what_it_writes(self, tmp_path):
+        from bell_system.progression import SCHEMA
+        path = career_path(str(tmp_path))
+        Career(path).save()
+        with open(path) as handle:
+            assert json.load(handle)['schema'] == SCHEMA
+
+    def test_what_it_does_know_is_not_held_back_as_unknown(self, tmp_path):
+        path = career_path(str(tmp_path))
+        career = Career(path)
+        career.qualifications.append('frame')
+        career.practicals_passed.append('frame')
+        career.save()
+        again = Career(path)
+        again.save()
+        with open(path) as handle:
+            written = json.load(handle)
+        assert written['qualifications'] == ['loop', 'frame']
+        assert written['practicals_passed'] == ['frame']
+
+
+class TestAnOldFieldWithTheWrongTypeCostsOnlyThatField:
+    def test_each_falls_back_on_its_own(self, tmp_path):
+        path = career_path(str(tmp_path))
+        with open(path, 'w') as handle:
+            handle.write(
+                '{"shift": null, "difficulty": ["craft"], '
+                '"reports_closed": "many", "reports_correct": 7, '
+                '"qualifications": [["x"], {"a": 1}, null, "frame"], '
+                '"index_history": [90.5, NaN, Infinity, true, "x"], '
+                '"office": 5, "finished": "yes", "missed_commitments": 1e999}')
+        career = Career(path)
+        assert career.shift == 1
+        assert career.difficulty_key == DEFAULT_DIFFICULTY
+        assert career.reports_closed == 0
+        assert career.reports_correct == 7
+        assert career.qualifications == ['frame']
+        assert career.index_history == [90.5]
+        assert career.office == {}
+        assert career.finished is False
+        assert career.missed_commitments == 0
+
+    def test_a_list_for_every_scalar_does_not_crash(self, tmp_path):
+        path = career_path(str(tmp_path))
+        with open(path, 'w') as handle:
+            json.dump({key: [1] for key in (
+                'shift', 'reports_closed', 'reports_correct', 'reports_wrong',
+                'repeat_reports', 'missed_commitments', 'difficulty',
+                'finished', 'assignment')}, handle)
+        assert Career(path).shift == 1
+
+
+class TestNamesAreReadInLinearTime:
+    def test_a_long_list_reads_at_once(self):
+        import time
+        from bell_system.progression import _names
+        names = [f'n{number}' for number in range(100000)]
+        started = time.perf_counter()
+        assert _names(names + names) == names
+        assert time.perf_counter() - started < 2.0

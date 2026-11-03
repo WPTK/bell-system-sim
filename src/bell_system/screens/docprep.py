@@ -248,8 +248,11 @@ class DocumentCommands(SessionState):
 
         program = ''.join(printed)
         path = normalise(output, self.current_directory)
-        self.filesystem[path] = Node(
-            'file', self.username or 'sysop', 'craft', '-rwxr-xr-x', program)
+        error = self.store_node(path, Node(
+            'file', self.username or 'sysop', 'craft', '-rwxr-xr-x', program),
+            'cc')
+        if error:
+            return error
         self._compiled[path] = program
         return ''
 

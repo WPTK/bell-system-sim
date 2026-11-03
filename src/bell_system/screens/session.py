@@ -236,9 +236,18 @@ class SessionState:
         """Return a compiled program's output, or None."""
         raise NotImplementedError
 
+    def _setup_logging(self) -> None:
+        """Apply the logging settings."""
+        raise NotImplementedError
+
     def write_file(self, path: str, text: str,
                    append: bool = False) -> Optional[str]:
         """Create or replace a file; returns an error string or None."""
+        raise NotImplementedError
+
+    def store_node(self, path: str, node: Node,
+                   command: str = 'sh') -> Optional[str]:
+        """Put a node in the tree, or return why it would not fit."""
         raise NotImplementedError
 
     def execute_command(self, command_line: str) -> str:

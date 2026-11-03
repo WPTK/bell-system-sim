@@ -20,10 +20,19 @@ The rules it follows are the ones any save file wants and most do not get:
     worse than starting the tour again.
   * Loading never raises. The worst outcome is a fresh board.
 
-What is deliberately *not* saved: the filesystem, the mail, the news
-spool, and the message log. Those are either rebuilt identically at
-construction or they are chatter, and a save file that carried them would
-be ten times the size for nothing anybody would notice.
+What is deliberately *not* saved in the shift file: the filesystem, the
+mail, the news spool, and the message log. Those are either rebuilt
+identically at construction or they are chatter, and a save file that
+carried them would be ten times the size for nothing anybody would notice.
+
+The one part of the filesystem that is kept is what the player wrote, in a
+file of its own, ``home.json``. It is not the shift's: the shift file is
+thrown away at every handoff, and a note written on tour 2 is still there on
+tour 9. It holds only the difference from the shipped tree, under the home
+directories and the moo scoreboard, in a file of up to 64 KB. A home that does
+not load whole is set aside as ``home.json.bad`` and never written over, and
+every file here is written to a scratch name and moved into place, so a crash
+mid-write leaves the old file and not a short one.
 """
 
 import json
@@ -33,6 +42,14 @@ from typing import Any, Dict, List, Optional
 
 from .cable import WetSection
 from .field import Assignment, CREWS
+from .filesystem import (
+    PLAYER_LIMIT,
+    Node,
+    is_player_path,
+    normalise,
+    player_changes,
+)
+from .jsonfile import read_json, write_text_atomically
 from .reports import STATUS_CLOSED, LineRecord, ReportDesk, TroubleReport
 
 # Bumped whenever the shape below changes in a way that makes an older file
@@ -42,6 +59,11 @@ from .reports import STATUS_CLOSED, LineRecord, ReportDesk, TroubleReport
 VERSION = 1
 
 SHIFT_FILENAME = 'shift.json'
+HOME_FILENAME = 'home.json'
+
+# Bumped, like VERSION, when an older home file would be wrong rather than
+# merely incomplete. An unrecognised version is ignored.
+HOME_VERSION = 1
 
 # How a datetime is written. Seconds are enough: the simulation charges in
 # minutes and nothing anywhere reads a microsecond.
@@ -51,6 +73,11 @@ STAMP = '%Y-%m-%dT%H:%M:%S'
 def shift_path(state_directory: str) -> str:
     """Return the saved-shift path inside a state directory."""
     return os.path.join(state_directory, SHIFT_FILENAME)
+
+
+def home_path(state_directory: str) -> str:
+    """Return the saved-files path inside a state directory."""
+    return os.path.join(state_directory, HOME_FILENAME)
 
 
 def _stamp(moment: Optional[datetime]) -> Optional[str]:
@@ -327,6 +354,167 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     return True
 
 
+# -- what the player wrote ------------------------------------------------
+
+
+def home_record(tree: Dict[str, Node]) -> Dict[str, Any]:
+    """Take the player's files from a filesystem: what differs from the shipped one."""
+    changed, removed = player_changes(tree)
+    return {
+        'version': HOME_VERSION,
+        'nodes': {path: {'kind': node.kind, 'owner': node.owner,
+                         'group': node.group, 'mode': node.mode,
+                         'content': node.content if not node.is_dir else None}
+                  for path, node in sorted(changed.items())},
+        'removed': removed,
+    }
+
+
+def home_text(tree: Dict[str, Node]) -> str:
+    """Return what would be written to home.json for this filesystem."""
+    return json.dumps(home_record(tree), indent=1, sort_keys=True) + '\n'
+
+
+def home_size(tree: Dict[str, Node]) -> int:
+    """
+    Return how big the player's saved files are, as the file they are kept in.
+
+    The limit is on this and nothing narrower - not the text of the files
+    alone - because the file is what grows: names, directories and
+    permissions all take room in it. Every route that adds to a home (echo,
+    mv, cc -o, mkdir) is held to the one measure by asking it.
+    """
+    return len(home_text(tree).encode('utf-8'))
+
+
+def _home_node(path: Any, entry: Any) -> Optional[Node]:
+    """Read one saved node, or nothing if it is not one this version keeps."""
+    if (not isinstance(path, str) or not is_player_path(path)
+            or normalise(path, '/') != path or not isinstance(entry, dict)):
+        return None
+    kind = entry.get('kind')
+    text = entry.get('content')
+    if kind not in ('dir', 'file') or (kind == 'file' and
+                                       not isinstance(text, str)):
+        return None
+    owner, group, mode = (entry.get(name) for name in ('owner', 'group', 'mode'))
+    if not (isinstance(owner, str) and isinstance(group, str)
+            and isinstance(mode, str)):
+        return None
+    return Node(kind, owner, group, mode, text if kind == 'file' else None)
+
+
+def restore_home(terminal: Any, stored: Any) -> Optional[int]:
+    """
+    Put the player's files back onto a freshly built filesystem.
+
+    Entry by entry: a node that is damaged, outside the saved paths, not
+    spelled the way the shell spells it, or whose directory is not there is
+    left out, and the rest are kept. Anything outside the saved paths is
+    refused however it got into the file, so that a hand-edited home.json
+    is not a way to rewrite /bin.
+
+    Returns:
+        How many entries were left out, or None if the record as a whole
+        is not one to apply (not this version's, not shaped like a record,
+        or larger than a home may be)
+    """
+    if (not isinstance(stored, dict) or stored.get('version') != HOME_VERSION
+            or not isinstance(stored.get('nodes'), dict)
+            or not isinstance(stored.get('removed'), list)):
+        return None
+    left_out = 0
+    nodes = {}
+    for path, entry in stored['nodes'].items():
+        node = _home_node(path, entry)
+        if node is None:
+            left_out += 1
+        else:
+            nodes[path] = node
+    removed = []
+    for path in stored['removed']:
+        if (isinstance(path, str) and is_player_path(path)
+                and normalise(path, '/') == path):
+            removed.append(path)
+        else:
+            left_out += 1
+
+    tree = dict(terminal.filesystem)
+    for path in removed:
+        tree.pop(path, None)
+    # Shallowest first, so a directory is there before what is in it.
+    for path in sorted(nodes, key=lambda held: held.count('/')):
+        parent = tree.get(path.rsplit('/', 1)[0] or '/')
+        if parent is None or not parent.is_dir:
+            left_out += 1
+            continue
+        tree[path] = nodes[path]
+    if home_size(tree) > PLAYER_LIMIT:
+        return None
+    terminal.filesystem.clear()
+    terminal.filesystem.update(tree)
+    return left_out
+
+
+def load_home(path: str, terminal: Any) -> Optional[str]:
+    """
+    Read the player's files from disk and put them back.
+
+    A file that does not load whole is never written over: it is set aside
+    as home.json.bad, so that what could be saved of it is kept and what
+    could not is still there to read, and the player is told once.
+
+    Returns:
+        What to tell the player, or None if all was well
+    """
+    if not path or not os.path.exists(path):
+        return None
+    left_out = restore_home(terminal, read_json(path))
+    if left_out == 0:
+        terminal._home_text = home_text(terminal.filesystem)
+        return None
+    aside = path + '.bad'
+    try:
+        os.replace(path, aside)
+    except OSError:
+        # Cannot move it, so cannot be sure of leaving it be: write nothing.
+        terminal._home_locked = True
+        return ("Your saved files could not be read all of the way, and the "
+                "file could not be set aside, so none will be saved this "
+                "session.")
+    if left_out is None:
+        return (f"Your saved files could not be read. The file is kept as "
+                f"{aside}.")
+    return (f"{left_out} of your saved files could not be read and were "
+            f"left out. The original is kept as {aside}.")
+
+
+def write_home(path: str, terminal: Any) -> None:
+    """
+    Write the player's files if they have changed since they were last written.
+
+    Nothing is written for a player who has written nothing, and nothing is
+    written twice: this runs after every command. A home that is over the
+    limit is not written at all, so the file on disk stays the last one that
+    fitted; the commands that add files refuse before that happens.
+    """
+    if not path or getattr(terminal, '_home_locked', False):
+        return
+    record = home_record(terminal.filesystem)
+    text = json.dumps(record, indent=1, sort_keys=True) + '\n'
+    if text == getattr(terminal, '_home_text', None):
+        return
+    if not (record['nodes'] or record['removed']) and not os.path.exists(path):
+        return
+    if len(text.encode('utf-8')) > PLAYER_LIMIT:
+        return
+    try:
+        write_text_atomically(path, text)
+    except OSError:
+        return
+    terminal._home_text = text
+
+
 def write(path: str, terminal: Any) -> None:
     """
     Write the shift, ignoring a filesystem that will not take it.
@@ -338,23 +526,16 @@ def write(path: str, terminal: Any) -> None:
     if not path:
         return
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as handle:
-            json.dump(capture(terminal), handle, indent=1, sort_keys=True)
-            handle.write('\n')
+        write_text_atomically(
+            path, json.dumps(capture(terminal), indent=1, sort_keys=True)
+            + '\n')
     except OSError:
         return
 
 
 def read(path: str) -> Optional[Dict[str, Any]]:
     """Read a saved shift, or nothing at all if it will not read."""
-    if not path or not os.path.exists(path):
-        return None
-    try:
-        with open(path, 'r') as handle:
-            stored = json.load(handle)
-    except (OSError, ValueError):
-        return None
+    stored = read_json(path)
     return stored if isinstance(stored, dict) else None
 
 

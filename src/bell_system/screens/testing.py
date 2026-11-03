@@ -241,7 +241,7 @@ All switching functions normal.
             return f"{report.number} is closed. Nothing to test."
 
         record = report.record
-        name_fault = not self._difficulty().require_test_before_close
+        name_fault = self._difficulty().names_fault
         measurement = measure_loop(
             record.telephone_number, record.fault, name_fault=name_fault)
 
