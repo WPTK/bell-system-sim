@@ -34,11 +34,16 @@ def test_date_follows_the_shift_minutes(terminal):
     assert '08:3' in printed
 
 
-def test_date_does_not_move_between_commands_that_cost_nothing(terminal):
-    """The host's seconds are not the shift's: the same minute reads the same."""
-    first = terminal.execute_command('date')
-    terminal.shift_minutes -= 1
-    assert terminal.execute_command('date') == first
+def test_date_moves_one_shift_minute_a_command_and_no_more(terminal):
+    """
+    Every command is a minute of the shift. Each date reads the minute it was
+    typed at, so the host's seconds between them change nothing.
+    """
+    for _ in range(3):
+        before = terminal.shift_minutes
+        printed, expected = date_and_expected(terminal)
+        assert printed == expected
+        assert terminal.shift_minutes == before + 1
 
 
 def test_a_message_is_stamped_with_the_minute_it_is(terminal):

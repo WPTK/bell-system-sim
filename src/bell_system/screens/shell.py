@@ -600,7 +600,7 @@ class ShellCommands(FindsCommands):
             text = existing.content + text
         if existing is None:
             node = Node('file', self.username or 'sysop', 'craft',
-                        '-rw-r--r--', text)
+                        '-rw-r--r--', text, self.clock.now())
         else:
             node = existing._replace(content=text, mtime=self.clock.now())
         return self.store_node(path, node, 'sh')
@@ -620,8 +620,6 @@ class ShellCommands(FindsCommands):
         if is_prior_path(path):
             return f"{command}: {path}: permission denied"
         held = self.filesystem.get(path)
-        if node.mtime is None:
-            node = node._replace(mtime=self.clock.now())
         self.filesystem[path] = node
         if is_player_path(path) and home_size(self.filesystem) > PLAYER_LIMIT:
             if held is None:
@@ -648,8 +646,8 @@ class ShellCommands(FindsCommands):
                 problems.append(f"mkdir: {name}: no such file or directory")
                 continue
             error = self.store_node(path, Node(
-                'dir', self.username or 'sysop', 'craft', 'drwxr-xr-x'),
-                'mkdir')
+                'dir', self.username or 'sysop', 'craft', 'drwxr-xr-x',
+                None, self.clock.now()), 'mkdir')
             if error:
                 problems.append(error)
         return '\n'.join(problems)

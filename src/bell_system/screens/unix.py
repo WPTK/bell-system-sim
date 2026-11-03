@@ -7,6 +7,7 @@ files whose contents come from the running simulation added here.
 
 import logging
 import logging.handlers
+from datetime import timedelta
 from typing import Any, List, Optional
 
 from ..console import clear_screen
@@ -112,12 +113,15 @@ class UnixCommands(SessionState):
         who(1) and write(1) read the same people, so anyone the terminal says
         is logged on can actually be written to.
         """
-        logins = ('07:30', '07:45', '08:00', '08:15', '08:30', '09:00')
+        # Minutes before the tour opened that each of them logged in. The
+        # time is worked out when who is asked (``cmd_who``) from the tour's
+        # start, so it moves with the tour and is never ahead of the clock.
+        before = (150, 120, 90, 75, 60, 45, 30)
         self.users = [
             {
                 "user": person.login,
                 "tty": person.tty,
-                "login": logins[index % len(logins)],
+                "minutes_before": before[index % len(before)],
                 "location": person.location,
             }
             for index, person in enumerate(CRAFT.values())
@@ -260,13 +264,16 @@ class UnixCommands(SessionState):
             User listing with terminals and login information
         """
         output = ""
+        opened = self.clock.tour_start()
         for user in self.users:
             if not self.is_in(user['user']):
                 continue
             person = CRAFT.get(user['user'])
             title = f"  {person.title}" if person else ""
+            logged_in = opened - timedelta(minutes=user['minutes_before'])
             output += (f"{user['user']:<10} tty{user['tty']:<4} "
-                       f"{user['login']:<8} ({user['location']}){title}\n")
+                       f"{logged_in.strftime('%H:%M'):<8} "
+                       f"({user['location']}){title}\n")
         return output
     def cmd_date(self, args: Optional[List[str]] = None) -> str:
         """Display current system date and time in the configured layout."""

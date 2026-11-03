@@ -1604,11 +1604,13 @@ PRIOR = '/usr/users/prior'
 def is_prior_path(path: str) -> bool:
     """Return whether a path is an earlier career's, and so not to be written."""
     return path == PRIOR or path.startswith(PRIOR + '/')
-# The most home.json may come to, in bytes. A cap is what keeps a save file a
+# The most home.json may hold, in bytes. A cap is what keeps a save file a
 # thing a person can read, and makes echo in a loop a refusal instead of a
-# slowly growing state directory. It is measured on the file (save.home_size)
-# and not on the text of the files, because names, directories and
-# permissions take room in it too.
+# slowly growing state directory. It is measured on what the file holds
+# (save.home_size) and not on the text of the files alone, because names,
+# directories and permissions take room in it too. The written-at stamps are
+# bookkeeping and are left out of the measure, so the file itself may run a
+# little over it.
 PLAYER_LIMIT = 64 * 1024
 
 

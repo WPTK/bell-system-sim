@@ -25,8 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   negative time; a resolved regular's card loses CHRONIC; `qual` prints
   `Next:` only with prompts on; `sarts repair <n>` past a shrunken board says
   so; `touch` on a file you don't own says so and on one you do marks it
-  written; one report gets one favour; the test log and the scratch file in
-  `/tmp` belong to the machine.
+  written, and carries on to the next name after an error; one report gets one
+  favour; the test log and the scratch file in `/tmp` belong to the machine
+  (and the lines about them say so).
+- **Review round on the clocks.** An alarm's "Raised" time is anchored to the
+  tour's start, so it does not slide on a resume and is never in the future;
+  `who` logins likewise; `time` reports the shift minutes the command charged,
+  not host seconds. `mv` keeps a file's time, `cp`, `mkdir` and `cc` stamp
+  theirs, and the stamps are not counted against the 64 KB a home may hold.
+  The alarm panel on a tour its lamps are not running says so instead of
+  printing a frozen NEXT column, and the lamp book opens with the tour.
+- **Chatter and the facts.** The deny-list of what a line may not name is built
+  from the fault data, and nobody on the floor says a close code, a force or a
+  fault outside `mlt` or a field finding. Every commitment is worded by one
+  function, so no sentence puts a minus beside "past".
 
 ### Changed - Playtest wave 1
 

@@ -701,12 +701,15 @@ def test_the_audit_does_not_count_the_staged_report(terminal):
 
 
 def test_the_scc_sign_off_does_not_start_the_office_lamps_that_tour(terminal):
-    # Nothing has looked at the panel yet this tour, so the practical's own
-    # pass must not be the first thing to ask whether it runs.
+    # The tour opened without the sign-off and nothing has looked at the
+    # panel since: the book was settled when the tour opened, so the
+    # practical's own pass has nothing to settle.
     ready(terminal, 'scc')
     terminal.career.shift = 3
-    terminal.take_position('switch')
     terminal._lamp_book = None
+    terminal.start_tour_clock()
+    assert terminal._lamp_book is not None
+    terminal.take_position('switch')
     terminal.execute_command('qual take scc')
     _, report = staged(terminal)
     work(terminal, 'scc', report.number)

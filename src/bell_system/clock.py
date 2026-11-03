@@ -137,6 +137,21 @@ class SimClock:
 
     # -- the time itself ------------------------------------------------
 
+    def tour_start(self) -> datetime:
+        """
+        Return the moment the current tour opened.
+
+        The anchor for anything that happened before the player sat down
+        (a login, an alarm already standing): the same moment however many
+        minutes have been worked since, so a resume does not move it and it
+        is never in the future. With ``date.source`` set to ``real`` it is
+        the host's time less the minutes worked.
+        """
+        if self._settings.get('date.source') == 'real':
+            return datetime.now() - timedelta(minutes=self._shift_minutes())
+        return (self._settings.epoch()
+                + timedelta(days=self._day_offset, hours=self._hour_offset))
+
     def now(self) -> datetime:
         """
         Return the current simulated time.

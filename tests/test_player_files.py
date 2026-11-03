@@ -351,13 +351,23 @@ class TestTheCapHoldsOnEveryRoute:
         assert 'no space left' in refused
         assert save.home_size(raw_terminal.filesystem) <= PLAYER_LIMIT
 
-    def test_the_file_never_comes_to_more_than_the_cap(self, raw_terminal):
+    def test_the_file_never_holds_more_than_the_cap(self, raw_terminal):
+        """What it holds is held to the cap; the stamps ride on top of it."""
+        import json
         import os
         for number in range(200):
             raw_terminal.write_file(f'/usr/users/sysop/f{number}',
                                     'x' * 1000)
         raw_terminal.save_shift()
-        assert os.path.getsize(raw_terminal.home_file) <= PLAYER_LIMIT
+        written = os.path.getsize(raw_terminal.home_file)
+        with open(raw_terminal.home_file, encoding='utf-8') as handle:
+            record = json.load(handle)
+        unstamped = len(json.dumps(save.home_record(
+            raw_terminal.filesystem, times=False), indent=1,
+            sort_keys=True).encode()) + 1
+        assert unstamped <= PLAYER_LIMIT
+        # A stamp is a short string a file; it is bounded by the file count.
+        assert written <= PLAYER_LIMIT + 40 * len(record['nodes'])
 
     def test_a_refused_mv_puts_the_source_back(self, raw_terminal):
         raw_terminal.write_file('/usr/users/sysop/a', 'x' * self.FULL)

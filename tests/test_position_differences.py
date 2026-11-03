@@ -15,7 +15,7 @@ import random
 import statistics
 from collections import Counter
 from contextlib import redirect_stdout
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 
@@ -53,21 +53,32 @@ def skew_the_wall_clock(terminal, monkeypatch, hours=9):
     Make the host's clock run hours ahead, as a long lunch would.
 
     The desks count the shift clock and nothing else, so nothing may move.
-    Checks that the skew is real for anything that does read the host (the
-    clock module's own datetime), and that the shift's time stood still.
+    ``time.time`` really does run ahead, and the clock module's datetime
+    refuses to be asked the host's date at all: the default clock never
+    needs it, so a desk that reached for it would fail here and not just
+    read a different number.
     """
+    import time
+
     from bell_system import clock as clock_module
 
     before = terminal.clock.now()
+    real_time = time.time
+    monkeypatch.setattr(time, 'time', lambda: real_time() + hours * 3600)
 
-    class Later(datetime):
+    class Barred(datetime):
         @classmethod
         def now(cls, tz=None):
-            return datetime.now() + timedelta(hours=hours)
+            raise AssertionError('the host clock was read')
 
-    monkeypatch.setattr(clock_module, 'datetime', Later)
-    assert clock_module.datetime.now() - datetime.now() >= timedelta(
-        hours=hours - 1)
+        @classmethod
+        def today(cls):
+            raise AssertionError('the host clock was read')
+
+    monkeypatch.setattr(clock_module, 'datetime', Barred)
+    assert time.time() - real_time() >= (hours - 1) * 3600
+    with pytest.raises(AssertionError):
+        clock_module.datetime.now()
     assert terminal.clock.now() == before
 
 

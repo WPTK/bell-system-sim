@@ -381,15 +381,17 @@ class JobCommands(SessionState):
         """
         Run a command and report how long it took.
 
-        Real, user and system time, in the three-line form time(1) printed.
+        Real, user and system time, in the three-line form time(1) printed,
+        measured on the shift clock.
         """
         args = args or []
         if not args:
             return "time: usage: time command"
-        import time as _time
-        started = _time.time()
+        # The shift's own seconds: the minutes the command charged, not the
+        # host's time, so it reads the same on any machine.
+        started = self.shift_minutes
         output = self.execute_command(' '.join(args))
-        spent = _time.time() - started
+        spent = float((self.shift_minutes - started) * 60)
         report = (f"\nreal     {spent:6.1f}\n"
                   f"user     {spent * 0.4:6.1f}\n"
                   f"sys      {spent * 0.6:6.1f}")

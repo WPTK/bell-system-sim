@@ -250,7 +250,9 @@ class RemoteCommands(SessionState):
             alarm: Alarm = dict(self.alarm_deck[index])  # type: ignore[assignment]
             if alarm['id'] in cleared:
                 continue
-            alarm['timestamp'] = self.clock.now() - timedelta(
+            # Raised before the tour opened: anchored to its start, so a
+            # resume deals the same stamp and none is ever in the future.
+            alarm['timestamp'] = self.clock.tour_start() - timedelta(
                 minutes=rolls[index][1])
             alarm['acknowledged'] = rolls[index][2]
             standing.append(alarm)
@@ -404,15 +406,20 @@ class RemoteCommands(SessionState):
         """connect work [ALARM]: the panel, or clear one alarm at its cause."""
         rows = self.lamp_panel()
         if not args:
+            # A tour the lamps are not running has no minutes to the next
+            # one to give, so the column is left off and the panel says why.
+            runs = self._panel_runs()
+            next_head = f"{'NEXT':<7}" if runs else ''
             lines = [f"ALARM PANEL   {SCC_NAME}",
                      f"Shift time {self.shift_time()}", '=' * 70,
-                     f"{'ALARM':<9}{'OFFICE':<14}{'LAMP':<10}{'NEXT':<7}"
+                     f"{'ALARM':<9}{'OFFICE':<14}{'LAMP':<10}{next_head}"
                      f"{'COST':<6}SYSTEM", '-' * 70]
             for alarm, lamp, office, next_in, cost in rows:
                 rose = '*' if lamp != alarm['severity'] else ' '
+                next_col = f"{str(next_in) + 'm':<7}" if runs else ''
                 lines.append(
                     f"{alarm['id']:<9}{office['clli']:<14}{lamp + rose:<10}"
-                    f"{str(next_in) + 'm':<7}{str(cost) + 'm':<6}"
+                    f"{next_col}{str(cost) + 'm':<6}"
                     f"{alarm['system'][:20]}")
                 reads = self.alarm_reads(alarm, self.office_alarms(office))
                 lines.append(f"         reads: {reads}")
@@ -433,17 +440,27 @@ class RemoteCommands(SessionState):
                 "only the",
                 "symptom and the time is spent and it stays where it is.",
                 "",
-                f"An alarm nobody works lights one lamp higher every "
-                f"{LAMP_MINUTES} shift",
-                "minutes, from its own point in them. Acknowledging does "
-                "not stop it:",
-                "only clearing does. One that has stood a whole span at the "
-                "top lamp",
-                "is a missed commitment on the index (this building only), "
-                "and clearing",
-                "it late does not take that back. These figures are the "
-                "simulation's own.",
             ]
+            if runs:
+                lines += [
+                    f"An alarm nobody works lights one lamp higher every "
+                    f"{LAMP_MINUTES} shift",
+                    "minutes, from its own point in them. Acknowledging "
+                    "does not stop it:",
+                    "only clearing does. One that has stood a whole span at "
+                    "the top lamp",
+                    "is a missed commitment on the index (this building "
+                    "only), and clearing",
+                    "it late does not take that back. These figures are the "
+                    "simulation's own.",
+                ]
+            else:
+                lines += [
+                    "The lamps are not running this tour: nothing climbs and "
+                    "nothing is",
+                    "counted. They run from the next tour that opens with "
+                    "the sign-off.",
+                ]
             return '\n'.join(lines)
         wanted = args[0].upper()
         row = next((r for r in rows if r[0]['id'] == wanted), None)
@@ -816,7 +833,7 @@ class RemoteCommands(SessionState):
             # does not look like acknowledging another's.
             alarm['id'] = f"AL-{first_id + index}"
             alarm['acknowledged'] = False
-            alarm['timestamp'] = self.clock.now() - timedelta(
+            alarm['timestamp'] = self.clock.tour_start() - timedelta(
                 minutes=generator.randint(12, 400))
             alarm['system'] = f"{alarm['system']}-{clli[:4]}"
             if alarm['id'] in self.lamp_book()['cleared']:

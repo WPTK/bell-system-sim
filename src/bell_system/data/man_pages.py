@@ -4579,8 +4579,8 @@ ALARM PANEL
 
      The Switching Station Technician desk only. With no argument, the
      panel: every alarm standing on every office this console watches,
-     the lamp it now shows, how many shift minutes until the lamp rises,
-     what clearing it would cost, and a line saying what it reads.
+     the lamp it now shows, how many shift minutes until the lamp rises
+     (while the lamps run), what clearing it would cost, and a line saying what it reads.
      Naming an alarm clears it at its cause, and the shift loses the
      minutes.
 
@@ -4611,8 +4611,9 @@ ALARM PANEL
      run only on a tour that began with the Switching Control Center
      sign-off, which is what connect work waits on: the first tour, and
      the tour the sign-off is passed in, are a grace, with nothing
-     climbing and nothing counted. The clock is the shift clock and not a
-     stopwatch.
+     climbing and nothing counted: the panel drops its NEXT column and
+     says the lamps are not running. The clock is the shift clock and not
+     a stopwatch.
      These figures are the simulation's own.
 """},
 }

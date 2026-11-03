@@ -398,6 +398,12 @@ class ShiftCommands(SessionState):
         """Put the clock on this tour's day and the hour of its watch."""
         self.clock.set_tour(self.career.shift,
                             tours.start_hour(self.career.shift))
+        # The office panel's book is settled by the sign-offs held as the tour
+        # opens, so it is opened here and not at the first look at the panel:
+        # a sign-off passed in the middle of the tour cannot change it.
+        office: Any = self  # The office commands, mixed into the same class.
+        office.lamp_book()
+
     def _queue_message(self, message, after: int) -> None:
         """
         Hold a message back so it lands a few commands from now.
