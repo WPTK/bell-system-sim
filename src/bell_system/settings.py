@@ -152,13 +152,13 @@ OPTIONS: List[Option] = [
         accurate='300',
     ),
     Option(
-        'game.prompts', 'on', ['on', 'off'],
+        'game.prompts', 'off', ['on', 'off'],
         'Say what is worth doing next',
         'on puts one line after a command that leaves you with nothing '
         'obvious in front of you, naming the report that most wants '
         'working and the command that works it. It is guidance for a new '
-        'craftsperson and not something the machine did; somebody who '
-        'knows the job should turn it off.',
+        'craftsperson and not something the machine did, so it is off '
+        'unless you ask: the first tour has the wire chief for this.',
     ),
     Option(
         'display.log_console', 'off', ['off', 'on'],

@@ -25,6 +25,8 @@ import random
 from datetime import datetime
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
+from .data.tours import EARLY, LAST, LATE, MIDDLE, Window, heard_on
+
 # How the audit at the end of the last tour came out (screens/turnover.py).
 AUDIT_PASSED = 'PASSED'
 AUDIT_EXCEPTIONS = 'PASSED WITH EXCEPTIONS'
@@ -140,6 +142,25 @@ class Message(NamedTuple):
     subject: str
     # A report number the message concerns, when it concerns one.
     about: Optional[str]
+    # The key of the arc beat this is, when it is one. The caller files it
+    # in the career so that a beat is said once.
+    beat: str = ''
+
+
+class ArcBeat(NamedTuple):
+    """
+    One thing a person says once, on the tours it fits.
+
+    The simulation's own. A beat is the story arriving on a channel the
+    building already has: one or two lines, never a scene, and nothing the
+    player has to answer (plan.md anti-pillar 1).
+    """
+
+    key: str
+    channel: str
+    sender: str
+    window: Window
+    lines: Tuple[str, ...]
 
 
 # Ambient chatter. Nothing here needs an answer; it is the sound of the
@@ -188,6 +209,23 @@ _CHATTER: Sequence[tuple] = (
      ['The processor controlled interrogator will work the remote office test',
       'line from here without CAROT. Ask before you seize a trunk we are',
       'already routining.']),
+    # Said on part of the countdown only (data/tours.py windows). The
+    # simulation's own; each is a person looking at the same calendar.
+    (CHANNEL_MAIL, 'ehalloran',
+     ['Work the oldest report first unless the plant gives you a reason.',
+      'When it does, write the reason on the report.'], EARLY),
+    (CHANNEL_MAIL, 'ehalloran',
+     ['Anything still open at handoff goes over with your name on it.',
+      'Close what you can and leave a clear note on the rest.'], MIDDLE),
+    (CHANNEL_ORDERWIRE, 'dpetrak',
+     ['SCC to office. Routine. No action, and I expect to say the same',
+      'thing to you in January under another name.'], LATE),
+    (CHANNEL_WRITE, 'rjohnson',
+     ['Wired up the last of the spare shelves today. Whoever has the frame',
+      'in January will find them where I left them.'], LATE),
+    (CHANNEL_ORDERWIRE, 'dpetrak',
+     ['SCC to office. Routine. No action. This is the last routine I log',
+      'under this name, and I am logging it the same as the others.'], LAST),
 )
 
 
@@ -402,36 +440,6 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
     ),
 }
 
-# Advice offered when a report is sitting untested. Written as the older
-# craft would put it: what to do, not what it is called.
-_HINTS: Sequence[tuple] = (
-    ('gvasquez',
-     ['Before you send anybody anywhere, measure it. Tip to ring, both to',
-      'ground, and the capacitance. The capacitance is the distance.']),
-    ('rjohnson',
-     ['If tip to ring reads infinite and there is no station termination,',
-      'you have an open, and the capacitance tells you how far out it is.',
-      'Local cable is 0.083 microfarads to the mile.']),
-    ('rjohnson',
-     ['One conductor low to ground and tip to ring normal is a ground.',
-      'That is outside plant. Do not send it to the office.']),
-    ('gvasquez',
-     ['Volts on the pair with no battery applied is foreign EMF. That is a',
-      'power problem, not a telephone problem, and it is dangerous.']),
-    ('ehalloran',
-     ['If the loop measures clean all the way to the frame and the customer',
-      'still cannot be called, the trouble is toward the switch. That is',
-      'ours, not the plant force.']),
-    ('gvasquez',
-     ['Several pairs low in the same cable at once is water. One splicer',
-      'trip fixes all of them. Send it to cable, not to plant.']),
-    ('rjohnson',
-     ['Loop closed, station termination there, current flowing, nothing out',
-      'of limits: the receiver is off the hook. Nobody needs to drive out',
-      'for that one.']),
-)
-
-
 # What the wire chief adds, by how many sign-offs you now hold. He signs
 # every one of them, so a fixed line would make him a form letter. Anything
 # past the fifth falls back to the first, which is where he started and
@@ -451,6 +459,11 @@ _SIGN_OFF_REMARKS: Dict[int, Tuple[str, ...]] = {
 }
 
 
+# The story, said once each. The arcs for Sandoval, Alvarez and Reyes are
+# the simulation's own and sit here (see narrative-bible.md sections 4 and 5).
+ARC_BEATS: Tuple[ArcBeat, ...] = ()
+
+
 class Switchroom:
     """
     Generates the traffic the other craft put on your terminal.
@@ -460,13 +473,19 @@ class Switchroom:
     or not, as mail does.
     """
 
-    def __init__(self, rng: Optional[random.Random] = None):
+    def __init__(self, rng: Optional[random.Random] = None,
+                 arcs: Optional[Sequence[ArcBeat]] = None):
         self.rng = rng or random.Random()
         self.mailbox: List[Message] = []
         self.log: List[Message] = []
+        # The story beats there are to say. Handed in by tests; otherwise
+        # the table at the foot of this module.
+        self.arcs: Sequence[ArcBeat] = ARC_BEATS if arcs is None else arcs
         # (kind, first line) of what has been said lately, so that
-        # chatter and advice do not crowd each other out.
+        # chatter does not crowd itself out.
         self._recent: List[tuple] = []
+        # Reports the board has already been chased over, once each.
+        self._chased: set = set()
 
     # -- construction ----------------------------------------------------
 
@@ -490,11 +509,11 @@ class Switchroom:
         if not pool:
             return None
         fresh = [item for item in pool
-                 if (kind, item[-1][0]) not in self._recent]
+                 if (kind, item[2][0]) not in self._recent]
         if not fresh:
             return None
         chosen = self.rng.choice(fresh)
-        self._recent.append((kind, chosen[-1][0]))
+        self._recent.append((kind, chosen[2][0]))
         # Half the smaller pool, so a pool of seven repeats no sooner than
         # every fourth time and a pool of thirteen no sooner than every
         # seventh, rather than one window fitting every pool badly.
@@ -512,46 +531,90 @@ class Switchroom:
 
     # -- traffic ---------------------------------------------------------
 
-    def chatter(self, now: datetime,
-                position: Optional[str] = None) -> Optional[Message]:
+    def chatter(self, now: datetime, position: Optional[str] = None,
+                tour: Optional[int] = None) -> Optional[Message]:
         """
         Return an ambient message, or None if the pool is used up.
 
         A position hears its own people on top of the whole building, not
         instead of it: a document preparation desk still gets CAROT
         printing trunk exceptions, because the teletype does not care who
-        is sitting there.
+        is sitting there. A line tagged for part of the countdown is
+        offered only on those tours; with no tour given, all of them are.
         """
         pool = tuple(_CHATTER) + tuple(_POSITION_CHATTER.get(position or '', ()))
+        if tour is not None:
+            pool = tuple(item for item in pool
+                         if len(item) < 4 or heard_on(item[3], tour))
         picked = self._pick(pool, 'chatter')
         if picked is None:
             return None
-        channel, sender, lines = picked
+        channel, sender, lines = picked[:3]
         return self._deliver(Message(
             channel=channel, sender=sender, received=now, lines=list(lines),
             kind='chatter', subject=lines[0][:40], about=None,
         ))
 
-    def hint(self, now: datetime) -> Optional[Message]:
-        """Return advice from one of the older hands."""
-        picked = self._pick(_HINTS, 'hint')
-        if picked is None:
-            return None
-        sender, lines = picked
-        return self._deliver(Message(
-            channel=CHANNEL_WRITE, sender=sender, received=now,
-            lines=list(lines), kind='hint', subject='Advice', about=None,
-        ))
+    def next_message(self, now: datetime, tour: int,
+                     position: Optional[str] = None,
+                     overdue: Sequence[Tuple[str, str]] = (),
+                     seen: Sequence[str] = ()) -> Optional[Message]:
+        """
+        Whatever one of the other craft would say next, in a fixed order.
+
+        The story first: an arc beat whose tours these are and which has
+        not been said. Then the board: somebody asking after a report that
+        has passed its commitment. Then the building, which is random and
+        is the only part that is. A random line never gets in front of
+        something that was about to happen.
+
+        Args:
+            now: When it is said
+            tour: Which tour of the career, 1-13
+            position: The desk, for the chatter only that desk hears
+            overdue: (report number, telephone number) of reports past
+                their commitment
+            seen: Keys of beats already said, from the career
+        """
+        beat = self._arc_beat(now, tour, seen)
+        if beat is not None:
+            return beat
+        board = self._board_driven(now, overdue)
+        if board is not None:
+            return board
+        return self.chatter(now, position=position, tour=tour)
+
+    def _arc_beat(self, now: datetime, tour: int,
+                  seen: Sequence[str]) -> Optional[Message]:
+        """The first arc beat that fits this tour and has not been said."""
+        for beat in self.arcs:
+            if beat.key in seen or not heard_on(beat.window, tour):
+                continue
+            return self._deliver(Message(
+                channel=beat.channel, sender=beat.sender, received=now,
+                lines=list(beat.lines), kind='beat',
+                subject=beat.lines[0][:40], about=None, beat=beat.key,
+            ))
+        return None
+
+    def _board_driven(self, now: datetime,
+                      overdue: Sequence[Tuple[str, str]]) -> Optional[Message]:
+        """Someone asking after a late report they have not yet asked after."""
+        for number, telephone in overdue:
+            if number not in self._chased:
+                self._chased.add(number)
+                return self.chase(now, number, telephone)
+        return None
 
     def advice(self, now: datetime, sender: str, lines: List[str],
                level: int) -> Message:
         """
         A hint somebody asked for, from whoever would give it.
 
-        Distinct from :meth:`hint`, which is unsolicited advice the
-        forgiving difficulty offers on its own. This one only ever arrives
-        because the operator typed hint(1), which is the whole reason it
-        can afford to be direct.
+        It only ever arrives because the operator typed hint(1), which is
+        the whole reason it can afford to be direct. Nobody offers advice
+        on their own: the readings already say what they mean, and the
+        older hands are not going to say it a fourth time.
         """
         return self._deliver(Message(
             channel=CHANNEL_WRITE, sender=sender, received=now,

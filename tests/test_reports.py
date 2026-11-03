@@ -382,11 +382,11 @@ class TestSwitchroom:
 
     def test_a_repeated_line_is_held_back(self):
         room = Switchroom(random.Random(4))
-        first = room.hint(SHIFT_START)
+        first = room.chatter(SHIFT_START)
         assert first is not None
-        # The same advice must not come round again immediately.
+        # The same line must not come round again immediately.
         for _ in range(20):
-            again = room.hint(SHIFT_START)
+            again = room.chatter(SHIFT_START)
             if again is not None:
                 assert again.lines != first.lines
                 return

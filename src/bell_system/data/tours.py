@@ -493,6 +493,27 @@ on.
     ),
 )
 
+# -- windows -----------------------------------------------------------
+
+# Stretches of the career, as the first and last tour of each, for anything
+# said by the building that fits only part of the countdown. The names are
+# the simulation's own and follow the dates above: tours 1-4 are the four
+# days of 14-26 November, 5-8 run 30 November to 12 December, 9-12 are
+# 16-28 December and 13 is 31 December.
+Window = Tuple[int, int]
+
+EARLY: Window = (1, 4)
+MIDDLE: Window = (5, 8)
+LATE: Window = (9, 12)
+LAST: Window = (13, 13)
+ANY: Window = (1, len(TOURS))
+
+
+def heard_on(window: Window, tour: int) -> bool:
+    """Whether a line tagged for a window may be said on this tour."""
+    return window[0] <= tour <= window[1]
+
+
 # -- filler ------------------------------------------------------------
 
 # What a wire centre had on its sheet on any shift. These are the simulation's

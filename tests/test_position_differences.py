@@ -263,7 +263,7 @@ class TestWhoTalksToYou:
 
     def test_every_line_comes_from_somebody_on_the_machine(self):
         for key, pool in _POSITION_CHATTER.items():
-            for _, sender, _ in pool:
+            for _, sender, *_ in pool:
                 assert sender in CRAFT, (key, sender)
 
     def test_a_desk_still_hears_the_whole_building(self, terminal):
@@ -278,7 +278,7 @@ class TestWhoTalksToYou:
             message = room.chatter(terminal.clock.now(), position='docprep')
             if message:
                 heard.add(message.subject)
-        shared = {lines[0][:40] for _, _, lines in _CHATTER}
+        shared = {item[2][0][:40] for item in _CHATTER}
         assert shared & heard, 'the shared pool went missing'
 
     def test_a_desk_hears_things_no_other_desk_does(self, terminal):

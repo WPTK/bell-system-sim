@@ -87,8 +87,9 @@ exist for when you are stuck:
 - **`hint`** — asks somebody. Ask again and you get more, three levels deep
 - **`report next`** — shows the one report that most wants working
 
-Every refusal names a way out, and the board prints its own next action
-along the bottom. If you would rather it did not, `set game.prompts off`.
+Every refusal names a way out when `set game.prompts on` is set, and the board
+then prints its own next action along the bottom. It is off by default: the
+first tour has the wire chief, and after it `hint` is there to ask.
 
 ---
 
@@ -325,7 +326,7 @@ set date.source real         Use your own system clock instead of 1983
 set date.epoch 1978-06-01    Run the shift on a different date
 set display.charset unicode  Allow block and box-drawing glyphs
 set game.difficulty craft    Work the shift the hard way
-set game.prompts off         Stop the terminal telling you what to do next
+set game.prompts on          Have the terminal tell you what to do next
 set game.ambience off        Stop the other craft interrupting you
 set reset                    Restore period-accurate defaults
 ```

@@ -478,29 +478,25 @@ class ShiftCommands(SessionState):
                 pieces.append(render_message(message, self._stamp()))
 
         return '\n'.join(fired + pieces)
+
     def _craft_interruption(self, difficulty):
         """
         Return whatever one of the other craft would say right now.
 
-        A report past its commitment gets chased first, because that is what
-        would actually happen. Otherwise it is advice on the forgiving
-        setting and ordinary building noise on either.
+        In order: a story beat that is due, then somebody asking after a
+        report past its commitment, then the building. Nobody offers
+        advice unasked; that is hint(1).
         """
-        now = self.clock.now()
-        pending = self.desk.pending()
-        overdue = [report for report in pending if report.overdue()]
-        untested = [report for report in pending if not report.tested]
-        roll = random.random()
+        overdue = [(report.number, report.record.telephone_number)
+                   for report in self.desk.pending() if report.overdue()]
+        message = self.switchroom.next_message(
+            self.clock.now(), self.career.shift, position=self.role,
+            overdue=overdue, seen=self.career.beats_seen)
+        if message is not None and message.beat:
+            self.career.beats_seen.append(message.beat)
+            self.career.save()
+        return message
 
-        if overdue and roll < 0.45:
-            target = random.choice(overdue)
-            return self.switchroom.chase(
-                now, target.number, target.record.telephone_number)
-        if untested and roll < 0.60 and difficulty.annotation_sightings:
-            return self.switchroom.hint(now)
-        if untested and roll < 0.50:
-            return self.switchroom.hint(now)
-        return self.switchroom.chatter(now, position=self.role)
     def _advance_shift(self) -> List[str]:
         """
         Charge the shift for the work just done and fire anything now due.
