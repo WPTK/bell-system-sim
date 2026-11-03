@@ -52,7 +52,8 @@ _LIST_FIELDS = ('commendations', 'finds', 'groups', 'beats_seen',
 # the career's running totals for the KPIs and ``tour_mark`` is the same
 # counters as they stood when the tour opened, so that a tour's own figures
 # are the difference and there is one set of books.
-_COUNT_FIELDS = ('fault_sightings', 'rapport', 'kpi', 'tour_mark')
+_COUNT_FIELDS = ('fault_sightings', 'rapport', 'kpi', 'tour_mark',
+                 'regular_closed')
 # Every key save() writes. Anything else in the file is a later version's.
 _KNOWN_KEYS = frozenset((
     'schema', 'difficulty', 'shift', 'reports_closed', 'reports_correct',
@@ -498,6 +499,9 @@ class Career:
         self.groups: List[str] = []
         # Goodwill with the other craft, by login.
         self.rapport: Dict[str, int] = {}
+        # Reports closed on each of the bureau's regulars, by key. It is
+        # also how the career knows which of them it has met.
+        self.regular_closed: Dict[str, int] = {}
         # Story beats that have already been played.
         self.beats_seen: List[str] = []
         # Qualifications whose practical has been passed.
@@ -801,7 +805,8 @@ class Career:
     # -- recording -------------------------------------------------------
 
     def record_closure(self, correct: bool, minutes: Optional[int] = None,
-                       measured: bool = False, number: str = '') -> None:
+                       measured: bool = False, number: str = '',
+                       regular: str = '') -> None:
         """
         Record a closed trouble report.
 
@@ -812,8 +817,12 @@ class Career:
                 and neither is a wrong one: it did not repair anything
             measured: Whether the line was measured before it was closed
             number: The report, to tell one carried in past its commitment
+            regular: The key of the regular the report was on, if it was
         """
         self.reports_closed += 1
+        if regular:
+            self.regular_closed[regular] = (
+                self.regular_closed.get(regular, 0) + 1)
         if correct:
             self.reports_correct += 1
         else:

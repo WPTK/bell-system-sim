@@ -15,7 +15,8 @@ from datetime import timedelta
 from typing import Dict, List, Optional, Tuple
 
 from ..console import wrap
-from ..data.regulars import REGULARS
+from ..data.regulars import OPEN, REGULARS, note_at, status_at
+from ..lmos import LineCard
 from ..data.primer import CLOSING, OPENING, SECTIONS, TITLE
 from ..progression import QUALIFICATIONS
 from .session import SessionState
@@ -78,7 +79,8 @@ class RecordsCommands(SessionState):
         if not args:
             return self._custdb_index()
 
-        card = self.lmos_console.lmos.find_card(args[0])
+        card = (self.lmos_console.lmos.find_card(args[0])
+                or self._regular_off_the_board(args[0]))
         if card is None:
             return (f"custdb: {args[0]}: no record\n"
                     f"custdb with no argument lists the lines with records.")
@@ -104,9 +106,16 @@ class RecordsCommands(SessionState):
         # between a number and somebody you have been out to.
         known = REGULARS.get(record.regular or '')
         if known is not None:
+            tour = self.career.shift
             rows.append(f"  Known since     {known.since}")
+            if status_at(known, tour) != OPEN:
+                rows.append(f"  Status          "
+                            f"{status_at(known, tour).upper()}")
+            closed = self.career.regular_closed.get(known.key, 0)
+            if closed:
+                rows.append(f"  Closed by you   {closed}")
             rows.append('')
-            rows.extend(f"  {line}" for line in wrap(known.note, 58))
+            rows.extend(f"  {line}" for line in wrap(note_at(known, tour), 58))
         if card.is_chronic():
             rows.append("  CHRONIC - this line has reported often enough "
                         "that the")
@@ -120,9 +129,35 @@ class RecordsCommands(SessionState):
                         f"{state:<7}{report.symptom}")
         return '\n'.join(rows)
 
+    def _regular_cards(self, cards: Dict[str, LineCard]) -> List[LineCard]:
+        """
+        Cards for the regulars this career has closed a report on that have
+        none on this board.
+
+        A line that has been resolved or given up on stops reporting, and
+        the card is where its last note is read. Nothing is stored for it:
+        the line is the same one every tour, so the desk can hand it back.
+        """
+        on_board = {card.record.regular for card in cards.values()}
+        return [LineCard(self.desk.regular_record(key)) for key in REGULARS
+                if self.career.regular_closed.get(key)
+                and key not in on_board]
+
+    def _regular_off_the_board(self, token: str) -> Optional[LineCard]:
+        """Find one of those cards by its telephone number."""
+        digits = ''.join(c for c in token if c.isdigit())
+        for card in self._regular_cards(self.lmos_console.lmos.line_cards()):
+            number = ''.join(c for c in card.record.telephone_number
+                             if c.isdigit())
+            if digits and number.endswith(digits):
+                return card
+        return None
+
     def _custdb_index(self) -> str:
         """List the lines that have a record on this position."""
         cards = self.lmos_console.lmos.line_cards()
+        cards.update((card.record.telephone_number, card)
+                     for card in self._regular_cards(cards))
         if not cards:
             return "custdb: no line records on this position yet"
         rows = ["CUSTOMER LINE RECORDS ON THIS POSITION", '',
@@ -130,7 +165,9 @@ class RecordsCommands(SessionState):
         for number, card in sorted(cards.items()):
             flag = ' CHRONIC' if card.is_chronic() else ''
             if card.record.regular:
-                flag += ' (known)'
+                ended = status_at(REGULARS[card.record.regular],
+                                  self.career.shift)
+                flag += f" ({ended if ended != OPEN else 'known'})"
             rows.append(f"  {number:<16}{card.report_count:>8}  "
                         f"{card.record.name}{flag}")
         rows.extend(['', "custdb <number> for one of them."])

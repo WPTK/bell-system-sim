@@ -68,6 +68,7 @@ these changes this table first.
 | W12 | Weather in the game is the simulation's own and claims nothing about 14 November 1983. | Established | `weather.py`; `SOURCES.md` "looked for and not found" |
 | W13 | The people, customers, addresses and operating-company lines are invented and say so. Real organisations appear only as the E&O names them. | Established | `data/regulars.py` docstring; `npc.py` docstring |
 | W14 | A player may read anything their qualifications and group allow, and the machine never hides lore behind a puzzle that needs outside knowledge. | Provisional (pillar 4 test) | `plan.md` section 1 |
+| W15 | A regular's card says what has happened to the line and the people on it, never what the next report off it will be. Fault, force and close code stay in `mlt` and the field finding. | Established (C16) | `data/regulars.py` arcs; `tests/test_regulars_arc.py` |
 
 ## 4. Voices
 
@@ -204,11 +205,19 @@ normalised to one line.
 
 ### The regulars: the customers  (`data/regulars.py`)
 
-**Canon:** Established as cards: Kowalczyk (214 Sussex St, 1FB, wet sheath), Ferrante (1109 Ocean Ave, coin, off-hook), Whitcomb (87 Bergen Ave, 1FR, aerial drop), Duchesne (466 Central Ave, 1MR, a doctor's answering line). They have no lines of speech yet; the card note is the voice.
+**Canon:** Established as cards, with an arc each (phase 7a, C16): Kowalczyk (214 Sussex St, 1FB, wet sheath), Ferrante (1109 Ocean Ave, coin, off-hook), Whitcomb (87 Bergen Ave, 1FR, aerial drop), Duchesne (466 Central Ave, 1MR, a doctor's answering line). They have no lines of speech yet; the card note is the voice, and from tour 2 it changes on named tours.
 
-- **Does:** exists in the note of the last craftsperson who went out: tired, specific, a verb in the past tense. Once phase 7a gives them beats (C16) they speak through Reyes and the customer's second call (C17).
-- **Never:** speaks in the abstract; names the system that will fix it ("they very much do not want to hear the word 'facility'", `custserv` notes).
-- **Sample:** "Aerial drop crosses the bus route. Third open on this pair this year and every one of them within a week of weather." (Whitcomb's card)
+| Line | Beats (tour) | Ends |
+| --- | --- | --- |
+| Kowalczyk | 4 estimate approved, no date; 7 two calls asking when, "before the holidays"; 11 new cable in, old sheath dead-ended | Resolved, tour 11 |
+| Ferrante | 3 collector finds the box emptied, new manager; 5 landlord written to, no answer; 7 rooming house closed by the city, coin telephone pulled | Abandoned, tour 7 |
+| Whitcomb | 3 clearance asked of the bus company; 6 new drop on the order list; 9 new drop on the far pole, a thank-you call | Resolved, tour 9 |
+| Duchesne | 4 the tag has held, the exchange rings to say so; 8 second line asked for, rotary; 12 rotary in, two lines, different blocks | Resolved, tour 12 |
+
+- **Does:** exists in the note of the last craftsperson who went out: tired, specific, a verb in the past tense. A beat is about the line and the people around it: the job on the order list, the call that came in, who was written to. Once a line is resolved or abandoned it stops reporting, and its last card stays readable in `custdb` for a craftsperson who has closed a report on it. Beyond the card they will speak through Reyes and the customer's second call (C17).
+- **Never:** speaks in the abstract; names the system that will fix it ("they very much do not want to hear the word 'facility'", `custserv` notes); says what the next report off the line will be (W15).
+- **Fixed:** each line's number, cable and pair, frame appearance and line equipment are fixed by the office and the line's name, so they are the same on every tour. Addresses carry no city (I12).
+- **Sample:** "Aerial drop crosses the bus route. Third open on this pair this year and every one of them within a week of weather." (Whitcomb's card, until tour 3)
 
 ### Others without a voice yet
 
@@ -287,7 +296,7 @@ PR can see what it must not contradict. All **Established**.
 | Divestiture memo, 1 Nov 1983, VP-OPS | `filesystem.py` | [own]; see T4 |
 | Group `craft` (rjohnson, lokafor, gvasquez, mreyes, wfinch, jsandoval, abright), group `mgmt` (ehalloran, dpetrak, tnakamura, jhaverty) | `filesystem.py` | [own] |
 | The 13-person roster in section 4 | `npc.py` | [own]; "titles are real; the people are not" (`field.py`) |
-| The four regulars and their histories (March, January, February, August 1983) | `data/regulars.py` | [own] |
+| The four regulars and their histories (March, January, February, August 1983), and their arcs to tours 7, 9, 11 and 12 | `data/regulars.py` | [own] |
 | uucp traffic: `pwba` not answering since 06:44; `bsp.660` requested from `pwba` | `filesystem.py` `UUCPLOG` | [own]; the practice number is a reference to the Practices binder (A3) |
 | The August 1983 strike, 7 to 28 August, 5.5 and 1.5 per cent | `net.misc/88` | [sourced] `SOURCES.md` |
 | 1956 and 1982 decrees, why System V arrived | `net.unix-wizards/121`, `why.unix` | [sourced] `SOURCES.md` |
@@ -318,6 +327,6 @@ claim. Where the plan already tracks it, the row is named.
 | I9 | C | Sandoval's post comes from `mhuxt`, a different machine, but Sandoval is in this office's craft group | `filesystem.py` NEWS_MISC_88, `GROUP` | T3 explains it as an account not yet moved. |
 | I10 | C | "Tour 2" in Alvarez's notes reads as the game's tour 2; in the fiction it is the second shift of a day | `data/homes.py`; `filesystem.py` `TESTLOG_C` | |
 | I11 | C | Message ids run <44>, <45> for 14 Nov and <46> for 9 Nov, so the spool is not in order of id | `filesystem.py` | |
-| I12 | C | The regulars' addresses are Jersey City street names; the office city is the first of the loaded NANPA offices in 201, 212 or 203 and can be another | `data/regulars.py`; `screens/bureau.py` | Plan R4 handles the same problem in shift events. |
+| I12 | C | The regulars' addresses are Jersey City street names; the office city is the first of the loaded NANPA offices in 201, 212 or 203 and can be another | `data/regulars.py`; `screens/bureau.py` | Plan R4 handles the same problem in shift events. Decided in 7a: the card carries no city, so the street names stand wherever the office is. |
 | I13 | C | Four period claims have no `SOURCES.md` row: Mother's Day "forty years"; the satellite "half a second"; the TSPS average call; and the toll-network-above-class-4 line in the memo | section 7 | Needs a row or an [own] marker. |
 | I14 | C | `SOURCES.md` has no row for "UNIX Version 7" as the 1983 machine | `filesystem.py` MOTD | |
