@@ -78,6 +78,8 @@ for that person must pass the Never column.
 Sample lines are quoted from the code and are the standard. Wrapping is
 normalised to one line.
 
+**Rapport and the favour (Provisional, phase 6b, A6; the simulation's own invention).** Each report closed in a tour moves the crew that worked it, or the bureau, one step: up for a right code, down for a wrong one, at most once each way per person per tour. At step 3 that person does one favour, once: they ring the customer and the report with the nearest commitment gets an hour more, said in their own voice (`npc.py` `FAVOURS`). It is held until that report is within the hour of its commitment, since that is when an hour matters. Only people who work the board have one: Reyes, Okafor, Sandoval, Finch, Bright, Nakamura. Nobody offers one unasked before then and nobody is ever told their rapport. It is kept in the career file (`rapport`, and the `rapport+:`, `settled:`, `rang:`, `chased:`, `about:` and `favour:` entries of `beats_seen`) so that a resume says nothing twice.
+
 ### Halloran, E.: wire chief  (`ehalloran`, CENTRAL_OFF, tty01)
 
 **Canon:** Established (`npc.py` `CRAFT`, `_SIGN_OFF_REMARKS`, `last_word`; `data/hints.py`). He/him in the code.
@@ -95,8 +97,8 @@ normalised to one line.
 - **Never:** blames a person; guesses a cause out loud (`custserv` notes: "The one thing you are not allowed to do is guess out loud.").
 - **Sample:** "I told them a time and it has gone. What do I tell them now?" (`npc.py` `overdue_notice`)
 - **Open:** the 03:47 su (section 5, T2).
-- **Consequences (Provisional, phase 6b, C17):** the customer's words come through her, one line by class of service, in three places: a report past its commitment with the line out of service, the second call on a repeat, and (a quarter of clean closes) a call to say it held. `data/consequences.py`. Each message keeps to her profile: report, number, time, a question.
-- **Arc (Provisional, phase 6b, A6):** `reyes.1` (tours 5-8) and `reyes.2` (tours 9-11) are about a closed report: she cannot reopen it and asks if there is another way; a customer asks who will have the card in February. They wait for a report to speak of. Neither explains T2.
+- **Consequences (Provisional, phase 6b, C17):** the customer's words come through her, one line by class of service, in three places: a report past its commitment with the line out of service, the second call on a repeat, and (a quarter of clean closes) a call to say it held. `data/consequences.py`. Each message keeps to her profile: report, number, time, a question. The notice when a commitment passes is said once and the board does not ask the same again; the second call and the call-back each end on her question.
+- **Arc (Provisional, phase 6b, A6):** `reyes.1` (tours 5-8) and `reyes.2` (tours 9-11) are about a closed report: she cannot reopen it and asks if there is another way; a customer asks who will have the line's trouble card in February. The two never speak of the same report. They wait for a report to speak of. Neither explains T2.
 
 ### Johnson, R.: switching equipment technician  (`rjohnson`, CENTRAL_OFF, tty02)
 

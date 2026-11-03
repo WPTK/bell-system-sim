@@ -19,6 +19,7 @@ from bell_system.npc import (
     ARC_BEATS, CRAFT, FAVOUR_AT, FAVOUR_MINUTES, FAVOURS, RAPPORT_MAX,
     Switchroom, adjust_rapport, favour_due, rapport_with,
 )
+from bell_system.progression import Career
 from bell_system.reports import CLASSES_OF_SERVICE
 
 NOW = datetime(1983, 11, 14, 9, 0)
@@ -58,6 +59,13 @@ class TestTheTables:
 
     def test_the_lines_fit_the_screen(self):
         assert all(len(line) <= LINE_LIMIT for line in table_lines())
+
+    @pytest.mark.parametrize('table', [
+        consequences.SECOND_CALL, consequences.CALL_BACK])
+    def test_what_she_passes_on_ends_on_a_question(self, table):
+        """Narrative bible section 4: every message of hers asks one."""
+        for line in table.values():
+            assert line.endswith('?'), line
 
     def test_no_line_names_a_cause(self):
         for line in table_lines():
@@ -99,6 +107,29 @@ class TestTheOverdueChase:
         message = Switchroom(random.Random(1)).chase(NOW, late)
         assert message.sender == 'ehalloran'
         assert 'TR-00001' in message.lines[0]
+
+    def test_the_notice_and_the_chase_never_say_it_twice(self):
+        """Said when the commitment passed, so the board need not ask."""
+        room = Switchroom(random.Random(1))
+        room.overdue_notice(NOW, LATE.number, LATE.telephone, LATE)
+        assert room._board_driven(NOW, [LATE]) is None
+
+    def test_a_notice_for_a_line_out_is_the_customers_by_class(self):
+        notice = Switchroom(random.Random(1)).overdue_notice(
+            NOW, LATE.number, LATE.telephone, LATE)
+        assert notice.lines == Switchroom._gone_lines(LATE)
+        assert notice.lines[1] == consequences.overdue('1FR')
+
+    def test_a_notice_for_a_line_with_service_is_the_plain_one(self):
+        notice = Switchroom(random.Random(1)).overdue_notice(
+            NOW, LATE.number, LATE.telephone,
+            LATE._replace(out_of_service=False))
+        assert 'past its commitment' in notice.lines[0]
+
+    def test_a_chase_the_ledger_has_is_not_made_again(self):
+        room = Switchroom(random.Random(1))
+        assert room._board_driven(NOW, [LATE], [f'chased:{LATE.number}']) is None
+        assert room._board_driven(NOW, [LATE]).kind == 'chase'
 
     def test_no_chase_line_is_longer_than_the_screen(self):
         for cls in CLASSES_OF_SERVICE:
@@ -149,13 +180,18 @@ class TestTheCallBack:
         assert message.lines[1] == consequences.call_back('COIN')
 
     def test_a_clean_close_draws_a_call_at_most_once(self):
-        room = Switchroom(Stub(0.0))
-        assert room.rings_back('TR-00003') is True
-        assert room.rings_back('TR-00003') is False
+        room, ledger = Switchroom(Stub(0.0)), []
+        assert room.rings_back('TR-00003', ledger) is True
+        assert room.rings_back('TR-00003', ledger) is False
+
+    def test_a_fresh_room_with_the_same_ledger_does_not_ring_again(self):
+        ledger = []
+        Switchroom(Stub(0.0)).rings_back('TR-00003', ledger)
+        assert Switchroom(Stub(0.0)).rings_back('TR-00003', ledger) is False
 
     def test_the_chance_is_a_surprise_not_a_habit(self):
         assert 0 < consequences.CALL_BACK_CHANCE <= 0.5
-        assert Switchroom(Stub(0.99)).rings_back('TR-00003') is False
+        assert Switchroom(Stub(0.99)).rings_back('TR-00003', []) is False
 
 
 class TestRapport:
@@ -293,9 +329,94 @@ class TestOnTheShift:
         shift._settle_people(quiet=True)
         assert shift.career.rapport.get('lokafor', 0) == 0
 
+    def reload(self, terminal, rng=None):
+        """Save, read the career back and start a fresh room, as a resume."""
+        terminal.career.save()
+        terminal.career = Career(terminal.career.path)
+        terminal.switchroom = Switchroom(rng or random.Random(1))
+
+    def test_a_save_and_a_resume_settle_nothing_twice(self, shift):
+        report = shift.desk.customers()[0]
+        self.close(shift, report, True, CRAFT['lokafor'].name)
+        shift._settle_people(quiet=True)
+        assert shift.career.rapport['lokafor'] == 1
+        self.reload(shift)
+        shift.career.shift = 5
+        shift._settle_people(quiet=True)
+        assert shift.career.rapport['lokafor'] == 1
+        assert f'settled:{report.number}' in shift.career.beats_seen
+
+    def test_a_close_is_settled_in_the_tour_it_was_closed(self, shift):
+        report = shift.desk.customers()[0]
+        self.close(shift, report, True, CRAFT['lokafor'].name)
+        shift.career.shift = 5
+        shift.clock.set_tour(5)
+        shift._settle_people(quiet=True)
+        assert shift.career.rapport.get('lokafor', 0) == 0
+
+    def test_the_first_tours_closes_do_not_move_anyone_in_the_second(
+            self, shift):
+        shift.career.shift = 1
+        shift.clock.set_tour(1)
+        report = shift.desk.customers()[0]
+        self.close(shift, report, True, CRAFT['lokafor'].name)
+        shift.execute_command('pwd')
+        shift.career.shift = 2
+        shift.clock.set_tour(2)
+        shift._settle_people(quiet=True)
+        assert shift.career.rapport.get('lokafor', 0) == 0
+
+    def test_a_call_back_is_made_once_across_a_resume(self, shift):
+        report = shift.desk.customers()[0]
+        self.close(shift, report, True, CRAFT['lokafor'].name)
+        shift.switchroom = Switchroom(Stub(0.0))
+        shift._settle_people(quiet=False)
+        assert len(shift._queued_messages) == 1
+        shift._queued_messages.clear()
+        self.reload(shift, Stub(0.0))
+        shift._settle_people(quiet=False)
+        assert not shift._queued_messages
+        assert f'rang:{report.number}' in shift.career.beats_seen
+
+    def test_a_call_back_is_not_made_on_a_quiet_shift(self, shift):
+        report = shift.desk.customers()[0]
+        self.close(shift, report, True, CRAFT['lokafor'].name)
+        shift.switchroom = Switchroom(Stub(0.0))
+        shift._settle_people(quiet=True)
+        assert not shift._queued_messages
+
+    def test_the_favour_is_done_once_across_a_resume(self, shift):
+        shift.career.rapport['lokafor'] = FAVOUR_AT
+        self.near(shift)
+        assert len(shift._settle_people(quiet=False)) == 1
+        commitments = {r.number: r.commitment for r in shift.desk.customers()}
+        self.reload(shift)
+        assert shift._settle_people(quiet=False) == []
+        assert {r.number: r.commitment
+                for r in shift.desk.customers()} == commitments
+        assert shift.career.beats_seen.count('favour:lokafor') == 1
+
+    def near(self, terminal):
+        """Bring the earliest report to within the hour of its commitment."""
+        target = min(terminal.desk.customers(), key=lambda r: r.commitment)
+        target.commitment = target.received + timedelta(minutes=30)
+        return target
+
+    def test_the_favour_waits_until_a_report_is_nearly_due(self, shift):
+        shift.career.rapport['lokafor'] = FAVOUR_AT
+        for report in shift.desk.customers():
+            report.commitment = report.received + timedelta(
+                minutes=FAVOUR_MINUTES + 120)
+        assert shift._settle_people(quiet=False) == []
+        assert 'favour:lokafor' not in shift.career.beats_seen
+        target = self.near(shift)
+        assert len(shift._settle_people(quiet=False)) == 1
+        assert target.commitment == target.received + timedelta(
+            minutes=30 + FAVOUR_MINUTES)
+
     def test_the_favour_moves_the_earliest_commitment_an_hour_once(self, shift):
         shift.career.rapport['lokafor'] = FAVOUR_AT
-        target = min(shift.desk.customers(), key=lambda r: r.commitment)
+        target = self.near(shift)
         before = target.commitment
         spoken = shift._settle_people(quiet=False)
         assert target.commitment == before + timedelta(minutes=FAVOUR_MINUTES)
@@ -312,6 +433,7 @@ class TestOnTheShift:
     def test_the_first_tour_is_left_alone(self, shift):
         shift.career.shift = 1
         shift.career.rapport['lokafor'] = FAVOUR_AT
+        self.near(shift)
         before = [r.commitment for r in shift.desk.customers()]
         shift.execute_command('pwd')
         assert [r.commitment for r in shift.desk.customers()] == before
@@ -411,6 +533,31 @@ class TestTheArcs:
         said = terminal._craft_interruption(terminal._difficulty())
         assert said.beat == 'reyes.1'
         assert report.number in said.lines[0]
+
+    def test_two_beats_do_not_tell_the_same_report_twice(self, terminal):
+        terminal.career.shift = 6
+        terminal.switchroom.arcs = [b for b in ARC_BEATS
+                                    if b.key in ('reyes.1', 'reyes.2')]
+        terminal.desk.reports.clear()
+        terminal.desk.order.clear()
+        terminal.desk.open_shift(terminal.clock.now(), 0, count=3)
+        first = terminal.desk.customers()[0]
+        terminal.desk.close(first, 8, None, terminal.clock.now())
+        one = terminal._craft_interruption(terminal._difficulty())
+        assert one.beat == 'reyes.1'
+        assert first.number in one.lines[0]
+        assert f'about:{first.number}' in terminal.career.beats_seen
+        terminal.career.shift = 10
+        assert terminal._last_closed() is None
+        waiting = terminal._craft_interruption(terminal._difficulty())
+        assert waiting is None or not waiting.beat
+        second = terminal.desk.customers()[0]
+        terminal.desk.close(second, 8, None,
+                            terminal.clock.now() + timedelta(minutes=5))
+        two = terminal._craft_interruption(terminal._difficulty())
+        assert two.beat == 'reyes.2'
+        assert second.number in two.lines[0]
+        assert first.number not in two.lines[0]
 
     def test_the_machine_still_keeps_t2_and_t3_for_the_player(self):
         """No beat explains the 03:47 su or what Sandoval is carrying."""
