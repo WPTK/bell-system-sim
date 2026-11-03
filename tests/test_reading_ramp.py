@@ -388,7 +388,12 @@ class TestTheNumbersStageIsTheSameForAllThreeCleanReadings:
         result = terminal.execute_command(f'mlt {report.number}')
         body = result.split('INSULATION RESISTANCE', 1)[1]
         return [' '.join(re.sub(r'[\d,.]+', '#', line).split())
-                for line in body.splitlines()]
+                for line in body.splitlines()
+                # What the loop resistance means against the design limit
+                # follows the numbers, and the coin line follows the class of
+                # service, which the record has and the fault does not.
+                if 'design limit' not in line
+                and 'Coin station' not in line]
 
     def test_the_report_differs_only_in_its_numbers(self, terminal):
         shapes = [self._shape(terminal, code)
