@@ -1190,12 +1190,13 @@ class TestTheRepairDeskCostsTheIndex:
 
     def test_the_cost_runs_through_the_command_prompt(self, at_desk):
         terminal = at_desk('custserv')
-        hold(terminal, (True, 0))
+        (down,) = hold(terminal, (True, 0))
         before = terminal.career.missed_commitments
         terminal._pass_time(500)
         terminal.execute_command('trouble list')
-        assert terminal.career.missed_commitments == before + 1
-        assert terminal.desk.customers()[0].missed_commitment
+        # Others arrive in those minutes and ring too; this one is charged.
+        assert terminal.career.missed_commitments >= before + 1
+        assert down.missed_commitment
 
     def test_a_call_in_time_is_a_cost_not_paid(self, at_desk):
         terminal = at_desk('custserv')
