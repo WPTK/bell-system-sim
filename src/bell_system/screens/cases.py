@@ -8,6 +8,7 @@ which are the player's to say: which cable and which binder group, in the
 words the assignment record uses for them.
 """
 
+import random
 import re
 from typing import List, Optional, Tuple
 
@@ -18,6 +19,12 @@ from ..cases import MARKER_LEDGER, arrivals, case_of, plan
 from ..npc import Message
 from ..reports import TroubleReport
 from .session import SessionState
+
+# From this tour on a tour may open with a sheath already leaking, and the
+# share of tours that do. The simulation's own: it is the water the board's
+# own draws would otherwise start from nothing.
+FIRST_LEAK_TOUR = 2
+LEAK_SHARE = 0.5
 
 # A section as the player writes it: the cable, a slash and the binder
 # group, as in 81/8. Not the cable and pair the report carries, which is
@@ -108,12 +115,25 @@ class CaseCommands(SessionState):
         tour's alone, so the board is dealt the same whether there is one
         or not; only what arrives later is the case's.
         """
+        self._plant_leak()
         ledger = self.career.beats_seen
         case = plan(self.career.shift, ledger)
         self.desk.cases = [case] if case else []
         if case and case.kind == 'marker':
             ledger.append(MARKER_LEDGER)
             self.career.save()
+
+    def _plant_leak(self) -> None:
+        """
+        Start the tour's leak, if it has one: water in a sheath nobody has
+        reported, which the contactor will alarm on before a customer does.
+        """
+        tour = self.career.shift
+        if tour < FIRST_LEAK_TOUR or random.Random(
+                f"leak:{tour}").random() >= LEAK_SHARE:
+            return
+        self.desk.plant.begin_leak(
+            self.clock.now(), random.Random(f"leak-site:{tour}"))
 
     def _case_events(self) -> List[Message]:
         """

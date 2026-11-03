@@ -1304,6 +1304,22 @@ class Switchroom:
             about=report_number,
         ))
 
+    def pressure_alarm(self, now: datetime, cable: int, psi: float
+                       ) -> Message:
+        """
+        The cable pressure contactor on the maintenance teletype.
+
+        Says which cable and what the gauge reads, and nothing of which
+        binder group or whether there is water: the pressure falls first
+        and the water comes after, and finding the group is the work.
+        """
+        return self._deliver(Message(
+            channel=CHANNEL_TELETYPE, sender='adm', received=now,
+            lines=[f'PRESSURE ALARM  CABLE {cable:04d}  {psi:.1f} PSI',
+                   'CONTACTOR BELOW LIMIT'],
+            kind='alarm', subject=f'cable {cable:04d} pressure', about=None,
+        ))
+
     def case_note(self, now: datetime, kind: CaseKind, about: str,
                   closing: bool = False) -> Optional[Message]:
         """

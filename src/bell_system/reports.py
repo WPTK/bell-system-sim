@@ -520,7 +520,8 @@ class ReportDesk:
         self._sequence += self.rng.randint(1, 4)
         return f"TR-{self._sequence:05d}"
 
-    def _make_record(self, fault: str, now: datetime) -> LineRecord:
+    def _make_record(self, fault: str, now: datetime,
+                     section: Optional[WetSection] = None) -> LineRecord:
         """
         Build a line record carrying a given electrical condition.
 
@@ -539,7 +540,7 @@ class ReportDesk:
             line = f"{self.rng.randint(0, 9999):04d}"
         surname = self.rng.choice(_SURNAMES)
         initial = self.rng.choice(_INITIALS)
-        cable, pair = (self.plant.wet_pair(now)
+        cable, pair = (self.plant.wet_pair(now, section)
                        if fault == 'WET' else self.plant.dry_pair())
         classes = [code for code, _ in _CLASS_WEIGHTS]
         weights = [weight for _, weight in _CLASS_WEIGHTS]
@@ -604,7 +605,8 @@ class ReportDesk:
                 fault: Optional[str] = None,
                 record: Optional[LineRecord] = None,
                 repeat_of: Optional[str] = None,
-                symptom: Optional[str] = None) -> TroubleReport:
+                symptom: Optional[str] = None,
+                section: Optional[WetSection] = None) -> TroubleReport:
         """
         Take a new report onto the pending list.
 
@@ -616,6 +618,8 @@ class ReportDesk:
             repeat_of: The report number this one came back from
             symptom: What the customer says, where it is not drawn from
                 the condition's own list
+            section: The wet sheath a water report is a pair of, when a leak
+                has come due in one; otherwise the plant chooses
 
         Returns:
             The report that was created
@@ -626,7 +630,7 @@ class ReportDesk:
             condition, line_record = drawn
         else:
             condition = fault or self._choose_fault()
-            line_record = record or self._make_record(condition, now)
+            line_record = record or self._make_record(condition, now, section)
         line_record.fault = condition
         symptom = symptom or self.rng.choice(
             REPORT_SYMPTOMS.get(condition, ('Trouble',)))

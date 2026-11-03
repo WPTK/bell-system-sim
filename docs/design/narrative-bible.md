@@ -314,6 +314,7 @@ PR can see what it must not contradict. All **Established**.
 | The thread of the last holder, one file to a sign-off: `~sysop/dead.letter`, the sent handover (`/usr/spool/mail/ehalloran`), `/usr/adm/sulog`, `/usr/adm/lmoslog`, `~ehalloran/reopened` | `data/finds.py`, `data/homes.py` | [own]; the su log format follows the Seventh Edition. Shut by group, W15 |
 | The Okafor eleven | `screens/games.py`, `npc.py`, `filesystem.py` | [own] |
 | Marker 2 fails outright on tour 9 or 10, takes down the line link frame it serves and is busied out; Johnson has been saying so for two years. New in A7, the simulation's own | `data/cases.py`, `cases.py` | [own]; that a marker which cannot finish times out and leaves calls incomplete is [sourced] E&O p. 802 [819]; the relay, the number and the seconds are not |
+| A sheath can be leaking before anyone has rung: the maintenance teletype prints `PRESSURE ALARM  CABLE nnnn` from `adm` about a hundred minutes in and the first customer rings fifty minutes after. New in A8, the simulation's own | `cable.py`, `npc.py` `pressure_alarm` | [own]; that pressure falls before water enters is [sourced] `SOURCES.md` |
 | A trench crew cuts a cable on the route and Okafor hears the machine. New in A7, the simulation's own: three or four reports on one cable, any tour from the fourth, about one tour in three | `data/cases.py`, `cases.py` | [own] |
 
 ## 8. Inconsistencies found

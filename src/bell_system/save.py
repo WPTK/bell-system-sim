@@ -269,6 +269,9 @@ def _plant_out(desk: ReportDesk) -> List[Dict[str, Any]]:
         'pairs': {str(pair): number
                   for pair, number in section.pairs.items()},
         'psi': section.psi,
+        'wet_minutes': section.wet_minutes,
+        'credit': section.credit,
+        'alarmed': section.alarmed,
     } for section in desk.plant.sections]
 
 
@@ -285,6 +288,11 @@ def _plant_in(desk: ReportDesk, stored: List[Dict[str, Any]]) -> None:
         section.pairs = {int(pair): number
                          for pair, number in entry['pairs'].items()}
         section.psi = entry['psi']
+        # Written since a sheath leaked on the clock. One saved before is
+        # taken to have been open as long as it has had pairs to show.
+        section.wet_minutes = float(entry.get('wet_minutes', 0.0))
+        section.credit = float(entry.get('credit', 0.0))
+        section.alarmed = bool(entry.get('alarmed', section.alarming()))
         sections.append(section)
     desk.plant.sections = sections
 

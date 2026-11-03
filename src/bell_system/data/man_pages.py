@@ -4204,6 +4204,10 @@ DESCRIPTION
      your board. A splicer trip while it is dry costs one dispatch. The
      same water after an afternoon of rain costs several.
 
+     Left alone, an open binder group takes a pair an hour, and a pair
+     every quarter of an hour in the heaviest rain. Nothing about it is
+     chance: how long the water has been in decides.
+
      A sheath whose pressure has fallen far enough is shown as alarming.
      Cable is pressurised with dry air to keep water out, so the pressure
      goes first and the water comes after - the contactor is the thing that

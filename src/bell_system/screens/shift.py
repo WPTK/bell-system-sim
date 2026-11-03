@@ -735,13 +735,20 @@ class ShiftCommands(SessionState):
         # a second report on a board that is meant to hold one.
         if not elapsed or self.first_tour():
             return pieces
-        spreading = self.desk.plant.spread(elapsed, self.desk.weather.rain)
-        for _ in range(spreading):
+        plant = self.desk.plant
+        spreading = plant.leak(elapsed, self.desk.weather.rain)
+        for section in plant.open_sections():
+            if section.alarming() and not section.alarmed:
+                section.alarmed = True
+                pieces.append(render_message(self.switchroom.pressure_alarm(
+                    self.clock.now(), section.cable, section.psi),
+                    self._stamp()))
+        for section in spreading:
             if self.desk.full():
                 break
             report = self.desk.receive(
                 self.clock.now(), self._difficulty().commitment_slack_minutes,
-                fault='WET')
+                fault='WET', section=section)
             pieces.append(render_message(self.switchroom.assignment(
                 self.clock.now(), report.number,
                 report.record.telephone_number, report.symptom,

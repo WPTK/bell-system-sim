@@ -574,3 +574,181 @@ class TestACaseIsSaved:
         captured['board']['cases'][0]['kind'] = 'nonsense'
         fresh = self._fresh(terminal)
         assert not save.restore(fresh, captured)
+
+
+# -- A8: water that goes on leaking ----------------------------------------
+
+def _plant_with_a_pair(seed=2):
+    """A plant with one wet section that has reported once."""
+    from bell_system.cable import CablePlant
+    plant = CablePlant(random.Random(seed))
+    cable, pair = plant.wet_pair(SHIFT_START)
+    plant.attach(cable, pair, 'TR-00001')
+    plant.sections[0].capacity = 25
+    return plant
+
+
+def _leaking_tour(terminal, tour=3):
+    """Start a tour that opens with a sheath leaking and nobody told."""
+    terminal.career.shift = tour
+    terminal.career.reports_closed = 5
+    terminal._plant_case()
+    terminal.desk.depth_limit = 40
+    return terminal.desk.plant.sections[0]
+
+
+def _run_the_clock(terminal, until=480, step=10):
+    """Move the tour on, and return what was said and when."""
+    heard = []
+    for _ in range(0, until, step):
+        was = terminal.shift_minutes
+        terminal.shift_minutes += step
+        for piece in terminal._weather_events(was):
+            heard.append((terminal.shift_minutes, piece))
+    return heard
+
+
+class TestTheSheathLeaks:
+    """A8: unrepaired water takes a pair an hour, and the gauge knows first."""
+
+    def test_an_unrepaired_sheath_takes_a_pair_an_hour(self):
+        plant = _plant_with_a_pair()
+        assert len(plant.leak(59, 0.0)) == 0
+        assert len(plant.leak(1, 0.0)) == 1
+        assert len(plant.leak(180, 0.0)) == 3
+
+    def test_rain_makes_it_faster(self):
+        dry = _plant_with_a_pair()
+        wet = _plant_with_a_pair()
+        assert len(wet.leak(60, 1.0)) == 4
+        assert len(wet.leak(60, 1.0)) > len(dry.leak(60, 0.0))
+
+    def test_how_much_it_takes_does_not_depend_on_chance(self):
+        first = _plant_with_a_pair(seed=1)
+        second = _plant_with_a_pair(seed=99)
+        assert ([len(first.leak(7, 0.4)) for _ in range(60)]
+                == [len(second.leak(7, 0.4)) for _ in range(60)])
+
+    def test_it_stops_at_what_the_group_was_going_to_take(self):
+        plant = _plant_with_a_pair()
+        plant.sections[0].capacity = 3
+        assert len(plant.leak(600, 1.0)) == 2
+
+    def test_a_splicer_stops_it(self):
+        plant = _plant_with_a_pair()
+        plant.leak(30, 0.0)
+        plant.repair(plant.sections[0], SHIFT_START)
+        assert plant.leak(600, 1.0) == []
+
+    def test_the_pressure_falls_with_time_as_well_as_with_pairs(self):
+        plant = _plant_with_a_pair()
+        before = plant.sections[0].psi
+        plant.leak(60, 0.0)
+        assert plant.sections[0].psi == pytest.approx(before - 1.5)
+
+
+class TestThePressureAlarm:
+    """A8: the contactor alarms before the first customer rings."""
+
+    def test_a_leak_is_planted_without_a_report(self, terminal):
+        section = _leaking_tour(terminal)
+        assert section.latent and not section.pairs
+        assert not [r for r in terminal.desk.reports.values()
+                    if r.record.fault == 'WET']
+
+    def test_it_alarms_before_the_first_report(self, terminal):
+        _leaking_tour(terminal)
+        heard = _run_the_clock(terminal)
+        alarms = [at for at, text in heard if 'PRESSURE ALARM' in text]
+        reports = [at for at, text in heard if 'on your board' in text]
+        assert alarms and reports and alarms[0] < reports[0]
+
+    def test_it_alarms_once(self, terminal):
+        _leaking_tour(terminal)
+        heard = _run_the_clock(terminal)
+        assert len([1 for _, text in heard if 'PRESSURE ALARM' in text]) == 1
+
+    def test_the_alarm_names_the_cable_and_not_the_group(self, terminal):
+        section = _leaking_tour(terminal)
+        heard = _run_the_clock(terminal)
+        text = next(text for _, text in heard if 'PRESSURE ALARM' in text)
+        assert f"CABLE {section.cable:04d}" in text
+        assert 'binder' not in text.lower() and 'water' not in text.lower()
+
+    def test_weather_shows_the_alarming_sheath_before_any_report(
+            self, terminal):
+        section = _leaking_tour(terminal)
+        terminal.desk.plant.leak(110, 0.0)
+        shown = terminal.execute_command('weather')
+        assert 'pressure contactor alarming' in shown
+        assert f"cable {section.cable} binder {section.binder}" in shown
+
+    def test_the_water_is_in_the_group_the_alarm_was_for(self, terminal):
+        section = _leaking_tour(terminal)
+        heard = _run_the_clock(terminal)
+        from bell_system.cable import binder_of
+        landed = {(r.record.cable, binder_of(r.record.pair))
+                  for r in terminal.desk.reports.values()
+                  if r.record.fault == 'WET'}
+        assert heard
+        assert landed == {(section.cable, section.binder)}
+
+    def test_a_splicer_sent_early_finds_it_and_nothing_follows(self, terminal):
+        section = _leaking_tour(terminal)
+        terminal.desk.plant.leak(110, 0.0)
+        report = terminal.desk.receive(terminal.clock.now(), fault='SHORT')
+        result = terminal.execute_command(
+            f'report dispatch {report.number} cable '
+            f'{section.cable}/{section.binder}')
+        assert 'resealed' in result
+        heard = _run_the_clock(terminal)
+        assert not [1 for _, text in heard if 'on your board' in text
+                    and 'weak' in text]
+        assert not [r for r in terminal.desk.reports.values()
+                    if r.record.fault == 'WET']
+
+    def test_the_board_does_not_draw_a_pair_from_an_unnoticed_leak(
+            self, terminal):
+        section = _leaking_tour(terminal)
+        for _ in range(30):
+            cable, pair = terminal.desk.plant.wet_pair(terminal.clock.now())
+            assert not section.contains(cable, pair)
+
+    def test_planting_one_deals_nothing_differently(self, terminal):
+        terminal.career.shift = 3
+        terminal.career.reports_closed = 5
+        before = terminal.desk.rng.getstate()
+        terminal._plant_case()
+        assert terminal.desk.rng.getstate() == before
+
+    def test_a_leak_and_its_clock_are_saved(self, terminal):
+        import json
+        from bell_system import save
+        from bell_system.terminal import BellSystemTerminal
+        section = _leaking_tour(terminal)
+        terminal.desk.plant.leak(110, 0.0)
+        section.alarmed = True
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        assert save.restore(fresh, captured)
+        again = fresh.desk.plant.sections[0]
+        assert (again.wet_minutes, again.credit, again.alarmed,
+                again.psi) == (section.wet_minutes, section.credit, True,
+                               section.psi)
+
+    def test_a_save_from_before_loads(self, terminal):
+        import json
+        from bell_system import save
+        from bell_system.terminal import BellSystemTerminal
+        _leaking_tour(terminal)
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        for entry in captured['plant']:
+            for key in ('wet_minutes', 'credit', 'alarmed'):
+                del entry[key]
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        assert save.restore(fresh, captured)
+        assert fresh.desk.plant.sections[0].wet_minutes == 0
