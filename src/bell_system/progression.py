@@ -204,8 +204,9 @@ ASSISTS: List[Assist] = [
         {'off': 0, 'fade': 4, 'on': ANNOTATE_ALWAYS},
         'Whether the test and the crews keep naming the fault',
         'off prints the numbers and nothing else from the first sighting; '
-        'fade names a fault type for its first four sightings and then '
-        'leaves the reading to you; on never stops.',
+        'fade names a fault type for its first two sightings, the crew class '
+        'for the next two, and then leaves the reading to you; on never '
+        'stops.',
     ),
 ]
 

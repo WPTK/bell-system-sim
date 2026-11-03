@@ -46,7 +46,10 @@ def staged(terminal):
     return practical, report
 
 
-def work(terminal, key, number):
+def work(terminal, key, number, measure=True):
+    """Work a practical as a player would: read the line, then fix it."""
+    if measure:
+        terminal.execute_command(f'mlt {number}')
     for command in SOLUTIONS[key]:
         terminal.execute_command(command.format(n=number))
 
@@ -199,6 +202,27 @@ def test_handing_in_nothing_says_what_was_missed(terminal, key):
 
 
 @pytest.mark.parametrize('key', KEYS)
+def test_fixing_it_without_measuring_it_is_not_signed(terminal, key):
+    ready(terminal, key)
+    terminal.execute_command(f'qual take {key}')
+    _, report = staged(terminal)
+    work(terminal, key, report.number, measure=False)
+    reply = terminal.execute_command('qual submit')
+    assert 'not signed' in reply and 'never measured' in reply
+    assert f'mlt {report.number}' in ' '.join(reply.split())
+    assert not terminal.career.is_qualified(key)
+    assert key not in terminal.career.practicals_passed
+
+
+def test_the_office_repro_clears_the_line_and_still_fails_unmeasured(terminal):
+    ready(terminal, 'office')
+    terminal.execute_command('qual take office')
+    _, report = staged(terminal)
+    terminal.execute_command(f'switch clear {report.number}')
+    assert 'not signed' in terminal.execute_command('qual submit')
+
+
+@pytest.mark.parametrize('key', KEYS)
 def test_a_failed_practical_can_be_taken_again(terminal, key):
     ready(terminal, key)
     terminal.execute_command(f'qual take {key}')
@@ -220,6 +244,28 @@ def test_a_staged_report_leaves_the_career_counts_alone(terminal):
     terminal.execute_command('qual submit')
     assert terminal.career.reports_closed == closed
     assert terminal.desk.closed_count == 0
+
+
+@pytest.mark.parametrize('key', KEYS)
+def test_a_passed_practical_leaves_the_sighting_counts_alone(terminal, key):
+    ready(terminal, key)
+    before = dict(terminal.career.fault_sightings)
+    terminal.execute_command(f'qual take {key}')
+    _, report = staged(terminal)
+    work(terminal, key, report.number)
+    assert 'passed' in terminal.execute_command('qual submit')
+    assert terminal.career.fault_sightings == before
+    assert report.sighting is None
+
+
+@pytest.mark.parametrize('key', KEYS)
+def test_next_says_measure_until_the_practical_is_measured(terminal, key):
+    ready(terminal, key)
+    terminal.execute_command(f'qual take {key}')
+    _, report = staged(terminal)
+    assert terminal.next_action().command == f'mlt {report.number}'
+    terminal.execute_command(f'mlt {report.number}')
+    assert terminal.next_action().command == 'qual submit'
 
 
 def test_submit_with_nothing_on_the_board(terminal):
@@ -569,6 +615,7 @@ def test_next_action_does_not_suggest_closing_the_staged_report(terminal):
     ready(terminal, 'frame')
     terminal.execute_command('qual take frame')
     _, report = staged(terminal)
+    terminal.execute_command(f'mlt {report.number}')
     action = terminal.next_action()
     assert action.command == 'qual submit'
     assert 'report close' not in action.command
@@ -579,6 +626,7 @@ def test_next_action_works_the_real_board_past_a_staged_report(terminal):
     ready(terminal, 'frame')
     terminal.execute_command('qual take frame')
     _, practical = staged(terminal)
+    terminal.execute_command(f'mlt {practical.number}')
     terminal.desk.receive(terminal.clock.now(), fault='OPEN')
     # With a practical up, handing it in is the one thing worth doing; once
     # it is in, a customer's report is what the board wants. Which one is

@@ -168,7 +168,8 @@ TEST CALLS
 DIFFICULTY
      set game.difficulty fun
          Fun Simulation. Loop testing names the fault it reads for the
-         first four sightings of each kind, a report may be closed without measuring, a wrong call costs little,
+         first two sightings of each kind, a report may be closed without
+         measuring, a wrong call costs little,
          commitments are not counted, and qualification comes quickly.
 
      set game.difficulty craft

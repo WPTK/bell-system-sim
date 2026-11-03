@@ -78,9 +78,9 @@ report dispatch 1 outside       send somebody
 report close 1 5 SHORT          close it out
 ```
 
-`mlt` names the fault and the crew on the forgiving difficulty for the
-first four times you meet each kind of trouble, and then prints the
-numbers — you do not need to know any telephony to start. Three things
+On the forgiving difficulty `mlt` names the fault for the first two times
+you meet each kind of trouble, names only the crew for the next two, and
+then prints the numbers — you do not need to know any telephony to start. Three things
 exist for when you are stuck:
 
 - **`help`** — opens on *what to do now*, worked out from your actual board
@@ -139,10 +139,11 @@ set game.difficulty craft    I Hate Myself
 ```
 
 **Fun Simulation** is forgiving. Loop testing names the fault it reads for
-the first four sightings of each kind of trouble (`set assist.annotate on`
-keeps it doing so), you may close a report you never measured, a wrong call costs you little,
-commitments are not counted against you, and a sign-off is offered every 3
-correct closures.
+the first two sightings of each kind of trouble and the crew class for the
+next two, and the field crew stops naming what it cleared at the same point
+(`set assist.annotate on` keeps the notes). You may close a report you never
+measured, a wrong call costs you little, commitments are not counted against
+you, and a sign-off is offered every 3 correct closures.
 
 **I Hate Myself** is close to the job. Loop testing prints the numbers and
 nothing else, because reading them is the work. A report cannot be closed

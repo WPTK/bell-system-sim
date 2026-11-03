@@ -12,7 +12,23 @@ from typing import (
 )
 
 
+from ..data.practices import TOPIC_MIN, about, search as search_sheets
 from .session import SessionState
+
+# The library's procedures, which a search can list. The sheets under
+# /usr/bsp are searched alongside them.
+BSP_PROCEDURES = (
+    ('200-455-100', '3A Central Control Maintenance'),
+    ('200-455-200', '3A System Administration'),
+    ('200-455-300', '3A Trouble Analysis'),
+    ('200-455-400', '3A Performance Monitoring'),
+    ('300-125-001', 'TH-3 Microwave Alignment'),
+    ('300-125-100', 'Radio Path Analysis'),
+    ('300-125-200', 'Fade Margin Calculations'),
+    ('400-200-001', 'TNDS Data Collection'),
+    ('400-200-100', 'Traffic Analysis Procedures'),
+    ('400-200-200', 'Network Performance Reports'),
+)
 
 
 class DocumentCommands(SessionState):
@@ -27,6 +43,33 @@ implementations, which is exactly what happened once.
     Mixed into :class:`~bell_system.terminal.BellSystemTerminal`,
     which owns the session state these read.
     """
+
+    @staticmethod
+    def _bsp_search(topic: str) -> str:
+        """List the procedures and /usr/bsp sheets that are about a topic."""
+        if len(topic.strip()) < TOPIC_MIN:
+            return (f"bsp: give a topic of at least {TOPIC_MIN} characters, "
+                    f"as in 'bsp search loop'.")
+        procedures = [(number, title) for number, title in BSP_PROCEDURES
+                      if about(topic, f"{number} {title}")]
+        sheets = search_sheets(topic)
+        lines = [f'BSP Search Results: "{topic}"', '']
+        if not procedures and not sheets:
+            lines.append("No procedures match. 'bsp index' lists the sections.")
+            return '\n'.join(lines)
+        if procedures:
+            lines.append("Matching Procedures:")
+            lines.extend(f"  BSP {number}     {title}"
+                         for number, title in procedures)
+            lines.append('')
+        if sheets:
+            lines.append("Matching Practice sheets (cat /usr/bsp/<sheet>):")
+            lines.extend(f"  {sheet.number}     {sheet.title}"
+                         for sheet in sheets)
+            lines.append('')
+        if procedures:
+            lines.append("Use 'bsp section <number>' for detailed procedures")
+        return '\n'.join(lines).rstrip()
 
     def cmd_bsp(self, args: List[str]) -> str:
         """Bell System Practices - Standard Operating Procedures"""
@@ -52,24 +95,7 @@ Most Referenced:
   BSP 400-000         Network Operations"""
 
         if args[0] == "search" and len(args) > 1:
-            topic = " ".join(args[1:]).lower()
-            return f"""BSP Search Results: "{topic}"
-
-Matching Procedures:
-  BSP 200-455-100     3A Central Control Maintenance
-  BSP 200-455-200     3A System Administration
-  BSP 200-455-300     3A Trouble Analysis
-  BSP 200-455-400     3A Performance Monitoring
-
-  BSP 300-125-001     TH-3 Microwave Alignment
-  BSP 300-125-100     Radio Path Analysis
-  BSP 300-125-200     Fade Margin Calculations
-
-  BSP 400-200-001     TNDS Data Collection
-  BSP 400-200-100     Traffic Analysis Procedures
-  BSP 400-200-200     Network Performance Reports
-
-Use 'bsp section <number>' for detailed procedures"""
+            return self._bsp_search(" ".join(args[1:]).lower())
 
         elif args[0] == "section" and len(args) > 1:
             section = args[1]

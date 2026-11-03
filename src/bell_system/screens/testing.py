@@ -40,8 +40,7 @@ from ..data.signaling import (
     mf_sequence,
     mf_train_duration_ms,
 )
-
-
+from ..verbs import MLT_TAG
 from .session import SessionState
 
 
@@ -237,6 +236,9 @@ All switching functions normal.
 
         report = self.desk.find(args[0])
         if report is None:
+            stale = self.desk.stale_position(args[0])
+            if stale:
+                return stale
             return (f"mlt: no line record for '{args[0]}'.\n"
                     "Mechanised loop testing works from the loop assignment "
                     "record; a\nnumber with no record on this board cannot be "
@@ -304,7 +306,7 @@ All switching functions normal.
             lines.append("  Match the reading against 'report faults'.")
 
         loop_note = f"{loop_ohms:,} ohms" if loop_ohms is not None else 'open'
-        note = (f"{self.clock.time()} MLT: insulation T-R "
+        note = (f"{self.clock.time()}{MLT_TAG}insulation T-R "
                 f"{measurement.tip_ring_ohms:,}, "
                 f"T-G {measurement.tip_ground_ohms:,}, "
                 f"R-G {measurement.ring_ground_ohms:,}; "
