@@ -54,6 +54,7 @@ from .jsonfile import read_json, write_text_atomically
 from .reports import (
     CONTROLS, STATUS_CLOSED, LineRecord, ReportDesk, TroubleReport,
 )
+from .types import TICKET_KEYS
 
 # Bumped whenever the shape below changes in a way that makes an older file
 # wrong rather than merely incomplete. An unrecognised version is discarded,
@@ -122,9 +123,6 @@ def _record_in(stored: Dict[str, Any]) -> LineRecord:
 # Written as text and read back as datetimes; everything else on a ticket is
 # plain. A ticket that will not read back is not guessed at.
 _TICKET_STAMPS = ('created_time', 'resolution_time')
-_TICKET_FIELDS = ('id', 'category', 'priority', 'title', 'affected_office',
-                  'customer_impact', 'status', 'assigned_team',
-                  'created_time', 'escalation_level', 'resolution_steps')
 
 
 def _ticket_out(ticket: Dict[str, Any]) -> Dict[str, Any]:
@@ -142,7 +140,10 @@ def _ticket_in(stored: Any) -> Dict[str, Any]:
     if not isinstance(stored, dict):
         raise TypeError('ticket')
     ticket = dict(stored)
-    for key in _TICKET_FIELDS:
+    # Every key a ticket is made with (TICKET_KEYS, read off the type): the
+    # displays read them all, and a save missing one loads and then crashes
+    # the first screen that does.
+    for key in TICKET_KEYS:
         ticket[key]
     for key in _TICKET_STAMPS:
         if key in ticket:

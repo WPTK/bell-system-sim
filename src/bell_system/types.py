@@ -111,13 +111,8 @@ class Alarm(TypedDict, total=False):
     acknowledged: bool
 
 
-class TroubleTicket(TypedDict, total=False):
-    """
-    A trouble ticket and everything recorded against it.
-
-    ``resolution_time`` and ``actual_duration`` are set only once the ticket
-    is resolved, so the shape is not total.
-    """
+class _TicketKeys(TypedDict):
+    """The keys every ticket carries from the moment it is made."""
 
     id: str
     category: str
@@ -139,8 +134,24 @@ class TroubleTicket(TypedDict, total=False):
     geographic_scope: str
     business_impact: Dict[str, Any]
     resolution_steps: List[str]
+
+
+class TroubleTicket(_TicketKeys, total=False):
+    """
+    A trouble ticket and everything recorded against it.
+
+    ``resolution_time`` and ``actual_duration`` are set only once the ticket
+    is resolved. Every other key is in ``_TicketKeys``, which is also what
+    a save is checked against (``TICKET_KEYS``).
+    """
+
     resolution_time: datetime
     actual_duration: int
+
+
+# The keys a ticket cannot be without, read off the class above so that the
+# save file's check and the type are one list.
+TICKET_KEYS = tuple(_TicketKeys.__annotations__)
 
 
 class CentralOffice(TypedDict):

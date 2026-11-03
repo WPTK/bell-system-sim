@@ -1384,7 +1384,8 @@ OPTIONS
      assign ID TEAM       Assign a ticket to a repair team
      update ID STATUS     Change ticket status
      escalate ID          Raise escalation level and notify management
-     resolve ID           Close a ticket and record resolution
+     resolve ID           Close a ticket and record resolution (the NOC
+                          refuses one nobody has taken)
      create CAT PRI DESC  Open a ticket from craft-reported trouble
      geographic           Ticket distribution by region
      priority             Priority breakdown and trend analysis
