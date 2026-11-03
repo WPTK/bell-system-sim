@@ -32,7 +32,7 @@ INSTALLATION
 
 OPTIONS
      --role N     Start at position N (1-12) and skip the selection menu.
-     --simple     Use the simplified four-role interface.
+     --simple     Run a plain Unix V7 sandbox (shell only).
      --version    Print the version and exit.
 
 USAGE

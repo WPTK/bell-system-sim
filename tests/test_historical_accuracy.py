@@ -178,6 +178,15 @@ class TestTsps:
     def test_documented_functions_are_present(self, terminal, function):
         assert function in self._tsps_state(terminal)
 
+    def test_status_prints_the_panel_in_a_fresh_career(self, raw_terminal):
+        """
+        tsps(1), the position profile and the records screen all run
+        `tsps status`; it once answered with an unknown-option error.
+        """
+        result = raw_terminal.execute_command('tsps status')
+        assert 'Unknown option' not in result
+        assert 'CURRENT OPERATIONS STATUS' in result
+
     def test_screen_explains_the_directory_assistance_absence(self, terminal):
         result = terminal.execute_command('tsps')
         assert '411' in result
