@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from bell_system.data.consequences import Late
 from bell_system.data.testlines import LIMITS, TEST_LINES, TEST_LINE_ORDER
 from bell_system.data.trouble import (
     DISPATCH_FORCES,
@@ -622,7 +623,8 @@ class TestAmbience:
     def test_a_held_message_lands_a_few_commands_later(self, terminal):
         terminal.settings.set('game.ambience', 'on')
         message = terminal.switchroom.chase(
-            terminal.clock.now(), 'TR-00001', '201-555-0100')
+            terminal.clock.now(),
+            Late('TR-00001', '201-555-0100', '1FR', False, '08:30'))
         terminal._queue_message(message, after=2)
         first = terminal.execute_command('pwd')
         assert 'TR-00001' not in first

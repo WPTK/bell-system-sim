@@ -25,6 +25,8 @@ import random
 from datetime import datetime
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
+from .data import consequences
+from .data.consequences import Late
 from .data.tours import EARLY, LAST, LATE, MIDDLE, Window, heard_on
 
 # How the audit at the end of the last tour came out (screens/turnover.py).
@@ -459,9 +461,110 @@ _SIGN_OFF_REMARKS: Dict[int, Tuple[str, ...]] = {
 }
 
 
-# The story, said once each. The arcs for Sandoval, Alvarez and Reyes are
-# the simulation's own and sit here (see narrative-bible.md sections 4 and 5).
-ARC_BEATS: Tuple[ArcBeat, ...] = ()
+# The story, said once each, in the order they are due. The simulation's own;
+# the people and what is known of them are narrative-bible.md sections 4 and
+# 5, and each beat keeps to its speaker's profile there. Two lines at most,
+# nothing the player must answer, and no beat explains what the machine
+# keeps for the player to find (T2 and T3 stay open).
+ARC_BEATS: Tuple[ArcBeat, ...] = (
+    # Alvarez has no login and no terminal, so is spoken of, not heard.
+    ArcBeat('alvarez.1', CHANNEL_MAIL, 'ehalloran', (2, 4), (
+        'The position had somebody on it before you. R. Alvarez.',
+        'testlog.c in /usr/src/cmd is theirs. The log it writes is yours now.',
+    )),
+    ArcBeat('sandoval.1', CHANNEL_ORDERWIRE, 'jsandoval', (4, 7), (
+        'Field to test desk. Small-count aerial on Grand is spliced and tested.',
+        'If you have more of that size, send them to me.',
+    )),
+    ArcBeat('reyes.1', CHANNEL_WRITE, 'mreyes', (5, 8), (
+        '{number} on {tel}, closed {time}. They want it opened again.',
+        'I can only give them a new number. Is there another way?',
+    )),
+    ArcBeat('sandoval.2', CHANNEL_ORDERWIRE, 'jsandoval', (8, 10), (
+        'Field to test desk. The memo says my employment continues.',
+        'I have read it twice. I looked for which company it means.',
+    )),
+    ArcBeat('reyes.2', CHANNEL_WRITE, 'mreyes', (9, 11), (
+        '{number} on {tel}, closed {time}. They ask who has it in February.',
+        'I told them the card goes with the line. Is that right?',
+    )),
+    ArcBeat('alvarez.2', CHANNEL_WRITE, 'ehalloran', (10, 12), (
+        'Alvarez rang this morning to ask how the position was going.',
+        'I said it was being worked. That was the whole call.',
+    )),
+    ArcBeat('sandoval.3', CHANNEL_ORDERWIRE, 'jsandoval', (12, 13), (
+        'Field to test desk. Okafor is not on tonight. I have the Franklin '
+        'sheath.',
+        'It is a big count and I will be slow on it. I will do it.',
+    )),
+)
+
+
+# -- rapport -----------------------------------------------------------------
+#
+# Goodwill with the people who work for you, 0 to 5, kept in the career by
+# login. The simulation's own. A report closed right earns the person who
+# worked it a point; closed wrong, they lose one; either happens once per
+# person per tour. Nothing is spent and nothing is shown: at the threshold
+# one of them does you one good turn, once, and that is the whole of it.
+
+RAPPORT_MAX = 5
+FAVOUR_AT = 3
+
+# What each of them says when the favour comes. {number} is the report whose
+# commitment moves, {until} its new time. All of them are an hour.
+FAVOURS: Dict[str, Tuple[str, ...]] = {
+    'mreyes': ('I rang them and asked for another hour. They gave it.',
+               '{number} is due {until}.'),
+    'lokafor': ('Rang the customer from the box. They will wait an hour.',
+                '{number}, due {until}. It is mine.'),
+    'jsandoval': ('I told the customer an hour more.',
+                  '{number}, due {until}.'),
+    'wfinch': ('I was at the door. They will give you another hour.',
+               '{number} is due {until}. They always wait.'),
+    'rjohnson': ('Held the other work on the frame an hour.',
+                 '{number} is due {until}.'),
+    'abright': ('Told the customer from the pole. An hour.',
+                '{number}, due {until}.'),
+    'tnakamura': ('Sixty minutes added against {number}. It is now due '
+                  '{until}.',),
+}
+
+FAVOUR_MINUTES = 60
+
+
+def rapport_with(crew: Optional[str]) -> str:
+    """Who a report's close is owed to: the crew that went, else the bureau."""
+    for login, person in CRAFT.items():
+        if crew and person.name == crew and login in FAVOURS:
+            return login
+    return 'mreyes'
+
+
+def adjust_rapport(rapport: Dict[str, int], ledger: List[str], login: str,
+                   tour: int, step: int) -> bool:
+    """
+    Move one person's rapport by a step, if they have not moved this tour.
+
+    Clamped 0 to RAPPORT_MAX. A gain and a loss are each allowed once per
+    person per tour, and the ledger (the career's ``beats_seen``) is what
+    remembers it across a save. Returns whether anything was recorded.
+    """
+    key = f'rapport{"+" if step > 0 else "-"}:{login}:{tour}'
+    if key in ledger:
+        return False
+    ledger.append(key)
+    rapport[login] = max(0, min(RAPPORT_MAX, rapport.get(login, 0) + step))
+    return True
+
+
+def favour_due(rapport: Dict[str, int], ledger: List[str]) -> Optional[str]:
+    """The first person at the threshold who has not yet done their favour."""
+    for login in FAVOURS:
+        if (rapport.get(login, 0) >= FAVOUR_AT
+                and f'favour:{login}' not in ledger):
+            return login
+    return None
 
 
 class Switchroom:
@@ -486,6 +589,10 @@ class Switchroom:
         self._recent: List[tuple] = []
         # Reports the board has already been chased over, once each.
         self._chased: set = set()
+        # Closed reports whose people have been settled, and those that
+        # have already had their one chance of a call-back.
+        self.settled: set = set()
+        self._rang: set = set()
 
     # -- construction ----------------------------------------------------
 
@@ -557,8 +664,9 @@ class Switchroom:
 
     def next_message(self, now: datetime, tour: int,
                      position: Optional[str] = None,
-                     overdue: Sequence[Tuple[str, str]] = (),
-                     seen: Sequence[str] = ()) -> Optional[Message]:
+                     overdue: Sequence[Late] = (),
+                     seen: Sequence[str] = (),
+                     recall: Optional[Late] = None) -> Optional[Message]:
         """
         Whatever one of the other craft would say next, in a fixed order.
 
@@ -572,11 +680,13 @@ class Switchroom:
             now: When it is said
             tour: Which tour of the career, 1-13
             position: The desk, for the chatter only that desk hears
-            overdue: (report number, telephone number) of reports past
-                their commitment
+            overdue: The reports past their commitment
             seen: Keys of beats already said, from the career
+            recall: A report to speak of, for the beats that are about one;
+                its ``committed`` is the time to give. Without one those
+                beats wait, since Reyes does not speak without a report.
         """
-        beat = self._arc_beat(now, tour, seen)
+        beat = self._arc_beat(now, tour, seen, recall)
         if beat is not None:
             return beat
         board = self._board_driven(now, overdue)
@@ -584,26 +694,34 @@ class Switchroom:
             return board
         return self.chatter(now, position=position, tour=tour)
 
-    def _arc_beat(self, now: datetime, tour: int,
-                  seen: Sequence[str]) -> Optional[Message]:
+    def _arc_beat(self, now: datetime, tour: int, seen: Sequence[str],
+                  recall: Optional[Late] = None) -> Optional[Message]:
         """The first arc beat that fits this tour and has not been said."""
         for beat in self.arcs:
             if beat.key in seen or not heard_on(beat.window, tour):
                 continue
+            about = '{number}' in ''.join(beat.lines)
+            if about and recall is None:
+                continue
+            lines = [line.format(
+                number=recall.number if recall else '',
+                tel=recall.telephone if recall else '',
+                time=recall.committed if recall else '') for line in beat.lines]
             return self._deliver(Message(
                 channel=beat.channel, sender=beat.sender, received=now,
-                lines=list(beat.lines), kind='beat',
-                subject=beat.lines[0][:40], about=None, beat=beat.key,
+                lines=lines, kind='beat', subject=lines[0][:40],
+                about=recall.number if about and recall else None,
+                beat=beat.key,
             ))
         return None
 
     def _board_driven(self, now: datetime,
-                      overdue: Sequence[Tuple[str, str]]) -> Optional[Message]:
+                      overdue: Sequence[Late]) -> Optional[Message]:
         """Someone asking after a late report they have not yet asked after."""
-        for number, telephone in overdue:
-            if number not in self._chased:
-                self._chased.add(number)
-                return self.chase(now, number, telephone)
+        for late in overdue:
+            if late.number not in self._chased:
+                self._chased.add(late.number)
+                return self.chase(now, late)
         return None
 
     def advice(self, now: datetime, sender: str, lines: List[str],
@@ -829,25 +947,32 @@ class Switchroom:
             kind='event', subject=f'{event_id} {title[:30]}', about=event_id,
         ))
 
-    def chase(self, now: datetime, report_number: str,
-              telephone_number: str) -> Message:
-        """Ask, once, about a report that has passed its commitment."""
-        sender = self.rng.choice(('mreyes', 'ehalloran'))
-        if sender == 'ehalloran':
+    def chase(self, now: datetime, late: Late) -> Message:
+        """
+        Ask, once, about a report that has passed its commitment.
+
+        A customer with no telephone reaches the attendant, and she says
+        what they said. A customer who still has service reaches nobody:
+        the question is the wire chief's, and it is about the index.
+        """
+        if late.out_of_service:
+            sender = 'mreyes'
             lines = [
-                f'{report_number} is past commitment.',
-                'I would like it either cleared or dispatched before the',
-                'index run tonight.',
+                f'{late.number} on {late.telephone} was due {late.committed} '
+                f'and has gone. What do I tell them?',
+                consequences.overdue(late.class_of_service),
             ]
         else:
+            sender = 'ehalloran'
             lines = [
-                f'Customer on {telephone_number} called back.',
-                f'That is {report_number}. What do I tell them?',
+                f'{late.number} is past commitment.',
+                'I would like it cleared or dispatched before the index run '
+                'tonight.',
             ]
         return self._deliver(Message(
             channel=CHANNEL_WRITE, sender=sender, received=now, lines=lines,
-            kind='chase', subject=f'{report_number} past commitment',
-            about=report_number,
+            kind='chase', subject=f'{late.number} past commitment',
+            about=late.number,
         ))
 
     def overdue_notice(self, now: datetime, report_number: str,
@@ -869,17 +994,79 @@ class Switchroom:
             about=report_number,
         ))
 
+    @staticmethod
+    def _repeat_lines(report_number: str, original: str,
+                      telephone_number: str, class_of_service: str,
+                      committed: str) -> List[str]:
+        """The customer's second call: the report, then their words."""
+        due = f' Due {committed}.' if committed else ''
+        return [
+            f'{report_number} is back on {telephone_number}, a repeat of '
+            f'your {original} close.{due}',
+            consequences.second_call(class_of_service),
+        ]
+
     def repeat_notice(self, now: datetime, report_number: str,
-                      original: str, telephone_number: str) -> Message:
-        """Tell you a report you closed has come back."""
+                      original: str, telephone_number: str,
+                      class_of_service: str = '',
+                      committed: str = '') -> Message:
+        """Tell you a report you closed has come back, and who rang."""
+        return self._deliver(Message(
+            channel=CHANNEL_WRITE, sender='mreyes', received=now,
+            lines=self._repeat_lines(report_number, original,
+                                     telephone_number, class_of_service,
+                                     committed),
+            kind='repeat', subject=f'{report_number} repeat report',
+            about=report_number,
+        ))
+
+    def with_class(self, message: Message, original: str,
+                   telephone_number: str, class_of_service: str,
+                   committed: str) -> Message:
+        """
+        Say a repeat again with what the caller of it did not have to hand.
+
+        The bureau files the notice when the report comes back and knows the
+        number and the code; the class of service and the new commitment are
+        on the report. The earlier entry in the log is replaced, not added to.
+        """
+        assert message.about is not None
+        again = message._replace(lines=self._repeat_lines(
+            message.about, original, telephone_number, class_of_service,
+            committed))
+        if message in self.log:
+            self.log[self.log.index(message)] = again
+        return again
+
+    def call_back(self, now: datetime, report_number: str,
+                  telephone_number: str, class_of_service: str,
+                  closed: str) -> Message:
+        """A customer ringing the bureau to say a close held."""
         return self._deliver(Message(
             channel=CHANNEL_WRITE, sender='mreyes', received=now,
             lines=[
-                f'{telephone_number} is back.',
-                f'You closed it as {original}. It is {report_number} now, and',
-                'it counts as a repeat.',
+                f'{report_number} on {telephone_number}, closed {closed}.',
+                consequences.call_back(class_of_service),
             ],
-            kind='repeat', subject=f'{report_number} repeat report',
+            kind='callback', subject=f'{report_number} call-back',
+            about=report_number,
+        ))
+
+    def rings_back(self, report_number: str) -> bool:
+        """Whether this clean close draws a call. Decided once per report."""
+        if report_number in self._rang:
+            return False
+        self._rang.add(report_number)
+        return self.rng.random() < consequences.CALL_BACK_CHANCE
+
+    def favour(self, now: datetime, login: str, report_number: str,
+               until: str) -> Message:
+        """Somebody who owes you nothing doing you a good turn, once."""
+        lines = [line.format(number=report_number, until=until)
+                 for line in FAVOURS[login]]
+        return self._deliver(Message(
+            channel=CHANNEL_WRITE, sender=login, received=now, lines=lines,
+            kind='favour', subject=f'{report_number} favour',
             about=report_number,
         ))
 

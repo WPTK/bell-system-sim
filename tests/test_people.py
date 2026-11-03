@@ -12,10 +12,12 @@ import pytest
 
 from bell_system import npc
 from bell_system.data import tours
+from bell_system.data.consequences import Late
 from bell_system.npc import ArcBeat, Switchroom
 from bell_system.progression import QUALIFICATIONS
 
 NOW = datetime(1983, 11, 14, 9, 0)
+LATE = Late('TR-00001', '201-555-0100', '1FR', False, '08:30')
 
 
 def pool_with_windows():
@@ -126,7 +128,7 @@ class TestTheOrderOfSaying:
 
     def test_a_beat_that_is_due_beats_the_board_too(self):
         message = self.room().next_message(
-            NOW, 6, overdue=[('TR-00001', '201-555-0100')])
+            NOW, 6, overdue=[LATE])
         assert message.beat == 'test.one'
 
     def test_a_beat_is_not_said_outside_its_tours(self):
@@ -140,13 +142,13 @@ class TestTheOrderOfSaying:
 
     def test_the_board_comes_before_the_building(self):
         message = Switchroom(random.Random(1), arcs=()).next_message(
-            NOW, 6, overdue=[('TR-00001', '201-555-0100')])
+            NOW, 6, overdue=[LATE])
         assert message.kind == 'chase'
         assert message.about == 'TR-00001'
 
     def test_a_late_report_is_asked_after_once(self):
         room = Switchroom(random.Random(1), arcs=())
-        late = [('TR-00001', '201-555-0100')]
+        late = [LATE]
         assert room.next_message(NOW, 6, overdue=late).kind == 'chase'
         again = room.next_message(NOW, 6, overdue=late)
         assert again is None or again.kind == 'chatter'

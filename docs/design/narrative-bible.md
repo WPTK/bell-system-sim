@@ -95,6 +95,8 @@ normalised to one line.
 - **Never:** blames a person; guesses a cause out loud (`custserv` notes: "The one thing you are not allowed to do is guess out loud.").
 - **Sample:** "I told them a time and it has gone. What do I tell them now?" (`npc.py` `overdue_notice`)
 - **Open:** the 03:47 su (section 5, T2).
+- **Consequences (Provisional, phase 6b, C17):** the customer's words come through her, one line by class of service, in three places: a report past its commitment with the line out of service, the second call on a repeat, and (a quarter of clean closes) a call to say it held. `data/consequences.py`. Each message keeps to her profile: report, number, time, a question.
+- **Arc (Provisional, phase 6b, A6):** `reyes.1` (tours 5-8) and `reyes.2` (tours 9-11) are about a closed report: she cannot reopen it and asks if there is another way; a customer asks who will have the card in February. They wait for a report to speak of. Neither explains T2.
 
 ### Johnson, R.: switching equipment technician  (`rjohnson`, CENTRAL_OFF, tty02)
 
@@ -120,6 +122,7 @@ normalised to one line.
 - **Never:** complains about the weather or a crew; jokes.
 - **Sample:** "It is because there is less and less of this job that needs a person standing in front of it, and the company now knows that, and so do we." (`filesystem.py` NEWS_MISC_88)
 - **Open:** section 5, T3.
+- **Arc (Provisional, phase 6b, A6):** three orderwire notes to the test desk, never more than three lines. `sandoval.1` (tours 4-7): small-count aerial spliced and tested, send more of that size. `sandoval.2` (tours 8-10): the memo says his employment continues; he looked for which company it means. `sandoval.3` (tours 12-13): Okafor is not on tonight, he has the Franklin sheath, will be slow, will do it. No beat names the strike or the move from `mhuxt`.
 
 ### Alvarez, R.: the predecessor, sysop position, "tour 2"  (no login, no tty)
 
@@ -128,6 +131,7 @@ normalised to one line.
 - **Does:** hands down practical advice in the first person, confesses a mistake to be useful, and signs off without a flourish. Slightly tired. Writes for whoever "has this position next".
 - **Never:** addresses the player by name or by sign-off; is angry at anyone.
 - **Sample:** "I sent four separate crews to Franklin Street last month. Do not be me." (`data/homes.py`)
+- **Arc (Provisional, phase 6b, A6):** has no voice of their own; Halloran speaks of them. `alvarez.1` (tours 2-4, mail): the position had somebody before you, `testlog.c` is theirs. `alvarez.2` (tours 10-12, write): Alvarez rang to ask how the position was going; Halloran said it was being worked. No pronouns in either.
 
 ### Petrak, D.: SCC maintenance administrator  (`dpetrak`, SCC_BEDMINSTER, tty03)
 
@@ -234,7 +238,7 @@ text is that it contradicts none of these.
 **Shown now (Established):** the second splicer, newer than Okafor, slower on a big sheath, who "says less" and whom the wire chief "has noticed and has not decided about" (`npc.py`, `field.py`); the author of a netnews post on the August strike from `mhuxt`; Okafor tells the player to "give it to Sandoval".
 
 **True answer (Provisional):** Sandoval came over from the neighbouring wire centre (`mhuxt`) in the autumn when its splicing force was cut. Sandoval was out in the August strike and thinks the memo's "your employment continues" is a promise from a company that will not exist. Halloran has not decided about Sandoval because Halloran does not know either. Sandoval is good on small-count aerial and drop work and slow on a big sheath because that is what he came from; on tour 12 or 13, when Okafor is out, Sandoval takes the sheath job nobody else will, and the player can learn why by ending up in the same room.
-**Pays off:** phase 6, row A6 (rapport, arcs for Sandoval); the last line in phase 10 (C23).
+**Pays off:** phase 6b, row A6 (rapport, `sandoval.1` to `.3` in `npc.py` `ARC_BEATS`; the Franklin sheath beat is `sandoval.3`); the last line in phase 10 (C23).
 **Period facts:** the 1983 strike and its terms [sourced, `SOURCES.md` `net.misc/88`]; Sandoval's history is [own].
 
 ### T4. The January memo

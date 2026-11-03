@@ -3,6 +3,7 @@ The working shift: its clock, its events, and the other craft on the wire.
 """
 from ..constants import BELL_SYSTEM_ROLES, SHIFT_LENGTH_MINUTES
 import random
+from datetime import timedelta
 from collections import (
     deque,
 )
@@ -14,10 +15,15 @@ from typing import (
     Optional,
 )
 from ..data import tours
+from ..data.consequences import Late
 from ..data.tours import Tour
 from ..npc import (
     CRAFT,
+    FAVOUR_MINUTES,
     Message,
+    adjust_rapport,
+    favour_due,
+    rapport_with,
     render as render_message,
 )
 from ..progression import (
@@ -366,7 +372,22 @@ class ShiftCommands(SessionState):
         """Return a timestamp in the form the messaging channels carried."""
         return self.clock.log_stamp()
     def _queue_message(self, message, after: int) -> None:
-        """Hold a message back so it lands a few commands from now."""
+        """
+        Hold a message back so it lands a few commands from now.
+
+        A repeat is filed by the bureau with the code it was closed under and
+        nothing of the customer; the class of service and the new commitment
+        are on the report, and the customer's second call is made from them.
+        """
+        if message.kind == 'repeat' and message.about:
+            report = self.desk.find(message.about)
+            original = self.desk.find(report.repeat_of or '') if report else None
+            if report and original:
+                message = self.switchroom.with_class(
+                    message, f'code {original.disposition}',
+                    report.record.telephone_number,
+                    report.record.class_of_service,
+                    report.commitment.strftime('%H:%M'))
         self._queued_messages.append([after, message])
     def _drain_queue(self) -> List[str]:
         """Return any held messages that are now due."""
@@ -411,6 +432,8 @@ class ShiftCommands(SessionState):
         # it is a tutorial with the lights off.
         if self.first_tour():
             return '\n'.join(self.at_due() + ([] if quiet else pieces))
+
+        pieces.extend(self._settle_people(quiet))
 
         # The switching control centre puts a ticket on you now and then.
         # These are the tickets the trouble system already carries; being
@@ -487,15 +510,73 @@ class ShiftCommands(SessionState):
         report past its commitment, then the building. Nobody offers
         advice unasked; that is hint(1).
         """
-        overdue = [(report.number, report.record.telephone_number)
-                   for report in self.desk.pending() if report.overdue()]
+        overdue = [
+            Late(report.number, report.record.telephone_number,
+                 report.record.class_of_service, report.out_of_service,
+                 report.commitment.strftime('%H:%M'))
+            for report in self.desk.pending() if report.overdue()]
         message = self.switchroom.next_message(
             self.clock.now(), self.career.shift, position=self.role,
-            overdue=overdue, seen=self.career.beats_seen)
+            overdue=overdue, seen=self.career.beats_seen,
+            recall=self._last_closed())
         if message is not None and message.beat:
             self.career.beats_seen.append(message.beat)
             self.career.save()
         return message
+
+    def _last_closed(self):
+        """The report most recently closed, for a person who speaks of it."""
+        done = [r for r in self.desk.closed() if not r.practical and r.closed_at]
+        if not done:
+            return None
+        report = done[0]
+        return Late(report.number, report.record.telephone_number,
+                    report.record.class_of_service, False,
+                    report.closed_at.strftime('%H:%M'))
+
+    def _settle_people(self, quiet: bool) -> List[str]:
+        """
+        What the day's closed work does to how the crews feel about you.
+
+        Each report closed since the last call moves its crew's rapport one
+        step, up when the code was right and down when it was not, once per
+        person per tour. A correct one may bring a call back to the board
+        later. At the threshold one person does a favour, once.
+        """
+        room = self.switchroom
+        tour = self.career.shift
+        spoken: List[str] = []
+        changed = False
+        for report in self.desk.closed():
+            if report.number in room.settled or report.practical:
+                continue
+            room.settled.add(report.number)
+            changed |= adjust_rapport(
+                self.career.rapport, self.career.beats_seen,
+                rapport_with(report.crew), tour, 1 if report.correct else -1)
+            if report.correct and not quiet and room.rings_back(report.number):
+                closed = (report.closed_at.strftime('%H:%M')
+                          if report.closed_at else '')
+                self._queue_message(room.call_back(
+                    self.clock.now(), report.number,
+                    report.record.telephone_number,
+                    report.record.class_of_service, closed),
+                    after=room.rng.randint(2, 5))
+        if not quiet:
+            login = favour_due(self.career.rapport, self.career.beats_seen)
+            waiting = sorted((r for r in self.desk.customers()
+                              if not r.overdue()), key=lambda r: r.commitment)
+            if login and waiting:
+                target = waiting[0]
+                target.commitment += timedelta(minutes=FAVOUR_MINUTES)
+                self.career.beats_seen.append(f'favour:{login}')
+                changed = True
+                spoken.append(render_message(room.favour(
+                    self.clock.now(), login, target.number,
+                    target.commitment.strftime('%H:%M')), self._stamp()))
+        if changed:
+            self.career.save()
+        return spoken
 
     def _advance_shift(self) -> List[str]:
         """
