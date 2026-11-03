@@ -14,6 +14,7 @@ import pytest
 
 from bell_system import npc
 from bell_system.data import consequences
+from bell_system.field import CREWS
 from bell_system.data.consequences import Late
 from bell_system.npc import (
     ARC_BEATS, CRAFT, FAVOUR_AT, FAVOUR_MINUTES, FAVOURS, RAPPORT_MAX,
@@ -298,6 +299,18 @@ class TestOnTheShift:
         self.close(shift, report, True, CRAFT['lokafor'].name)
         shift._settle_people(quiet=True)
         assert shift.career.rapport['lokafor'] == 1
+
+    def test_a_central_office_close_builds_johnsons_rapport_and_nobodys_else(
+            self, shift):
+        crew = next(c for c in CREWS if c.force == 'Central office')
+        report = shift.desk.customers()[0]
+        self.close(shift, report, True, crew.name)
+        shift._settle_people(quiet=True)
+        assert shift.career.rapport == {'rjohnson': 1}
+
+    def test_every_crew_on_the_force_is_owed_its_own_closes(self):
+        for crew in CREWS:
+            assert CRAFT[rapport_with(crew.name)].name == crew.name
 
     def test_a_wrong_close_costs_them(self, shift):
         shift.career.rapport['lokafor'] = 2

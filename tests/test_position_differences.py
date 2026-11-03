@@ -1968,7 +1968,7 @@ class TestTheRepairDeskCostsTheIndex:
         terminal._pass_time(500)
         terminal.ring_sweep()
         assert terminal.career.missed_commitments == before + 1
-        assert terminal.patience(down)[0] == 3
+        assert terminal.patience(down)[0] == 0  # given up, not ringing
 
     def test_a_clock_skipping_straight_to_three_still_costs_once(
             self, at_desk):
@@ -2178,7 +2178,7 @@ class TestTheRepairDeskBookIsHonest:
         before = terminal.career.missed_commitments
         terminal._pass_time(65)
         terminal.ring_sweep()
-        assert terminal.patience(down)[0] == 3
+        assert terminal.patience(down)[0] == 0  # given up, not ringing
         assert not down.overdue()
         assert terminal.career.missed_commitments == before + 1
         assert down.missed_commitment
@@ -2196,7 +2196,7 @@ class TestTheRepairDeskBookIsHonest:
         terminal._pass_time(1)
         assert terminal.career.missed_commitments == before + 1
         terminal.ring_sweep()
-        assert terminal.patience(down)[0] == 3
+        assert terminal.patience(down)[0] == 0  # given up, not ringing
         assert ring_messages(terminal)
         assert terminal.career.missed_commitments == before + 1
 
@@ -2218,12 +2218,14 @@ class TestTheRepairDeskBookIsHonest:
     def test_the_countdown_is_gone_after_the_third_ring(self, at_desk):
         terminal = at_desk('custserv')
         gone, calm = hold(terminal, (True, 10_000), (False, 5))
+        terminal.ring_sweep()  # The clock has moved on; they have rung.
         rows = {}
         for line in terminal.execute_command('trouble advise').split('\n'):
             for report in (gone, calm):
                 if line.startswith(report.number):
                     rows[report.number] = line.split()
-        assert rows[gone.number][2:4] == ['3', '-']
+        # Given up: not ringing, so no rings shown and no next one.
+        assert rows[gone.number][2:5] == ['0', 'gave', 'up']
         assert rows[calm.number][3].endswith('m')
 
 
@@ -2792,8 +2794,11 @@ class TestTheNocQueueIsHonest:
         terminal._assigned_tickets.add(given['id'])
         terminal.execute_command(
             f"trouble assign {named['id']} Outside Plant")
-        resolved['status'] = 'RESOLVED'
-        closed['status'] = 'CLOSED'
+        # A resolved ticket leaves the active list, as `trouble resolve`
+        # does it; a status alone never takes one out (see the leftovers).
+        for done, status in ((resolved, 'RESOLVED'), (closed, 'CLOSED')):
+            done['status'] = status
+            terminal.active_tickets.remove(done)
         waiting = [t['id'] for t in terminal.triage_queue()]
         assert waiting == [free['id']]
         terminal.shift_minutes = 500
@@ -3263,3 +3268,168 @@ class TestSartsRepairByRow:
                      if c.status == 'TRBL')
         said = terminal.execute_command(f'sarts repair {first.circuit_id}')
         assert f'SARTS Loop-back - {first.circuit_id}' in said
+
+
+class TestTheLeftoversFromPhaseNine:
+    """Issue 84: the five that the third round left."""
+
+    def test_trouble_update_cannot_take_a_ticket_out_of_the_queue(
+            self, at_desk):
+        terminal = at_desk('noc')
+        tickets = put_tickets(terminal, ('MAJOR', 900), ('MINOR', 100),
+                              ('CRITICAL', 300))
+        for ticket, status in zip(tickets,
+                                  ('CLOSED', 'RESOLVED', 'IN_PROGRESS')):
+            terminal.execute_command(
+                f"trouble update {ticket['id']} {status}")
+        assert len(terminal.triage_queue()) == 3
+        # And so a window still runs on them, with nobody on them.
+        terminal.shift_minutes = 500
+        terminal.career.shift = 2
+        assert terminal.triage_lapsed() == 3
+
+    def test_taking_a_ticket_still_empties_the_queue_of_it(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.execute_command('trouble triage ' + major['id'])
+        assert terminal.triage_queue() == []
+
+    def test_a_customer_who_gave_up_shows_and_costs_no_rings(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        terminal._pass_time(65)
+        terminal.ring_sweep()
+        assert terminal.gave_up(down)
+        terminal.patience_book()['told'][down.number] = down.minutes_spent
+        terminal._pass_time(65)
+        assert terminal.patience(down)[0] == 0
+        assert terminal.patience_queue()[0][1] == 0
+        row = next(line for line in
+                   terminal.execute_command('trouble advise').split('\n')
+                   if line.startswith(down.number))
+        assert row.split()[2:5] == ['0', 'gave', 'up']
+        assert terminal.rings_total() == 3
+        before = terminal.shift_minutes
+        said = terminal.execute_command('trouble advise ' + down.number)
+        assert 'will not ring for' not in said
+        spent = terminal.shift_minutes - before
+        known = terminal._has_reading(down)
+        # The command's own minute on top of the call, and nothing for rings.
+        assert spent <= terminal._advise_cost(0, known) + 1
+        assert spent < terminal._advise_cost(3, known)
+
+    def test_a_save_missing_a_ticket_field_falls_back_to_the_dealt_pool(
+            self, at_desk):
+        from bell_system import save
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('MAJOR', 900))
+        assert 'business_impact' in save.TICKET_KEYS
+        for key in save.TICKET_KEYS:
+            def damage(captured, key=key):
+                del captured['tour']['tickets'][0][key]
+            fresh = resume_onto_fresh(terminal, 'noc', mutate=damage)
+            assert fresh.active_tickets
+            for ticket in fresh.active_tickets:
+                for needed in save.TICKET_KEYS:
+                    assert needed in ticket, (key, needed)
+
+    def test_the_check_is_every_key_a_ticket_is_made_with(self, at_desk):
+        from bell_system import save
+        terminal = at_desk('noc')
+        (made,) = put_tickets(terminal, ('MAJOR', 900))
+        assert set(save.TICKET_KEYS) <= set(made)
+        assert set(made) - set(save.TICKET_KEYS) <= {
+            'resolution_time', 'actual_duration'}
+
+    def test_the_man_page_says_the_noc_refuses_an_untaken_ticket(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        text = MAN_PAGES['trouble']
+        rows = text.split('\n')
+        at = next(i for i, row in enumerate(rows)
+                  if row.lstrip().startswith('resolve ID'))
+        assert 'taken' in ' '.join(rows[at:at + 2])
+
+    def test_a_late_sarts_clear_is_a_desk_lapse_not_a_commitment(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        base = terminal._tour_worked()[2]
+        charged = terminal.career.missed_commitments
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        assert terminal.desk_overdue() == 1
+        # The goal, `shift` and the career screens count commitments only.
+        assert terminal._tour_worked()[2] == base
+        assert terminal.goal_counts()['missed'] == base
+        assert terminal.career.missed_commitments == charged
+        shift = terminal.cmd_shift()
+        assert f'Missed commitments  {base}' in shift
+        assert 'Desk lapses         1' in shift
+        assert terminal.desk_lapse_lines() and 'Desk lapses 1' in (
+            terminal.desk_lapse_lines()[0])
+
+    def test_a_circuit_cleared_in_time_has_no_desk_lapse(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        assert terminal.desk_overdue() == 0
+        assert 'Desk lapses' not in terminal.cmd_shift()
+        assert terminal.desk_lapse_lines() == []
+
+    def test_a_lapsed_noc_ticket_is_a_desk_lapse_not_a_commitment(
+            self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('MAJOR', 900), ('MINOR', 100))
+        terminal.career.shift = 2
+        base = terminal._tour_worked()[2]
+        terminal.shift_minutes = 500
+        assert terminal.desk_overdue() == 2
+        assert terminal._tour_worked()[2] == base
+        assert terminal.goal_counts()['missed'] == base
+        assert 'Desk lapses         2' in terminal.cmd_shift()
+        assert 'Desk lapses 2' in terminal.desk_lapse_lines()[0]
+
+    def test_an_office_alarm_lapse_is_a_desk_lapse_not_a_commitment(
+            self, at_desk):
+        terminal = office_desk(at_desk)
+        base = terminal._tour_worked()[2]
+        terminal.shift_minutes = 10 * LAMP_MINUTES
+        assert terminal.desk_overdue() == terminal.alarms_overdue() == 4
+        assert terminal._tour_worked()[2] == base
+        assert terminal.goal_counts()['missed'] == base
+        assert 'Desk lapses         4' in terminal.cmd_shift()
+        assert 'Desk lapses 4' in terminal.desk_lapse_lines()[0]
+
+    def test_the_goal_count_is_the_commitments_the_career_counted(
+            self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('MAJOR', 900))
+        terminal.career.shift = 2
+        terminal.shift_minutes = 500
+        terminal.career.record_missed(2)
+        assert terminal.desk_overdue() == 1
+        assert terminal.goal_counts()['missed'] == 2
+        assert 'Missed commitments  2' in terminal.cmd_shift()
+        # The summary's advice is for report misses; desk lapses get a line.
+        said = ' '.join(terminal.tour_summary(5, 5, 0, 0))
+        assert 'went past' not in said
+        assert terminal.desk_lapse_lines()
+
+    def test_a_desk_with_no_window_shows_no_desk_lapses(self, at_desk):
+        terminal = at_desk('custserv')
+        assert terminal.desk_overdue() == 0
+        assert 'Desk lapses' not in terminal.cmd_shift()
+
+    def test_a_customer_who_gave_up_is_not_told_when_they_will_ring(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        terminal._pass_time(65)
+        terminal.ring_sweep()
+        assert terminal.gave_up(down)
+        down.field_finding = 'a finding'
+        down.dispatched_to = None
+        assert terminal._has_reading(down)
+        said = terminal.execute_command('trouble advise ' + down.number)
+        assert 'will not ring for' not in said
+        assert 'written in' in said

@@ -28,6 +28,7 @@ from .data.finds import FRAGMENTS, Fragment
 from .data.homes import HOMES
 from .data.practices import SHEETS, index as _binder_index, render as _sheet
 from datetime import datetime
+from .npc import CRAFT, MACHINES, PLAYER_TTY
 from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 # Divestiture took effect on 1 January 1984. The date itself lives in
@@ -163,8 +164,9 @@ companies are divested from AT&T on that date.
 WHAT THIS MEANS FOR THIS OFFICE
 
   This wire centre, its outside plant and its records pass to the
-  operating company. Interexchange facilities and the toll network
-  above class 4 remain with AT&T.
+  operating company. Interexchange facilities pass to AT&T, and
+  inter-LATA service is offered by AT&T and the other interexchange
+  carriers.
 
   Your employment continues. Your craft qualifications transfer.
   Service index history transfers.
@@ -1200,7 +1202,8 @@ NEWS_GENERAL_203 = _article(
     """Nobody in my building can give a straight answer, so let me try here.
 
 The operating company gets the wire centres, the loops and the local
-switching. AT&T keeps long lines and everything above class 4. Fine.
+switching. AT&T gets the facilities for long distance, and long distance is AT&T's
+and the other carriers'. Fine.
 Understood. What I cannot get anybody to tell me is which one of those
 this computer belongs to, and I have twelve years of trouble history on
 it.
@@ -1281,7 +1284,7 @@ NEWS_NEWS_51 = _article(
     'hgillam@cbosgd.uucp (H Gillam)',
     'net.news',
     'Reply paths stay in reply format until January 1',
-    '<1140@cbosgd.UUCP>', 'Tuesday, 8-Nov-83 14:07:52 EST',
+    '<1107@cbosgd.UUCP>', 'Tuesday, 8-Nov-83 14:07:52 EST',
     """The Path line is not documentation. Until the first of January it has
 to be something you could hand to uux and have arrive, which means
 host!host!host!user with no gaps and no editorialising in the middle.
@@ -1395,7 +1398,7 @@ NEWS_GAMES_17 = _article(
     'lokafor@mhuxco.uucp (L Okafor)',
     'net.games',
     'Re: moo strategy, and a scoreboard that lies',
-    '<46@mhuxco.UUCP>', 'Wednesday, 9-Nov-83 23:37:41 EST',
+    '<42@mhuxco.UUCP>', 'Wednesday, 9-Nov-83 23:37:41 EST',
     """> Is there a way to do it in five every time?
 
 No, but there is a way to stop doing it in eleven.
@@ -1434,10 +1437,7 @@ FILESYSTEM: Dict[str, Node] = {
     '/etc/group': _file(GROUP),
     '/etc/rc': _file("/etc/update &\n/usr/lib/lpd\n/etc/cron\nrm -f /tmp/*\n",
                      mode='-rwxr--r--'),
-    '/etc/ttys': _file("14console\n12tty01\n12tty02\n12tty03\n02tty04\n"),
-
     '/dev/console': _file('', mode='crw--w--w-'),
-    '/dev/tty01': _file('', mode='crw--w--w-'),
     '/dev/null': _file('', mode='crw-rw-rw-'),
     '/dev/rk0': _file('', mode='brw-------'),
 
@@ -1514,6 +1514,19 @@ FILESYSTEM: Dict[str, Node] = {
         "gvasquez  4\nrjohnson  5\nsysop     -\nmreyes    7\n"
         "lokafor  11  (says the terminal was slow)\n"),
 }
+
+# The terminals. The roster (npc.CRAFT) says which terminal each of the
+# others is on, and npc.PLAYER_TTY which is the player's, so /etc/ttys and
+# /dev are written from them and cannot list fewer, or more, than the
+# building has, and no two people share one. A machine's line (npc.MACHINES)
+# is listed with the enable flag at 0, as a line nobody logs in on is.
+_TTYS = {person.tty: ('0' if person.login in MACHINES else '1')
+         for person in CRAFT.values()}
+_TTYS[PLAYER_TTY] = '1'
+FILESYSTEM['/etc/ttys'] = _file('14console\n' + ''.join(
+    f'{_TTYS[number]}2tty{number}\n' for number in sorted(_TTYS)))
+for _number in _TTYS:
+    FILESYSTEM[f'/dev/tty{_number}'] = _file('', mode='crw--w--w-')
 
 # The Practices binder: one file to a sheet, built from the data the
 # simulation runs on (data/practices.py).

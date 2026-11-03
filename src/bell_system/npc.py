@@ -158,9 +158,17 @@ CRAFT: Dict[str, Craft] = {
         watches=('day',)),
     'carot': Craft(
         'carot', 'CAROT', 'Centralized Automatic Reporting On Trunks',
-        'CAROT_CENTER', '11',
+        'CAROT_CENTER', '13',
         'Not a person. Tests trunks all night and prints what it finds.'),
 }
+
+# The roster's logins that are machines and not people. They print to you; no
+# one sits at their line, so /etc/ttys has it disabled.
+MACHINES: Tuple[str, ...] = ('adm', 'carot')
+
+# The player's own terminal, which the roster does not use: the banner, tty(1),
+# the su log, wall(1) and /etc/ttys all read it from here. The simulation's own.
+PLAYER_TTY = '14'
 
 # Who reaches you on which channel.
 CHANNEL_SENDERS: Dict[str, Sequence[str]] = {
@@ -783,19 +791,22 @@ FAVOURS: Dict[str, Tuple[str, ...]] = {
                '{number} is due {until}.'),
     'abright': ('Told the customer from the pole. An hour.',
                 '{number}, due {until}.'),
-    'tnakamura': ('Sixty minutes added against {number}. It is now due '
-                  '{until}.',),
+    'rjohnson': ('I rang them myself. They said an hour.',
+                 '{number} is due {until}.'),
 }
 
 FAVOUR_MINUTES = 60
 
 
 def rapport_with(crew: Optional[str]) -> str:
-    """Who a report's close is owed to: the crew that went, else the bureau."""
-    for login, person in CRAFT.items():
-        if crew and person.name == crew and login in FAVOURS:
-            return login
-    return 'mreyes'
+    """
+    Who a report's close is owed to: the crew that went, else the bureau.
+
+    The crew is known by the name the roster gives it, so this goes through
+    the roster's login for that name and the favours are keyed by login.
+    """
+    login = CRAFT_BY_NAME.get(crew or '', '')
+    return login if login in FAVOURS else 'mreyes'
 
 
 def adjust_rapport(rapport: Dict[str, int], ledger: List[str], login: str,
