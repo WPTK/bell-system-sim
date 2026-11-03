@@ -8,9 +8,18 @@ table's, so no test depends on how a board happens to be dealt.
 import re
 from types import SimpleNamespace
 
+import pytest
+
 from bell_system import ledger
+from bell_system.data import peers
 from bell_system.data.peers import PEERS
 from bell_system.progression import DIFFICULTIES
+
+
+@pytest.fixture
+def played(monkeypatch):
+    """The peers as they are once tools/index_calibration.py has made them."""
+    monkeypatch.setattr(peers, 'GENERATED', True)
 
 
 def tour(terminal, closed=10, wrong=1, repairs=9, minutes=100, difficulty='craft'):
@@ -67,6 +76,7 @@ class TestPlacing:
         assert ledger.accuracy_of({'closed': 0, 'wrong': 0}) is None
 
 
+@pytest.mark.usefixtures('played')
 class TestTheLedger:
     def test_it_places_both_figures_and_says_the_peers_are_simulated(
             self, terminal):
@@ -99,6 +109,15 @@ class TestTheLedger:
             assert word not in text.lower(), word
 
 
+class TestHeldBack:
+    def test_nothing_is_printed_while_the_peers_are_placeholders(
+            self, terminal, monkeypatch):
+        monkeypatch.setattr(peers, 'GENERATED', False)
+        assert ledger.lines(tour(terminal)) == []
+        assert 'TOUR LEDGER' not in terminal.execute_command('handoff')
+
+
+@pytest.mark.usefixtures('played')
 class TestOnTheScreen:
     def test_the_handoff_shows_it(self, terminal):
         tour(terminal)
@@ -118,6 +137,7 @@ class TestOnTheScreen:
         assert 'Too few closes' in out
 
 
+@pytest.mark.usefixtures('played')
 def test_a_ledger_never_raises_on_an_unknown_difficulty():
     stranger = SimpleNamespace(difficulty=SimpleNamespace(key='nonesuch'))
     assert ledger.lines(stranger) == []

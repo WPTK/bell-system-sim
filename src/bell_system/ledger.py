@@ -13,7 +13,7 @@ report, so nothing it prints can say what was wrong with any line.
 
 from typing import Any, List, NamedTuple, Optional
 
-from .data.peers import PEERS
+from .data import peers
 from .reports import hours_minutes
 
 HEADING = 'TOUR LEDGER'
@@ -61,11 +61,17 @@ def lines(career: Any) -> List[str]:
         career: The career, which holds the tour's counts and difficulty
 
     Returns:
-        Nothing where there are no peers for this difficulty. Otherwise a
+        Nothing until the peers are generated, or where there are none for
+        this difficulty. Otherwise a
         heading and, with too few closes to rest on, a line saying so and
         placing nothing.
     """
-    table = PEERS.get(career.difficulty.key)
+    # Held back until the peers have been played against the balance that
+    # ships. A placing against placeholder numbers would be a claim about
+    # the office that nothing backs.
+    if not peers.GENERATED:
+        return []
+    table = peers.PEERS.get(career.difficulty.key)
     if not table:
         return []
     head = [f"{HEADING} - against {PEER_COUNT} simulated peers on "

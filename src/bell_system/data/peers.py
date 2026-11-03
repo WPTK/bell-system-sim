@@ -19,7 +19,9 @@ tuples carry no way back to a board.
 
 from typing import Dict, Tuple
 
-# Placeholder until the calibration run is made against the final balance.
+# False while these are placeholders, and the ledger prints nothing then: the
+# run that writes real numbers sets it True. It is made against the final
+# balance.
 GENERATED = False
 
 PEERS: Dict[str, Dict[str, Tuple[float, ...]]] = {
