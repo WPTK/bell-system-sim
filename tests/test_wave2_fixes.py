@@ -212,28 +212,33 @@ class TestChatterDoesNotComeRoundAgain:
                            <= CHATTER_REST_TOURS]
                 assert not earlier, key
 
-    def test_a_busy_desk_is_never_silent_while_it_has_lines(self):
-        """Craft hears more; across four tours the rest must not run it dry."""
+    def test_a_busy_desk_goes_quiet_rather_than_say_a_line_over(self):
+        """Craft hears more; a pool said dry is silence, not a repeat."""
         room = Switchroom(random.Random(5))
         ledger = []
+        quiet = 0
         for tour in (5, 6, 7, 8):
             for _ in range(60):
                 room._recent.clear()
                 message = room.chatter(NOW, position='sysop', tour=tour,
                                        seen=ledger)
-                assert message is not None, tour
+                if message is None:
+                    quiet += 1
+                    continue
+                assert rested(message.lines, tour, ledger), (tour, message)
                 ledger.append(chatter_key(tour, message.lines))
+        assert quiet, 'a pool this busy ought to have run dry'
 
-    def test_the_line_said_longest_ago_is_the_one_that_comes_back(self):
+    def test_a_pool_that_is_all_resting_says_nothing(self):
         room = Switchroom(random.Random(5))
-        pool = [item for item in npc._CHATTER if len(item) < 4
-                and item[1] in ('rjohnson', 'gvasquez', 'lokafor', 'dpetrak',
-                                'tnakamura', 'carot', 'mreyes')]
-        ledger = [chatter_key(5 + (i % 2), item[2])
-                  for i, item in enumerate(pool)]
-        oldest = tuple(item for i, item in enumerate(pool) if i % 2 == 0)
-        found = room._longest_ago(tuple(pool), ledger)
-        assert [item[2] for item in found] == [item[2] for item in oldest]
+        pool = list(npc._CHATTER) + list(npc._POSITION_CHATTER['sysop'])
+        ledger = [chatter_key(6, item[2]) for item in pool]
+        for tour in range(7, 7 + CHATTER_REST_TOURS):
+            assert room.chatter(NOW, position='sysop', tour=tour,
+                                seen=ledger) is None, tour
+        assert room.chatter(NOW, position='sysop',
+                            tour=6 + CHATTER_REST_TOURS + 1,
+                            seen=ledger) is not None
 
     def test_the_ledger_is_in_the_career_save(self, terminal):
         terminal.career.shift = 5
