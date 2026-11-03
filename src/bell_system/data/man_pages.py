@@ -204,7 +204,7 @@ PERFORMANCE METRICS
      Answer Time:            95% within 20 seconds
      Average Handle Time:    45 seconds per call
      Positions Active:       Variable based on traffic load
-     Peak Traffic:           Mother's Day, Christmas Eve
+     Peak Traffic:           Mother's Day, Christmas Day
 
 EXAMPLES
      tsps status                     System operational overview

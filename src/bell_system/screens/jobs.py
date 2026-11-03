@@ -15,6 +15,7 @@ somebody put those entries in it.
 from typing import Dict, List, Optional
 
 from ..filesystem import normalise
+from ..npc import PLAYER_TTY
 from .session import SessionState
 
 # The at(1) queue lives in the spool on a real machine. It lives here too,
@@ -247,13 +248,13 @@ class JobCommands(SessionState):
         me = self.username or 'sysop'
 
         if who not in known:
-            self._sulog(f"SU {stamp} - tty01 {me}-{who}")
+            self._sulog(f"SU {stamp} - tty{PLAYER_TTY} {me}-{who}")
             return f"su: unknown id: {who}"
         if who == 'root':
-            self._sulog(f"SU {stamp} - tty01 {me}-root")
+            self._sulog(f"SU {stamp} - tty{PLAYER_TTY} {me}-root")
             return ("Password:\nsu: Sorry\n\n"
                     "(The attempt is now in /usr/adm/sulog. It stays there.)")
-        self._sulog(f"SU {stamp} - tty01 {me}-{who}")
+        self._sulog(f"SU {stamp} - tty{PLAYER_TTY} {me}-{who}")
         return "Password:\nsu: Sorry"
 
     def _sulog(self, line: str) -> None:

@@ -15,6 +15,7 @@ import sys
 import pytest
 
 from bell_system.constants import BELL_SYSTEM_ROLES
+from bell_system.npc import PLAYER_TTY
 from bell_system.settings import OPTIONS_BY_KEY, Settings
 
 
@@ -206,6 +207,6 @@ class TestLoggingIn:
         opened by being told it was not signed off on switching.
         """
         output = self.run_login(terminal, ['switch'], monkeypatch)
-        assert (output.index('UNIX Version 7   tty01')
+        assert (output.index(f'UNIX Version 7   tty{PLAYER_TTY}')
                 < output.index('Copyright (c) 1979')
                 < output.index('Alarm'))

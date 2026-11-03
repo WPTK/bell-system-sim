@@ -48,7 +48,7 @@ from .console import render
 from .data import geography
 from .data.regulars import REGULARS
 from .filesystem import Node, normalise
-from .npc import render as render_message
+from .npc import PLAYER_TTY, render as render_message
 from .data.man_pages import MAN_PAGES
 from .data.positions import get as neutral_position
 from .loop_testing import names_fault
@@ -689,7 +689,7 @@ class BellSystemTerminal(
             "AT&T Bell System Operations",
             f"{self.home_office['city']}, {self.home_office['state']}  "
             f"{self.home_office['clli']}",
-            f"UNIX Version 7   tty01   {speed}",
+            f"UNIX Version 7   tty{PLAYER_TTY}   {speed}",
             '',
             # The whole of the stakes, on the line before anybody has typed
             # anything. It was a memo in /usr/doc that a player had to know
