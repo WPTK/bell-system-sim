@@ -68,6 +68,8 @@ class PositionCommands(SessionState):
         self.desk.depth_limit = self.board_depth()
         if self.position.key == 'noc':
             self._count_triage()
+        if self.position.key == 'sarts':
+            self._count_outages()
 
     _triage_counted = False
 
@@ -89,6 +91,36 @@ class PositionCommands(SessionState):
         reports = self.career.open_overdue
         self.career.open_overdue = (
             lambda: reports() + len(queue.triage_overdue()))
+
+    _outages_counted = False
+
+    def _count_outages(self) -> None:
+        """
+        Put the SARTS desk's circuits held past their window on the index.
+
+        The same road the NOC's tickets take: a circuit nobody has cleared
+        within the window is a commitment missed, whether or not anyone
+        looks at the board, and the handoff prints the index.
+        """
+        if self._outages_counted:
+            return
+        self._outages_counted = True
+        reports = self.career.open_overdue
+        self.career.open_overdue = (
+            lambda: reports() + self.outages_overdue())
+
+    def outages_overdue(self) -> int:
+        """
+        Return how many circuits are held in trouble beyond the window.
+
+        Read only. Nothing here is charged: the figure is worked out from
+        the shift clock each time it is asked for, and the whole first tour
+        is a grace.
+        """
+        if self.position.key != 'sarts' or self.career.shift == 1:
+            return 0
+        return self.special_services.past_window(
+            self.career.shift, self.shift_minutes)
 
     def board_depth(self) -> int:
         """
@@ -325,8 +357,15 @@ def _circuits_in_trouble(terminal: Any) -> Tuple[str, str]:
 def _circuit_minutes_out(terminal: Any) -> Tuple[str, str]:
     """Shift minutes special services circuits spent held in trouble."""
     inventory = terminal.special_services
-    inventory.accrue(terminal.career.shift, terminal.shift_minutes)
-    return 'circuit-minutes out of service', str(inventory.minutes_out())
+    return ('circuit-minutes out of service',
+            str(inventory.minutes_out(terminal.career.shift,
+                                      terminal.shift_minutes)))
+
+
+def _circuits_past_window(terminal: Any) -> Tuple[str, str]:
+    """Circuits held in trouble past the window, which the index counts."""
+    return ('circuits out past the window',
+            str(terminal.outages_overdue()))
 
 
 def _tests_run(terminal: Any) -> Tuple[str, str]:
@@ -378,6 +417,7 @@ _COUNTERS: Dict[str, Any] = {
     'orders_raised': _orders_raised,
     'circuits_in_trouble': _circuits_in_trouble,
     'circuit_minutes_out': _circuit_minutes_out,
+    'circuits_past_window': _circuits_past_window,
     'tests_run': _tests_run,
     'documents_set': _documents_set,
     'files_written': _files_written,
