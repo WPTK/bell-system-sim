@@ -1065,7 +1065,8 @@ class Switchroom:
 
     def last_word(self, now: datetime, tours: int, closed: int,
                   qualifications: int,
-                  verdict: str = AUDIT_PASSED) -> Message:
+                  verdict: str = AUDIT_PASSED,
+                  note: Sequence[str] = ()) -> Message:
         """
         What the wire chief says at the end of the last tour.
 
@@ -1075,6 +1076,10 @@ class Switchroom:
 
         The audit changes what he says and not how long the career was: it
         had its say on the same page, and he does not pretend it did not.
+
+        ``note`` is the one plain thing he adds for what the career held
+        (``data/epilogue.py`` ``halloran_note``), said before he sends them
+        home. Nothing when there is nothing.
         """
         lines = [
             'That is the tour, and that is the company.',
@@ -1101,6 +1106,7 @@ class Switchroom:
         else:
             closing = ['morning, the record says what you can work and '
                        'nobody there', 'is going to argue with it.']
+        lines.extend(note)
         lines.extend([
             '',
             'They go with you. Whichever of the seven you end up at in the',

@@ -63,7 +63,7 @@ these changes this table first.
 | W7 | The building is closed. There is no outside network except uucp and the netnews spool, dated no later than the tour. | Established as to uucp; the dating is Provisional (C19) | `filesystem.py`, `plan.md` C19 |
 | W8 | No one dies and no one is hurt on screen. Harm is a line out of service, a missed commitment, a person who rang twice. The worst case is a doctor's answering line (`duchesne`). | Provisional | pillar 2; `data/regulars.py` |
 | W9 | The date never moves past 31 December 1983. There is no tour 14 and no "after". Everything about 1 January is told as a forecast by someone in the room. | Established | `clock.py` `set_tour` |
-| W10 | The audit is held at tour 13 and reads the dispositions on record; a failed audit changes the words, not the length of the career. | Provisional (A2, C23; D2) | `plan.md` section 8 |
+| W10 | The audit is held at tour 13 and reads the dispositions on record; a failed audit changes the words, not the length of the career. The epilogue that follows it reads the career (audit, finds, arcs, favours, commendations, the office's company) and never a fact about a report: it names no fault, code or cause (pillar 1). | Established (A2, C23; D2) | `screens/turnover.py`, `ending.py`, `data/epilogue.py` |
 | W11 | Nothing on the machine works as instructions against a real network: no tones, no dialable codes, no procedure that would do anything outside the simulation. | Established (A11, D6); the shipped test lines already disclaim dialable codes | `data/testlines.py`; `data/fraud.py`; `tests/test_fraud_thread.py` `TestWhatItIsNot` |
 | W12 | Weather in the game is the simulation's own and claims nothing about 14 November 1983. | Established | `weather.py`; `SOURCES.md` "looked for and not found" |
 | W13 | The people, customers, addresses and operating-company lines are invented and say so. Real organisations appear only as the E&O names them. | Established | `data/regulars.py` docstring; `npc.py` docstring |
@@ -98,6 +98,7 @@ normalised to one line.
 - **Does:** signs every qualification and says one thing about each. Reads the service index every morning and does not praise it. Plain declaratives, short sentences, instructions before reasons. Deflects feeling into the job.
 - **Never:** effusive or funny on purpose. Never explains the lore; he points at where the practice is.
 - **Sample:** "Reminder to all craft: a report closed is still a report on the record. The index does not care how quickly the board cleared." (`npc.py` `_CHATTER`)
+- **The last night (Established, phase 10, C23):** `last_word` still ends the screen, and takes one plain thing more for what the career held (`data/epilogue.py` `halloran_note`): a clean tour on the record; reading what is kept seven years (`/usr/adm/.retain`); or, for a player who found nothing, that there is more on the machine than the board. Nothing when there is nothing, and never an explanation of a find.
 - **Arc:** says less as the end nears, then one thing more at the last tour (`last_word`: "Go home."). Said less, in the ambient traffic, means a chance of 15 per cent a tour from tour 9, up to 70 per cent, that his chatter is held back on that call (`npc.py` `halloran_quiet`).
 
 ### Reyes, M.: repair service attendant  (`mreyes`, RSB_NEWARK, tty07)
@@ -108,6 +109,7 @@ normalised to one line.
 - **Never:** blames a person; guesses a cause out loud (`custserv` notes: "The one thing you are not allowed to do is guess out loud.").
 - **Sample:** "TR-05518 on 201-200-4380 was due 20:25 and has gone. What do I tell them?" (`npc.py` `overdue_notice`; one form, two lines: the report, then the customer's words by class if the line is out, "The line is working. They would like a time." if not)
 - **Open:** the 03:47 su (section 5, T2).
+- **The last night (Established, phase 10, C23):** she speaks once more, in the same form: one report, a number to ring, a time, and her question (`data/epilogue.py`). The report is the first one going over open, or the last one closed on a clear board. She says what the player has read and no more: the record journal (fourth sign-off) lets her say the machine refused her at 03:47; with the chief's own list too (fifth) she says he reopened hers at 06:15 and asks if she may tell him she knows. Neither says why he did it. An hour kept, a failed audit and an audit with findings each change her question and not her length.
 - **Consequences (Provisional, phase 6b, C17):** the customer's words come through her, one line by class of service, in three places: a report past its commitment with the line out of service, the second call on a repeat, and (a quarter of clean closes) a call to say it held. `data/consequences.py`. Each message keeps to her profile: report, number, time, a question. The notice when a commitment passes is said once and the board does not ask the same again; the second call and the call-back each end on her question.
 - **Arc (Provisional, phase 6b, A6):** `reyes.1` (tours 5-8) and `reyes.2` (tours 9-11) are about a closed report: she cannot reopen it and asks if there is another way; a customer asks who will have the line's trouble card in February. The two never speak of the same report. They wait for a report to speak of. Neither explains T2.
 
@@ -136,6 +138,7 @@ normalised to one line.
 - **Never:** complains about the weather or a crew; jokes.
 - **Sample:** "It is because there is less and less of this job that needs a person standing in front of it, and the company now knows that, and so do we." (`filesystem.py` NEWS_MISC_88)
 - **Open:** section 5, T3.
+- **The last night (Established, phase 10, C23):** one more note, two lines in the order-wire form. After `sandoval.2` he names the player's office's own company from `data/companies.py` ("The memo means ...") and says he will be there on the second; if he did the player a favour he says the jobs fitted; otherwise there is nothing open on the sheath side. He does not say why he came from `mhuxt` (T3 stays open).
 - **Arc (Provisional, phase 6b, A6):** three orderwire notes to the test desk, never more than three lines. `sandoval.1` (tours 4-7): small-count aerial spliced and tested, send more of that size. `sandoval.2` (tours 8-10): the memo says his employment continues; he looked for which company it means. `sandoval.3` (tours 12-13): Okafor is not on this shift, he has the Franklin sheath, will be slow, will do it. No beat names the strike or the move from `mhuxt`.
 
 ### Alvarez, R.: the predecessor, sysop position, evening tour  (no login, no tty)
@@ -146,6 +149,10 @@ normalised to one line.
 - **Never:** addresses the player by name or by sign-off; is angry at anyone.
 - **Sample:** "I sent four separate crews to Franklin Street last month. Do not be me." (`data/homes.py`)
 - **Arc (Provisional, phase 6b, A6):** has no voice of their own; Halloran speaks of them. `alvarez.1` (tours 2-4, mail): the position had somebody before you, `testlog.c` is theirs. `alvarez.2` (tours 10-12, write): Alvarez rang to ask how the position was going; Halloran said it was being worked. No pronouns in either.
+
+### ADM at the end (Established, phase 10, C23)
+
+The maintenance teletype prints the transfer in log register, no "you": where the office's records go (the player's own office's operating company, `data/companies.py`), the holding company only where that table marks the assignment verified, and "effective 1/1/84" (E&O, `clock.py`). In a state with no wholly-owned company (Connecticut) it says the company is minority-held and outside the divestiture, as `NOT_WHOLLY_OWNED` does.
 
 ### Petrak, D.: SCC maintenance administrator  (`dpetrak`, SCC_BEDMINSTER, tty03)
 
@@ -252,7 +259,7 @@ text is that it contradicts none of these.
 **Shown now (Established):** `SU 11/14 03:47 - tty07 mreyes-root` in `/usr/adm/sulog`, readable only from the third sign-off. Halloran's `su` at 06:15 succeeds. The teletype line now agrees with the log: 03:47, tty07 (I1, resolved in 7b). `/usr/adm/lmoslog`, shut until the fourth sign-off, shows four refused attempts from 03:41 to 03:52 and Halloran's success at 06:15, and `~ehalloran/reopened`, shut until the fifth, is his own list.
 
 **True answer (Provisional):** Reyes was not breaking in. Alvarez closed a run of reports no trouble found in the last week of that desk to clear the board (a trend in `testlog`: no trouble found climbing while the board falls, never a count), and the customers rang back after Alvarez left; on the night bureau Reyes found she could not reopen a closed report. At 03:47 Reyes tried the only way she knew, and the machine refused her. Halloran su'd at 06:15, reopened the reports under his own name, and those are the opening reports (`reports.py` `OPENING_BACKLOG`, three to five). He did it because the memo says open reports pass to the operating company "with your name on them", and he would rather it was his. He did not tell her.
-**Pays off:** phase 7, row A5 (7b, shipped): `/usr/adm/lmoslog`, readable after the fourth sign-off, explains it, and `~ehalloran/reopened`, after the fifth, says only that he reopened the reports that rang back, and the reader works out why; phase 10 (C23) lets Reyes say so.
+**Pays off:** phase 7, row A5 (7b, shipped): `/usr/adm/lmoslog`, readable after the fourth sign-off, explains it, and `~ehalloran/reopened`, after the fifth, says only that he reopened the reports that rang back, and the reader works out why; phase 10 (C23, shipped) lets Reyes say so on the last night, only to a player who has read those files.
 **Period facts:** su logs in `/usr/adm/sulog` [sourced, the Seventh Edition manual, scanned, not in the repo text; needs a `SOURCES.md` row]. Everything else is [own].
 
 ### T3. Sandoval
@@ -260,7 +267,7 @@ text is that it contradicts none of these.
 **Shown now (Established):** the second splicer, newer than Okafor, slower on a big sheath, who "says less" and whom the wire chief "has noticed and has not decided about" (`npc.py`, `field.py`); the author of a netnews post on the August strike from `mhuxt`; Okafor tells the player to "give it to Sandoval".
 
 **True answer (Provisional):** Sandoval came over from the neighbouring wire centre (`mhuxt`) in the autumn when its splicing force was cut. He has a login on this machine and is in its `craft` group, and he still posts to the news from his old account on `mhuxt`, because the news account did not move with him (I9). Sandoval was out in the August strike and thinks the memo's "your employment continues" is a promise from a company that will not exist. Halloran has not decided about Sandoval because Halloran does not know either. Sandoval is good on small-count aerial and drop work and slow on a big sheath because that is what he came from; on tour 12 or 13, when Okafor is out, Sandoval takes the sheath job nobody else will, and the player can learn why by ending up in the same room.
-**Pays off:** phase 6b, row A6 (rapport, `sandoval.1` to `.3` in `npc.py` `ARC_BEATS`; the Franklin sheath beat is `sandoval.3`); the last line in phase 10 (C23).
+**Pays off:** phase 6b, row A6 (rapport, `sandoval.1` to `.3` in `npc.py` `ARC_BEATS`; the Franklin sheath beat is `sandoval.3`); the last line in phase 10 (C23, shipped: he names the company the memo means).
 **Period facts:** the 1983 strike and its terms [sourced, `SOURCES.md` `net.misc/88`]; Sandoval's history is [own].
 
 ### T4. The January memo
@@ -268,7 +275,7 @@ text is that it contradicts none of these.
 **Shown now (Established):** `/usr/doc/divestiture`, dated 1 November 1983: duties numbered 1 to 4, then "A NOTE" in a different register. Also the MOTD and the login banner.
 
 **True answer (Provisional):** every number in it is true. Employment does continue and qualifications do transfer. The audit is real: the operating company's auditors check dispositions against what a test would have read, which is why the game's wrong-close debrief quotes the player's own readings. Halloran wrote "A NOTE" himself and sent it up to the vice president, who signed it. That is why it sounds like a person and why Halloran never refers to it.
-**Pays off:** phase 4, row A2 (the audit); phase 10, C23 (the epilogue may say who wrote it).
+**Pays off:** phase 4, row A2 (the audit); phase 10, C23 does not say who wrote "A NOTE" and nothing in the epilogue contradicts it: that stays for the player to infer.
 **Period facts:** the date of divestiture and the quoted E&O sentence [sourced, `clock.py`, E&O]; interexchange facilities pass to AT&T and inter-LATA service is offered by AT&T and other interexchange carriers [sourced, `SOURCES.md`, E&O 1.3; the memo's earlier "toll network above class 4" was not in the book and is gone]; the 1 November date, the memo and the VP [own].
 
 ### T5. The locked file
@@ -319,6 +326,7 @@ PR can see what it must not contradict. All **Established**.
 | The finds: the numbered files in `data/finds.py` `FRAGMENTS` that `finds` lists once read. New in A4, all the simulation's own and Provisional: `/usr/adm/testlog` (Alvarez), `/tmp/.f` (tour 2), `/usr/users/rjohnson/.trial` (tour 5, Johnson's third-trial times, which rise by a second or so a season), `/usr/adm/.retain` (tour 8, the chief's retention list), `/usr/lib/.xfer` (tour 10, accounts for transfer) | `data/finds.py` | [own]; log formats follow the Seventh Edition where it had them. None says what is true about T1 or T2 |
 | The thread of the last holder, one file to a sign-off: `~sysop/dead.letter`, the sent handover (`/usr/spool/mail/ehalloran`), `/usr/adm/sulog`, `/usr/adm/lmoslog`, `~ehalloran/reopened` | `data/finds.py`, `data/homes.py` | [own]; the su log format follows the Seventh Edition. Shut by group, W15 |
 | `/usr/users/prior/` and `HANDOVER` in the next career: an earlier holder's files, undated | `legacy.py` | [own]; the replay-date paradox is why nothing is dated |
+| The last night: the transfer printout, Reyes's and Sandoval's last lines, the chief's added word; chosen by the audit, finds, arcs, favours, commendations and the office's company | `data/epilogue.py`, `ending.py` | [own]; "effective 1/1/84" [sourced] `clock.py`, E&O. Names no fault or cause |
 | The Okafor eleven | `screens/games.py`, `npc.py`, `filesystem.py` | [own] |
 | Marker 2 fails outright on tour 9 or 10, takes down the line link frame it serves and is busied out; Johnson has been saying so for two years. New in A7, the simulation's own | `data/cases.py`, `cases.py` | [own]; that a marker which cannot finish times out and leaves calls incomplete is [sourced] E&O p. 802 [819]; the relay, the number and the seconds are not |
 | A sheath can be leaking before anyone has rung: the maintenance teletype prints `PRESSURE ALARM  CABLE nnnn` from `adm` about a hundred minutes in and the first customer rings fifty minutes after. The alarm names the cable and never the binder group (`weather` too), and opens a plant job (`PJ-001`) with no customer, which a splicer is sent to by `report dispatch PJ-001 cable <c>/<b>`: the trip is charged to the job, and a dispatch typed after a report that names a group with a job open is the job's and not the report's. A customer report on that sheath is not cleared with it and still needs its own dispatch. New in A8, the simulation's own | `cable.py`, `npc.py` `pressure_alarm`, `plantjobs.py` | [own]; that pressure falls before water enters is [sourced] `SOURCES.md` |
