@@ -410,18 +410,18 @@ class TestAFavourWaitsForTheDoor:
         return on_shift(login, 'night')
 
     def test_it_is_not_asked_of_somebody_who_has_gone_home(self):
-        rapport = {'tnakamura': FAVOUR_AT}
+        rapport = {'abright': FAVOUR_AT}
         assert favour_due(rapport, [], self.night) is None
-        assert favour_due(rapport, [], lambda login: True) == 'tnakamura'
+        assert favour_due(rapport, [], lambda login: True) == 'abright'
 
     def test_with_nobody_named_it_is_as_before(self):
-        assert favour_due({'tnakamura': FAVOUR_AT}, []) == 'tnakamura'
+        assert favour_due({'abright': FAVOUR_AT}, []) == 'abright'
 
     def test_it_goes_to_the_next_person_who_is_in(self):
-        rapport = {'tnakamura': FAVOUR_AT, 'mreyes': FAVOUR_AT}
+        rapport = {'abright': FAVOUR_AT, 'mreyes': FAVOUR_AT}
         assert favour_due(rapport, [], self.night) == 'mreyes'
 
     def test_the_terminal_asks_who_is_in_on_this_tour(self, terminal):
         on_tour(terminal, NIGHT_TOUR)
-        assert not terminal.is_in('tnakamura')
-        assert favour_due({'tnakamura': FAVOUR_AT}, [], terminal.is_in) is None
+        assert not terminal.is_in('abright')
+        assert favour_due({'abright': FAVOUR_AT}, [], terminal.is_in) is None

@@ -646,19 +646,22 @@ FAVOURS: Dict[str, Tuple[str, ...]] = {
                '{number} is due {until}.'),
     'abright': ('Told the customer from the pole. An hour.',
                 '{number}, due {until}.'),
-    'tnakamura': ('Sixty minutes added against {number}. It is now due '
-                  '{until}.',),
+    'rjohnson': ('I rang them myself. They said an hour.',
+                 '{number} is due {until}.'),
 }
 
 FAVOUR_MINUTES = 60
 
 
 def rapport_with(crew: Optional[str]) -> str:
-    """Who a report's close is owed to: the crew that went, else the bureau."""
-    for login, person in CRAFT.items():
-        if crew and person.name == crew and login in FAVOURS:
-            return login
-    return 'mreyes'
+    """
+    Who a report's close is owed to: the crew that went, else the bureau.
+
+    The crew is known by the name the roster gives it, so this goes through
+    the roster's login for that name and the favours are keyed by login.
+    """
+    login = CRAFT_BY_NAME.get(crew or '', '')
+    return login if login in FAVOURS else 'mreyes'
 
 
 def adjust_rapport(rapport: Dict[str, int], ledger: List[str], login: str,
