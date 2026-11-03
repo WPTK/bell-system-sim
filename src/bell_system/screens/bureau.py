@@ -250,8 +250,8 @@ class BureauCommands(SessionState):
             return self._show_report_detail(rest[0])
         if action == 'dispatch':
             if len(rest) < 2:
-                return ("report: usage: report dispatch <number> <force> "
-                        "[cable/binder]\n"
+                return ("report: usage: report dispatch <number> <force>\n"
+                        "  Cable repair also takes a cable/binder.\n"
                         "Forces: " + ', '.join(DISPATCH_FORCES))
             return self._dispatch_report(rest[0], ' '.join(rest[1:]))
         if action == 'close':

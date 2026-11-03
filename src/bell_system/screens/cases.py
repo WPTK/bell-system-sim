@@ -58,6 +58,10 @@ class CaseCommands(SessionState):
                 f"report: '{token}' is not a cable and binder group.\n"
                 f"Write it cable/binder, as in 81/8.")
         cable, binder = int(found.group(1)), int(found.group(2))
+        if not 1 <= cable <= self.desk.plant.cable_count:
+            return ' '.join(parts), None, (
+                f"report: this wire centre has cables 1 to "
+                f"{self.desk.plant.cable_count}. There is no cable {cable}.")
         if not 1 <= binder <= BINDERS_PER_UNIT:
             return ' '.join(parts), None, (
                 f"report: binder groups run 1 to {BINDERS_PER_UNIT}, in "
@@ -72,6 +76,12 @@ class CaseCommands(SessionState):
         Asked of every Cable repair dispatch, whatever the report is, so the
         question carries no information about it. Nothing is charged.
         """
+        if force != 'Cable repair' and section is not None:
+            # Said of any force and any report alike, so that it does not
+            # tell whether the force was the right one.
+            return ("report: only Cable repair takes a cable and binder "
+                    "group.\n"
+                    "  report dispatch <number> <force>")
         if (force != 'Cable repair' or section is not None
                 or not self._difficulty().section_required):
             return ''

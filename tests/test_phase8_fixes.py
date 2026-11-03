@@ -120,3 +120,51 @@ class TestACaseAcrossATurnover:
         fresh.career.shift = 10
         fresh._plant_case()
         assert fresh.desk.cases and fresh.desk.cases[0].kind == 'marker'
+
+
+def _minutes_on_report(terminal, command_for):
+    """What a command takes off a fresh report's clock."""
+    report = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
+    terminal.execute_command(f'mlt {report.number}')
+    before = report.minutes_spent
+    shown = terminal.execute_command(command_for(report))
+    return report, shown, report.minutes_spent - before
+
+
+class TestASectionIsOnlyForCableRepair:
+    """C21: a cable and binder is part of one force's dispatch."""
+
+    @pytest.mark.parametrize('force', ['outside plant', 'central office',
+                                       'station'])
+    def test_another_force_given_a_section_is_refused(self, terminal, force):
+        report, shown, spent = _minutes_on_report(
+            terminal, lambda r: f'report dispatch {r.number} {force} 81/8')
+        assert 'only Cable repair takes a cable and binder' in shown
+        assert report.dispatched_to is None
+        _, idle, base = _minutes_on_report(terminal,
+                                           lambda r: f'report show {r.number}')
+        assert spent == base
+
+    def test_the_refusal_is_the_same_for_the_right_force_and_the_wrong(
+            self, terminal):
+        report = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
+        right = terminal.execute_command(
+            f'report dispatch {report.number} outside plant 81/8')
+        wrong = terminal.execute_command(
+            f'report dispatch {report.number} central office 81/8')
+        assert right == wrong
+
+    def test_the_usage_line_offers_a_section_to_cable_repair_only(
+            self, terminal):
+        shown = terminal.execute_command('report dispatch')
+        assert '<force>\n' in shown or '<force>' in shown
+        assert '[cable/binder]' not in shown
+        assert 'Cable repair also takes a cable/binder' in shown
+
+    def test_a_cable_that_is_not_in_the_plant_is_refused(self, terminal):
+        report = terminal.desk.receive(terminal.clock.now(), fault='WET')
+        count = terminal.desk.plant.cable_count
+        shown = terminal.execute_command(
+            f'report dispatch {report.number} cable repair {count + 1}/8')
+        assert f'cables 1 to {count}' in shown
+        assert report.dispatched_to is None
