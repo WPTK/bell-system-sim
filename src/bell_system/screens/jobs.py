@@ -301,14 +301,15 @@ class JobCommands(SessionState):
         text = self._read('/usr/adm/uucplog')
         if text is None:
             return "uulog: cannot open /usr/adm/uucplog"
-        self._note_read('/usr/adm/uucplog')
         for item in args:
             if item.startswith('-s') and item[2:]:
                 site = item[2:]
                 kept = [line for line in text.split('\n') if site in line]
                 if not kept or kept == ['']:
                     return f"uulog: no traffic with {site}"
+                self._note_read('/usr/adm/uucplog')
                 return '\n'.join(kept) + '\n'
+        self._note_read('/usr/adm/uucplog')
         return text
 
     def cmd_uux(self, args: Optional[List[str]] = None) -> str:

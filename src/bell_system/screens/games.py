@@ -185,7 +185,7 @@ class GameCommands(SessionState):
                         f"{MOO_SCORES} if you want to look at it.")
             rows[held] = mine
             standing = f" Your {best} is off the board."
-        if self.write_file(MOO_SCORES, '\n'.join(rows) + '\n') is not None:
+        if self.put_file(MOO_SCORES, '\n'.join(rows) + '\n') is not None:
             return ''
         note = f"On the scoreboard.{standing} {MOO_SCORES}."
         if guesses < OKAFOR_ELEVEN:

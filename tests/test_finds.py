@@ -319,3 +319,46 @@ class TestTheRegistry:
         for fragment in data.FRAGMENTS:
             for line in (fragment.text or '').splitlines():
                 assert len(line) <= 78, (fragment.key, line)
+
+
+class TestWhatIsPrintedIsWhatIsFound:
+    """A find is made by text that was shown, whichever command showed it."""
+
+    def test_uulog_with_no_such_site_records_nothing(self, raw_terminal):
+        raw_terminal.execute_command('uulog -snosuch')
+        assert raw_terminal.career.finds == []
+
+    def test_a_sed_script_that_is_refused_records_nothing(self, raw_terminal):
+        raw_terminal.execute_command('sed /x/p /usr/doc/divestiture')
+        assert raw_terminal.career.finds == []
+
+    def test_dd_that_copies_nothing_records_nothing(self, raw_terminal):
+        raw_terminal.execute_command('dd if=/usr/doc/divestiture count=0')
+        assert raw_terminal.career.finds == []
+
+    @pytest.mark.parametrize('line', [
+        'sort /usr/doc/divestiture', 'uniq /usr/doc/divestiture',
+        'sed s/a/b/ /usr/doc/divestiture', 'rev /usr/doc/divestiture',
+        'pr /usr/doc/divestiture', 'spell /usr/doc/divestiture',
+    ])
+    def test_a_filter_that_prints_the_file_makes_the_find(
+            self, raw_terminal, line):
+        raw_terminal.execute_command(line)
+        assert 'memo' in raw_terminal.career.finds
+
+    def test_the_decimal_check_is_not_fooled_by_a_superscript(
+            self, raw_terminal):
+        assert raw_terminal.execute_command(
+            'head -\u00b2 /usr/doc/divestiture') is not None
+        assert raw_terminal.execute_command('chmod 6\u00b2\u00b2 x') == (
+            'chmod: 6\u00b2\u00b2: bad mode')
+
+    def test_the_test_log_ends_on_an_empty_board_and_says_no_more(self):
+        rows = [line.split() for line in data.TESTLOG.splitlines()]
+        assert rows[-1][-2:] == ['board', '0']
+        assert 'clear' not in data.TESTLOG
+        week = [row for row in rows if row[0] >= '11/07']
+        ntf = [int(row[4]) for row in week]
+        closed = [int(row[2]) for row in week]
+        assert ntf == sorted(ntf) and ntf[-1] > ntf[0]
+        assert all(n < c for n, c in zip(ntf, closed))

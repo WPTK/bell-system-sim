@@ -40,6 +40,7 @@ ADM_GROUP_QUALIFICATIONS = 3
 GRANT_EPOCH = datetime(1983, 11, 14)
 
 SULOG = '/usr/adm/sulog'
+DEV_NULL = '/dev/null'
 # The su log's last shipped line is Halloran's at 06:15 on the first morning,
 # so a grant is never stamped before 06:16 that day or after the last night.
 FIRST_GRANT = 6 * 60 + 16
@@ -334,7 +335,7 @@ class ShellCommands(FindsCommands):
         args = args or []
         count = 10
         for arg in args:
-            if arg.startswith('-') and arg[1:].isdigit():
+            if arg.startswith('-') and arg[1:].isdecimal():
                 count = int(arg[1:])
         text, error = self._gather(args, 'head', note=True)
         if error:
@@ -346,7 +347,7 @@ class ShellCommands(FindsCommands):
         args = args or []
         count = 10
         for arg in args:
-            if arg.startswith('-') and arg[1:].isdigit():
+            if arg.startswith('-') and arg[1:].isdecimal():
                 count = int(arg[1:])
         text, error = self._gather(args, 'tail', note=True)
         if error:
@@ -456,7 +457,7 @@ class ShellCommands(FindsCommands):
         """Sort lines. ``-r`` reverses, ``-u`` drops duplicates."""
         args = args or []
         flags = ''.join(a[1:] for a in args if a.startswith('-'))
-        text, error = self._gather(args, 'sort')
+        text, error = self._gather(args, 'sort', note=True)
         if error:
             return error
         lines = text.rstrip('\n').split('\n') if text.strip() else []
@@ -469,7 +470,7 @@ class ShellCommands(FindsCommands):
         """Drop repeated adjacent lines. ``-c`` prefixes a count."""
         args = args or []
         flags = ''.join(a[1:] for a in args if a.startswith('-'))
-        text, error = self._gather(args, 'uniq')
+        text, error = self._gather(args, 'uniq', note=True)
         if error:
             return error
         out, previous, run = [], None, 0
@@ -554,14 +555,33 @@ class ShellCommands(FindsCommands):
             text: What to write
             append: Add to the end rather than replacing
         """
+        if path == DEV_NULL:
+            return None
         error = self._writable(path, 'sh')
         if error:
             return error
         existing = self.filesystem.get(path)
+        if existing is not None and not self._owns(existing):
+            return f"sh: {path}: not owner"
+        return self.put_file(path, text, append)
+
+    def put_file(self, path: str, text: str,
+                 append: bool = False) -> Optional[str]:
+        """
+        Write a file as the machine does: no owner, no permission.
+
+        write_file is what the player's commands use and is the owner's to
+        change; this is for what the simulation itself writes (the moo
+        scoreboard), which belongs to somebody else and is changed by play.
+        """
+        existing = self.filesystem.get(path)
         if append and existing is not None and isinstance(existing.content, str):
             text = existing.content + text
-        owner = self.username or 'sysop'
-        node = Node('file', owner, 'craft', '-rw-r--r--', text)
+        if existing is None:
+            node = Node('file', self.username or 'sysop', 'craft',
+                        '-rw-r--r--', text)
+        else:
+            node = existing._replace(content=text)
         return self.store_node(path, node, 'sh')
 
     def store_node(self, path: str, node: Node,
@@ -690,6 +710,9 @@ class ShellCommands(FindsCommands):
         error = self._writable(target, 'mv')
         if error:
             return error
+        held = self.filesystem.get(target)
+        if held is not None and not self._owns(held):
+            return f"mv: {target}: not owner"
         del self.filesystem[source]
         error = self.store_node(target, node, 'mv')
         if error:
@@ -722,7 +745,7 @@ class ShellCommands(FindsCommands):
         if len(args) < 2:
             return "chmod: usage: chmod mode file ..."
         octal = args[0]
-        if not (octal.isdigit() and len(octal) in (3, 4)):
+        if not (octal.isdecimal() and len(octal) in (3, 4)):
             return f"chmod: {octal}: bad mode"
         bits = octal[-3:]
         letters = ''.join(

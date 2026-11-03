@@ -120,8 +120,8 @@ TESTLOG = """10/31 closed 5 ntf 1 board 11
 11/07 closed 6 ntf 3 board 9
 11/08 closed 7 ntf 4 board 8
 11/09 closed 8 ntf 5 board 5
-11/10 closed 9 ntf 5 board 2
-11/11 closed 7 ntf 4 board 1
+11/10 closed 9 ntf 6 board 2
+11/11 closed 7 ntf 6 board 0
 """
 
 # -- the places nobody browses ------------------------------------------
@@ -152,7 +152,7 @@ reviewed by E.H., 12/12.
   shiftlog    keep
   uucplog     keep
   testlog     keep
-  sulog       keep.
+  sulog       keep
 """
 
 TRANSFER = """accounts on mhuxco, for the operating company. from the wire chief.

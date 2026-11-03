@@ -260,3 +260,64 @@ class TestTheRegistry:
         for word in ('no trouble found', 'ntf', 'twenty', 'closed',
                      'alvarez', 'those are'):
             assert word not in text
+
+
+class TestWritesAreTheOwnersToo:
+    """A write onto a file is a change to it, and the owner's alone."""
+
+    LOG = '/usr/adm/lmoslog'
+
+    def shut(self, terminal):
+        held(terminal, 0)
+        before = terminal.filesystem[self.LOG]
+        return before
+
+    @pytest.mark.parametrize('line', [
+        'echo x >> {log}', 'echo x > {log}', 'cp /etc/passwd {log}',
+        'touch {log}', 'echo x | tee {log}', 'echo x | tee -a {log}',
+        'dd if=/etc/passwd of={log}', 'cp /etc/passwd /tmp/x',
+    ])
+    def test_it_does_not_open_or_change_a_shut_file(self, raw_terminal, line):
+        before = self.shut(raw_terminal)
+        reply = raw_terminal.execute_command(line.format(log=self.LOG))
+        assert raw_terminal.filesystem[self.LOG] == before
+        assert self.LOG not in readable(raw_terminal)
+        if '/tmp/x' not in line and 'touch' not in line:
+            assert 'not owner' in reply
+
+    def test_mv_onto_it_is_refused(self, raw_terminal):
+        before = self.shut(raw_terminal)
+        raw_terminal.execute_command('echo x > mine')
+        reply = raw_terminal.execute_command(f'mv mine {self.LOG}')
+        assert reply.endswith('not owner')
+        assert raw_terminal.filesystem[self.LOG] == before
+        assert 'mine' in raw_terminal.execute_command('ls')
+
+    def test_the_cat_after_an_append_still_refuses(self, raw_terminal):
+        self.shut(raw_terminal)
+        raw_terminal.execute_command(f'echo x >> {self.LOG}')
+        assert raw_terminal.execute_command(f'cat {self.LOG}') == (
+            f'cat: {self.LOG}: permission denied')
+
+    def test_dev_null_takes_anything_and_keeps_nothing(self, raw_terminal):
+        held(raw_terminal, 0)
+        before = raw_terminal.filesystem['/dev/null']
+        assert raw_terminal.execute_command('echo x > /dev/null') == ''
+        assert raw_terminal.execute_command('echo x >> /dev/null') == ''
+        assert raw_terminal.filesystem['/dev/null'] == before
+
+    def test_the_players_own_files_are_still_theirs_to_change(
+            self, raw_terminal):
+        raw_terminal.username = 'sysop'
+        assert raw_terminal.execute_command(f'echo x >> {LETTER}') == ''
+        assert (raw_terminal._read(LETTER) or '').endswith('x\n')
+
+    def test_the_moo_scoreboard_is_the_machines_to_write(self, raw_terminal):
+        from bell_system.filesystem import MOO_SCORES
+        raw_terminal.username = 'sysop'
+        raw_terminal._moo_secret = '1234'
+        raw_terminal.execute_command('moo 1234')
+        assert 'sysop' in (raw_terminal._read(MOO_SCORES) or '')
+        # ... and not the player's, by hand.
+        reply = raw_terminal.execute_command(f'echo x > {MOO_SCORES}')
+        assert reply.endswith('not owner')

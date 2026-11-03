@@ -260,6 +260,11 @@ class SessionState:
         """Create or replace a file; returns an error string or None."""
         raise NotImplementedError
 
+    def put_file(self, path: str, text: str,
+                 append: bool = False) -> Optional[str]:
+        """Write a file as the machine does, whoever owns it."""
+        raise NotImplementedError
+
     def store_node(self, path: str, node: Node,
                    command: str = 'sh') -> Optional[str]:
         """Put a node in the tree, or return why it would not fit."""

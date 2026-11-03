@@ -67,7 +67,7 @@ class FilterCommands(SessionState):
                 rest.append(item)
             index += 1
 
-        text, error = self._gather(rest, 'pr')
+        text, error = self._gather(rest, 'pr', note=True)
         if error:
             return error
         lines = text.split('\n')
@@ -326,7 +326,8 @@ class FilterCommands(SessionState):
                   f"{full}+{1 if part else 0} records out")
         target = options.get('of')
         if target is None:
-            self._note_read(source)
+            if data:
+                self._note_read(source)
             return data + ('\n' if data and not data.endswith('\n') else '') + counts
         error = self.write_file(
             normalise(target, self.current_directory), data)
