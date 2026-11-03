@@ -6,6 +6,8 @@ Plan rows R3, C8 and C9. The count is Career.fault_sightings, per fault type,
 and Difficulty.annotation_sightings says how many are annotated.
 """
 
+import re
+
 import pytest
 
 from bell_system.data.trouble import (
@@ -375,3 +377,32 @@ class TestNothingFoundIsClosedEight:
         terminal.execute_command(terminal.next_action().command)
         assert report.status == 'CLOSED'
         assert report.correct
+
+
+class TestTheNumbersStageIsTheSameForAllThreeCleanReadings:
+    """FCG, CO_EQUIP and NONE share their ranges, and so must their report."""
+
+    def _shape(self, terminal, code):
+        terminal.career.fault_sightings[code] = 4
+        report = terminal.desk.receive(terminal.clock.now(), fault=code)
+        result = terminal.execute_command(f'mlt {report.number}')
+        body = result.split('INSULATION RESISTANCE', 1)[1]
+        return [' '.join(re.sub(r'[\d,.]+', '#', line).split())
+                for line in body.splitlines()]
+
+    def test_the_report_differs_only_in_its_numbers(self, terminal):
+        shapes = [self._shape(terminal, code)
+                  for code in ('FCG', 'CO_EQUIP', 'NONE')]
+        assert shapes[0] == shapes[1] == shapes[2]
+
+    @pytest.mark.parametrize('code', ['FCG', 'CO_EQUIP', 'NONE'])
+    def test_the_verdict_text_is_not_printed(self, terminal, code):
+        terminal.career.fault_sightings[code] = 4
+        report = terminal.desk.receive(terminal.clock.now(), fault=code)
+        result = terminal.execute_command(f'mlt {report.number}')
+        assert FAULTS[code].mlt_signature not in result
+
+    def test_the_first_sighting_still_gets_its_verdict(self, terminal):
+        report = terminal.desk.receive(terminal.clock.now(), fault='FCG')
+        result = terminal.execute_command(f'mlt {report.number}')
+        assert FAULTS['FCG'].mlt_signature in result

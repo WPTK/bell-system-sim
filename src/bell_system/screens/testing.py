@@ -283,8 +283,12 @@ All switching functions normal.
         if record.class_of_service == 'COIN':
             lines.append(f"  Coin station: needs {COIN_STATION_CURRENT_MA} mA "
                          f"to operate.")
-        lines.extend(['', 'TEST RESULT', f"  {measurement.verdict}"])
+        lines.extend(['', 'TEST RESULT'])
+        # The verdict is the system's reading of the pair. At the numbers
+        # stage it is withheld: for the three conditions that read clean it
+        # is the only thing that tells them apart.
         if measurement.suspected:
+            lines.append(f"  {measurement.verdict}")
             suspected = FAULTS[measurement.suspected]
             if stage == STAGE_NOTE:
                 lines.append(f"  System reads this as: {suspected.name} "
