@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Optional
 
 from .cable import WetSection
 from .field import Assignment, CREWS
-from .reports import LineRecord, ReportDesk, TroubleReport
+from .reports import STATUS_CLOSED, LineRecord, ReportDesk, TroubleReport
 
 # Bumped whenever the shape below changes in a way that makes an older file
 # wrong rather than merely incomplete. An unrecognised version is discarded,
@@ -102,6 +102,7 @@ _REPORT_FIELDS = (
 def _report_out(report: TroubleReport) -> Dict[str, Any]:
     """Write one trouble report, everything on it included."""
     written = {field: getattr(report, field) for field in _REPORT_FIELDS}
+    written['desk_booked'] = report.desk_booked
     written['record'] = _record_out(report.record)
     written['received'] = _stamp(report.received)
     written['commitment'] = _stamp(report.commitment)
@@ -126,6 +127,16 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     for field in _REPORT_FIELDS:
         if field not in ('number', 'symptom', 'repeat_of'):
             setattr(report, field, stored[field])
+    # Written since reports began ageing on the shift clock. A shift saved
+    # before that has been aged by exactly the desk time it charged.
+    report.desk_booked = stored.get('desk_booked', report.desk_minutes)
+    # Nor were overdue reports flagged while they were open. Left alone,
+    # the first age() after loading would find every one of them late at
+    # once and answer with a burst of misses and escalations for lateness
+    # the old shift already had, so those are marked as known.
+    if 'desk_booked' not in stored and report.status != STATUS_CLOSED:
+        report.missed_commitment = (report.missed_commitment
+                                    or report.overdue())
     report.test_notes = list(stored['test_notes'])
     report.closed_at = _moment(stored['closed_at'])
     return report
@@ -170,7 +181,7 @@ def _force_out(desk: ReportDesk) -> Dict[str, Any]:
     return {
         'at': dict(desk.force.at),
         'out': {key: {'report': job.report, 'travel': job.travel,
-                      'work': job.work, 'left': _stamp(job.left)}
+                      'work': job.work, 'left': job.left}
                 for key, job in desk.force.out.items()},
     }
 
@@ -182,8 +193,12 @@ def _force_in(desk: ReportDesk, stored: Dict[str, Any]) -> None:
                      if key in crews}
     out = {}
     for key, job in stored['out'].items():
-        left = _moment(job['left'])
-        if key not in crews or left is None:
+        left = job['left']
+        # A shift saved before the crews ran on the shift clock wrote the
+        # time they rolled as a wall-clock stamp. That is not a point on this
+        # clock, and the crew is taken to be back; the report they were out
+        # on was charged for the trip when they rolled.
+        if key not in crews or not isinstance(left, int):
             continue
         out[key] = Assignment(crew=crews[key], report=job['report'],
                               travel=job['travel'], work=job['work'],
@@ -241,6 +256,8 @@ def capture(terminal: Any) -> Dict[str, Any]:
             'hint_situation': terminal._hint_situation,
             'hint_level': terminal._hint_level,
             'assigned_tickets': sorted(terminal._assigned_tickets),
+            'tour_desk_start': terminal._tour_desk_start,
+            'board_reviewed': terminal._board_reviewed,
         },
     }
 
@@ -303,6 +320,10 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     terminal._hint_situation = tour['hint_situation']
     terminal._hint_level = tour['hint_level']
     terminal._assigned_tickets = set(tour['assigned_tickets'])
+    # Newer than the first saves. Without them the tour is taken to have
+    # been worked, which is the kinder way to be wrong about a resumed shift.
+    terminal._tour_desk_start = tour.get('tour_desk_start', 0)
+    terminal._board_reviewed = tour.get('board_reviewed', True)
     return True
 
 

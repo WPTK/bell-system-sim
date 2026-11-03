@@ -9,7 +9,7 @@ category is never busy.
 """
 
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 
@@ -128,7 +128,7 @@ class TestOneTripRepairsTheSheath:
 
     def test_a_dispatch_names_the_binder_group(self, desk):
         group = self.wet_group(desk)
-        result = desk.dispatch(group[0], 'Cable repair', SHIFT_START)
+        result = desk.dispatch(group[0], 'Cable repair', 0)
         assert 'binder' in result
         assert 'pairs' in result
 
@@ -136,7 +136,7 @@ class TestOneTripRepairsTheSheath:
         group = self.wet_group(desk)
         if len(group) < 2:
             pytest.skip('this seed put one pair in the group')
-        desk.dispatch(group[0], 'Cable repair', SHIFT_START)
+        desk.dispatch(group[0], 'Cable repair', 0)
         for other in group[1:]:
             assert other.sheath_repaired
             assert other.field_finding == 'WET'
@@ -145,7 +145,7 @@ class TestOneTripRepairsTheSheath:
         group = self.wet_group(desk)
         if len(group) < 2:
             pytest.skip('this seed put one pair in the group')
-        result = desk.dispatch(group[0], 'Cable repair', SHIFT_START)
+        result = desk.dispatch(group[0], 'Cable repair', 0)
         for other in group[1:]:
             assert other.number in result
 
@@ -153,8 +153,8 @@ class TestOneTripRepairsTheSheath:
         group = self.wet_group(desk)
         if len(group) < 2:
             pytest.skip('this seed put one pair in the group')
-        desk.dispatch(group[0], 'Cable repair', SHIFT_START)
-        result = desk.dispatch(group[1], 'Cable repair', SHIFT_START)
+        desk.dispatch(group[0], 'Cable repair', 0)
+        result = desk.dispatch(group[1], 'Cable repair', 0)
         assert 'Nobody needs to go' in result
         assert group[1].dispatched_to is None
 
@@ -162,8 +162,8 @@ class TestOneTripRepairsTheSheath:
         group = self.wet_group(desk)
         if len(group) < 2:
             pytest.skip('this seed put one pair in the group')
-        desk.dispatch(group[0], 'Cable repair', SHIFT_START)
-        assert desk.close(group[1], 5, 'WET', SHIFT_START, True)
+        desk.dispatch(group[0], 'Cable repair', 0)
+        assert desk.close(group[1], 5, 'WET', SHIFT_START)
 
     def test_one_trip_costs_less_than_two(self, desk):
         """
@@ -173,9 +173,9 @@ class TestOneTripRepairsTheSheath:
         group = self.wet_group(desk)
         if len(group) < 2:
             pytest.skip('this seed put one pair in the group')
-        desk.dispatch(group[0], 'Cable repair', SHIFT_START)
+        desk.dispatch(group[0], 'Cable repair', 0)
         before = group[1].minutes_spent
-        desk.dispatch(group[1], 'Cable repair', SHIFT_START)
+        desk.dispatch(group[1], 'Cable repair', 0)
         assert group[1].minutes_spent == before
 
 
@@ -262,7 +262,7 @@ class TestFieldForce:
     def test_sending_somebody_takes_them_out(self):
         force = FieldForce(random.Random(1))
         crew, travel, came_from = force.send(
-            'Cable repair', 'TR-00001', 120, SHIFT_START)
+            'Cable repair', 'TR-00001', 120, 0)
         assert crew is not None
         assert travel > 0
         assert came_from
@@ -271,30 +271,30 @@ class TestFieldForce:
     def test_they_come_back_when_the_job_is_done(self):
         force = FieldForce(random.Random(1))
         crew, travel, _ = force.send(
-            'Central office', 'TR-00001', 30, SHIFT_START)
-        later = SHIFT_START + timedelta(minutes=travel + 31)
+            'Central office', 'TR-00001', 30, 0)
+        later = travel + 31
         assert crew in force.free('Central office', later)
 
     def test_a_category_with_everybody_out_sends_nobody(self):
         force = FieldForce(random.Random(1))
         for index in range(4):
-            force.send('Cable repair', f'TR-0000{index}', 600, SHIFT_START)
-        crew, _, _ = force.send('Cable repair', 'TR-00009', 60, SHIFT_START)
+            force.send('Cable repair', f'TR-0000{index}', 600, 0)
+        crew, _, _ = force.send('Cable repair', 'TR-00009', 60, 0)
         assert crew is None
 
     def test_it_says_who_has_to_finish_first(self):
         force = FieldForce(random.Random(1))
         for index in range(4):
-            force.send('Cable repair', f'TR-0000{index}', 600, SHIFT_START)
-        waiting = force.soonest_free('Cable repair', SHIFT_START)
+            force.send('Cable repair', f'TR-0000{index}', 600, 0)
+        waiting = force.soonest_free('Cable repair', 0)
         assert waiting is not None
-        assert waiting.back_at() > SHIFT_START
+        assert waiting.back_at() > 0
 
     def test_the_nearest_free_crew_goes(self):
         force = FieldForce(random.Random(1))
         force.at['okafor'] = 'FAR'
         force.at['sandoval'] = 'GARAGE'
-        crew, _, _ = force.send('Cable repair', 'TR-00001', 60, SHIFT_START)
+        crew, _, _ = force.send('Cable repair', 'TR-00001', 60, 0)
         assert crew.key == 'sandoval'
 
 
@@ -303,7 +303,7 @@ class TestTheDeskUsesThem:
 
     def test_a_dispatch_names_who_went(self, desk):
         report = desk.receive(SHIFT_START, fault='GROUND')
-        result = desk.dispatch(report, 'Outside plant', SHIFT_START)
+        result = desk.dispatch(report, 'Outside plant', 0)
         assert report.crew is not None
         assert report.crew in result
         assert 'rolled from' in result
@@ -311,16 +311,16 @@ class TestTheDeskUsesThem:
     def test_travel_is_charged_against_the_commitment(self, desk):
         report = desk.receive(SHIFT_START, fault='GROUND')
         before = report.minutes_spent
-        desk.dispatch(report, 'Outside plant', SHIFT_START)
+        desk.dispatch(report, 'Outside plant', 0)
         assert report.travel_minutes > 0
         assert report.minutes_spent - before > report.travel_minutes
 
     def test_a_report_nobody_can_take_stays_on_the_board(self, desk):
         held = [desk.receive(SHIFT_START, fault='GROUND') for _ in range(3)]
         for report in held:
-            desk.dispatch(report, 'Outside plant', SHIFT_START)
+            desk.dispatch(report, 'Outside plant', 0)
         last = desk.receive(SHIFT_START, fault='GROUND')
-        result = desk.dispatch(last, 'Outside plant', SHIFT_START)
+        result = desk.dispatch(last, 'Outside plant', 0)
         assert 'Nobody free' in result
         assert last in desk.pending()
         assert last.dispatched_to is None

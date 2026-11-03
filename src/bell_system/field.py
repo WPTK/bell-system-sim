@@ -25,7 +25,6 @@ making it the whole game.
 """
 
 import random
-from datetime import datetime, timedelta
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
 class Place(NamedTuple):
@@ -89,11 +88,14 @@ class Assignment(NamedTuple):
     report: str
     travel: int
     work: int
-    left: datetime
+    # Minutes into the tour when the crew rolled. Everything in this module
+    # is measured on the shift clock, the one the player's own work moves,
+    # so that "back at" means the same thing as the commitment times do.
+    left: int
 
-    def back_at(self) -> datetime:
-        """When this crew is available again."""
-        return self.left + timedelta(minutes=self.travel + self.work)
+    def back_at(self) -> int:
+        """Minutes into the tour when this crew is available again."""
+        return self.left + self.travel + self.work
 
 
 class FieldForce:
@@ -121,18 +123,18 @@ class FieldForce:
         """Every crew that answers a dispatch category."""
         return [crew for crew in CREWS if crew.force.lower() == force.lower()]
 
-    def free(self, force: str, now: datetime) -> List[Crew]:
+    def free(self, force: str, now: int) -> List[Crew]:
         """Crews for a category who are not out on something else."""
         self._return_anybody_due(now)
         return [crew for crew in self.crews_for(force)
                 if crew.key not in self.out]
 
-    def busy(self, now: datetime) -> List[Assignment]:
+    def busy(self, now: int) -> List[Assignment]:
         """Everybody currently out, soonest back first."""
         self._return_anybody_due(now)
         return sorted(self.out.values(), key=lambda job: job.back_at())
 
-    def _return_anybody_due(self, now: datetime) -> None:
+    def _return_anybody_due(self, now: int) -> None:
         """Bring back every crew whose job has finished."""
         for key, job in list(self.out.items()):
             if job.back_at() <= now:
@@ -150,7 +152,7 @@ class FieldForce:
         return self.rng.randint(low, high)
 
     def send(self, force: str, report: str, work: int,
-             now: datetime) -> Tuple[Optional[Crew], int, str]:
+             now: int) -> Tuple[Optional[Crew], int, str]:
         """
         Send somebody, and say who and from where.
 
@@ -163,7 +165,7 @@ class FieldForce:
             force: One of the four dispatch categories
             report: The report number, for the record
             work: How long the repair itself will take, in minutes
-            now: When the call went out
+            now: Minutes into the tour when the call went out
 
         Returns:
             (crew or None, travel minutes, where they came from)
@@ -182,7 +184,25 @@ class FieldForce:
         self.at[crew.key] = 'DISTRICT'
         return crew, travel, came_from
 
-    def soonest_free(self, force: str, now: datetime) -> Optional[Assignment]:
+    def new_tour(self, elapsed: int) -> None:
+        """
+        Start a new tour's clock at zero, ``elapsed`` minutes after the old one.
+
+        A crew still out at the handoff is still out in the morning, by
+        however much of the job is left. The clocks are all measured from the
+        start of a tour, so every assignment is moved back by what passed.
+        """
+        rebased = {}
+        for key, job in self.out.items():
+            moved = job._replace(left=job.left - elapsed)
+            if moved.back_at() > 0:
+                rebased[key] = moved
+            else:
+                self.at[key] = ('OFFICE' if job.crew.force == 'Central office'
+                                else 'GARAGE')
+        self.out = rebased
+
+    def soonest_free(self, force: str, now: int) -> Optional[Assignment]:
         """The job that has to finish before this category is free again."""
         out = [job for job in self.busy(now)
                if job.crew.force.lower() == force.lower()]

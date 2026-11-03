@@ -325,7 +325,7 @@ class TestTheRosterIsComplete:
 
     def test_a_field_call_names_who_actually_went(self, terminal):
         report = terminal.desk.receive(terminal.clock.now(), fault='GROUND')
-        terminal.desk.dispatch(report, 'Outside plant', terminal.clock.now())
+        terminal.desk.dispatch(report, 'Outside plant', terminal.shift_minutes)
         message = terminal.switchroom.field_call(
             terminal.clock.now(), report.number, 'cleared',
             force='Outside plant', crew=report.crew)
@@ -417,7 +417,7 @@ class TestTheTourAccount:
     def test_the_tally_reads_real_state(self, at_desk):
         terminal = at_desk('field')
         report = terminal.desk.receive(terminal.clock.now(), fault='GROUND')
-        terminal.desk.dispatch(report, 'Outside plant', terminal.clock.now())
+        terminal.desk.dispatch(report, 'Outside plant', terminal.shift_minutes)
         rows = dict(terminal.position_tally())
         assert rows['crews dispatched'] == '1'
 

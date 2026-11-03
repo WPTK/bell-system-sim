@@ -18,6 +18,7 @@ from typing import Dict, List, NamedTuple, Optional
 
 from ..data.trouble import DISPATCH_FORCES
 from ..field import CREWS, LOCATIONS
+from ..reports import hours_minutes
 from ..data.signaling import PROGRESS_TONES
 from ..data.switching import SWITCHING_SYSTEMS
 from ..settings import state_dir
@@ -537,7 +538,7 @@ microwave(1), radio(1), trace(1)
         whole reason to look.
         """
         force = self.desk.force
-        now = self.clock.now()
+        now = self.shift_minutes
         rows = ["FIELD FORCE", self.clock.timestamp(), '=' * 62, '',
                 f"  {'WHO':<16}{'TITLE':<32}STATE",
                 '  ' + '-' * 60]
@@ -546,8 +547,8 @@ microwave(1), radio(1), trace(1)
             if job is None:
                 state = f"free, {LOCATIONS[force.at[crew.key]].standing}"
             else:
-                state = (f"out on {job.report}, back "
-                         f"{job.back_at().strftime('%H:%M')}")
+                state = (f"out on {job.report}, back in "
+                         f"{hours_minutes(job.back_at() - now)}")
             rows.append(f"  {crew.name:<16}{crew.title:<32}{state}")
 
         rows.append('')
@@ -558,8 +559,9 @@ microwave(1), radio(1), trace(1)
             rows.append("NOBODY FREE ON")
             for category in short:
                 waiting = force.soonest_free(category, now)
-                when = waiting.back_at().strftime('%H:%M') if waiting else '?'
-                rows.append(f"  {category:<20}next in at {when}")
+                when = (hours_minutes(waiting.back_at() - now)
+                        if waiting else '?')
+                rows.append(f"  {category:<20}next in {when}")
             rows.append('')
             rows.append("A report dispatched to one of those stays on the "
                         "board. It is not")

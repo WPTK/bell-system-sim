@@ -468,22 +468,30 @@ Escalation logged in Bell System Operations Database."""
         target_time = 15 if ticket['priority'] == 'CRITICAL' else 30 if ticket['priority'] == 'MAJOR' else 60
         on_time = resolution_minutes <= target_time
 
+        # Only what the ticket itself carries. This used to close with a
+        # count of customers restored and dollars recovered, worked out from
+        # a revenue-per-hour figure on the ticket and the minutes it had been
+        # open; nothing in the simulation restores a customer or recovers a
+        # dollar when a ticket is resolved, so the numbers were invented.
+        late = resolution_minutes - target_time
+        performance = ('Within target' if on_time
+                       else f"Past target by {late} minutes")
+        steps = len(ticket['resolution_steps'])
+
         return f"""Trouble Ticket Resolved
 {'=' * 30}
 Ticket ID:            {ticket_id}
+Office:               {self._office_label(ticket['affected_office'])}
 Resolution Time:      {current_time}
 Total Duration:       {resolution_minutes} minutes
 Target Time:          {target_time} minutes
-Performance:          {'ON TIME' if on_time else 'EXCEEDED TARGET'}
-
-Customer Impact:      {ticket['customer_impact']:,} customers restored
-Revenue Recovered:    ${ticket['business_impact']['revenue_loss_hour'] * (resolution_minutes / 60):,.0f}
+Performance:          {performance}
+Steps Logged:         {steps}
 
 Resolution Details:
 {ticket['technical_details']}
 
-Ticket closed and archived in Bell System Trouble Management Database.
-Service restoration confirmed for affected customers."""
+Ticket closed and archived in Bell System Trouble Management Database."""
     def _create_manual_ticket(self, args: List[str]) -> str:
         """Create a trouble ticket manually from craft-entered parameters."""
         valid_categories = list(self.ticket_categories.keys())

@@ -97,6 +97,13 @@ STATUS_TESTED = 'TESTED'
 STATUS_DISPATCHED = 'DISP'
 STATUS_CLOSED = 'CLOSED'
 
+
+def hours_minutes(minutes: int) -> str:
+    """Return a span of minutes as the hours:minutes the desk writes."""
+    minutes = max(0, int(minutes))
+    return f"{minutes // 60}:{minutes % 60:02d}"
+
+
 # Plausible surnames for line records. Ordinary period American surnames,
 # nothing more; no real subscriber is depicted.
 _SURNAMES: Sequence[str] = (
@@ -199,6 +206,10 @@ class TroubleReport:
         self.minutes_spent = 0
         # Your own time at the desk. Never more than the elapsed time.
         self.desk_minutes = 0
+        # How much of that desk time the rest of the board has already been
+        # aged for. The shift clock moves on desk time, and every other
+        # report waits while it does.
+        self.desk_booked = 0
         self.tested = False
         self.test_notes: List[str] = []
         self.dispatched_to: Optional[str] = None
@@ -248,6 +259,16 @@ class TroubleReport:
         """
         self.minutes_spent += minutes
         self.desk_minutes += minutes if desk is None else desk
+
+    def age(self, minutes: int) -> None:
+        """
+        Let time pass on the report without anybody working it.
+
+        The commitment is elapsed time, so it runs whether or not the
+        report has your attention. This moves the elapsed time and leaves
+        your own desk time alone, which is what spend() is for.
+        """
+        self.minutes_spent += minutes
 
     def age_label(self) -> str:
         """Return the time remaining, or how far past commitment it is."""
@@ -568,16 +589,18 @@ class ReportDesk:
         report.spend(minutes)
 
     def dispatch(self, report: TroubleReport, force: str,
-                 now: Optional[datetime] = None) -> str:
+                 now: int = 0) -> str:
         """
         Send a repair force and return what the field reports back.
+
+        ``now`` is minutes into the tour on the shift clock, the same clock
+        the commitments and the crews' return times run on.
 
         Dispatching to the wrong place is the expensive mistake it was: the
         trip is charged against the commitment and the trouble is still there.
         """
         fault = FAULTS[report.record.fault]
         wanted = fault.dispatch
-        now = now or report.received
 
         if report.sheath_repaired:
             # A splicer has already been to this binder group on somebody
@@ -621,12 +644,12 @@ class ReportDesk:
             report.dispatched_to = None
             if waiting is None:  # pragma: no cover - no crew for the category
                 return f"Nobody answers {force} from this position."
-            back = waiting.back_at().strftime('%H:%M')
+            wait = max(0, waiting.back_at() - now)
             return (f"Nobody free on {force.lower()}. "
-                    f"{waiting.crew.name} is on {waiting.report} and is not "
-                    f"back before {back}.\n"
-                    f"{report.number} stays on the board. Try again when "
-                    f"somebody is in.")
+                    f"{waiting.crew.name} is on {waiting.report} and is "
+                    f"back in {hours_minutes(wait)}, "
+                    f"{hours_minutes(waiting.back_at())} into the tour.\n"
+                    f"{report.number} stays on the board.")
 
         report.crew = crew.name
         report.travel_minutes = travel
@@ -695,8 +718,7 @@ class ReportDesk:
         return '\n'.join(lines)
 
     def close(self, report: TroubleReport, disposition: int,
-              found: Optional[str], now: datetime,
-              count_commitments: bool) -> bool:
+              found: Optional[str], now: datetime) -> bool:
         """
         Close a report and judge the disposition against the truth.
 
@@ -708,7 +730,10 @@ class ReportDesk:
         report.disposition = disposition
         report.found = found
         report.closed_at = now
-        report.missed_commitment = count_commitments and report.overdue()
+        # Usually flagged long before this, by age(). Closing is the last
+        # chance to notice a commitment the close itself ran past.
+        if report.overdue():
+            report.missed_commitment = True
 
         truth = report.record.fault
         if disposition == 8:
@@ -746,6 +771,64 @@ class ReportDesk:
             record=report.record,
             repeat_of=report.number,
         )
+
+    def age(self, minutes: int, was: int) -> List[TroubleReport]:
+        """
+        Let shift time pass on every open report.
+
+        Root of the old "no pressure" defect: a commitment was only ever
+        charged by spend(), on the report being worked, so a board nobody
+        touched stayed exactly as old as it started however long the shift
+        ran. The shift clock moves on desk time, and while it does every
+        report on the board is waiting.
+
+        Two things already paid for their own time and are not charged twice:
+        the report the desk time was spent on, and a report with a crew out
+        on it, whose repair and drive were charged to the commitment when
+        the crew rolled.
+
+        Args:
+            minutes: Shift minutes that have just passed
+            was: Minutes into the tour before they passed, which is where
+                a crew has to have been out to be covering them
+
+        Returns:
+            The reports that went past their commitment during this time,
+            each reported once.
+        """
+        covered = {job.report for job in self.force.busy(was)}
+        for number in self.order:
+            report = self.reports[number]
+            if report.status == STATUS_CLOSED:
+                continue
+            own = report.desk_minutes - report.desk_booked
+            report.desk_booked = report.desk_minutes
+            if number not in covered:
+                report.age(max(0, minutes - own))
+        return self.flag_overdue()
+
+    def flag_overdue(self) -> List[TroubleReport]:
+        """Mark open reports newly past commitment, and return them once."""
+        late = [report for report in self.pending()
+                if report.overdue() and not report.missed_commitment]
+        for report in late:
+            report.missed_commitment = True
+        return late
+
+    def new_tour(self, elapsed: int, was: int) -> List[TroubleReport]:
+        """
+        Carry the board over a handoff.
+
+        The rest of the tour went by with the reports on the board, and the
+        crews still out are that much nearer home.
+
+        Args:
+            elapsed: Minutes of the tour nobody worked
+            was: Minutes into the tour when the handoff was signed
+        """
+        late = self.age(elapsed, was)
+        self.force.new_tour(was + elapsed)
+        return late
 
     def full(self) -> bool:
         """Return whether the pending list is at this desk's working limit."""

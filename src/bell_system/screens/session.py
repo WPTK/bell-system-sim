@@ -112,6 +112,8 @@ class SessionState:
     shift_events: List[Dict[str, Any]]
     shift_handoff: Dict[str, Any]
     _charged_total: int
+    _tour_desk_start: int
+    _board_reviewed: bool
     _fired_events: Set[str]
     _queued_messages: deque
 
@@ -325,6 +327,10 @@ class SessionState:
 
     def shift_time(self) -> str:
         """How far into the shift the operator is, as h:mm."""
+        raise NotImplementedError
+
+    def _pass_time(self, minutes: int) -> None:
+        """Let shift minutes go by that nobody spent on a report."""
         raise NotImplementedError
 
     def generate_shift_events(self) -> None:

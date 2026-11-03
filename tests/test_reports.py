@@ -140,7 +140,7 @@ class TestWorkingAReport:
         """
         report = desk.receive(SHIFT_START, fault='GROUND')
         before = report.minutes_spent
-        result = desk.dispatch(report, 'Central office', SHIFT_START)
+        result = desk.dispatch(report, 'Central office', 0)
         assert 'found nothing at their end' in result
         assert report.field_finding is None
         assert report.crew is not None
@@ -149,34 +149,34 @@ class TestWorkingAReport:
     def test_the_wrong_force_charges_the_drive_as_well(self, desk):
         report = desk.receive(SHIFT_START, fault='GROUND')
         before = report.minutes_spent
-        desk.dispatch(report, 'Central office', SHIFT_START)
+        desk.dispatch(report, 'Central office', 0)
         assert report.minutes_spent - before > report.travel_minutes
 
     def test_naming_the_right_fault_on_code_five_is_correct(self, desk):
         report = desk.receive(SHIFT_START, fault='SHORT')
-        assert desk.close(report, 5, 'SHORT', SHIFT_START, True)
+        assert desk.close(report, 5, 'SHORT', SHIFT_START)
 
     def test_naming_the_wrong_fault_on_code_five_is_not(self, desk):
         report = desk.receive(SHIFT_START, fault='SHORT')
-        assert not desk.close(report, 5, 'OPEN', SHIFT_START, True)
+        assert not desk.close(report, 5, 'OPEN', SHIFT_START)
 
     def test_code_eight_on_a_clean_line_is_correct(self, desk):
         report = desk.receive(SHIFT_START, fault='NONE')
-        assert desk.close(report, 8, None, SHIFT_START, True)
+        assert desk.close(report, 8, None, SHIFT_START)
 
     def test_code_eight_on_a_faulty_line_is_not(self, desk):
         report = desk.receive(SHIFT_START, fault='WET')
-        assert not desk.close(report, 8, None, SHIFT_START, True)
+        assert not desk.close(report, 8, None, SHIFT_START)
 
     def test_a_closed_report_leaves_the_pending_list(self, desk):
         report = desk.receive(SHIFT_START, fault='NONE')
-        desk.close(report, 8, None, SHIFT_START, True)
+        desk.close(report, 8, None, SHIFT_START)
         assert report not in desk.pending()
         assert report in desk.closed()
 
     def test_a_wrongly_closed_faulty_line_can_come_back(self, desk):
         report = desk.receive(SHIFT_START, fault='WET')
-        desk.close(report, 8, None, SHIFT_START, True)
+        desk.close(report, 8, None, SHIFT_START)
         assert desk.should_repeat(report, chance=1.0)
         repeat = desk.repeat(report, SHIFT_START)
         assert repeat.repeat_of == report.number
@@ -184,24 +184,29 @@ class TestWorkingAReport:
 
     def test_a_correctly_closed_report_never_comes_back(self, desk):
         report = desk.receive(SHIFT_START, fault='WET')
-        desk.close(report, 5, 'WET', SHIFT_START, True)
+        desk.close(report, 5, 'WET', SHIFT_START)
         assert not desk.should_repeat(report, chance=1.0)
 
     def test_a_wrong_call_on_a_clean_line_does_not_come_back(self, desk):
         report = desk.receive(SHIFT_START, fault='NONE')
-        desk.close(report, 5, 'OPEN', SHIFT_START, True)
+        desk.close(report, 5, 'OPEN', SHIFT_START)
         assert not desk.should_repeat(report, chance=1.0)
 
-    def test_a_commitment_is_only_missed_when_it_is_counted(self, desk):
+    def test_a_commitment_passed_by_the_close_itself_is_missed(self, desk):
         report = desk.receive(SHIFT_START, fault='OPEN')
         report.spend(100_000)
-        desk.close(report, 8, None, SHIFT_START, count_commitments=False)
+        desk.close(report, 8, None, SHIFT_START)
+        assert report.missed_commitment
+
+    def test_a_commitment_kept_is_not_missed(self, desk):
+        report = desk.receive(SHIFT_START, fault='OPEN')
+        desk.close(report, 8, None, SHIFT_START)
         assert not report.missed_commitment
 
-        other = desk.receive(SHIFT_START, fault='OPEN')
-        other.spend(100_000)
-        desk.close(other, 8, None, SHIFT_START, count_commitments=True)
-        assert other.missed_commitment
+    def test_ageing_flags_a_report_once(self, desk):
+        report = desk.receive(SHIFT_START, fault='OPEN')
+        assert desk.age(100_000, 0) == [report]
+        assert desk.age(100, 0) == []
 
     @pytest.mark.parametrize('word,expected', [
         ('osp', 'Outside plant'),
@@ -691,7 +696,11 @@ class TestTestCalls:
         assert next(r for r in first.splitlines() if start in r) == \
             next(r for r in second.splitlines() if start in r)
 
-    def test_terminating_on_a_test_line_measures_the_connection(self, terminal):
+    def test_terminating_on_a_test_line_measures_the_connection(
+            self, terminal, monkeypatch):
+        """Final groups block one call in a hundred, so take the roll away."""
+        monkeypatch.setattr('bell_system.routing.FINAL_GROUP_BLOCKING', 0.0)
+        monkeypatch.setattr('bell_system.routing.HIGH_USAGE_BLOCKING', 0.0)
         result = terminal.execute_command('testcall EO-NYC-01 EO-BOS-01 105')
         assert 'MEASUREMENT' in result
         assert 'Loss at 1004 Hz' in result
@@ -830,6 +839,7 @@ class TestShiftClock:
         terminal.shift_minutes = 400
         terminal._fire_due_events()
         assert terminal._fired_events
+        terminal.execute_command('report')
         terminal.execute_command('handoff relieve')
         # The handoff command itself costs a minute of the new shift.
         assert terminal.shift_minutes < 5

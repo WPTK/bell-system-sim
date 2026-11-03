@@ -26,6 +26,7 @@ from ..console import wrap
 from ..constants import SHIFT_LENGTH_MINUTES
 from ..npc import render as render_message
 from ..progression import QUALIFICATIONS
+from ..reports import hours_minutes
 from ..weather import Weather
 from .session import SessionState
 
@@ -150,8 +151,40 @@ Type 'handoff relieve' to sign off. The service index is banked against
 this shift and the next one starts on a fresh board."""
 
         if args and args[0].lower() in ('relieve', 'signoff', 'end'):
+            if not self._tour_has_work():
+                return self._nothing_to_hand_over()
             return self._end_shift()
         return output
+
+    def _tour_has_work(self) -> bool:
+        """
+        Whether there is anything to hand over a record of.
+
+        A tour has something to show for it once a report has been worked
+        (a measurement, a dispatch, a call, a close: anything that charged
+        the desk) or once the board has been read. Thirteen sign-offs typed
+        one after another ended a career in a second with a perfect record
+        and forty-seven reports nobody had looked at, and the handoff is
+        exactly the place that cannot be taken without having looked.
+        """
+        return (self._board_reviewed
+                or self._charged_total > self._tour_desk_start
+                or self._tour_worked()[0] > 0)
+
+    def _nothing_to_hand_over(self) -> str:
+        """Refuse a sign-off on a tour nobody has done anything in."""
+        pending = len(self.desk.pending())
+        if pending:
+            on_it = ('there is 1 report' if pending == 1
+                     else f"there are {pending} reports")
+            return (
+                "Nothing to hand over: you have not looked at the board "
+                f"or worked anything this tour, and {on_it} on it.\n\n"
+                "Read it with 'report' (or 'report next' for the one to do "
+                "first), work what you can, then 'handoff relieve' again.")
+        return ("Nothing to hand over: the board is clear and you have not "
+                "looked at it this tour.\n\n"
+                "Read it with 'report', then 'handoff relieve' again.")
 
     def _end_shift(self) -> str:
         """
@@ -162,7 +195,14 @@ this shift and the next one starts on a fresh board."""
 
         Except on the last tour, when there is no morning to carry them to.
         """
-        banked = self.career.service_index()
+        # The rest of the tour goes by with the board as you leave it. Reports
+        # nobody worked pass their commitments in the hours left, and the
+        # index you bank is the one for the board you are handing over.
+        left = max(0, SHIFT_LENGTH_MINUTES - self.shift_minutes)
+        late = self.desk.new_tour(left, self.shift_minutes)
+        if late:
+            self.career.record_missed(len(late))
+        banked = self.career.service_index() if self.career.scored() else None
         worked = self.shift_time()
         carried = self.desk.pending()
         summary = self.tour_summary(*self._tour_worked())
@@ -197,6 +237,8 @@ this shift and the next one starts on a fresh board."""
         self.shift_minutes = 0
         self._charged_total = sum(report.desk_minutes
                                   for report in self.reports_all())
+        self._tour_desk_start = self._charged_total
+        self._board_reviewed = False
         self._fired_events = set()
         self.generate_shift_events()
 
@@ -204,6 +246,8 @@ this shift and the next one starts on a fresh board."""
         opened = self.desk.open_shift(
             self.clock.now(), difficulty.commitment_slack_minutes)
 
+        past = sum(1 for report in carried if report.overdue())
+        carried_late = f", {past} past commitment" if past else ''
         lines = [
             f"Relieved. Shift {self.career.shift - 1} closed after "
             f"{worked} worked.",
@@ -217,10 +261,9 @@ this shift and the next one starts on a fresh board."""
                 lines.extend(f"  {line}" for line in wrap(sentence, 64))
             lines.append('')
         lines.extend([
-            f"  Service index banked      {banked:.1f}  "
-            f"{self.career.index_band()}",
+            f"  Service index banked      {self._banked_line(banked)}",
             f"  Reports closed to date    {self.career.reports_closed}",
-            f"  Carried forward           {len(carried)}",
+            f"  Carried forward           {len(carried)}{carried_late}",
             f"  New on the board          {len(opened)}",
             f"  Shift events              {len(self.shift_events)} scheduled",
             '',
@@ -243,7 +286,13 @@ this shift and the next one starts on a fresh board."""
             lines.extend(LAST_TOUR_NOTICE)
         return '\n'.join(lines)
 
-    def _end_career(self, banked: float, worked: str,
+    def _banked_line(self, banked: Optional[float]) -> str:
+        """The index as banked, or why there is not one."""
+        if banked is None:
+            return "none yet: nothing closed, nothing past commitment"
+        return f"{banked:.1f}  {self.career.index_band()}"
+
+    def _end_career(self, banked: Optional[float], worked: str,
                     summary: List[str]) -> str:
         """
         The end of the last tour, which is the end of the Bell System.
@@ -255,7 +304,8 @@ this shift and the next one starts on a fresh board."""
         the machine did not stop on the first of January either.
         """
         career = self.career
-        career.index_history.append(round(banked, 1))
+        if banked is not None:
+            career.index_history.append(round(banked, 1))
         career.finished = True
         career.save()
         self.resumed = False
@@ -277,7 +327,7 @@ this shift and the next one starts on a fresh board."""
             f"{career.reports_wrong} wrong)",
             f"  Came back           {career.repeat_reports}",
             f"  Missed commitments  {career.missed_commitments}",
-            f"  Service index       {banked:.1f}  {career.index_band()}",
+            f"  Service index       {self._banked_line(banked)}",
             f"  Signed off on       {len(career.qualifications)} of "
             f"{len(QUALIFICATIONS)}",
         ])
@@ -348,13 +398,13 @@ this shift and the next one starts on a fresh board."""
                 f"{soonest.age_label()} "
                 f"{'past' if soonest.overdue() else 'remaining'}",
             ])
-        busy = self.desk.force.busy(now)
+        busy = self.desk.force.busy(self.shift_minutes)
         if busy:
             rows.extend(['', 'OUT NOW', '-' * 62])
             for job in busy:
                 rows.append(f"  {job.crew.name:<16}{job.report:<11}"
-                            f"back about "
-                            f"{self.clock.time(job.back_at())}")
+                            f"back in "
+                            f"{hours_minutes(job.back_at() - self.shift_minutes)}")
         rows.extend(['', "'handoff' is the full turnover record. "
                          "'handoff relieve' signs off."])
         return '\n'.join(rows)
