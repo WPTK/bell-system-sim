@@ -125,6 +125,17 @@ class RepairDeskCommands(SessionState):
 
     # -- the clock -----------------------------------------------------------
 
+    def gave_up(self, report: TroubleReport) -> bool:
+        """
+        Whether this customer has rung three times and stopped.
+
+        They are writing in, not ringing, so telling them something does
+        not start a wait that rings again: the rings they show, and the
+        advise call's price, stay at none.
+        """
+        rings = self.patience_book()['rings']
+        return rings.get(report.number, 0) >= MAX_RINGS
+
     def patience(self, report: TroubleReport) -> Tuple[int, int]:
         """
         Return the rings a customer has made in this wait and the minutes
@@ -137,7 +148,7 @@ class RepairDeskCommands(SessionState):
         report is closed (which is all ``first_tour`` covers). Read only.
         """
         window = PATIENCE[report.out_of_service]
-        if self.career.shift == 1:
+        if self.career.shift == 1 or self.gave_up(report):
             return 0, window
         wait = max(0, report.minutes_spent
                    - self.patience_book()['told'].get(report.number, 0))
@@ -191,6 +202,8 @@ class RepairDeskCommands(SessionState):
         notices: List[Message] = []
         for report in self.desk.customers():
             number = report.number
+            if self.gave_up(report):
+                continue
             rings, _ = self.patience(report)
             seen = book['seen'].get(number, 0)
             if rings < seen:
@@ -286,7 +299,7 @@ class RepairDeskCommands(SessionState):
         for report, rings, left in queue:
             known = self._has_reading(report)
             # Nobody rings after the third; there is no next ring to show.
-            until = '-' if rings >= MAX_RINGS else f"{left}m"
+            until = '-' if self.gave_up(report) else f"{left}m"
             lines.append(
                 f"{report.number:<10}{report.record.telephone_number:<14}"
                 f"{rings:<7}{until:<11}"
@@ -336,8 +349,13 @@ class RepairDeskCommands(SessionState):
                         f" ({report.dispatched_to}).")
             else:
                 said = f"it has been found: {report.field_finding}."
-            tone = (f"They had rung {rings} time(s) already." if rings
-                    else "They had not rung yet.")
+            if self.gave_up(report):
+                tone = "They had given up ringing and written in."
+            elif rings:
+                tone = f"They had rung {rings} time(s) already."
+            else:
+                tone = "They had not rung yet."
+
             return '\n'.join([
                 f"{report.number}: rang {report.record.telephone_number}. "
                 f"{tone}",

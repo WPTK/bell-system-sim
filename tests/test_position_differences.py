@@ -1911,7 +1911,7 @@ class TestTheRepairDeskCostsTheIndex:
         terminal._pass_time(500)
         terminal.ring_sweep()
         assert terminal.career.missed_commitments == before + 1
-        assert terminal.patience(down)[0] == 3
+        assert terminal.patience(down)[0] == 0  # given up, not ringing
 
     def test_a_clock_skipping_straight_to_three_still_costs_once(
             self, at_desk):
@@ -2121,7 +2121,7 @@ class TestTheRepairDeskBookIsHonest:
         before = terminal.career.missed_commitments
         terminal._pass_time(65)
         terminal.ring_sweep()
-        assert terminal.patience(down)[0] == 3
+        assert terminal.patience(down)[0] == 0  # given up, not ringing
         assert not down.overdue()
         assert terminal.career.missed_commitments == before + 1
         assert down.missed_commitment
@@ -2139,7 +2139,7 @@ class TestTheRepairDeskBookIsHonest:
         terminal._pass_time(1)
         assert terminal.career.missed_commitments == before + 1
         terminal.ring_sweep()
-        assert terminal.patience(down)[0] == 3
+        assert terminal.patience(down)[0] == 0  # given up, not ringing
         assert ring_messages(terminal)
         assert terminal.career.missed_commitments == before + 1
 
@@ -2161,12 +2161,14 @@ class TestTheRepairDeskBookIsHonest:
     def test_the_countdown_is_gone_after_the_third_ring(self, at_desk):
         terminal = at_desk('custserv')
         gone, calm = hold(terminal, (True, 10_000), (False, 5))
+        terminal.ring_sweep()  # The clock has moved on; they have rung.
         rows = {}
         for line in terminal.execute_command('trouble advise').split('\n'):
             for report in (gone, calm):
                 if line.startswith(report.number):
                     rows[report.number] = line.split()
-        assert rows[gone.number][2:4] == ['3', '-']
+        # Given up: not ringing, so no rings shown and no next one.
+        assert rows[gone.number][2:4] == ['0', '-']
         assert rows[calm.number][3].endswith('m')
 
 
@@ -3210,3 +3212,26 @@ class TestTheLeftoversFromPhaseNine:
         (major,) = put_tickets(terminal, ('MAJOR', 900))
         terminal.execute_command('trouble triage ' + major['id'])
         assert terminal.triage_queue() == []
+
+    def test_a_customer_who_gave_up_shows_and_costs_no_rings(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        terminal._pass_time(65)
+        terminal.ring_sweep()
+        assert terminal.gave_up(down)
+        terminal.patience_book()['told'][down.number] = down.minutes_spent
+        terminal._pass_time(65)
+        assert terminal.patience(down)[0] == 0
+        assert terminal.patience_queue()[0][1] == 0
+        row = next(line for line in
+                   terminal.execute_command('trouble advise').split('\n')
+                   if line.startswith(down.number))
+        assert row.split()[2] == '0' and row.split()[3] == '-'
+        assert terminal.rings_total() == 3
+        before = terminal.shift_minutes
+        terminal.execute_command('trouble advise ' + down.number)
+        spent = terminal.shift_minutes - before
+        known = terminal._has_reading(down)
+        # The command's own minute on top of the call, and nothing for rings.
+        assert spent <= terminal._advise_cost(0, known) + 1
+        assert spent < terminal._advise_cost(3, known)
