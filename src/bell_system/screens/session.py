@@ -245,6 +245,11 @@ class SessionState:
         """Create or replace a file; returns an error string or None."""
         raise NotImplementedError
 
+    def store_node(self, path: str, node: Node,
+                   command: str = 'sh') -> Optional[str]:
+        """Put a node in the tree, or return why it would not fit."""
+        raise NotImplementedError
+
     def execute_command(self, command_line: str) -> str:
         """Run one command line, as if it had been typed."""
         raise NotImplementedError

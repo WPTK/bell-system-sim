@@ -588,3 +588,84 @@ class TestWhatQualificationClaims:
         sources = self.read('SOURCES.md')
         assert 'code 5' in sources and 'code 8' in sources
         assert 'simplification' in sources.lower()
+
+
+class TestACareerKeepsWhatItDoesNotKnow:
+    def test_a_later_versions_keys_survive_a_save(self, tmp_path):
+        path = career_path(str(tmp_path))
+        with open(path, 'w') as handle:
+            json.dump({'schema': 99, 'shift': 4, 'from_the_future': {'a': [1]},
+                       'qualifications': ['loop', 'warp'],
+                       'practicals_passed': ['loop', 'warp_drive']}, handle)
+        career = Career(path)
+        assert career.qualifications == ['loop']
+        assert career.practicals_passed == ['loop']
+        career.record_closure(True)
+        with open(path) as handle:
+            written = json.load(handle)
+        assert written['from_the_future'] == {'a': [1]}
+        assert written['schema'] == 99
+        assert written['qualifications'] == ['loop', 'warp']
+        assert written['practicals_passed'] == ['loop', 'warp_drive']
+        assert written['reports_closed'] == 1
+
+    def test_this_versions_own_schema_is_what_it_writes(self, tmp_path):
+        from bell_system.progression import SCHEMA
+        path = career_path(str(tmp_path))
+        Career(path).save()
+        with open(path) as handle:
+            assert json.load(handle)['schema'] == SCHEMA
+
+    def test_what_it_does_know_is_not_held_back_as_unknown(self, tmp_path):
+        path = career_path(str(tmp_path))
+        career = Career(path)
+        career.qualifications.append('frame')
+        career.practicals_passed.append('frame')
+        career.save()
+        again = Career(path)
+        again.save()
+        with open(path) as handle:
+            written = json.load(handle)
+        assert written['qualifications'] == ['loop', 'frame']
+        assert written['practicals_passed'] == ['frame']
+
+
+class TestAnOldFieldWithTheWrongTypeCostsOnlyThatField:
+    def test_each_falls_back_on_its_own(self, tmp_path):
+        path = career_path(str(tmp_path))
+        with open(path, 'w') as handle:
+            handle.write(
+                '{"shift": null, "difficulty": ["craft"], '
+                '"reports_closed": "many", "reports_correct": 7, '
+                '"qualifications": [["x"], {"a": 1}, null, "frame"], '
+                '"index_history": [90.5, NaN, Infinity, true, "x"], '
+                '"office": 5, "finished": "yes", "missed_commitments": 1e999}')
+        career = Career(path)
+        assert career.shift == 1
+        assert career.difficulty_key == DEFAULT_DIFFICULTY
+        assert career.reports_closed == 0
+        assert career.reports_correct == 7
+        assert career.qualifications == ['frame']
+        assert career.index_history == [90.5]
+        assert career.office == {}
+        assert career.finished is False
+        assert career.missed_commitments == 0
+
+    def test_a_list_for_every_scalar_does_not_crash(self, tmp_path):
+        path = career_path(str(tmp_path))
+        with open(path, 'w') as handle:
+            json.dump({key: [1] for key in (
+                'shift', 'reports_closed', 'reports_correct', 'reports_wrong',
+                'repeat_reports', 'missed_commitments', 'difficulty',
+                'finished', 'assignment')}, handle)
+        assert Career(path).shift == 1
+
+
+class TestNamesAreReadInLinearTime:
+    def test_a_long_list_reads_at_once(self):
+        import time
+        from bell_system.progression import _names
+        names = [f'n{number}' for number in range(100000)]
+        started = time.perf_counter()
+        assert _names(names + names) == names
+        assert time.perf_counter() - started < 2.0

@@ -258,7 +258,7 @@ class BellSystemTerminal(
         self._initialize_filesystem()
         # What the player wrote on an earlier run, if anything.
         self.home_file = home_path(state_dir())
-        save.restore_home(self, save.read(self.home_file))
+        self.home_notice = save.load_home(self.home_file, self)
         # at(1) keeps a queue, uux(1) a job counter. Both live for the
         # session; the shift is one shift and nothing outlives it.
         self._at_jobs: List[Dict[str, Any]] = []
@@ -1160,6 +1160,9 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                 interactive role-selection menu.
         """
         try:
+            if self.home_notice:
+                self.emit(self.home_notice)
+                self.home_notice = None
             self.select_role(role)
             self.show_shift_briefing()
 

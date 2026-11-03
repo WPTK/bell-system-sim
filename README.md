@@ -327,8 +327,9 @@ set reset                    Restore period-accurate defaults
 ```
 
 Settings persist between sessions, and so do the files you write under
-`/usr/users` and the moo scoreboard, up to 64 KB of text. Pacing switches itself off when output
-is not going to a terminal, because a pipe has nobody watching it.
+`/usr/users` and the moo scoreboard, in a saved file (`home.json`) of up to 64 KB. A saved file that
+will not load whole is set aside as `home.json.bad` and never written over. Pacing switches itself off
+when output is not going to a terminal, because a pipe has nobody watching it.
 
 Every historical value in the simulation is either verified against a
 bundled document, externally sourced and labelled, or explicitly marked as

@@ -16,6 +16,7 @@ import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from .jsonfile import read_json, write_text_atomically
 from .progression import ASSISTS, PROFILE
 
 SETTINGS_FILENAME = 'settings.json'
@@ -271,13 +272,7 @@ class Settings:
         A corrupt or hand-edited file must never stop the simulation starting,
         so unknown keys and invalid values fall back to their defaults.
         """
-        if not self.path or not os.path.exists(self.path):
-            return
-        try:
-            with open(self.path, 'r') as handle:
-                stored = json.load(handle)
-        except (OSError, ValueError):
-            return
+        stored = read_json(self.path)
         if not isinstance(stored, dict):
             return
         for key, value in stored.items():
@@ -294,10 +289,9 @@ class Settings:
         if not self.path:
             return
         try:
-            os.makedirs(os.path.dirname(self.path), exist_ok=True)
-            with open(self.path, 'w') as handle:
-                json.dump(self._values, handle, indent=2, sort_keys=True)
-                handle.write('\n')
+            write_text_atomically(
+                self.path,
+                json.dumps(self._values, indent=2, sort_keys=True) + '\n')
         except OSError:
             return
 

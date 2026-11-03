@@ -25,10 +25,12 @@ only twenty points, which would tell them nothing.
 """
 
 import json
+import math
 import os
 from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
 from .data.trouble import NSPMP_WEIGHTS
+from .jsonfile import read_json, write_text_atomically
 
 CAREER_FILENAME = 'career.json'
 
@@ -46,6 +48,12 @@ _LIST_FIELDS = ('commendations', 'finds', 'groups', 'beats_seen',
                 'practicals_passed')
 # Career attributes that are a count for each of a set of names.
 _COUNT_FIELDS = ('fault_sightings', 'rapport')
+# Every key save() writes. Anything else in the file is a later version's.
+_KNOWN_KEYS = frozenset((
+    'schema', 'difficulty', 'shift', 'reports_closed', 'reports_correct',
+    'reports_wrong', 'repeat_reports', 'missed_commitments', 'qualifications',
+    'index_history', 'office', 'finished', 'assignment',
+)) | frozenset(_LIST_FIELDS) | frozenset(_COUNT_FIELDS)
 
 
 class Difficulty(NamedTuple):
@@ -70,8 +78,13 @@ class Difficulty(NamedTuple):
     interruption_rate: float
     # Minutes of slack added to every repair commitment.
     commitment_slack_minutes: int
+    # Does the mechanised test name the fault it suspects? A profile's way
+    # of coaching, kept apart from require_test_before_close so that asking
+    # for the one does not change the other.
+    names_fault: bool
     # How many sightings of one fault type still get a reading note from
-    # the mechanised test. Counted per fault type, 0 for none at all.
+    # the mechanised test. Counted per fault type, 0 for none at all. Phase 2
+    # reads this; nothing does yet.
     annotation_sightings: int
 
 
@@ -97,6 +110,7 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         missed_commitment_scale=0.25,
         interruption_rate=0.06,
         commitment_slack_minutes=90,
+        names_fault=True,
         annotation_sightings=4,
     ),
     'craft': Difficulty(
@@ -112,6 +126,7 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         missed_commitment_scale=1.0,
         interruption_rate=0.22,
         commitment_slack_minutes=0,
+        names_fault=False,
         annotation_sightings=0,
     ),
 }
@@ -138,9 +153,6 @@ class Assist(NamedTuple):
     summary: str
     detail: str
 
-
-# Reading notes kept for every sighting, for anyone who wants them.
-ANNOTATE_ALWAYS = 999
 
 PROFILE = 'profile'
 
@@ -186,13 +198,6 @@ ASSISTS: List[Assist] = [
         {'gentle': 0.7, 'strict': 1.0},
         'How heavily a mistake tells against the index',
         'gentle scales every penalty by 0.7, strict by 1.0.',
-    ),
-    Assist(
-        'assist.annotate', 'annotation_sightings',
-        {'on': ANNOTATE_ALWAYS, 'off': 0},
-        'Reading notes on loop test output',
-        'on keeps a one-line note under the test readings for every fault, '
-        'however often you have seen it; off never prints one.',
     ),
 ]
 
@@ -377,6 +382,12 @@ class Career:
         # the plan's assignment form was dropped, and the epilogue reads the
         # office's own company instead.
         self.assignment: str = ''
+        # What a later version wrote that this one does not understand, held
+        # so that saving does not delete it. See load().
+        self._unknown: Dict[str, Any] = {}
+        self._unknown_qualifications: List[str] = []
+        self._unknown_practicals: List[str] = []
+        self._schema_seen = 0
         if path:
             self.load()
 
@@ -575,31 +586,30 @@ class Career:
     # -- persistence -----------------------------------------------------
 
     def load(self) -> None:
-        """Read the career record, ignoring anything unreadable."""
-        if not self.path or not os.path.exists(self.path):
-            return
-        try:
-            with open(self.path, 'r') as handle:
-                stored = json.load(handle)
-        except (OSError, ValueError):
-            return
+        """
+        Read the career record, ignoring anything unreadable.
+
+        Each field falls back to its default on its own, so one damaged
+        entry costs that entry and not the career. What this version does
+        not know - keys a later one wrote, qualifications it has not heard
+        of - is held and written back, so playing here never deletes it.
+        """
+        stored = read_json(self.path)
         if not isinstance(stored, dict):
             return
 
-        self.shift = max(1, int(stored.get('shift', 1)))
-        self.reports_closed = max(0, int(stored.get('reports_closed', 0)))
-        self.reports_correct = max(0, int(stored.get('reports_correct', 0)))
-        self.reports_wrong = max(0, int(stored.get('reports_wrong', 0)))
-        self.repeat_reports = max(0, int(stored.get('repeat_reports', 0)))
-        self.missed_commitments = max(0, int(stored.get('missed_commitments', 0)))
+        self.shift = _whole(stored.get('shift'), 1, 1)
+        self.reports_closed = _whole(stored.get('reports_closed'), 0, 0)
+        self.reports_correct = _whole(stored.get('reports_correct'), 0, 0)
+        self.reports_wrong = _whole(stored.get('reports_wrong'), 0, 0)
+        self.repeat_reports = _whole(stored.get('repeat_reports'), 0, 0)
+        self.missed_commitments = _whole(
+            stored.get('missed_commitments'), 0, 0)
 
-        held = stored.get('qualifications')
-        if isinstance(held, list):
-            self.qualifications = [
-                key for key in held if key in QUALIFICATIONS_BY_KEY
-            ] or ['loop']
-
-        self.finished = bool(stored.get('finished', False))
+        self.qualifications = [
+            key for key in _names(stored.get('qualifications'))
+            if key in QUALIFICATIONS_BY_KEY] or ['loop']
+        self.finished = stored.get('finished') is True
 
         for field in _LIST_FIELDS:
             setattr(self, field, _names(stored.get(field)))
@@ -620,48 +630,77 @@ class Career:
             self.index_history = [
                 float(entry) for entry in history
                 if isinstance(entry, (int, float))
+                and not isinstance(entry, bool) and math.isfinite(entry)
             ][-40:]
 
         difficulty = stored.get('difficulty')
-        if difficulty in DIFFICULTIES:
+        if isinstance(difficulty, str) and difficulty in DIFFICULTIES:
             self.difficulty_key = difficulty
+
+        # Held for save(): whatever a later version added.
+        self._unknown = {key: value for key, value in stored.items()
+                         if key not in _KNOWN_KEYS}
+        self._unknown_qualifications = [
+            key for key in _names(stored.get('qualifications'))
+            if key not in QUALIFICATIONS_BY_KEY]
+        self._unknown_practicals = [
+            key for key in _names(stored.get('practicals_passed'))
+            if key not in QUALIFICATIONS_BY_KEY]
+        schema = stored.get('schema')
+        if isinstance(schema, int) and not isinstance(schema, bool):
+            self._schema_seen = schema
 
     def save(self) -> None:
         """Write the career record, ignoring a read-only filesystem."""
         if not self.path:
             return
+        record = {
+            **self._unknown,
+            'schema': max(SCHEMA, self._schema_seen),
+            'difficulty': self.difficulty_key,
+            'shift': self.shift,
+            'reports_closed': self.reports_closed,
+            'reports_correct': self.reports_correct,
+            'reports_wrong': self.reports_wrong,
+            'repeat_reports': self.repeat_reports,
+            'missed_commitments': self.missed_commitments,
+            'qualifications': self.qualifications
+                              + self._unknown_qualifications,
+            'index_history': self.index_history[-40:],
+            'office': self.office,
+            'finished': self.finished,
+            'assignment': self.assignment,
+            **{field: getattr(self, field)
+               for field in _LIST_FIELDS + _COUNT_FIELDS},
+        }
+        record['practicals_passed'] = (self.practicals_passed
+                                       + self._unknown_practicals)
         try:
-            os.makedirs(os.path.dirname(self.path), exist_ok=True)
-            with open(self.path, 'w') as handle:
-                json.dump({
-                    'schema': SCHEMA,
-                    'difficulty': self.difficulty_key,
-                    'shift': self.shift,
-                    'reports_closed': self.reports_closed,
-                    'reports_correct': self.reports_correct,
-                    'reports_wrong': self.reports_wrong,
-                    'repeat_reports': self.repeat_reports,
-                    'missed_commitments': self.missed_commitments,
-                    'qualifications': self.qualifications,
-                    'index_history': self.index_history[-40:],
-                    'office': self.office,
-                    'finished': self.finished,
-                    'assignment': self.assignment,
-                    **{field: getattr(self, field)
-                       for field in _LIST_FIELDS + _COUNT_FIELDS},
-                }, handle, indent=2, sort_keys=True)
-                handle.write('\n')
+            write_text_atomically(
+                self.path, json.dumps(record, indent=2, sort_keys=True) + '\n')
         except OSError:
             return
+
+
+def _whole(stored: Any, default: int, floor: int) -> int:
+    """Read a saved whole number, or the default if it is anything else."""
+    if isinstance(stored, bool):
+        return default
+    try:
+        return max(floor, int(stored))
+    except (TypeError, ValueError, OverflowError):
+        return default
 
 
 def _names(stored: Any) -> List[str]:
     """Read a saved list of names: strings only, once each, in order."""
     if not isinstance(stored, list):
         return []
+    seen = set()
     names: List[str] = []
     for entry in stored:
-        if isinstance(entry, str) and entry not in names:
+        if isinstance(entry, str) and entry not in seen:
+            seen.add(entry)
             names.append(entry)
     return names
 

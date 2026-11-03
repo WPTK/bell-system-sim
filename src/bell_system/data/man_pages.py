@@ -1537,8 +1537,6 @@ ASSISTS
                          Correct closures for each sign-off: three or twelve.
      assist.scoring             profile | gentle | strict
                          Scales every penalty on the index by 0.7 or 1.0.
-     assist.annotate            profile | on | off
-                         Whether the loop test prints reading notes.
 
 SEE ALSO
      date(1), status(1), verbosity(1)

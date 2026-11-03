@@ -1530,9 +1530,11 @@ for _role, _files in HOMES.items():
 # outside them the games ask you to write to. Everything else on the machine
 # is rebuilt at construction, which is why the rest of the tree is not saved.
 PLAYER_PREFIX = '/usr/users/'
-# The most a player's saved files may add up to, in bytes of text. A cap is
-# what keeps a save file a thing a person can read, and makes echo in a loop
-# a refusal instead of a slowly growing state directory.
+# The most home.json may come to, in bytes. A cap is what keeps a save file a
+# thing a person can read, and makes echo in a loop a refusal instead of a
+# slowly growing state directory. It is measured on the file (save.home_size)
+# and not on the text of the files, because names, directories and
+# permissions take room in it too.
 PLAYER_LIMIT = 64 * 1024
 
 
@@ -1558,12 +1560,6 @@ def player_changes(tree: Dict[str, Node]) -> Tuple[Dict[str, Node], List[str]]:
     removed = sorted(path for path in FILESYSTEM
                      if is_player_path(path) and path not in tree)
     return changed, removed
-
-
-def player_bytes(changed: Dict[str, Node]) -> int:
-    """Return how much text the player's changed files hold."""
-    return sum(len(str(node.content).encode('utf-8'))
-               for node in changed.values() if not node.is_dir)
 
 
 def normalise(path: str, cwd: str) -> str:

@@ -222,8 +222,8 @@ class TestAssists:
 
     def test_an_assist_survives_a_restart(self, tmp_path):
         path = settings_path(str(tmp_path))
-        Settings(path).set('assist.annotate', 'on')
-        assert Settings(path).assist_departures() == ['assist.annotate']
+        Settings(path).set('assist.pace', 'slow')
+        assert Settings(path).assist_departures() == ['assist.pace']
 
     def test_an_assist_value_nobody_offers_falls_back_to_profile(self, tmp_path):
         path = settings_path(str(tmp_path))
@@ -260,14 +260,23 @@ class TestAssists:
         difficulty = self.career_with(settings, 'craft').difficulty
         assert score_index(10, 0, 0, 10, 0, difficulty) == 100.0
 
-    def test_annotation_defaults_are_per_profile(self):
-        from bell_system.progression import ANNOTATE_ALWAYS, DIFFICULTIES
+    def test_annotation_is_a_profile_field_with_no_assist_yet(self):
+        from bell_system.progression import ASSISTS_BY_KEY, DIFFICULTIES
         assert DIFFICULTIES['fun'].annotation_sightings == 4
         assert DIFFICULTIES['craft'].annotation_sightings == 0
+        assert 'assist.annotate' not in ASSISTS_BY_KEY
+        with pytest.raises(KeyError):
+            Settings().set('assist.annotate', 'on')
+
+    def test_naming_the_fault_does_not_follow_test_first(self):
         settings = Settings()
-        settings.set('assist.annotate', 'on')
-        career = self.career_with(settings, 'craft')
-        assert career.difficulty.annotation_sightings == ANNOTATE_ALWAYS
+        settings.set('assist.test_first', 'off')
+        craft = self.career_with(settings, 'craft').difficulty
+        assert not craft.require_test_before_close
+        assert not craft.names_fault
+        settings.set('assist.test_first', 'on')
+        fun = self.career_with(settings, 'fun').difficulty
+        assert fun.require_test_before_close and fun.names_fault
 
 
 class TestAssistsAtTheTerminal:

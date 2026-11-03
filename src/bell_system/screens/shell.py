@@ -22,9 +22,8 @@ from ..filesystem import (
     children,
     is_player_path,
     normalise,
-    player_bytes,
-    player_changes,
 )
+from ..save import home_size
 from .session import SessionState
 
 
@@ -408,13 +407,29 @@ class ShellCommands(SessionState):
             text = existing.content + text
         owner = self.username or 'sysop'
         node = Node('file', owner, 'craft', '-rw-r--r--', text)
-        if is_player_path(path):
-            kept = player_changes(self.filesystem)[0]
-            kept[path] = node
-            if player_bytes(kept) > PLAYER_LIMIT:
-                return (f"sh: {path}: no space left on device "
-                        f"(your files may hold {PLAYER_LIMIT // 1024} KB)")
+        return self.store_node(path, node, 'sh')
+
+    def store_node(self, path: str, node: Node,
+                   command: str = 'sh') -> Optional[str]:
+        """
+        Put a node in the tree, unless it would not fit in a saved home.
+
+        Every command that adds to the player's files comes through here, so
+        the limit is kept in one place and by one measure (save.home_size):
+        a file made by mv or cc or mkdir counts the same as one made by echo.
+
+        Returns:
+            An error string if the node was refused, else None
+        """
+        held = self.filesystem.get(path)
         self.filesystem[path] = node
+        if is_player_path(path) and home_size(self.filesystem) > PLAYER_LIMIT:
+            if held is None:
+                del self.filesystem[path]
+            else:
+                self.filesystem[path] = held
+            return (f"{command}: {path}: no space left on device "
+                    f"(your files may hold {PLAYER_LIMIT // 1024} KB)")
         return None
 
     def cmd_mkdir(self, args: Optional[List[str]] = None) -> str:
@@ -432,8 +447,11 @@ class ShellCommands(SessionState):
             if parent not in self.filesystem:
                 problems.append(f"mkdir: {name}: no such file or directory")
                 continue
-            self.filesystem[path] = Node(
-                'dir', self.username or 'sysop', 'craft', 'drwxr-xr-x')
+            error = self.store_node(path, Node(
+                'dir', self.username or 'sysop', 'craft', 'drwxr-xr-x'),
+                'mkdir')
+            if error:
+                problems.append(error)
         return '\n'.join(problems)
 
     def cmd_rmdir(self, args: Optional[List[str]] = None) -> str:
@@ -509,8 +527,11 @@ class ShellCommands(SessionState):
         error = self._writable(target, 'mv')
         if error:
             return error
-        self.filesystem[target] = node
         del self.filesystem[source]
+        error = self.store_node(target, node, 'mv')
+        if error:
+            self.filesystem[source] = node
+            return error
         return ''
 
     def cmd_touch(self, args: Optional[List[str]] = None) -> str:
@@ -552,7 +573,10 @@ class ShellCommands(SessionState):
                 problems.append(f"chmod: {name}: cannot access")
                 continue
             head = 'd' if node.is_dir else '-'
-            self.filesystem[path] = node._replace(mode=head + letters)
+            error = self.store_node(
+                path, node._replace(mode=head + letters), 'chmod')
+            if error:
+                problems.append(error)
         return '\n'.join(problems)
 
     def cmd_du(self, args: Optional[List[str]] = None) -> str:
