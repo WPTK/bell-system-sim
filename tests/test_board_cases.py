@@ -507,7 +507,9 @@ class TestOneActionClearsThem:
             f'report dispatch {first.number} central office')
         assert case.cleared and case.due == []
         terminal.shift_minutes = 500
-        assert terminal._case_events() == []
+        # The tour's other thread, the toll counts, is not this case's.
+        assert [m for m in terminal._case_events()
+                if m.kind != 'fraud'] == []
 
     def test_the_cause_is_said_cleared_once(self, terminal):
         _, members, _ = self._clear(terminal)

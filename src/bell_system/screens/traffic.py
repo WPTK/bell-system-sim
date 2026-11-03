@@ -184,6 +184,7 @@ INTER-OFFICE ROUTE STATUS
                 status = "HIGH" if utilization > 80 else "NORMAL" if utilization > 40 else "LOW"
                 calls_hour = int((utilization / 100) * random.randint(15000, 45000))
                 traffic_output += f"\n{route:<15} {utilization:>3}% utilization  {status:<8} ({calls_hour:,} calls/hour)"
+            traffic_output += self._fraud_block()
 
             # Regional traffic distribution
             traffic_output += f"""

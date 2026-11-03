@@ -143,11 +143,11 @@ class CaseCommands(SessionState):
         hold. When the third has come in,
         whoever is nearest the cause says what they can see, once.
         """
+        pieces: List[Message] = self._fraud_events()
         if not self.desk.cases or self.first_tour():
-            return []
+            return pieces
         now = self.clock.now()
         slack = self._difficulty().commitment_slack_minutes
-        pieces = []
         for report in arrivals(self.desk, self.shift_minutes, now, slack):
             pieces.append(self.switchroom.assignment(
                 now, report.number, report.record.telephone_number,

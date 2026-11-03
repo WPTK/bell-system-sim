@@ -61,6 +61,7 @@ from .progression import (
 from .routing import build_default_network
 from .save import home_path, shift_path
 from .screens.customer import CustomerCommands
+from .screens.fraud import FraudThread
 from .screens.frame import FrameCommands
 from .screens.games import GameCommands
 from .screens.radio import RadioCommands
@@ -151,6 +152,7 @@ class BellSystemTerminal(
     BureauCommands,
     CallbackCommands,
     CaseCommands,
+    FraudThread,
     RepairDeskCommands,
     ShiftCommands,
     TurnoverCommands,

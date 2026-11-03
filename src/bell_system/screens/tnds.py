@@ -94,10 +94,9 @@ Work Orders: WO-83054 (Data quality improvement initiatives)"""
                 return self._show_tnds_collection_status()
 
         elif args[0] == "analysis":
-            if len(args) > 1:
-                return self._generate_tnds_analysis_report(args[1])
-            else:
-                return self._generate_tnds_analysis_report("standard")
+            report_type = args[1] if len(args) > 1 else "standard"
+            return (self._generate_tnds_analysis_report(report_type)
+                    + self._fraud_block())
 
         elif args[0] == "forecast":
             if len(args) > 1:

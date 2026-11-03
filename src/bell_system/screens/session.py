@@ -386,6 +386,14 @@ class SessionState:
         """Ring a customer back, with a question or without."""
         raise NotImplementedError
 
+    def _fraud_block(self) -> str:
+        """The toll holding-time exception, while there is one."""
+        raise NotImplementedError
+
+    def _fraud_events(self) -> List[Any]:
+        """The note about it, once."""
+        raise NotImplementedError
+
     def _plant_case(self) -> None:
         """Decide whether this tour's trouble has a shared cause."""
         raise NotImplementedError

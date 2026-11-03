@@ -1320,6 +1320,14 @@ class Switchroom:
             kind='alarm', subject=f'cable {cable:04d} pressure', about=None,
         ))
 
+    def fraud_note(self, now: datetime, lines: List[str]) -> Message:
+        """The transmission engineer's note on the toll counts, in the mail."""
+        return self._deliver(Message(
+            channel=CHANNEL_MAIL, sender='tnakamura', received=now,
+            lines=list(lines), kind='fraud', subject='Holding times',
+            about=None,
+        ))
+
     def case_note(self, now: datetime, kind: CaseKind, about: str,
                   closing: bool = False) -> Optional[Message]:
         """
