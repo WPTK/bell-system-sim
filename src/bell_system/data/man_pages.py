@@ -2053,6 +2053,29 @@ SERVICE INDEX
      index figures as a bar, because a column of decimals does not show a
      trend and getting better is the point.
 
+KPIS AND COMMENDATIONS
+     Beside the index, which only takes marks off, the record keeps five
+     measures and a list of names. They are the simulation's own and none
+     of them is scored.
+
+     Mean time to repair      minutes from a report arriving to its close,
+                              correct closes only
+     Commitments met          reports not past their commitment, in percent
+     Right first dispatch     first crews sent to the right force, in percent
+     Repeat rate              reports that came back, per hundred closed
+     Backlog age              average age of the reports still open
+
+     Each reads PROVISIONAL until five reports have been closed. The tour
+     index is the service index of this tour alone, and the board-cleared
+     meter shows how much of the tour's board was closed: a tour of five
+     reports and a tour of thirty can both be perfect, and only the meter
+     says which was bigger.
+
+     A commendation is earned once, printed at the handoff and kept. Each
+     asks for a clean record over at least five reports; none is earned by
+     doing a great deal, and none by guessing. Five straight counts only
+     closes you measured first.
+
 DIFFICULTY
      set game.difficulty fun      Fun Simulation. Close without measuring,
                                   advance quickly, a wrong call costs little

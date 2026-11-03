@@ -151,6 +151,11 @@ class BureauCommands(SessionState):
         # the only place that is true is the board.
         self.career.open_overdue = lambda: sum(
             1 for report in self.desk.pending() if report.overdue())
+        self.career.open_ages = lambda: [
+            report.minutes_spent for report in self.desk.customers()]
+        self.career.overdue_numbers = lambda: [
+            report.number for report in self.desk.customers()
+            if report.overdue()]
         self.switchroom = Switchroom()
         self.special_services = SartsInventory(self.home_office['clli'])
         self.lmos_console = LmosConsole(self)
@@ -492,8 +497,18 @@ class BureauCommands(SessionState):
         # A crew that goes to the wrong place reads nothing, so only a
         # dispatch that finds something is a sighting.
         name_fault = names_fault(self._reading_stage(report, count=False))
+        repaired = sum(r.sheath_repaired for r in self.desk.reports.values())
         finding, went = self.desk.send_crew(
             report, canonical, self.shift_minutes, name_fault)
+        if went and not report.first_dispatch_judged:
+            # The first crew sent is the judgement; whatever follows it is
+            # not. Nobody sent, or nobody needed, is not a dispatch.
+            report.first_dispatch_judged = True
+            self.career.record_dispatch(
+                canonical.lower()
+                == FAULTS[report.record.fault].dispatch.lower(),
+                sum(r.sheath_repaired for r in self.desk.reports.values())
+                - repaired if report.tested else 0)
         # Only a crew that went reads the plant. A report another report's
         # splice repaired carries a finding but nobody was sent, and one
         # splice must not burn a sighting for every pair in the sheath.
@@ -621,7 +636,8 @@ class BureauCommands(SessionState):
         if report.missed_commitment and not was_late:
             # Ran past the commitment on the close itself.
             self.career.record_missed()
-        self.career.record_closure(correct)
+        self.career.record_closure(correct, report.minutes_spent,
+                                   report.tested, report.number)
 
         lines = [
             f"{report.number} closed, code {disposition} - "
@@ -789,9 +805,13 @@ class BureauCommands(SessionState):
             span = career.index_history[-5:]
             lines.append(f"  Last five tours     {trend}   "
                          f"{span[0]:.1f} to {span[-1]:.1f}")
-        lines.extend([
-            '',
-            'QUALIFICATIONS',
+        lines.extend(['', *self.kpi_rows(career.kpis(), 'THE FIVE KPIs'),
+                      self.tour_index_row(), self.board_meter()])
+        tours = self.sparkline(career.tour_index_history)
+        if tours:
+            lines.append(f"  Tour by tour          {tours}")
+        lines.extend(['', *self.commendation_roll(), '',
+                      'QUALIFICATIONS',
             '-' * 74,
         ])
         for qualification in QUALIFICATIONS:

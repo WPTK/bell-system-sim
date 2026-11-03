@@ -233,6 +233,10 @@ class TroubleReport:
         self.tested = False
         self.test_notes: List[str] = []
         self.dispatched_to: Optional[str] = None
+        # Whether a first crew has been judged for this report. dispatched_to
+        # cannot say: a refused retry resets it, so a report that has had a
+        # wrong crew would read as never dispatched.
+        self.first_dispatch_judged = False
         self.field_finding: Optional[str] = None
         # Which sighting of its fault type this report was, fixed the first
         # time the player read it or the field named it, so that measuring

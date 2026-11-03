@@ -27,7 +27,7 @@ from typing import (
 
 from ..clock import SimClock
 from ..filesystem import Node
-from ..progression import Career, Difficulty
+from ..progression import Career, Difficulty, Kpis
 from ..reports import ReportDesk
 from ..routing import TollNetwork
 from ..settings import Settings
@@ -404,6 +404,30 @@ class SessionState:
 
     def sparkline(self, values: List[float], span: int = 5) -> str:
         """Draw the last few figures as a bar, so a trend reads."""
+        raise NotImplementedError
+
+    def kpi_rows(self, kpis: Kpis, heading: str) -> List[str]:
+        """The five KPIs under a heading, with the PROVISIONAL label."""
+        raise NotImplementedError
+
+    def tour_index_row(self) -> str:
+        """This tour's own index, beside the cumulative one."""
+        raise NotImplementedError
+
+    def board_meter(self) -> str:
+        """How much of this tour's board has been cleared."""
+        raise NotImplementedError
+
+    def credit_rows(self) -> List[str]:
+        """The tour's index, its meter and its KPIs."""
+        raise NotImplementedError
+
+    def commendation_lines(self, earned: List[str]) -> List[str]:
+        """The commendations earned this tour, named."""
+        raise NotImplementedError
+
+    def commendation_roll(self) -> List[str]:
+        """Every commendation, marked where it is held."""
         raise NotImplementedError
 
     def first_tour(self, after_close: bool = False) -> bool:
