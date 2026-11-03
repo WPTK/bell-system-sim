@@ -9,6 +9,8 @@ BELL_SYSTEM_HOME), so no test touches a real save.
 import json
 import os
 
+import pytest
+
 from bell_system import legacy, save
 from bell_system.filesystem import PRIOR, Node
 from bell_system.npc import AUDIT_PASSED
@@ -69,7 +71,8 @@ class TestNewNeedsAFinishedCareer:
         finish(terminal)
         before = state_files()
         for line in ('career new yes', 'career new confirm now',
-                     'career new CONFIRMED'):
+                     'career new CONFIRMED', 'career new CONFIRM',
+                     'career new Confirm'):
             assert 'Nothing has been moved' in terminal.execute_command(line)
         assert state_files() == before
 
@@ -158,6 +161,152 @@ class TestConfirming:
         assert state_files() == before
         assert not terminal._career_filed
         assert terminal.career.finished
+
+
+class TestTheSessionEnds:
+    def test_the_repl_ends_after_the_career_is_filed(
+            self, terminal, monkeypatch, capsys):
+        finish(terminal)
+        lines = iter(['career new confirm'])
+
+        def typed(*_):
+            try:
+                return next(lines)
+            except StopIteration:
+                raise AssertionError('the session kept going')
+
+        monkeypatch.setattr('builtins.input', typed)
+        terminal.run(role=1)
+        assert 'Session terminated.' in capsys.readouterr().out
+        assert not os.path.exists(os.path.join(state_dir(), 'career.json'))
+
+    def test_the_locks_are_on_before_anything_is_moved(
+            self, terminal, monkeypatch):
+        finish(terminal)
+        seen = {}
+
+        def interrupted(state, where, moved):
+            seen.update(path=terminal.career.path, shift=terminal.shift_file,
+                        locked=terminal._home_locked)
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(legacy, 'set_aside', interrupted)
+        with pytest.raises(KeyboardInterrupt):
+            terminal.execute_command('career new confirm')
+        assert seen == {'path': None, 'shift': '', 'locked': True}
+        # Nothing was moved, so the session owns its career again.
+        assert terminal.career.path and terminal.shift_file
+        assert not terminal._home_locked and not terminal._career_filed
+
+    def test_an_interrupt_after_a_move_puts_it_back(
+            self, terminal, monkeypatch):
+        finish(terminal)
+        before = state_files()
+
+        def half(state, where, moved):
+            os.makedirs(where)
+            os.replace(os.path.join(state, 'career.json'),
+                       os.path.join(where, 'career.json'))
+            moved.append('career.json')
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(legacy, 'set_aside', half)
+        with pytest.raises(KeyboardInterrupt):
+            terminal.execute_command('career new confirm')
+        assert state_files() == before
+
+    def test_a_file_that_cannot_be_put_back_is_said_where_it_is(
+            self, terminal, monkeypatch):
+        finish(terminal)
+
+        def refuse(path, handed):
+            raise OSError(28, 'No space left on device')
+
+        real = os.replace
+
+        def stubborn(source, target):
+            if os.path.basename(target) == 'career.json' and \
+                    'archive' in source:
+                raise OSError(13, 'Permission denied')
+            return real(source, target)
+
+        monkeypatch.setattr(legacy, 'write', refuse)
+        monkeypatch.setattr(legacy.os, 'replace', stubborn)
+        out = terminal.execute_command('career new confirm')
+        assert 'Nothing was moved' not in out
+        assert 'career.json could not be moved back' in out
+        assert 'archive' in out
+        # Still locked: part of the career is in the archive.
+        assert terminal._career_filed
+
+
+class TestTheirFilesAreReadOnly:
+    def next_career(self, terminal):
+        finish(terminal)
+        terminal.execute_command('career new confirm')
+        return BellSystemTerminal()
+
+    def test_nothing_can_be_written_under_prior(self, terminal):
+        nxt = self.next_career(terminal)
+        for line in (f'echo x > {PRIOR}/new', f'echo x >> {PRIOR}/sysop/notes',
+                     f'mkdir {PRIOR}/dir', f'touch {PRIOR}/t'):
+            assert 'permission denied' in nxt.execute_command(line), line
+        nxt.execute_command('echo mine > /usr/users/sysop/mine')
+        assert 'permission denied' in nxt.execute_command(
+            f'mv /usr/users/sysop/mine {PRIOR}/mine')
+        assert 'permission denied' in nxt.execute_command(
+            f'cp /usr/users/sysop/mine {PRIOR}/copy')
+        assert f'{PRIOR}/mine' not in nxt.filesystem
+        assert f'{PRIOR}/new' not in nxt.filesystem
+
+    def test_they_cannot_be_moved_or_removed_either(self, terminal):
+        nxt = self.next_career(terminal)
+        assert 'denied' in nxt.execute_command(
+            f'mv {PRIOR}/sysop/notes /usr/users/sysop/n')
+        nxt.execute_command(f'rm {PRIOR}/sysop/notes')
+        assert f'{PRIOR}/sysop/notes' in nxt.filesystem
+
+    def test_they_can_be_read_and_copied_out(self, terminal):
+        nxt = self.next_career(terminal)
+        assert 'sheath' in nxt.execute_command(f'cat {PRIOR}/sysop/notes')
+        assert nxt.execute_command(
+            f'cp {PRIOR}/sysop/notes /usr/users/sysop/mine') == ''
+        assert 'sheath' in nxt.execute_command('cat /usr/users/sysop/mine')
+
+
+class TestTheNoteCannotBeShadowed:
+    def test_a_player_file_called_handover_is_not_carried(self, terminal):
+        finish(terminal)
+        terminal.filesystem['/usr/users/HANDOVER'] = Node(
+            'file', 'sysop', 'craft', '-rw-r--r--', 'forged')
+        assert legacy.NOTE_PATH not in terminal._handed_on().files
+
+    def test_a_crafted_entry_does_not_replace_it(self, isolated_state):
+        os.makedirs(state_dir(), exist_ok=True)
+        with open(legacy.legacy_path(state_dir()), 'w') as handle:
+            json.dump({'version': 1, 'generation': 1,
+                       'note': ['real note'],
+                       'files': {legacy.NOTE_PATH: {
+                           'kind': 'file', 'content': 'forged'}}}, handle)
+        started = BellSystemTerminal()
+        assert started.filesystem[legacy.NOTE_PATH].content == 'real note\n'
+
+
+class TestSeedingRefusesAFileAsADirectory:
+    def test_an_entry_under_a_file_is_left_out(self):
+        tree = {}
+        handed = legacy.Legacy(1, ['n'], {
+            f'{PRIOR}/a': 'file', f'{PRIOR}/a/b': 'under a file',
+            f'{PRIOR}/c': None, f'{PRIOR}/c/d': 'fine'})
+        legacy.seed(tree, handed)
+        assert tree[f'{PRIOR}/a'].content == 'file'
+        assert f'{PRIOR}/a/b' not in tree
+        assert tree[f'{PRIOR}/c/d'].content == 'fine'
+
+    def test_a_path_outside_prior_is_not_seeded(self):
+        tree = {}
+        legacy.seed(tree, legacy.Legacy(1, ['n'], {'/etc/x': 'no'}))
+        assert '/etc/x' not in tree
 
 
 class TestWhatIsHandedOn:

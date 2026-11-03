@@ -427,11 +427,44 @@ PEER_SKILLS = (0.55, 0.7, 0.85, 0.95)
 PEER_DAWDLES = (0, 20, 45)
 
 
+PEERS_TEMPLATE = '''"""
+The simulated peers the tour ledger places a tour against.
+
+No source consulted publishes a distribution of repair times or of
+dispositions that matched the line for craftspeople, so none is claimed.
+These are the simulation's own: careers played by the bot in
+``tools/index_calibration.py`` at several skills and paces, one value per
+decile. The ledger says so wherever it prints them.
+
+Written by ``python3 tools/index_calibration.py peers``, not by hand, and
+run again whenever the balance changes: a peer who is quicker than a player
+on the old board says nothing about the new one.
+
+Each tuple is ten values in ascending order, the middle of each tenth of
+the tours played. ``mttr`` is minutes, received to close, averaged over the
+tour's repairs; ``accuracy`` is the percent of the tour's closes that
+matched the line. The ledger counts how many of the ten the player beats.
+Only aggregates are kept: nothing here is about any report, and the tuples
+carry no way back to a board.
+"""
+
+from typing import Dict, Tuple
+
+# False while the numbers are placeholders, and the ledger prints nothing
+# then. The run that writes real numbers sets it True.
+GENERATED = True
+
+PEERS: Dict[str, Dict[str, Tuple[float, ...]]] = {{
+{body}
+}}
+'''
+
+
 def peers(careers: int) -> None:
-    """Play the peer population and write data/peers.py."""
+    """Play the peer population and write data/peers.py whole."""
     from bell_system.data.commendations import MINIMUM_CLOSES
     found = {}
-    for difficulty in ('fun', 'craft'):
+    for difficulty in DIFFICULTIES:
         times: List[float] = []
         matched: List[float] = []
         seed = 0
@@ -450,20 +483,16 @@ def peers(careers: int) -> None:
         print(f"{difficulty}: {len(times)} tours")
         found[difficulty] = {'mttr': deciles(times),
                              'accuracy': deciles(matched)}
-    path = (Path(__file__).resolve().parent.parent / 'src' / 'bell_system'
-            / 'data' / 'peers.py')
-    source = path.read_text(encoding='utf-8')
-    head = source[:source.index('# Placeholder') if '# Placeholder' in source
-                  else source.index('GENERATED')]
-    body = ['GENERATED = True', '',
-            'PEERS: Dict[str, Dict[str, Tuple[float, ...]]] = {']
+    body = []
     for difficulty, table in found.items():
         body.append(f"    '{difficulty}': {{")
         for name, values in table.items():
             body.append(f"        '{name}': {values!r},")
         body.append('    },')
-    body.append('}')
-    path.write_text(head + '\n'.join(body) + '\n', encoding='utf-8')
+    path = (Path(__file__).resolve().parent.parent / 'src' / 'bell_system'
+            / 'data' / 'peers.py')
+    path.write_text(PEERS_TEMPLATE.format(body='\n'.join(body)),
+                    encoding='utf-8')
     print(f"wrote {path}")
 
 

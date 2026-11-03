@@ -25,7 +25,7 @@ import os
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from .filesystem import (
-    Node, PLAYER_LIMIT, PLAYER_PREFIX, PRIOR, normalise)
+    Node, PLAYER_LIMIT, PLAYER_PREFIX, PRIOR, is_prior_path, normalise)
 from .jsonfile import read_json, write_text_atomically
 
 LEGACY_FILENAME = 'legacy.json'
@@ -34,8 +34,8 @@ ARCHIVE_DIRECTORY = 'archive'
 
 # Where the earlier holder's files turn up (filesystem.PRIOR), and what is
 # never saved from there: a legacy is handed down once, not stacked.
-PRIOR_PREFIX = PRIOR + '/'
 NOTE_NAME = 'HANDOVER'
+NOTE_PATH = f'{PRIOR}/{NOTE_NAME}'
 
 # The most that is carried, in bytes of file and in entries, the same sort
 # of cap home.json has and for the same reason.
@@ -63,7 +63,7 @@ def legacy_path(state_directory: str) -> str:
 
 def in_prior(path: str) -> bool:
     """Return whether a path is one of the earlier holder's."""
-    return path == PRIOR or path.startswith(PRIOR_PREFIX)
+    return is_prior_path(path)
 
 
 # -- what is written -------------------------------------------------------
@@ -109,6 +109,9 @@ def carried(changed: Dict[str, Node]) -> Dict[str, Optional[str]]:
         if not relative:
             continue
         target = f'{PRIOR}/{relative}'
+        # The note is the generated one; no file of the player's may shadow it.
+        if target == NOTE_PATH:
+            continue
         if node.is_dir:
             found[target] = None
         elif isinstance(node.content, str):
@@ -164,7 +167,8 @@ def _clean_path(path: Any) -> Optional[str]:
     """A saved path, forced under PRIOR, or nothing if it will not go."""
     if not isinstance(path, str) or '\x00' in path:
         return None
-    if normalise(path, '/') != path or not in_prior(path) or path == PRIOR:
+    if (normalise(path, '/') != path or not in_prior(path) or path == PRIOR
+            or path == NOTE_PATH):
         return None
     return path
 
@@ -224,22 +228,43 @@ def seed(filesystem: Dict[str, Node], handed: Optional[Legacy]) -> None:
     if handed is None:
         return
     filesystem[PRIOR] = Node('dir', 'root', 'other', 'dr-xr-xr-x')
-    filesystem[f'{PRIOR}/{NOTE_NAME}'] = Node(
+    filesystem[NOTE_PATH] = Node(
         'file', 'root', 'other', '-r--r--r--',
         '\n'.join(handed.note) + '\n')
     for path in sorted(handed.files, key=lambda held: held.count('/')):
         content = handed.files[path]
-        parent = path
-        while True:
-            parent = parent.rsplit('/', 1)[0]
-            if parent == PRIOR or parent in filesystem:
-                break
-            filesystem[parent] = Node('dir', 'root', 'other', 'dr-xr-xr-x')
+        if not _make_parents(filesystem, path):
+            continue
         if content is None:
             filesystem[path] = Node('dir', 'root', 'other', 'dr-xr-xr-x')
         else:
             filesystem[path] = Node('file', 'root', 'other', '-r--r--r--',
                                     content)
+
+
+def _make_parents(filesystem: Dict[str, Node], path: str) -> bool:
+    """
+    Make the directories above a path, or say they cannot be.
+
+    A parent that is a file stops the entry, as it does in
+    :func:`save.restore_home`, so a file is never put under a file.
+    """
+    if not in_prior(path) or path == PRIOR:
+        return False
+    parent = path
+    missing = []
+    while True:
+        parent = parent.rsplit('/', 1)[0]
+        if parent == PRIOR:
+            break
+        held = filesystem.get(parent)
+        if held is None:
+            missing.append(parent)
+        elif not held.is_dir:
+            return False
+    for folder in missing:
+        filesystem[folder] = Node('dir', 'root', 'other', 'dr-xr-xr-x')
+    return True
 
 
 # -- closing a career ------------------------------------------------------
@@ -260,47 +285,49 @@ def generation_of(state_directory: str) -> int:
     return previous.generation + 1 if previous else 1
 
 
-def set_aside(state_directory: str) -> Tuple[str, List[str]]:
+def set_aside(state_directory: str, where: str, moved: List[str]) -> None:
     """
     Move a finished career's files into an archive directory.
 
-    Nothing is deleted. Each file is moved, not copied, and if any move
-    fails those already made are moved back, so the career is whole or it
-    is untouched. The previous legacy file goes in too, since the new one
-    replaces it.
+    Nothing is deleted. Each file is moved, not copied, and its name is added
+    to ``moved`` as it goes, so that whatever stops this part way (the caller
+    puts those back with :func:`put_back`) leaves nothing unaccounted for.
+    The previous legacy file goes in too, since the new one replaces it.
 
-    Returns:
-        The archive directory and the names moved
+    Args:
+        state_directory: Where the career's files are
+        where: The archive directory to make, from :func:`next_archive`
+        moved: Filled with the names moved so far
 
     Raises:
-        OSError: If the career could not be moved; nothing has changed
+        OSError: If a file could not be moved
     """
-    where, _number = next_archive(state_directory)
     os.makedirs(where)
-    moved: List[str] = []
-    try:
-        for name in (*CAREER_FILES, LEGACY_FILENAME):
-            source = os.path.join(state_directory, name)
-            if os.path.exists(source):
-                os.replace(source, os.path.join(where, name))
-                moved.append(name)
-    except OSError:
-        put_back(state_directory, where, moved)
-        raise
-    return where, moved
+    for name in (*CAREER_FILES, LEGACY_FILENAME):
+        source = os.path.join(state_directory, name)
+        if os.path.exists(source):
+            os.replace(source, os.path.join(where, name))
+            moved.append(name)
 
 
-def put_back(state_directory: str, where: str, moved: List[str]) -> None:
-    """Undo :func:`set_aside`: move files back and remove the empty folder."""
+def put_back(state_directory: str, where: str, moved: List[str]) -> List[str]:
+    """
+    Undo :func:`set_aside`: move files back and remove the empty folder.
+
+    Returns:
+        The names that could not be moved back, which are still in ``where``
+    """
+    stuck = []
     for name in moved:
         try:
             os.replace(os.path.join(where, name),
                        os.path.join(state_directory, name))
         except OSError:
-            continue
+            stuck.append(name)
     # Only folders this made, and only while they are empty.
     for folder in (where, os.path.dirname(where)):
         try:
             os.rmdir(folder)
         except OSError:
             break
+    return stuck

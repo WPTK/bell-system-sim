@@ -35,7 +35,7 @@ class CareerCommands(SessionState):
         if self._career_filed:
             return ("This career has been filed. Start the game again to "
                     "begin the next one.")
-        if [word.lower() for word in args[1:]] != ['confirm']:
+        if args[1:] != ['confirm']:
             return self._career_new_plan()
         return self._career_new()
 
@@ -75,25 +75,36 @@ class CareerCommands(SessionState):
         """Close the finished career: file it, hand on, and retire it."""
         state = state_dir()
         handed = self._handed_on()
-        try:
-            where, moved = legacy.set_aside(state)
-        except OSError as error:
-            return (f"The career could not be filed ({error.strerror or error})"
-                    f". Nothing was moved.")
-        try:
-            legacy.write(legacy.legacy_path(state), handed)
-        except OSError as error:
-            legacy.put_back(state, where, moved)
-            return (f"The handover could not be written "
-                    f"({error.strerror or error}). Nothing was moved.")
-        # This process no longer owns a career: nothing it does from here
-        # writes to the files that were just filed.
+        # This process stops owning the career before a file is moved, so
+        # that an interrupt part of the way through cannot have it write
+        # the files back next to the archive. Undone only if the move is.
+        held = (self.career.path, self.shift_file, self._home_locked,
+                self._career_filed)
         self.career.path = None
         self.shift_file = ''
         self._home_locked = True
         self._career_filed = True
+        where, _number = legacy.next_archive(state)
+        moved: List[str] = []
+        try:
+            legacy.set_aside(state, where, moved)
+            legacy.write(legacy.legacy_path(state), handed)
+        except BaseException as error:
+            stuck = legacy.put_back(state, where, moved)
+            if not stuck:
+                (self.career.path, self.shift_file, self._home_locked,
+                 self._career_filed) = held
+            if not isinstance(error, OSError):
+                raise
+            why = error.strerror or str(error)
+            if stuck:
+                return (f"The career could not be filed ({why}), and "
+                        f"{', '.join(stuck)} could not be moved back. "
+                        f"They are in {where}. Put them back by hand.")
+            return f"The career could not be filed ({why}). Nothing was moved."
         return '\n'.join([
-            f"Career {handed.generation} filed in {os.path.relpath(where, state)}.",
+            f"Career {handed.generation} filed in "
+            f"{os.path.relpath(where, state)}.",
             f"The handover is in {legacy.PRIOR}/ for whoever starts next.",
             "",
             "Run the game again for the next career. This session is over.",

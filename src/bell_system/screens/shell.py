@@ -25,6 +25,7 @@ from ..filesystem import (
     Node,
     children,
     is_player_path,
+    is_prior_path,
     normalise,
 )
 from ..save import home_size
@@ -523,6 +524,8 @@ class ShellCommands(FindsCommands):
         directory, which is the same pair of conditions the real thing
         enforces.
         """
+        if is_prior_path(path):
+            return f"{command}: {path}: permission denied"
         node = self.filesystem.get(path)
         if node is not None and node.is_dir:
             return f"{command}: {path}: is a directory"
@@ -596,6 +599,8 @@ class ShellCommands(FindsCommands):
         Returns:
             An error string if the node was refused, else None
         """
+        if is_prior_path(path):
+            return f"{command}: {path}: permission denied"
         held = self.filesystem.get(path)
         self.filesystem[path] = node
         if is_player_path(path) and home_size(self.filesystem) > PLAYER_LIMIT:

@@ -34,18 +34,18 @@ def accuracy_of(counts: Any) -> Optional[float]:
         else None
 
 
-def place_lower(value: Optional[float], peers: Any) -> Optional[int]:
-    """How many peers a lower-is-better figure beats."""
+def place_lower(value: Optional[float], cutoffs: Any) -> Optional[int]:
+    """How many peers a lower-is-better figure beats. A tie beats nobody."""
     if value is None:
         return None
-    return sum(1 for peer in peers if value < peer)
+    return sum(1 for peer in cutoffs if value < peer)
 
 
-def place_higher(value: Optional[float], peers: Any) -> Optional[int]:
-    """How many peers a higher-is-better figure beats."""
+def place_higher(value: Optional[float], cutoffs: Any) -> Optional[int]:
+    """How many peers a higher-is-better figure matches or beats."""
     if value is None:
         return None
-    return sum(1 for peer in peers if value > peer)
+    return sum(1 for peer in cutoffs if value >= peer)
 
 
 def _of_ten(beats: int) -> str:
@@ -55,16 +55,19 @@ def _of_ten(beats: int) -> str:
 
 def lines(career: Any) -> List[str]:
     """
-    The ledger for the tour as it stands, as printed lines.
+    The ledger for a spent tour, as printed lines.
+
+    The peers are full tours, so this is asked for at sign-off and not
+    part way through one.
 
     Args:
         career: The career, which holds the tour's counts and difficulty
 
     Returns:
         Nothing until the peers are generated, or where there are none for
-        this difficulty. Otherwise a
-        heading and, with too few closes to rest on, a line saying so and
-        placing nothing.
+        this difficulty. One line saying so where an assist is in force,
+        since the peers were played without any. Otherwise a heading and,
+        with too few closes to rest on, a line saying so and placing nothing.
     """
     # Held back until the peers have been played against the balance that
     # ships. A placing against placeholder numbers would be a claim about
@@ -74,6 +77,8 @@ def lines(career: Any) -> List[str]:
     table = peers.PEERS.get(career.difficulty.key)
     if not table:
         return []
+    if career.assisted:
+        return [f"{HEADING} - not placed: assists in force"]
     head = [f"{HEADING} - against {PEER_COUNT} simulated peers on "
             f"{career.difficulty.name}"]
     if career.tour_provisional():
@@ -85,12 +90,12 @@ def lines(career: Any) -> List[str]:
     if kpis.mttr is not None:
         beats = place_lower(kpis.mttr, table['mttr'])
         assert beats is not None
-        rows.append(f"  Repair time    {hours_minutes(round(kpis.mttr)):>6}"
-                    f" average   quicker than {_of_ten(beats)}")
+        rows.append(f"  Repair time              {hours_minutes(round(kpis.mttr)):>5}"
+                    f"   quicker than {_of_ten(beats)}")
     if accuracy is not None:
         beats = place_higher(accuracy, table['accuracy'])
         assert beats is not None
-        rows.append(f"  First pass     {accuracy:>5.0f}% matched   "
-                    f"right more often than {_of_ten(beats)}")
+        rows.append(f"  Closes matched the line  {accuracy:>4.0f}%"
+                    f"   as often as or more often than {_of_ten(beats)}")
     rows.append("  The peers are the simulation's own. Not scored.")
     return rows

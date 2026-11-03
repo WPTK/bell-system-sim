@@ -1223,6 +1223,11 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                     # insuring against is the window being closed rather
                     # than the session being ended politely.
                     self.save_shift()
+                    # 'career new confirm' has filed the career: this
+                    # session has nothing left to write to.
+                    if self._career_filed:
+                        self.emit("Session terminated.")
+                        break
 
                 except KeyboardInterrupt:
                     self.emit("\n^C")

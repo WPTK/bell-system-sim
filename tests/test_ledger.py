@@ -41,9 +41,9 @@ class TestThePeers:
     def test_every_difficulty_has_ten_ordered_peers_on_both_measures(self):
         for key in DIFFICULTIES:
             for measure in ('mttr', 'accuracy'):
-                peers = PEERS[key][measure]
-                assert len(peers) == ledger.PEER_COUNT, (key, measure)
-                assert list(peers) == sorted(peers), (key, measure)
+                ranked = PEERS[key][measure]
+                assert len(ranked) == ledger.PEER_COUNT, (key, measure)
+                assert list(ranked) == sorted(ranked), (key, measure)
 
     def test_accuracy_is_a_percentage(self):
         for table in PEERS.values():
@@ -58,14 +58,20 @@ class TestPlacing:
         assert ledger.place_lower(50.0, self.peers) == 10
         assert ledger.place_lower(300.0, self.peers) == 0
 
-    def test_a_higher_figure_beats_the_peers_below_it(self):
+    def test_a_higher_figure_matches_or_beats_the_peers_below_it(self):
         assert ledger.place_higher(100.0, self.peers) == 3
         assert ledger.place_higher(300.0, self.peers) == 10
         assert ledger.place_higher(10.0, self.peers) == 0
 
-    def test_a_tie_beats_nobody(self):
+    def test_a_time_that_ties_beats_nobody(self):
         assert ledger.place_lower(90.0, self.peers) == 7
-        assert ledger.place_higher(90.0, self.peers) == 2
+
+    def test_an_accuracy_that_ties_counts_as_matched(self):
+        assert ledger.place_higher(90.0, self.peers) == 3
+
+    def test_a_perfect_tour_places_ten_of_ten(self):
+        peers_at_the_top = (100.0,) * 3 + (90.0,) * 7
+        assert ledger.place_higher(100.0, peers_at_the_top) == 10
 
     def test_nothing_measured_places_nothing(self):
         assert ledger.place_lower(None, self.peers) is None
@@ -83,23 +89,36 @@ class TestTheLedger:
         text = written(ledger.lines(tour(terminal)))
         assert text.startswith('TOUR LEDGER')
         assert re.search(r'quicker than \d+ of 10', text)
-        assert re.search(r'right more often than \d+ of 10', text)
+        assert re.search(
+            r'Closes matched the line +\d+%   as often as or more often '
+            r'than \d+ of 10', text)
         assert 'simulation' in text and 'Not scored' in text
 
     def test_too_few_closes_places_nothing(self, terminal):
         text = written(ledger.lines(tour(terminal, closed=3, wrong=0)))
         assert 'Too few closes' in text
-        assert 'quicker than' not in text and 'right more often' not in text
+        assert 'quicker than' not in text and 'as often as' not in text
 
     def test_a_tour_of_no_repairs_places_only_the_accuracy(self, terminal):
         text = written(ledger.lines(tour(terminal, repairs=0, minutes=0)))
         assert 'quicker than' not in text
-        assert 'right more often than' in text
+        assert 'as often as or more often than' in text
 
     def test_each_difficulty_is_placed_against_its_own_peers(self, terminal):
         for key in DIFFICULTIES:
             text = written(ledger.lines(tour(terminal, difficulty=key)))
             assert DIFFICULTIES[key].name in text
+
+    def test_a_perfect_tour_reads_ten_of_ten(self, terminal):
+        text = written(ledger.lines(tour(terminal, wrong=0)))
+        assert '100%   as often as or more often than 10 of 10' in text
+
+    def test_assists_in_force_place_nothing_and_say_so(self, terminal):
+        career = tour(terminal)
+        career.set_assists({'annotation_sightings': 99})
+        assert career.assisted
+        assert ledger.lines(career) == [
+            'TOUR LEDGER - not placed: assists in force']
 
     def test_it_is_aggregates_only(self, terminal):
         """Pillar 1: nothing in it can be read as an answer to a report."""
@@ -116,24 +135,42 @@ class TestHeldBack:
         assert ledger.lines(tour(terminal)) == []
         assert 'TOUR LEDGER' not in terminal.execute_command('handoff')
 
+    def test_signing_off_prints_nothing_while_they_are_placeholders(
+            self, terminal, monkeypatch):
+        monkeypatch.setattr(peers, 'GENERATED', False)
+        tour(terminal)
+        terminal.execute_command('report')
+        out = terminal.execute_command('handoff relieve')
+        assert 'TOUR CREDIT' in out
+        assert 'TOUR LEDGER' not in out
+
+    def test_a_difficulty_missing_from_the_table_prints_nothing(
+            self, terminal, monkeypatch):
+        monkeypatch.setattr(peers, 'GENERATED', True)
+        monkeypatch.setattr(peers, 'PEERS', {})
+        assert ledger.lines(tour(terminal)) == []
+        terminal.execute_command('report')
+        assert 'TOUR LEDGER' not in terminal.execute_command(
+            'handoff relieve')
+
 
 @pytest.mark.usefixtures('played')
 class TestOnTheScreen:
-    def test_the_handoff_shows_it(self, terminal):
+    def test_a_mid_tour_handoff_does_not_show_it(self, terminal):
         tour(terminal)
-        out = terminal.execute_command('handoff')
-        assert 'TOUR LEDGER' in out
-        assert out.index('TOUR CREDIT') < out.index('TOUR LEDGER')
+        assert 'TOUR LEDGER' not in terminal.execute_command('handoff')
 
     def test_signing_off_shows_the_tour_that_was_worked(self, terminal):
         tour(terminal)
         terminal.execute_command('report')
         out = terminal.execute_command('handoff relieve')
         assert 'TOUR LEDGER' in out
+        assert out.index('TOUR CREDIT') < out.index('TOUR LEDGER')
 
-    def test_a_tour_with_nothing_in_it_still_hands_over(self, terminal):
+    def test_a_tour_with_nothing_in_it_still_signs_off(self, terminal):
         tour(terminal, closed=0, wrong=0, repairs=0, minutes=0)
-        out = terminal.execute_command('handoff')
+        terminal.execute_command('report')
+        out = terminal.execute_command('handoff relieve')
         assert 'Too few closes' in out
 
 

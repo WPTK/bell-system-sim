@@ -447,7 +447,7 @@ this shift and the next one starts on a fresh board."""
         goals = self._goal_section(final=True)
         # Commendations are left for after the tour is banked, where the
         # whole tour's are printed once.
-        credit = self._credit_section(earned=False)
+        credit = self._credit_section(earned=False, spent=True)
         if self.clock.last_tour(self.career.shift):
             if self.career.finished:
                 return (
@@ -714,14 +714,20 @@ this shift and the next one starts on a fresh board."""
         rows.extend(self.position_measure())
         return '\n'.join(indent + line for line in rows)
 
-    def _credit_section(self, earned: bool = True) -> str:
+    def _credit_section(self, earned: bool = True,
+                        spent: bool = False) -> str:
         """
         The tour's credit: its own index, how much of the board it cleared,
         its KPIs and what it has earned so far. Measures, not scores - the
         service index is still the only thing that takes marks off.
+
+        Args:
+            earned: Include the commendations earned so far
+            spent: The tour is over, so it is placed against the peers
+                (the ledger); part way through, it is not
         """
         rows = ['TOUR CREDIT', '=' * 40, *self.credit_rows()]
-        placed = ledger.lines(self.career)
+        placed = ledger.lines(self.career) if spent else []
         rows.extend(['', *placed] if placed else [])
         if earned:
             held = self.commendation_lines(self.career.earned_this_tour())
