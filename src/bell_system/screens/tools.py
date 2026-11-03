@@ -17,6 +17,7 @@ import random
 from typing import List, Optional
 
 from ..filesystem import normalise
+from ..npc import CRAFT, PLAYER_TTY
 from .session import SessionState
 
 
@@ -452,9 +453,11 @@ class ToolCommands(SessionState):
             'ehalloran': 'Use write(1) unless it is an emergency.',
         }
         who, reply = random.choice(list(replies.items()))
-        return (f"Broadcast Message from {self.username} tty01 [{stamp}]...\n"
+        return (f"Broadcast Message from {self.username} "
+                f"tty{PLAYER_TTY} [{stamp}]...\n"
                 f"{message}\n\n"
-                f"Message from {who} tty02 [{stamp}]...\n{reply}\nEOT")
+                f"Message from {who} tty{CRAFT[who].tty} [{stamp}]...\n"
+                f"{reply}\nEOT")
 
     def cmd_passwd(self, args: Optional[List[str]] = None) -> str:
         """Change the login password."""

@@ -290,17 +290,31 @@ def _force_out(desk: ReportDesk) -> Dict[str, Any]:
     }
 
 
+# A crew key a saved shift may still carry, and the crew that took its place.
+# The central-office crew was Nakamura until the crew list was built from the
+# roster (#60), where that work is Johnson's.
+RETIRED_CREWS: Dict[str, str] = {'nakamura': 'johnson'}
+
+
 def _force_in(desk: ReportDesk, stored: Dict[str, Any]) -> None:
-    """Read the field force back."""
+    """
+    Read the field force back, over the force the desk was dealt.
+
+    The desk starts with every crew the list has, somewhere. What was saved
+    moves the crews it knows, under the key they have now; a crew it does not
+    know (one the list has since gained) stays where it was dealt, and one the
+    list has since lost is dropped.
+    """
     crews = {crew.key: crew for crew in (*CREWS, POOL_CREW)}
     loaned = stored.get('loaned')
     desk.force.loaned = loaned if isinstance(loaned, str) else None
-    desk.force.at = {key: where for key, where in stored['at'].items()
-                     if key in crews}
-    if desk.force.loaned:
-        desk.force.at.setdefault(POOL_CREW.key, 'FAR')
+    for key, where in stored['at'].items():
+        key = RETIRED_CREWS.get(key, key)
+        if key in crews:
+            desk.force.at[key] = where
     out = {}
     for key, job in stored['out'].items():
+        key = RETIRED_CREWS.get(key, key)
         left = job['left']
         # A shift saved before the crews ran on the shift clock wrote the
         # time they rolled as a wall-clock stamp. That is not a point on this

@@ -34,18 +34,40 @@ the fit is not clean:
   tnds      Nobody on the roster collects traffic data. Johnson is signed
             because a switching technician is who knows how an office's
             counters were wired and what they count.
-  field     The note mentions "Vasquez's crew", but Vasquez is the
-            testboard technician and field.CREWS has no such crew. The
-            wording is left as written; the signature, the wire chief
-            who sends crews out, is what fits.
+  field     The wire chief who sends crews out signs it, and the crews it
+            names are ones field.CREWS has.
 
-field.CREWS also lists Nakamura as a switching equipment technician,
-where npc.CRAFT has him as the transmission engineer and Johnson as the
-switching technician. The notes follow npc.CRAFT, which is also where the
-.mailrc aliases come from.
+field.CREWS takes each crew's name and title from npc.CRAFT, so the roster,
+the crew list and these notes say the same thing about the same person.
+The notes follow npc.CRAFT, which is also where the .mailrc aliases come
+from.
 """
 
 from typing import Dict
+
+from ..field import CREWS
+
+
+def _force() -> str:
+    """
+    The people field.CREWS sends, by title, as a sentence would list them.
+
+    Counted from the crew list, so a note cannot say there are more (or
+    fewer) than there are.
+    """
+    numbers = {1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five'}
+    counts: Dict[str, int] = {}
+    for crew in CREWS:
+        title = crew.title.lower()
+        counts[title] = counts.get(title, 0) + 1
+    parts = []
+    for title, count in counts.items():
+        if count > 1:
+            parts.append(f'{numbers[count]} {title}s')
+        else:
+            parts.append(f"{'an' if title[0] in 'aeiou' else 'a'} {title}")
+    return ', '.join(parts[:-1]) + ' and ' + parts[-1]
+
 
 # What every .profile on this machine starts with. The real ones were this
 # short: a path, a terminal, and the erase and kill characters, because a
@@ -146,20 +168,16 @@ in the peg count and not in a trouble ticket.
         '.profile': _profile(
             'field liaison',
             'echo "Dispatched:"; trouble list\n'),
-        'crews.notes': """Who is out, and what they are good for.
+        'crews.notes': f"""Who is out, and what they are good for.
 
-There are three splicing crews and one installation crew on this wire
-centre, and the difference between a good tour and a bad one is whether
-you sent the right one.
+This wire centre has {_force()}, and the difference between a good tour
+and a bad one is whether you sent the right one.
 
 A splicer fixes the cable. An installer fixes the station and the drop.
 If you are not sure which side of the protector the trouble is on, do
 not guess - run a loop test first. An installer sent to a wet cable
 comes back having done nothing and the customer has had a morning off
 work for nothing.
-
-Vasquez's crew will take a fourth job at four o'clock and finish it.
-Nobody else will. Do not spend that on something that could wait.
 
 The commitment is a promise the company made to a person, not a target
 somebody set for you. When it is going to be missed, the useful thing
@@ -190,9 +208,9 @@ fortnight. The numbers are boring and then one day they are not, and
 you will only know which day that is because you know what boring
 looks like.
 
-Mother's Day is the busiest calling day of the year and everybody has
-known that for forty years. It is not a surprise and it is not an
-outage. Do not raise anything.
+Long-haul calling jams the intertoll trunks on Mother's Day and on
+Christmas Day, and both come round every year. It is not a surprise and
+it is not an outage. Do not raise anything.
 
                                              - D. Petrak
 """,
@@ -221,10 +239,10 @@ Coin overtime comes up before the money does, so you have a few seconds
 where you know the call is about to be cut off and they do not. Use
 them.
 
-The average call at this position is under thirty seconds and there are
-several hundred of them in a tour. It is not hard work. It is the same
-work, at speed, all day, and the mistake people make is treating the
-four hundredth one differently from the first.
+The calls at this position are short and there are a great many of them
+in a tour. It is not hard work. It is the same work, at speed, all day,
+and the mistake people make is treating the last one differently from
+the first.
 
                                              - J. Haverty
 """,
