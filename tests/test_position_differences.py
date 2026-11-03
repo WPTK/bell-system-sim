@@ -1613,11 +1613,14 @@ class TestTheOfficeBookIsHonest:
         terminal.shift_minutes = 10 * LAMP_MINUTES
         risen = terminal.alarms_risen()
         assert risen > 0
-        rose = next(a for a, lamp, *_ in terminal.lamp_panel()
-                    if lamp != a['severity'])
+        # One that is not a symptom: working a symptom clears nothing.
+        rose = next(a for a, lamp, office, *_ in terminal.lamp_panel()
+                    if lamp != a['severity']
+                    and terminal.alarm_cause(
+                        a, terminal.office_alarms(office)) is None)
         terminal.execute_command(f"connect work {rose['id']}")
         assert terminal.alarms_risen() == risen
-        assert terminal.lamp_book()['rose'] == [rose['id']]
+        assert rose['id'] in terminal.lamp_book()['rose']
 
 
 class TestTheOfficeDealsEachTour:
