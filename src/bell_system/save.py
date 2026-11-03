@@ -311,6 +311,7 @@ def capture(terminal: Any) -> Dict[str, Any]:
             'triage': terminal.triage_state(),
             'sarts': terminal.special_services.state(),
             'patience': terminal.patience_state(),
+            'lamps': terminal.lamp_state(),
         },
     }
 
@@ -390,6 +391,7 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     terminal.restore_triage(tour.get('triage'))
     # The repair desk's customers, and what they have been told.
     terminal.restore_patience(tour.get('patience'))
+    terminal.restore_lamps(tour.get('lamps'))
     # The special services inventory is dealt again as well, and the desk is
     # not chosen yet when a shift loads. The saved circuits go back, and the
     # outage clock starts from now.

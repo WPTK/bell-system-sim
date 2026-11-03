@@ -119,10 +119,12 @@ POSITIONS: Dict[str, Position] = {
         voices=('rjohnson', 'ehalloran'),
         nspmp='customer_reports',
         tally=('office_faults', 'alarms_open', 'wasted_trips',
-               'alarms_cleared', 'alarms_lit'),
+               'alarms_cleared', 'alarms_lit', 'alarms_held'),
         verb='connect work',
         pressure='Alarm lamps: an alarm nobody works lights a level higher '
-                 'every 40 shift minutes.',
+                 'every 40 shift minutes, and one in this building left a '
+                 'whole span at the top lamp counts as a missed '
+                 'commitment.',
     ),
 
     'field': Position(

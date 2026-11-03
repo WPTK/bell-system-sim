@@ -4489,6 +4489,11 @@ ALARM PANEL
      from its own point in them, so they do not all rise together. The
      lamp sets the cost: 3 minutes at MINOR, 5 at MAJOR, 8 at CRITICAL,
      and 2 more for a building you are not in. alarm ack does not stop
-     the rising; only clearing does. The clock is the shift clock and not
-     a stopwatch. These figures are the simulation's own.
+     the rising; only clearing does. An alarm in your own building left a
+     whole span (40 minutes) at the top lamp is a missed commitment,
+     counted on the service index at the handoff whether or not you ever
+     looked at the panel, and one cleared before then is not. The other
+     buildings' lamps rise and show on the panel but are not on the
+     index. The first tour is a grace. The clock is the shift clock and
+     not a stopwatch. These figures are the simulation's own.
 """

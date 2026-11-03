@@ -70,6 +70,8 @@ class PositionCommands(SessionState):
             self._count_triage()
         if self.position.key == 'sarts':
             self._count_outages()
+        if self.position.key == 'switch':
+            self._count_lamps()
 
     _triage_counted = False
 
@@ -91,6 +93,24 @@ class PositionCommands(SessionState):
         reports = self.career.open_overdue
         self.career.open_overdue = (
             lambda: reports() + len(queue.triage_overdue()))
+
+    _lamps_counted = False
+
+    def _count_lamps(self) -> None:
+        """
+        Put the office desk's alarms held at the top lamp on the index.
+
+        The same road the NOC's tickets and the SARTS circuits take: an
+        alarm nobody cleared in a whole span at the top lamp is a
+        commitment missed, whether or not anyone looks at the panel.
+        """
+        if self._lamps_counted:
+            return
+        self._lamps_counted = True
+        console: Any = self  # The office commands, mixed into the same class.
+        reports = self.career.open_overdue
+        self.career.open_overdue = (
+            lambda: reports() + console.alarms_overdue())
 
     _outages_counted = False
 
@@ -319,9 +339,12 @@ def _alarms_cleared(terminal: Any) -> Tuple[str, str]:
 
 def _alarms_lit(terminal: Any) -> Tuple[str, str]:
     """Alarms whose lamp rose above their class while nobody worked them."""
-    terminal.lamp_panel()  # Looking is when a lamp that rose is noticed.
-    return ('alarm lamps that rose',
-            str(len(terminal.lamp_book()['lit'])))
+    return 'alarm lamps that rose', str(terminal.alarms_risen())
+
+
+def _alarms_held(terminal: Any) -> Tuple[str, str]:
+    """Alarms held at the top lamp for a whole span, which the index counts."""
+    return ('alarms held at the top lamp', str(terminal.alarms_overdue()))
 
 
 def _no_trouble_found(terminal: Any) -> Tuple[str, str]:
@@ -430,6 +453,7 @@ _COUNTERS: Dict[str, Any] = {
     'customers_rang_back': _customers_rang_back,
     'alarms_cleared': _alarms_cleared,
     'alarms_lit': _alarms_lit,
+    'alarms_held': _alarms_held,
     'no_trouble_found': _no_trouble_found,
     'off_hook_caught': _off_hook_caught,
     'commitments_met': _commitments_met,

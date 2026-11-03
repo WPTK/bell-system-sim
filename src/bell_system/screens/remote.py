@@ -127,16 +127,54 @@ class RemoteCommands(SessionState):
 
     def lamp_book(self) -> Dict[str, Any]:
         """
-        Which alarms this desk has cleared, and which it let light up.
+        Which alarms this desk has cleared this tour, and which of those
+        had already lit above their class when it did.
 
-        Tied to the board it was kept for, like the other desk books: a new
-        board is a new book.
+        Keyed on the tour, like the NOC's book: the shift clock starts again
+        at zero with each tour, so what was cleared on the last one says
+        nothing about this one.
         """
         book = self._lamp_book
-        if book is None or book['desk'] != id(self.desk):
-            book = {'desk': id(self.desk), 'cleared': set(), 'lit': set()}
+        if book is None or book['tour'] != self.career.shift:
+            book = {'tour': self.career.shift, 'cleared': [], 'rose': []}
             self._lamp_book = book
         return book
+
+    def lamp_state(self) -> Dict[str, Any]:
+        """The book as the save file keeps it."""
+        book = self.lamp_book()
+        return {'tour': book['tour'], 'cleared': list(book['cleared']),
+                'rose': list(book['rose'])}
+
+    def restore_lamps(self, stored: Any) -> None:
+        """
+        Put a saved book back, and take the alarms it cleared off the
+        console again.
+
+        The alarms are dealt afresh on a resume, so without this an alarm
+        cleared before the save would be standing again. A save from before
+        the book existed, from another tour or damaged brings nothing back.
+        """
+        book: Dict[str, Any] = {'tour': self.career.shift,
+                                'cleared': [], 'rose': []}
+        if isinstance(stored, dict) and stored.get('tour') == book['tour']:
+            for key in ('cleared', 'rose'):
+                listed = stored.get(key)
+                if isinstance(listed, list):
+                    book[key] = [str(n) for n in listed]
+        self._lamp_book = book
+        for alarm in list(self.active_alarms):
+            if alarm['id'] in book['cleared']:
+                self._take_off(alarm, self.active_alarms, home=True)
+
+    def _take_off(self, alarm: Alarm, standing: List[Alarm],
+                  home: bool) -> None:
+        """Clear one alarm off its office, and off the home health count."""
+        standing.remove(alarm)
+        if home:
+            health: Any = self.system_health
+            key = HEALTH_KEY[alarm['severity']]
+            health[key] = max(0, health[key] - 1)
 
     def lamp(self, alarm: Alarm) -> Tuple[str, int]:
         """
@@ -148,32 +186,70 @@ class RemoteCommands(SessionState):
         the shift clock and nothing else, and the first tour is a grace.
         """
         base = LAMPS.index(alarm['severity'])
-        ripe = random.Random(f"lamp:{alarm['id']}").randrange(LAMP_MINUTES)
         if self.first_tour():
             return LAMPS[base], LAMP_MINUTES
-        age = self.shift_minutes + ripe
+        age = self._lamp_age(alarm)
         level = min(len(LAMPS) - 1, base + age // LAMP_MINUTES)
         return LAMPS[level], LAMP_MINUTES - age % LAMP_MINUTES
+
+    def _lamp_age(self, alarm: Alarm) -> int:
+        """Shift minutes an alarm has been ripening, from its own start."""
+        ripe = random.Random(f"lamp:{alarm['id']}").randrange(LAMP_MINUTES)
+        return self.shift_minutes + ripe
+
+    def lamp_held(self, alarm: Alarm) -> bool:
+        """
+        Whether an alarm has stood at the top lamp for a whole span.
+
+        Left that long it is a commitment missed, which the service index
+        counts at the handoff. Read only, and the first tour is a grace.
+        """
+        if self.first_tour():
+            return False
+        base = LAMPS.index(alarm['severity'])
+        return self._lamp_age(alarm) >= (len(LAMPS) - base) * LAMP_MINUTES
+
+    def alarms_overdue(self) -> int:
+        """
+        Return how many alarms in this building have stood at the top lamp
+        for a whole span.
+
+        Read only: worked out from the shift clock each time it is asked
+        for, so ignoring the panel costs the same whether or not anyone
+        looked at it. Only the office desk has a console, and only its own
+        building's alarms count: the console watches ten more, and putting
+        every one of them on the index would be a score of twenty for a
+        shift's work that cannot be done. The other buildings' lamps still
+        rise and still show on the panel.
+        """
+        if self.position.key != 'switch':
+            return 0
+        home = self.home_office['clli']
+        return sum(1 for alarm, _, office, *_ in self.lamp_panel()
+                   if office['clli'] == home and self.lamp_held(alarm))
+
+    def alarms_risen(self) -> int:
+        """Alarms whose lamp rose above their class, standing or cleared."""
+        standing = sum(1 for alarm, lamp, *_ in self.lamp_panel()
+                       if lamp != alarm['severity'])
+        return standing + len(self.lamp_book()['rose'])
 
     def lamp_panel(self) -> List[Tuple[Alarm, str, Any, int, int]]:
         """
         Every alarm standing on the console: the alarm, its lamp, its
         office, the minutes to the next lamp and what working it costs.
 
-        Highest lamp first, then soonest to light. Looking is when a lamp
-        that rose is noticed, and what rose is kept.
+        Highest lamp first, then soonest to light. Read only: looking at the
+        panel changes nothing on it.
         """
         offices = list(self.watched_offices())
         home = self.home_office
         if home['clli'] not in {o['clli'] for o in offices}:
             offices.insert(0, home)
-        book = self.lamp_book()
         rows = []
         for office in offices:
             for alarm in self.office_alarms(office):
                 lamp, next_in = self.lamp(alarm)
-                if lamp != alarm['severity']:
-                    book['lit'].add(alarm['id'])
                 cost = WORK_COST[lamp] + (
                     0 if office['clli'] == home['clli'] else WORK_REMOTE)
                 rows.append((alarm, lamp, office, next_in, cost))
@@ -209,8 +285,11 @@ class RemoteCommands(SessionState):
                 f"{LAMP_MINUTES} shift",
                 "minutes, from its own point in them. Acknowledging does "
                 "not stop it:",
-                "only clearing does. These figures are the simulation's "
-                "own.",
+                "only clearing does. One left a whole span at the top lamp "
+                "is a missed",
+                "commitment on the index (this building only). These "
+                "figures are the",
+                "simulation's own.",
             ]
             return '\n'.join(lines)
         wanted = args[0].upper()
@@ -220,13 +299,12 @@ class RemoteCommands(SessionState):
                     f"console.\n'connect work' lists them.")
         alarm, lamp, office, _, cost = row
         self._pass_time(cost)
-        self.office_alarms(office).remove(alarm)
         home = office['clli'] == self.home_office['clli']
-        if home:
-            health: Any = self.system_health
-            key = HEALTH_KEY[alarm['severity']]
-            health[key] = max(0, health[key] - 1)
-        self.lamp_book()['cleared'].add(alarm['id'])
+        self._take_off(alarm, self.office_alarms(office), home)
+        book = self.lamp_book()
+        book['cleared'].append(alarm['id'])
+        if lamp != alarm['severity']:
+            book['rose'].append(alarm['id'])
         return '\n'.join([
             f"{alarm['id']}: cleared at the cause on {alarm['system']} in "
             f"{office['clli']}.",
@@ -554,6 +632,8 @@ class RemoteCommands(SessionState):
             alarm['timestamp'] = self.clock.now() - timedelta(
                 minutes=generator.randint(12, 400))
             alarm['system'] = f"{alarm['system']}-{clli[:4]}"
+            if alarm['id'] in self.lamp_book()['cleared']:
+                continue
             standing.append(alarm)
         self._office_alarms[clli] = standing
         return standing
