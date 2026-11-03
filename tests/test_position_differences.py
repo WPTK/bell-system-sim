@@ -187,7 +187,7 @@ class TestNobodyGetsLessWork:
     entirely. What is here is one gentle lever.
     """
 
-    def arrivals(self, at_desk, role, commands=250, trials=4):
+    def arrivals(self, at_desk, role, commands=250, trials=12):
         """Reports and tickets that arrive over a run of commands."""
         totals = []
         for seed in range(trials):
