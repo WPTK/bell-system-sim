@@ -521,6 +521,35 @@ def put_tickets(terminal, *specs):
     return made
 
 
+def resume_onto_fresh(terminal, role=None, mutate=None, dealt=None):
+    """
+    Resume a saved shift the way the game does.
+
+    A new session is built, the saved shift is restored onto it with no desk
+    taken, and only then does the player choose a role (terminal.py makes
+    the session first and `_resume_shift` runs before anybody has sat down).
+    A helper that took the desk first would test an order nobody can reach.
+
+    ``mutate`` is handed what was written, to damage or age it; ``dealt``
+    is handed the new session before the restore, to say what it was dealt.
+    """
+    import json
+    from bell_system import save
+    captured = json.loads(json.dumps(save.capture(terminal)))
+    if mutate is not None:
+        mutate(captured)
+    fresh = BellSystemTerminal()
+    fresh.career.shift = terminal.career.shift
+    fresh.career.reports_closed = terminal.career.reports_closed
+    if dealt is not None:
+        dealt(fresh)
+    assert save.restore(fresh, captured)
+    if role is not None:
+        with redirect_stdout(io.StringIO()):
+            fresh.take_position(role)
+    return fresh
+
+
 class TestTheNocQueue:
     """
     The triage verb and the clock behind it.
@@ -1070,6 +1099,19 @@ class TestTheRepairDeskHolds:
         assert terminal.patience(down)[0] == 0
         assert terminal.ring_sweep() == []
         assert terminal.career.missed_commitments == 0
+
+    def test_the_grace_is_the_whole_first_tour_not_only_until_a_close(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 500))
+        terminal.career.shift = 1
+        terminal.career.reports_closed = 1  # first_tour() has ended.
+        assert not terminal.first_tour()
+        assert terminal.patience(down)[0] == 0
+        assert terminal.ring_sweep() == []
+        assert terminal.career.missed_commitments == 0
+        terminal.career.shift = 2
+        assert terminal.patience(down)[0] == 3
 
     def test_the_tally_keeps_a_ring_when_the_report_closes(self, at_desk):
         terminal = at_desk('custserv')
@@ -1797,6 +1839,61 @@ class TestTheRepairDeskCostsTheIndex:
         assert ring_messages(terminal) == []
         assert terminal.career.missed_commitments == before
 
+    def test_the_giving_up_is_said_and_charged_once_per_report(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        down.field_finding = 'OPEN'
+        before = terminal.career.missed_commitments
+        terminal._pass_time(65)
+        terminal.ring_sweep()
+        assert terminal.patience_book()['rings'][down.number] == 3
+        # Told something, they wait again, and are past the third again.
+        terminal.execute_command(f'trouble advise {down.number}')
+        for _ in range(3):
+            terminal._pass_time(65)
+            terminal.ring_sweep()
+        mine = [m for m in ring_messages(terminal) if m.about == down.number]
+        assert len(mine) == 1
+        assert 'writing in' in ' '.join(mine[0].lines)
+        assert down.missed_commitment
+        assert terminal.patience_book()['rings'][down.number] == 3
+        assert terminal.career.missed_commitments >= before + 1
+
+    def test_rings_stop_at_three_a_report_whatever_it_is_told(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        down.field_finding = 'OPEN'
+        terminal._pass_time(25)
+        terminal.ring_sweep()
+        terminal.execute_command(f'trouble advise {down.number}')
+        for _ in range(6):
+            terminal._pass_time(25)
+            terminal.ring_sweep()
+            book = terminal.patience_book()
+            assert book['rings'][down.number] <= 3
+            assert max(book['rings'].values()) <= 3
+            # Everything counted is what the book holds: nothing pending.
+            assert terminal.rings_total() == sum(book['rings'].values())
+        assert terminal.patience_book()['rings'][down.number] == 3
+        mine = [m for m in ring_messages(terminal) if m.about == down.number]
+        assert len(mine) == 3
+
+    def test_the_first_tour_is_never_charged_close_or_no_close(
+            self, at_desk):
+        for closed in (0, 1):
+            terminal = at_desk('custserv')
+            (down,) = hold(terminal, (True, 0))
+            terminal.career.shift = 1
+            terminal.career.reports_closed = closed
+            terminal._pass_time(600)
+            late = terminal.career.missed_commitments
+            flagged = down.missed_commitment
+            terminal.ring_sweep()
+            assert terminal.career.missed_commitments == late, closed
+            assert down.missed_commitment == flagged
+            assert ring_messages(terminal) == []
+
     def test_the_first_tour_is_never_charged(self, at_desk):
         terminal = at_desk('custserv')
         (down,) = hold(terminal, (True, 0))
@@ -1974,8 +2071,9 @@ class TestTheRepairDeskAcrossAResume:
         fresh = BellSystemTerminal()
         fresh.career.shift = terminal.career.shift
         fresh.career.reports_closed = terminal.career.reports_closed
-        fresh.take_position('custserv')
         assert save.restore(fresh, captured)
+        with redirect_stdout(io.StringIO()):
+            fresh.take_position('custserv')
         return fresh
 
     def test_a_call_made_before_the_save_still_counts(self, at_desk):
@@ -2272,13 +2370,44 @@ class TestTheOutageCostsTheIndex:
         terminal = at_desk('sarts')
         circuit = failing_circuit(terminal, 'OFFICE')
         terminal.shift_minutes = OUTAGE_WINDOW + 5
-        missed = terminal.career.missed_commitments
+        before = terminal.career.open_overdue()
         output = terminal.execute_command(
             f'sarts repair {circuit.circuit_id} office')
         assert 'missed commitment' in output
-        assert terminal.career.missed_commitments == missed + 1
-        # Cleared, so it is no longer the unseen kind.
+        # Cleared, but the miss stays on the desk's figure and on the index
+        # (the same one the circuit was on while it stood out), and it is
+        # not a second charge on the career's own count.
+        assert terminal.outages_overdue() == 1
+        assert terminal.career.open_overdue() == before
+        assert terminal.special_services.late == {circuit.circuit_id}
+
+    def test_a_late_clear_is_counted_once_however_often_it_is_asked(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        terminal.shift_minutes += 200
+        for _ in range(3):
+            assert terminal.outages_overdue() == 1
+
+    def test_a_clear_in_time_is_not_on_the_late_list(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        assert terminal.special_services.late == set()
         assert terminal.outages_overdue() == 0
+
+    def test_a_new_tour_forgets_the_late_list(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        inventory = terminal.special_services
+        assert inventory.past_window(terminal.career.shift, 100) == 1
+        assert inventory.past_window(terminal.career.shift + 1, 0) == 0
+        inventory.accrue(terminal.career.shift + 1, 0)
+        assert inventory.late == set()
 
     def test_a_wrong_force_pushes_a_circuit_past_the_window(self, at_desk):
         terminal = at_desk('sarts')
@@ -2293,6 +2422,23 @@ class TestTheOutageCostsTheIndex:
         failing_circuit(terminal)
         skew_the_wall_clock(terminal, monkeypatch)
         assert terminal.outages_overdue() == 0
+
+    def test_a_handoff_before_the_tour_is_out_banks_the_circuits_held(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        failing_circuit(terminal)
+        terminal.shift_minutes = 14
+        assert terminal.outages_overdue() == 0
+        seen = []
+        real = terminal.career.service_index
+
+        def banked():
+            seen.append(terminal.outages_overdue())
+            return real()
+
+        terminal.career.service_index = banked
+        terminal._end_shift()
+        assert seen and seen[0] == 1
 
     def test_the_handoff_counts_what_ran_past(self, at_desk):
         terminal = at_desk('sarts')
@@ -2331,8 +2477,9 @@ class TestTheOutageClockAcrossAResume:
         fresh = BellSystemTerminal()
         fresh.career.shift = terminal.career.shift
         fresh.career.reports_closed = terminal.career.reports_closed
-        fresh.take_position('sarts')
         assert save.restore(fresh, captured)
+        with redirect_stdout(io.StringIO()):
+            fresh.take_position('sarts')
         return fresh
 
     def test_the_saved_circuits_come_back_with_their_minutes(self, at_desk):
@@ -2367,10 +2514,11 @@ class TestTheOutageClockAcrossAResume:
         del captured['tour']['sarts']
         fresh = BellSystemTerminal()
         fresh.career.shift = terminal.career.shift
-        fresh.take_position('sarts')
         dealt = failing_circuit(fresh)
         from bell_system import save
         assert save.restore(fresh, captured)
+        with redirect_stdout(io.StringIO()):
+            fresh.take_position('sarts')
         assert fresh.shift_minutes == 300
         assert out_now(fresh, dealt) == 0
         assert fresh.outages_overdue() == 0
@@ -2393,6 +2541,65 @@ class TestTheOutageClockAcrossAResume:
             fresh = self.resumed(terminal, captured)
             assert fresh.special_services.minutes_out(
                 fresh.career.shift, fresh.shift_minutes) == 0
+
+    def test_a_save_before_any_command_is_the_saved_tour_not_the_last(
+            self, at_desk):
+        """
+        Nothing has touched the inventory this tour, so it still carries the
+        last tour's number; the save is of this tour and must read as one.
+        """
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'FACILITY', read=False)
+        terminal.career.shift += 1
+        terminal.shift_minutes = 25
+        assert terminal.special_services._tour != terminal.career.shift
+        captured = self.capture(terminal)
+        assert captured['tour']['sarts']['tour'] == terminal.career.shift
+        fresh = self.resumed(terminal, captured)
+        back = fresh.special_services.circuits[circuit.circuit_id]
+        assert back.status == 'TRBL' and back.fault_place == 'FACILITY'
+        # Nothing was charged this tour yet, and what the last tour charged
+        # is not carried; the circuit has been out since the tour began.
+        assert back.out_minutes == 0
+        assert out_now(fresh, back) == out_now(terminal, circuit) == 25
+
+    def test_a_late_clear_survives_a_resume(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        assert terminal.outages_overdue() == 1
+        before = terminal.career.open_overdue()
+        fresh = self.resumed(terminal, self.capture(terminal))
+        assert fresh.special_services.late == {circuit.circuit_id}
+        assert fresh.outages_overdue() == 1
+        assert fresh.career.open_overdue() == before
+
+    def test_a_late_list_that_will_not_read_is_forgiven(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        for junk in (None, 7, 'x', {'a': 1}, ['not-a-circuit']):
+            captured = self.capture(terminal)
+            captured['tour']['sarts']['late'] = junk
+            fresh = self.resumed(terminal, captured)
+            assert fresh.outages_overdue() == 0, junk
+        captured = self.capture(terminal)
+        del captured['tour']['sarts']['late']
+        assert self.resumed(terminal, captured).outages_overdue() == 0
+
+    def test_a_late_clear_from_another_tour_is_not_carried_over(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        captured = self.capture(terminal)
+        captured['tour']['sarts']['tour'] = terminal.career.shift + 1
+        fresh = self.resumed(terminal, captured)
+        assert fresh.special_services.late == set()
+        assert fresh.outages_overdue() == 0
 
     def test_a_reading_from_the_saved_tour_survives_but_no_other(
             self, at_desk):
@@ -2474,53 +2681,32 @@ class TestTheNocQueueIsHonest:
         assert terminal.career.open_overdue() == before
 
     def test_a_resumed_shift_does_not_start_every_window_late(self, at_desk):
-        import json
-        from bell_system import save
         terminal = at_desk('noc')
         terminal.shift_minutes = 45
-        captured = json.loads(json.dumps(save.capture(terminal)))
-        fresh = BellSystemTerminal()
-        fresh.career.shift = terminal.career.shift
-        fresh.career.reports_closed = terminal.career.reports_closed
-        fresh.take_position('noc')
-        assert save.restore(fresh, captured)
+        before = terminal.triage_lapsed()
+        fresh = resume_onto_fresh(terminal, 'noc')
         assert fresh.shift_minutes == 45
-        assert fresh.triage_overdue() == []
-        fresh.execute_command('trouble triage')
-        assert all(t['escalation_level'] == 1 for t in fresh.active_tickets)
+        # The windows go on from where they stood: what was past its window
+        # still is, and nothing is added or taken away by the resume.
+        assert fresh.triage_lapsed() == before
+        assert fresh.career.open_overdue() == terminal.career.open_overdue()
 
     def test_the_book_itself_survives_a_resume(self, at_desk):
-        import json
-        from bell_system import save
         terminal = at_desk('noc')
         (major,) = put_tickets(terminal, ('MAJOR', 5))
         terminal.shift_minutes = 10
         terminal.execute_command('trouble triage ' + major['id'])
-        captured = json.loads(json.dumps(save.capture(terminal)))
-        assert captured['tour']['triage']['taken'][major['id']] == 10
-        fresh = BellSystemTerminal()
-        fresh.career.shift = terminal.career.shift
-        fresh.career.reports_closed = terminal.career.reports_closed
-        # The resumed pool is dealt again; put the same ticket back in it
-        # rather than leave which numbers it reuses to chance.
-        fresh.active_tickets[:] = [dict(major)]
-        assert save.restore(fresh, captured)
-        # The resumed terminal deals a pool of its own, whose windows open
-        # from now; the saved ticket is the one that keeps its minute.
-        assert fresh.triage_book()['taken'][major['id']] == 10
+        assert terminal.triage_state()['taken'][major['id']] == 10
+        fresh = resume_onto_fresh(terminal, 'noc')
+        assert fresh.triage_book()['taken'] == {major['id']: 10}
 
     def test_a_save_from_before_the_book_opens_every_window_from_now(
             self, at_desk):
-        import json
-        from bell_system import save
         terminal = at_desk('noc')
         terminal.shift_minutes = 300
-        captured = json.loads(json.dumps(save.capture(terminal)))
-        del captured['tour']['triage']
-        fresh = BellSystemTerminal()
-        fresh.career.shift = terminal.career.shift
-        fresh.career.reports_closed = terminal.career.reports_closed
-        assert save.restore(fresh, captured)
+        fresh = resume_onto_fresh(
+            terminal, 'noc',
+            mutate=lambda captured: captured['tour'].pop('triage'))
         assert fresh.triage_overdue() == []
 
     def test_a_damaged_book_is_forgiven(self, at_desk):
@@ -2595,37 +2781,33 @@ class TestTheNocQueueIsHonest:
 
     def test_resuming_keeps_an_overdue_ticket_nobody_looked_at(
             self, at_desk):
-        import json
-        from bell_system import save
         terminal = at_desk('noc')
         (major,) = put_tickets(terminal, ('MAJOR', 900))
         terminal.shift_minutes = 45
         assert terminal.triage_book()['lapsed'] == {}
-        captured = json.loads(json.dumps(save.capture(terminal)))
-        fresh = BellSystemTerminal()
-        fresh.career.shift = terminal.career.shift
-        fresh.career.reports_closed = terminal.career.reports_closed
-        fresh.take_position('noc')
-        assert save.restore(fresh, captured)
+        fresh = resume_onto_fresh(terminal, 'noc')
         assert fresh.triage_lapsed() >= 1
         assert fresh.career.open_overdue() >= 1
 
     def test_a_resumed_ticket_reusing_an_assigned_number_can_lapse(
             self, at_desk):
-        import json
-        from bell_system import save
+        """A save from before the pool was kept: the session is dealt its
+        own, and the numbers it reuses belong to other tickets."""
         terminal = at_desk('noc')
         (major,) = put_tickets(terminal, ('MAJOR', 5))
         terminal.execute_command('trouble triage ' + major['id'])
         assert major['id'] in terminal._assigned_tickets
-        captured = json.loads(json.dumps(save.capture(terminal)))
-        fresh = BellSystemTerminal()
-        fresh.career.shift = terminal.career.shift
-        fresh.career.reports_closed = terminal.career.reports_closed
         other = dict(major, title='a different ticket', status='OPEN',
                      assigned_team='UNASSIGNED', resolution_steps=[])
-        fresh.active_tickets[:] = [other]
-        assert save.restore(fresh, captured)
+
+        def forget_the_pool(captured):
+            del captured['tour']['tickets']
+            del captured['tour']['ticket_counter']
+
+        fresh = resume_onto_fresh(
+            terminal, 'noc', mutate=forget_the_pool,
+            dealt=lambda session: session.active_tickets.__setitem__(
+                slice(None), [other]))
         assert other['id'] not in fresh._assigned_tickets
         assert [t['id'] for t in fresh.triage_queue()] == [other['id']]
 
@@ -2706,6 +2888,161 @@ def test_the_other_eight_match_a_frozen_snapshot():
                 position.board_share, position.tally) == (
                     commands, bias, share, tally), key
         assert key not in FOUR_DESKS
+
+
+class TestTheNocQueueGatesAndResumes:
+    """What the third review found: resolve, the pool, the early handoff."""
+
+    def test_a_waiting_ticket_cannot_be_resolved_for_free(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        output = terminal.execute_command('trouble resolve ' + major['id'])
+        assert 'trouble triage' in output and 'Resolved' not in output
+        assert major in terminal.active_tickets
+        assert major['status'] == 'OPEN'
+
+    def test_the_queue_cannot_be_emptied_by_resolving_it(self, at_desk):
+        terminal = at_desk('noc')
+        tickets = put_tickets(terminal, ('MAJOR', 900), ('MINOR', 100),
+                              ('CRITICAL', 300))
+        for ticket in tickets:
+            terminal.execute_command('trouble resolve ' + ticket['id'])
+        assert len(terminal.active_tickets) == 3
+        assert len(terminal.triage_queue()) == 3
+
+    def test_a_taken_ticket_resolves(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.execute_command('trouble triage ' + major['id'])
+        output = terminal.execute_command('trouble resolve ' + major['id'])
+        assert 'Resolved' in output
+        assert major not in terminal.active_tickets
+
+    def test_a_ticket_somebody_was_given_resolves(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.execute_command(
+            f"trouble assign {major['id']} Outside Plant")
+        output = terminal.execute_command('trouble resolve ' + major['id'])
+        assert 'Resolved' in output
+
+    def test_a_refused_resolve_still_notices_the_lapse(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.shift_minutes = 60
+        terminal.execute_command('trouble resolve ' + major['id'])
+        assert major['id'] in terminal.triage_book()['lapsed']
+        assert terminal.triage_lapsed() == 1
+
+    def test_the_other_desks_resolve_as_they_always_did(self, at_desk):
+        terminal = at_desk('field')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        output = terminal.execute_command('trouble resolve ' + major['id'])
+        assert 'Resolved' in output
+
+    def test_a_resume_brings_the_same_pool_back(self, at_desk):
+        import json
+        terminal = at_desk('noc')
+        terminal.execute_command('trouble create MAINTENANCE MAJOR Test')
+        fresh = resume_onto_fresh(terminal, 'noc')
+        assert ([t['id'] for t in fresh.active_tickets]
+                == [t['id'] for t in terminal.active_tickets])
+        assert fresh.ticket_counter == terminal.ticket_counter
+        for kept, was in zip(fresh.active_tickets, terminal.active_tickets):
+            assert kept['created_time'].replace(microsecond=0) == (
+                was['created_time'].replace(microsecond=0))
+            # A tuple is a list once it has been through the file.
+            assert kept['affected_office'] == json.loads(
+                json.dumps(was['affected_office']))
+            assert kept['status'] == was['status']
+
+    def test_a_window_nearly_out_is_not_reset_by_a_resume(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.shift_minutes = 25
+        fresh = resume_onto_fresh(terminal, 'noc')
+        (kept,) = fresh.active_tickets
+        assert fresh.triage_due(kept) == 30
+        assert fresh.triage_overdue() == []
+        fresh.shift_minutes = 31
+        assert [t['id'] for t in fresh.triage_overdue()] == [major['id']]
+
+    def test_a_new_ticket_after_a_resume_is_not_born_late(self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('MINOR', 100))
+        terminal.shift_minutes = 200
+        fresh = resume_onto_fresh(terminal, 'noc')
+        fresh.execute_command('trouble create MAINTENANCE MAJOR Test')
+        entered = fresh.active_tickets[-1]
+        assert entered['id'] not in [t['id'] for t in terminal.active_tickets]
+        assert fresh.triage_due(entered) == terminal.shift_minutes + 30
+
+    def test_entries_for_tickets_that_are_gone_are_retired(self, at_desk):
+        terminal = at_desk('noc')
+        gone, kept = put_tickets(terminal, ('MAJOR', 900), ('MINOR', 100))
+        terminal.execute_command('trouble triage ' + gone['id'])
+        terminal.execute_command('trouble resolve ' + gone['id'])
+        assert gone['id'] in terminal.triage_book()['opened']
+        fresh = resume_onto_fresh(terminal, 'noc')
+        book = fresh.triage_book()
+        for key in ('opened', 'klass', 'sig', 'taken', 'lapsed'):
+            assert gone['id'] not in book[key], key
+        assert gone['id'] not in fresh._assigned_tickets
+        # The take still counts toward the tour's running total.
+        assert fresh.execute_command('trouble triage').count('taken') >= 1
+        assert (len(book['taken']) + book['earlier']['taken']) == 1
+        assert kept['id'] in book['opened']
+
+    def test_admitting_a_ticket_clears_what_the_book_held_under_its_number(
+            self, at_desk):
+        terminal = at_desk('noc')
+        (old,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.execute_command('trouble triage ' + old['id'])
+        terminal.active_tickets.clear()
+        newer = dict(old, title='another', status='OPEN',
+                     assigned_team='UNASSIGNED', resolution_steps=[])
+        terminal.shift_minutes = 100
+        terminal.triage_admit(newer)
+        book = terminal.triage_book()
+        assert old['id'] not in book['taken']
+        assert book['opened'][newer['id']] == 100
+        assert book['earlier']['taken'] == 1
+
+    def test_a_damaged_pool_leaves_the_pool_the_session_was_dealt(
+            self, at_desk):
+        terminal = at_desk('noc')
+        for junk in (7, 'x', [{'id': 'TK-1'}], [None]):
+            def damage(captured, junk=junk):
+                captured['tour']['tickets'] = junk
+            fresh = resume_onto_fresh(terminal, 'noc', mutate=damage)
+            assert fresh.active_tickets, junk
+
+    def test_a_handoff_before_the_tour_is_out_banks_the_lapses(
+            self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('MAJOR', 900), ('MINOR', 100))
+        terminal.shift_minutes = 14
+        assert terminal.triage_lapsed() == 0
+        seen = []
+        real = terminal.career.service_index
+
+        def banked():
+            seen.append(terminal.triage_lapsed())
+            return real()
+
+        terminal.career.service_index = banked
+        terminal._end_shift()
+        assert seen and seen[0] == 2
+        assert terminal._relieving == 0
+
+    def test_the_end_of_the_tour_is_counted_only_while_signing_off(
+            self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('MAJOR', 900))
+        terminal.shift_minutes = 14
+        assert terminal.tour_minute() == 14
+        terminal._end_shift()
+        assert terminal.tour_minute() == terminal.shift_minutes
 
 
 class TestTheNocQueueAcrossAResume:

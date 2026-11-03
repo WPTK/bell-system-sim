@@ -357,6 +357,14 @@ class SessionState:
         """Charge the shift for the work just done and fire what is due."""
         raise NotImplementedError
 
+    def _end_shift(self) -> str:
+        """Sign off: bank the index and start the next tour."""
+        raise NotImplementedError
+
+    def tour_minute(self) -> int:
+        """The shift minute the desks count their windows against."""
+        raise NotImplementedError
+
     def generate_shift_events(self) -> None:
         """Build the schedule of events this tour will bring due."""
         raise NotImplementedError
