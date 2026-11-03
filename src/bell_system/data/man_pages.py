@@ -1129,6 +1129,12 @@ THE LAST TOUR
      It happens once. The board stays on the machine afterwards, because
      the machine did not stop on the first of January either.
 
+     The last tour also carries an audit of the record: dispositions
+     against the line, repeats, and the reports that go over open with
+     your name on them. It gives a verdict, and the wire chief's words
+     follow it. On the last day, handoff shows how it stands before you
+     sign off. It never ends the career early.
+
 SEE ALSO
      report(1), qual(1), events(1)
 

@@ -18,13 +18,18 @@ of it, and the board is still on the machine afterwards, because the
 machine did not stop on the first of January either.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from .. import save
 from ..clock import career_progress, days_to_divestiture
 from ..console import wrap
 from ..constants import SHIFT_LENGTH_MINUTES
-from ..npc import render as render_message
+from ..npc import (
+    AUDIT_EXCEPTIONS,
+    AUDIT_FAILED,
+    AUDIT_PASSED,
+    render as render_message,
+)
 from ..progression import QUALIFICATIONS
 from ..reports import hours_minutes
 from ..weather import Weather
@@ -40,6 +45,79 @@ LAST_TOUR_NOTICE = (
     "everybody in the building knows it, which is a strange way to spend a",
     "Saturday. Work it the way you have worked the others.",
 )
+
+
+# The memo of 1 November says only that disposition codes "are audited after
+# transfer" and that open reports go over "with your name on them". How an
+# audit would weigh a record is not in any document consulted, so the
+# thresholds below are the simulation's own. Ten per cent of dispositions
+# not matching the line is a finding; a quarter is a failure.
+AUDIT_FINDING_RATE = 0.10
+AUDIT_FAILURE_RATE = 0.25
+
+
+class Audit(NamedTuple):
+    """What the audit at the end of the last tour found."""
+
+    closed: int
+    correct: int
+    wrong: int
+    repeats: int
+    open_numbers: List[str]
+    late: int
+    verdict: str
+    reasons: List[str]
+
+
+def audit(closed: int, correct: int, repeats: int,
+          open_numbers: List[str], late: int) -> Audit:
+    """
+    Judge a career's dispositions and the board it hands over.
+
+    Reads counts only, the same ones ``report closed`` ends on and the board
+    as it stands, so the audit cannot disagree with either. It gives a
+    verdict and the words that go with it. It never ends the career: the
+    thirteenth tour closes it on 31 December whatever this says.
+
+    Args:
+        closed: Reports closed over the career
+        correct: How many matched what was on the line
+        repeats: Reports that came back after a wrong close
+        open_numbers: Reports on the board at transfer, which go over with
+            the craftsperson's name on them
+        late: How many of those are past their commitment
+    """
+    wrong = closed - correct
+    rate = wrong / closed if closed else 0.0
+    failed: List[str] = []
+    findings: List[str] = []
+    if not closed:
+        failed.append("Nothing was closed, so there is no disposition to "
+                      "stand behind and the board goes over as it was found.")
+    if closed and rate > AUDIT_FAILURE_RATE:
+        failed.append(f"{wrong} of {closed} dispositions did not match "
+                      f"the line.")
+    if closed and late > closed:
+        failed.append(f"More went over past commitment ({late}) than you "
+                      f"closed ({closed}).")
+    if AUDIT_FINDING_RATE < rate <= AUDIT_FAILURE_RATE:
+        findings.append(f"{wrong} of {closed} dispositions did not match "
+                        f"the line.")
+    if late and not failed:
+        findings.append(f"{late} went over past commitment.")
+    if failed:
+        verdict, reasons = AUDIT_FAILED, failed
+    elif findings:
+        verdict, reasons = AUDIT_EXCEPTIONS, findings
+    elif wrong:
+        verdict, reasons = AUDIT_PASSED, [
+            f"{wrong} of {closed} did not match the line, inside what the "
+            f"audit lets stand."]
+    else:
+        verdict, reasons = AUDIT_PASSED, [
+            "Every disposition on record matched the line."]
+    return Audit(closed, correct, wrong, repeats, open_numbers, late,
+                 verdict, reasons)
 
 
 class TurnoverCommands(SessionState):
@@ -150,11 +228,67 @@ Reference: BSP 010-100-000 (Shift Turnover Procedures)
 Type 'handoff relieve' to sign off. The service index is banked against
 this shift and the next one starts on a fresh board."""
 
+        if self.clock.last_tour(self.career.shift) and not self.career.finished:
+            output += ('\n\n'
+                       + '\n'.join(
+                           self.audit_lines(self.career_audit(), final=False)))
+
         if args and args[0].lower() in ('relieve', 'signoff', 'end'):
             if not self._tour_has_work():
                 return self._nothing_to_hand_over()
             return self._end_shift()
         return output
+
+    def career_audit(self) -> Audit:
+        """
+        The audit of the career as it stands.
+
+        The figures are the ones ``report closed`` ends on, and the open
+        board is the one ``report`` shows, so the three agree.
+        """
+        pending = self.desk.pending()
+        career = self.career
+        return audit(career.reports_closed, career.reports_correct,
+                     career.repeat_reports,
+                     [report.number for report in pending],
+                     sum(1 for report in pending if report.overdue()))
+
+    def audit_lines(self, found: Audit, final: bool) -> List[str]:
+        """
+        The audit as printed.
+
+        Args:
+            found: What :meth:`career_audit` returned
+            final: False for the look ahead the handoff gives on the last
+                day, which can still be changed by working the board
+        """
+        heading = 'THE AUDIT' if final else 'THE AUDIT, AS THINGS STAND'
+        rows = [
+            heading,
+            '-' * 66,
+            f"  Dispositions on record   {found.closed}",
+            f"    matched the line       {found.correct}",
+            f"    did not match          {found.wrong}",
+            f"  Came back as repeats     {found.repeats}",
+            f"  Handed over open         {len(found.open_numbers)}"
+            + (f", {found.late} past commitment" if found.late else ''),
+        ]
+        if found.open_numbers:
+            shown = ', '.join(found.open_numbers[:6])
+            more = len(found.open_numbers) - 6
+            rows.append(f"    your name is on them   {shown}"
+                        + (f" and {more} more" if more > 0 else ''))
+        rows.append(f"  Verdict                  {found.verdict}")
+        for reason in found.reasons:
+            rows.extend(f"    {line}" for line in wrap(reason, 60))
+        rows.append("  The memo says dispositions are audited and open "
+                    "reports go over with")
+        rows.append("  your name on them. How the audit weighs them is the "
+                    "simulation's own.")
+        if not final:
+            rows.append("  Working the board changes this. Nothing here "
+                        "ends the career early.")
+        return rows
 
     def goal_counts(self) -> Dict[str, int]:
         """
@@ -370,6 +504,7 @@ this shift and the next one starts on a fresh board."""
             lines.extend(f"  {line}" for line in wrap(sentence, 64))
         if goals:
             lines.extend(['', goals])
+        found = self.career_audit()
         lines.extend([
             '',
             'THE CAREER',
@@ -387,9 +522,10 @@ this shift and the next one starts on a fresh board."""
         trend = self.sparkline(career.index_history, span=13)
         if trend:
             lines.append(f"  Every tour of it    {trend}")
+        lines.extend(['', *self.audit_lines(found, final=True)])
         lines.extend(['', render_message(self.switchroom.last_word(
             self.clock.now(), career.shift, career.reports_closed,
-            len(career.qualifications)), self._stamp())])
+            len(career.qualifications), found.verdict), self._stamp())])
         lines.append("The board is still on the machine. Nobody is coming "
                      "to take it off you tonight.")
         return '\n'.join(lines)

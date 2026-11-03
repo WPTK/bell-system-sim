@@ -25,6 +25,11 @@ import random
 from datetime import datetime
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
+# How the audit at the end of the last tour came out (screens/turnover.py).
+AUDIT_PASSED = 'PASSED'
+AUDIT_EXCEPTIONS = 'PASSED WITH EXCEPTIONS'
+AUDIT_FAILED = 'FAILED'
+
 CHANNEL_WRITE = 'write'
 CHANNEL_MAIL = 'mail'
 CHANNEL_ORDERWIRE = 'orderwire'
@@ -575,13 +580,17 @@ class Switchroom:
         ))
 
     def last_word(self, now: datetime, tours: int, closed: int,
-                  qualifications: int) -> Message:
+                  qualifications: int,
+                  verdict: str = AUDIT_PASSED) -> Message:
         """
         What the wire chief says at the end of the last tour.
 
         He has been reading the service index every morning for however
         long this took, and he signed every qualification on the record.
         He does not make a speech about it, because he would not.
+
+        The audit changes what he says and not how long the career was: it
+        had its say on the same page, and he does not pretend it did not.
         """
         lines = [
             'That is the tour, and that is the company.',
@@ -597,6 +606,16 @@ class Switchroom:
         if qualifications >= 5:
             lines.insert(3, 'You were better at it than most of the people '
                             'who trained you.')
+        if verdict == AUDIT_EXCEPTIONS:
+            lines[3:3] = ['The audit found some things. They are on the '
+                          'record with your name,', 'and so is the rest of it.']
+        elif verdict == AUDIT_FAILED:
+            # The qualifications are still signed and still his. What does
+            # not carry is the claim that nobody there will argue.
+            lines[3:3] = ['The audit did not go your way and I am not going '
+                          'to tell you it did.']
+            lines[-3:-1] = ['morning, the record says what you can work. The '
+                            'audit says how you did it.', 'Read both.']
         return self._deliver(Message(
             channel=CHANNEL_WRITE, sender='ehalloran', received=now,
             lines=lines, kind='nudge', subject='Last tour', about=None,
