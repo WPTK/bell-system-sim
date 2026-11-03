@@ -607,11 +607,20 @@ this shift and the next one starts on a fresh board."""
                 career.missed_commitments, career.repeat_reports)
 
     def _tour_worked(self) -> Tuple[int, int, int, int]:
-        """Return closed, correct, missed and repeats for this tour alone."""
+        """
+        Return closed, correct, missed and repeats for this tour alone.
+
+        Missed is the career's count of reports that passed their
+        commitment, and what the desk holds past its window (a SARTS
+        circuit cleared late, a NOC ticket nobody took in time, an alarm
+        held at the top lamp). The desk's is worked out from the shift
+        clock and is not in the career's counter, so it is added here and
+        the index, the goals and the summary all see the same figure.
+        """
         now = self._career_counters()
         closed, correct, missed, repeats = (
             current - was for current, was in zip(now, self._tour_baseline))
-        return closed, correct, missed, repeats
+        return closed, correct, missed + self.desk_overdue(), repeats
 
     def cmd_shift(self, args: Optional[List[str]] = None) -> str:
         """

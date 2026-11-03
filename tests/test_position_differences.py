@@ -3266,3 +3266,26 @@ class TestTheLeftoversFromPhaseNine:
         at = next(i for i, row in enumerate(rows)
                   if row.lstrip().startswith('resolve ID'))
         assert 'taken' in ' '.join(rows[at:at + 2])
+
+    def test_a_late_sarts_clear_is_a_missed_commitment_in_goals_and_summary(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        base = terminal._tour_worked()[2]
+        charged = terminal.career.missed_commitments
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        assert terminal._tour_worked()[2] == base + 1  # Standing, past it.
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        assert terminal._tour_worked()[2] == base + 1  # Cleared, still one.
+        assert terminal.goal_counts()['missed'] == base + 1
+        assert f'Missed commitments  {base + 1}' in terminal.cmd_shift()
+        # One source: the career's own counter did not take a second charge.
+        assert terminal.career.missed_commitments == charged
+
+    def test_a_circuit_cleared_in_time_is_not_in_the_goal_count(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        base = terminal._tour_worked()[2]
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        assert terminal._tour_worked()[2] == base
