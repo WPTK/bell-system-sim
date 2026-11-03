@@ -20,13 +20,17 @@ from ..data.trouble import (
 from ..reports import COST_PLANT_TEST
 from ..loop_testing import (
     COIN_STATION_CURRENT_MA,
+    STAGE_NOTE,
+    STAGE_NUMBERS,
     SUPERVISION_STATES,
     access_test_line,
     design_note,
     distance_to_open,
     measure_loop,
+    reading_tell,
     tone_header,
 )
+from ..console import wrap
 from ..routing import (
     MAX_TRUNKS_IN_CONNECTION,
 )
@@ -241,9 +245,10 @@ All switching functions normal.
             return f"{report.number} is closed. Nothing to test."
 
         record = report.record
-        name_fault = self._difficulty().names_fault
+        stage = self._reading_stage(report)
         measurement = measure_loop(
-            record.telephone_number, record.fault, name_fault=name_fault)
+            record.telephone_number, record.fault,
+            name_fault=stage != STAGE_NUMBERS)
 
         length_kft = round(measurement.distance_miles * 5.28, 1)
         loop_ohms = measurement.loop_resistance_ohms
@@ -278,15 +283,24 @@ All switching functions normal.
         if record.class_of_service == 'COIN':
             lines.append(f"  Coin station: needs {COIN_STATION_CURRENT_MA} mA "
                          f"to operate.")
-        lines.extend(['', 'TEST RESULT', f"  {measurement.verdict}"])
+        lines.extend(['', 'TEST RESULT'])
+        # The verdict is the system's reading of the pair. At the numbers
+        # stage it is withheld: for the three conditions that read clean it
+        # is the only thing that tells them apart.
         if measurement.suspected:
+            lines.append(f"  {measurement.verdict}")
             suspected = FAULTS[measurement.suspected]
-            lines.append(f"  System reads this as: {suspected.name} "
-                         f"({suspected.code})")
+            if stage == STAGE_NOTE:
+                lines.append(f"  System reads this as: {suspected.name} "
+                             f"({suspected.code})")
             lines.append(f"  Dispatch to: {suspected.dispatch}")
+            if stage == STAGE_NOTE:
+                lines.extend(
+                    f"  {line}" for line in wrap(
+                        'Note: ' + reading_tell(record.fault, measurement),
+                        72))
         else:
-            lines.append("  The system will not name a condition on this "
-                         "setting.")
+            lines.append("  The system will not name a condition here.")
             lines.append("  Match the reading against 'report faults'.")
 
         loop_note = f"{loop_ohms:,} ohms" if loop_ohms is not None else 'open'

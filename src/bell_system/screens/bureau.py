@@ -24,7 +24,7 @@ from ..data.trouble import (
 from ..clock import career_progress, days_to_divestiture
 from ..console import article as _a, sentence_case as _lower, wrap
 from ..lmos import LmosConsole
-from ..loop_testing import post_mortem
+from ..loop_testing import STAGE_NUMBERS, post_mortem, reading_stage
 from ..npc import (
     Switchroom,
     render as render_message,
@@ -179,10 +179,31 @@ class BureauCommands(SessionState):
         first_tour = (self.career.shift == 1
                       and self.career.reports_closed == 0)
         self.desk.open_shift(self.clock.now(), slack,
-                             count=1 if first_tour else None)
+                             count=1 if first_tour else None,
+                             teaching=first_tour)
     def _difficulty(self):
         """Return the active difficulty profile."""
         return self.career.difficulty
+    def _reading_stage(self, report, count: bool = True) -> str:
+        """
+        Return how much to say about a report's fault, counting the sighting.
+
+        The first time a report is read, by mlt or by a crew naming what they
+        cleared, it is one more sighting of its fault type for the career.
+        The ordinal is kept on the report so reading it again is not another
+        sighting, and what it says does not change under the player.
+        ``count`` False asks what the next reading would say without having
+        read it yet.
+        """
+        fault = report.record.fault
+        sighting = report.sighting
+        if sighting is None:
+            if count:
+                sighting = report.sighting = self.career.sight_fault(fault)
+            else:
+                sighting = self.career.fault_sightings.get(fault, 0) + 1
+        return reading_stage(sighting,
+                             self._difficulty().annotation_sightings)
     def reports_all(self):
         """Return every report the desk has seen this session."""
         return list(self.desk.reports.values())
@@ -475,7 +496,16 @@ class BureauCommands(SessionState):
             return (f"report: '{force}' is not a repair force.\n"
                     f"Forces: {', '.join(DISPATCH_FORCES)}")
 
-        finding = self.desk.dispatch(report, canonical, self.shift_minutes)
+        # A crew that goes to the wrong place reads nothing, so only a
+        # dispatch that finds something is a sighting.
+        name_fault = self._reading_stage(report, count=False) != STAGE_NUMBERS
+        finding = self.desk.dispatch(report, canonical, self.shift_minutes,
+                                     name_fault)
+        # Only a crew that went reads the plant. A report another report's
+        # splice repaired carries a finding but nobody was sent, and one
+        # splice must not burn a sighting for every pair in the sheath.
+        if report.field_finding and report.dispatched_to is not None:
+            self._reading_stage(report)
         if report.dispatched_to is None:
             # Nobody went: either the force is all out, or the sheath is
             # already repaired. Either way there is no field call coming.
@@ -488,7 +518,8 @@ class BureauCommands(SessionState):
             called_in = (
                 'nothing wrong at the station, line tests good'
                 if fault.code == 'NONE'
-                else f'{fault.name.lower()} cleared, back in service')
+                else f'{fault.name.lower() if name_fault else "trouble"} '
+                     f'cleared, back in service')
         else:
             called_in = (f'nothing at our end. Somebody else has this one, '
                          f'not {canonical.lower()}')
@@ -667,6 +698,9 @@ class BureauCommands(SessionState):
 
         report.spend(COST_CALLBACK)
         fault = FAULTS[report.record.fault]
+        # The chief's next line is about this call, and the board one that
+        # would otherwise follow the command is no longer true to say.
+        self._tour_nudges.add('board')
         detail = {
             'OPEN': "It went dead all at once. There was work in the street "
                     "last week.",
@@ -712,6 +746,9 @@ class BureauCommands(SessionState):
         lines.extend(['', f"{COST_CALLBACK} minutes charged. "
                           f"{report.age_label()} "
                           f"{'past' if report.overdue() else 'remaining'}."])
+        nudge = self.first_tour_nudge('callback')
+        if nudge:
+            lines.extend(['', nudge])
         return '\n'.join(lines)
     def cmd_qual(self, args: Optional[List[str]] = None) -> str:
         """Show the craft record: difficulty, qualifications and service index."""

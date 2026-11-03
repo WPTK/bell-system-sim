@@ -55,6 +55,8 @@ class TestWhatToDoNext:
     def test_an_overdue_report_beats_one_still_in_time(self, working):
         pending = board(working)
         late = pending[-1]
+        # Readings with a fault in them; a clean one names the frame instead.
+        late.record.fault = 'OPEN'
         late.tested = True
         late.spend(int((late.commitment - late.received).total_seconds() // 60)
                    + 1)
@@ -74,6 +76,9 @@ class TestWhatToDoNext:
         """
         pending = board(working, count=1)
         report = pending[0]
+        # A line with a fault in its readings: one that reads clean sends
+        # the player to the frame instead (tests/test_practices.py).
+        report.record.fault = 'OPEN'
         assert working.next_action().step == 'measure'
         report.tested = True
         assert working.next_action().step == 'dispatch'

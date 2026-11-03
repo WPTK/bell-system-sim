@@ -57,32 +57,64 @@ HINTS: Dict[str, Tuple[Hint, Hint, Hint]] = {
             'Test it before you send anybody anywhere.',
         )),
         ('ehalloran', (
-            "'man mlt' explains what mechanised loop testing measures and",
-            'what each reading means. Division 660 under /usr/bsp is test',
-            "centre operation, and 'report faults' lists every condition.",
+            "'man mlt' explains what mechanised loop testing measures. The",
+            'table that says what each reading means is sheet 660-001, in',
+            "/usr/bsp, and 'report faults' lists every condition.",
         )),
         ('ehalloran', (
-            "Type 'mlt' and the report number. Read the TEST RESULT block",
-            'at the bottom. It names the fault and it names the crew. It',
-            'is not a riddle.',
+            "Type 'mlt' and the report number. Read the numbers against",
+            'the table on sheet 660-001. Early on the TEST RESULT block names',
+            'the crew as well. Later it will not, and that is the job.',
+        )),
+    ),
+    # A first tour that has seen the board and not yet rung the customer.
+    'callback': (
+        ('gvasquez', (
+            'The card is what the customer noticed. It is not always what',
+            'is on the pair.',
+        )),
+        ('ehalloran', (
+            "'man report' lists callback, and sheet 660-004 in /usr/bsp is",
+            'what customers say and what it may be. A callback costs a few',
+            'minutes of the commitment.',
+        )),
+        ('ehalloran', (
+            "'report callback 1'. Then 'mlt 1', and read the numbers",
+            'against what they said (sheet 660-004).',
+        )),
+    ),
+    # Measured, and every reading came back clean: the loop cannot say
+    # whether it is the office or nothing, and the frame record can.
+    'frame': (
+        ('gvasquez', (
+            'Every number on that one is inside limits. A loop that reads',
+            'clean tells you the pair is not the trouble - not what is.',
+        )),
+        ('ehalloran', (
+            "'man cosmos' has the frame lookup, and sheet 660-003 in",
+            '/usr/bsp is the table for a loop that reads clean.',
+        )),
+        ('ehalloran', (
+            "'cosmos jumper <telephone number>'. A frame trouble shows on",
+            'the cross-connect record, and it costs less than a trip.',
+            'Sheet 660-003 says what each answer means.',
         )),
     ),
     # Measured, and now somebody has to go.
     'dispatch': (
         ('gvasquez', (
-            'You have the reading. The bottom of it told you where the',
-            'trouble is, and where it is decides who goes: the loop is not',
-            'the office and the office is not the station.',
+            'You have the reading. Where the trouble is decides who goes:',
+            'the loop is not the office and the office is not the station.',
         )),
         ('ehalloran', (
-            "'report forces' lists who we can send. Division 620 under",
-            '/usr/bsp is outside plant, which is most of what goes wrong.',
+            "'report forces' lists who we can send. Sheet 620-001 in",
+            '/usr/bsp says who goes for which condition.',
             "'report show' will show you the reading again.",
         )),
         ('ehalloran', (
-            "'report dispatch <number> <force>'. The force is the one the",
-            'test named. Send anybody else and you have spent three',
-            'quarters of an hour proving the meter right.',
+            "'report dispatch <number> <force>'. The force is the one for",
+            'where the readings put it (sheet 620-001). Send anybody else and',
+            'you have spent three quarters of an hour proving the meter right.',
         )),
     ),
     # The field has been and gone and nobody has closed it out.
@@ -93,14 +125,14 @@ HINTS: Dict[str, Tuple[Hint, Hint, Hint]] = {
             'against the commitment.',
         )),
         ('ehalloran', (
-            "'man report' has the disposition codes. Five is trouble found",
-            'and you name the condition; eight is no trouble found. They',
-            'are counted separately and they are counted.',
+            "'man report' has the disposition codes, and sheet 660-005 in",
+            '/usr/bsp has the condition codes. Five is trouble found and you',
+            'name the condition; eight is no trouble found.',
         )),
         ('ehalloran', (
-            "'report close <number> 5 <fault>', with the fault the test",
-            'gave you. Not the one the customer described - the one on the',
-            'pair.',
+            "'report close <number> 5 <fault>', with the fault the readings",
+            'showed (sheet 660-005). Not the one the customer described -',
+            'the one on the pair.',
         )),
     ),
     # With the field. There is genuinely nothing to do about that one.

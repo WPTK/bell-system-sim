@@ -212,6 +212,10 @@ class SessionState:
         """Return the active difficulty profile."""
         raise NotImplementedError
 
+    def _reading_stage(self, report: Any, count: bool = True) -> str:
+        """Return how much to say about a report's fault, and count it."""
+        raise NotImplementedError
+
     def _stamp(self) -> str:
         """Return a timestamp in the form the messaging channels carried."""
         raise NotImplementedError

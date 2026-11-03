@@ -203,6 +203,19 @@ REPORT_SYMPTOMS: Dict[str, Tuple[str, ...]] = {
              'Cannot call out', 'Calls do not complete'),
 }
 
+# What a new craftsperson's first report says, which is deliberately not what
+# is on the pair. The customer reports what they noticed, and a first lesson
+# worth having is that the card and the pair can disagree: each fault here
+# comes with a symptom that belongs to a different one (REPORT_SYMPTOMS never
+# gives it), and 'report callback' is where the customer says the rest. The
+# pairings are this simulation's own.
+FIRST_REPORT_SYMPTOMS: Dict[str, str] = {
+    'GROUND': 'No dial tone',
+    'CROSS': 'Cannot call out',
+    'SHORT': 'Noise on the line',
+    'OPEN': 'Hum on the line',
+}
+
 
 class Disposition(NamedTuple):
     """How a trouble report was closed out."""
