@@ -236,8 +236,16 @@ class TestCustomerRecords:
 
     def test_dbquery_puts_a_number_to_lmos(self, terminal):
         number = self.a_number(terminal)
-        assert (terminal.execute_command(f'dbquery lmos {number}')
-                == terminal.execute_command(f'custdb {number}'))
+        result = terminal.execute_command(f'dbquery lmos {number}')
+        # The same record custdb gives. Each command is a minute of the shift
+        # and the record is stamped with it, so the second is read a minute
+        # later and differs in the stamp line and nothing else.
+        later = terminal.execute_command(f'custdb {number}')
+        first, second = result.splitlines(), later.splitlines()
+        assert first[0] == second[0] and number in first[0]
+        assert first[1] != second[1] and '08:00:00' in first[1]
+        assert '08:01:00' in second[1]
+        assert first[2:] == second[2:]
 
     def test_a_bare_number_is_taken_as_a_line(self, terminal):
         number = self.a_number(terminal)

@@ -90,6 +90,7 @@ def test_the_refusal_short_of_the_floor_still_counts_closures(terminal):
 
 def test_qual_lists_a_ready_practical(terminal):
     ready(terminal, 'frame')
+    terminal.settings.set('game.prompts', 'on')
     shown = terminal.execute_command('qual')
     assert 'Count met. Practical: qual take frame' in shown
     assert "Next: Main Distributing Frame. 'qual take frame'." in shown
@@ -697,3 +698,23 @@ def test_the_audit_does_not_count_the_staged_report(terminal):
     _, report = staged(terminal)
     assert report.number not in terminal.career_audit().open_numbers
     assert report.number not in [r.number for r in terminal.desk.customers()]
+
+
+def test_the_scc_sign_off_does_not_start_the_office_lamps_that_tour(terminal):
+    # The tour opened without the sign-off and nothing has looked at the
+    # panel since: the book was settled when the tour opened, so the
+    # practical's own pass has nothing to settle.
+    ready(terminal, 'scc')
+    terminal.career.shift = 3
+    terminal._lamp_book = None
+    terminal.start_tour_clock()
+    assert terminal._lamp_book is not None
+    terminal.take_position('switch')
+    terminal.execute_command('qual take scc')
+    _, report = staged(terminal)
+    work(terminal, 'scc', report.number)
+    assert 'passed' in terminal.execute_command('qual submit')
+    assert terminal.career.may_use('connect')
+    terminal.shift_minutes = 470
+    assert terminal.alarms_overdue() == 0
+    assert terminal.alarms_risen() == 0

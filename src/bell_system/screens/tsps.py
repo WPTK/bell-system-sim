@@ -7,6 +7,7 @@ from datetime import timedelta
 from typing import (
     List,
 )
+from ..npc import WATCH_LABELS
 from ..types import (
     TspsData,
 )
@@ -288,9 +289,9 @@ SHIFT DISTRIBUTION
 
         # Generate realistic shift data
         shifts = [
-            ("Day Shift (08:00-16:00)", random.randint(18, 25)),
-            ("Evening Shift (16:00-24:00)", random.randint(12, 18)),
-            ("Night Shift (24:00-08:00)", random.randint(6, 12))
+            (WATCH_LABELS['day'], random.randint(18, 25)),
+            (WATCH_LABELS['evening'], random.randint(12, 18)),
+            (WATCH_LABELS['night'], random.randint(6, 12))
         ]
 
         for shift_name, operators in shifts:

@@ -84,12 +84,14 @@ class FindsCommands(SessionState):
                     or fragment.path in self.filesystem):
                 continue
             parent = fragment.path.rsplit('/', 1)[0]
+            arrived = self.clock.now()
             while parent and parent not in self.filesystem:
                 self.filesystem[parent] = Node(
                     'dir', fragment.owner or 'root',
-                    fragment.group or 'other', 'drwxr-xr-x')
+                    fragment.group or 'other', 'drwxr-xr-x', None, arrived)
                 parent = parent.rsplit('/', 1)[0]
-            self.filesystem[fragment.path] = fragment_node(fragment)
+            self.filesystem[fragment.path] = fragment_node(
+                fragment)._replace(mtime=arrived)
 
     def cmd_finds(self, args: Optional[List[str]] = None) -> str:
         """

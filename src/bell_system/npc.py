@@ -57,7 +57,7 @@ CHANNEL_NAMES: Dict[str, str] = {
 WATCH_LABELS: Dict[str, str] = {
     'day': 'Day Shift (08:00-16:00)',
     'evening': 'Evening Shift (16:00-24:00)',
-    'night': 'Night Shift (24:00-08:00)',
+    'night': 'Night Shift (00:00-08:00)',
 }
 
 
@@ -180,11 +180,11 @@ CHANNEL_SENDERS: Dict[str, Sequence[str]] = {
 
 
 # A line of chatter is not offered again until this many tours have gone by
-# since it was said. The simulation's own: a career is thirteen tours and a
-# desk's pool is about two dozen lines, so three keeps a line from being the
-# same noise every time. It can still run a busy desk dry inside four tours;
-# when it does, the line said longest ago is offered rather than silence
-# (``Switchroom.chatter``).
+# since it was said. The simulation's own: a career is thirteen tours, so a
+# voice with four lines can speak once a tour from the first to the last
+# without a line coming round inside the rest. A busy desk can say a pool
+# dry inside four tours; when it has, the building is quiet until a line has
+# rested, and nothing is offered early (``Switchroom.chatter``).
 CHATTER_REST_TOURS = 3
 
 # From this tour on, the wire chief says less in the ambient traffic, by this
@@ -263,9 +263,8 @@ class ArcBeat(NamedTuple):
 # building. Each entry is a channel, a sender and the words.
 _CHATTER: Sequence[tuple] = (
     (CHANNEL_WRITE, 'rjohnson',
-     ['Frame is warm again in aisle four. If you get a batch of reports off',
-      'one cable this shift, look at the horizontals before you send anybody',
-      'out.']),
+     ['Frame is warm again in aisle four. If a batch of reports comes in',
+      'this shift, find me before you do anything with them.']),
     (CHANNEL_WRITE, 'gvasquez',
      ['Board is quiet. If you want a pair measured before you commit to it,',
       'send it over and I will run it.']),
@@ -296,8 +295,8 @@ _CHATTER: Sequence[tuple] = (
      ['Board is filling up out here. If you can clear anything short, do it',
       'now, because the next batch has not landed yet.']),
     (CHANNEL_MAIL, 'ehalloran',
-     ['Reminder to all craft: a report closed as no trouble found is still a',
-      'report. The index does not care how quickly the board cleared.']),
+     ['Reminder to all craft: a report closed is still a report on the',
+      'record. The index does not care how quickly the board cleared.']),
     (CHANNEL_MAIL, 'tnakamura',
      ['Loss objectives are stated at 1004 Hz. If you are reading at any other',
       'frequency you are not measuring what the objective is written against.']),
@@ -305,6 +304,69 @@ _CHATTER: Sequence[tuple] = (
      ['The processor controlled interrogator will work the remote office test',
       'line from here without CAROT. Ask before you seize a trunk we are',
       'already routining.']),
+    # The rest of the building's voices, so that each has four lines that
+    # are not tied to part of the countdown: one a tour for a whole career
+    # without any coming round inside CHATTER_REST_TOURS. None names a
+    # fault, a force or a close code, and none gives a time of day.
+    (CHANNEL_MAIL, 'ehalloran',
+     ['Run handoff at the end of the tour and say what was found and what',
+      'was done in your own words. Leave out what you think.']),
+    (CHANNEL_WRITE, 'ehalloran',
+     ['Most of what comes in has a page in man. Read it before you ask me.']),
+    (CHANNEL_MAIL, 'ehalloran',
+     ['Do not close a report to clear the board. The board fills again and',
+      'the report is still on the record.']),
+    (CHANNEL_WRITE, 'rjohnson',
+     ['Spent an hour in the battery room and another looking for my pliers.',
+      'They were in my pocket. I have told nobody.']),
+    (CHANNEL_WRITE, 'rjohnson',
+     ['Cleaned the contacts on the old step frame earlier. They did not need',
+      'it. It is quiet back there and I stayed a while.']),
+    (CHANNEL_WRITE, 'gvasquez',
+     ['There is a pair on the board that has read the same since I sat down.',
+      'I have not touched it. Say the word and I will put a meter on it.']),
+    (CHANNEL_WRITE, 'gvasquez',
+     ['Second position on the board is free. If you want a pair read twice,',
+      'by two people, send it over and I will read it.']),
+    (CHANNEL_WRITE, 'gvasquez',
+     ['I keep the readings I take in a book by the board. The book does not',
+      'say what they mean and neither will I.']),
+    (CHANNEL_ORDERWIRE, 'lokafor',
+     ['Splicer to test desk. Manhole behind the school and the pump is out.',
+      'I am on the ladder. I am not coming down for a message.']),
+    (CHANNEL_ORDERWIRE, 'lokafor',
+     ['Splicer to test desk. Closure is open and I have both hands in it.',
+      'Say nothing to me until I am out.']),
+    (CHANNEL_ORDERWIRE, 'lokafor',
+     ['Splicer to test desk. Cold down here and the lamp is going. Whatever',
+      'you were going to ask, ask it quick.']),
+    (CHANNEL_WRITE, 'mreyes',
+     ['201-200-4417 has rung three times for a time and I have none to give.',
+      'What do I tell the next one who asks?']),
+    (CHANNEL_WRITE, 'mreyes',
+     ['The customer on 201-200-4426 asked whether anyone is really coming.',
+      'I said yes. Was that the right thing to say?']),
+    (CHANNEL_WRITE, 'mreyes',
+     ['201-200-4431 rang to say thank you for the repair. Nobody has done',
+      'that in a while. Who do I pass it to?']),
+    (CHANNEL_ORDERWIRE, 'dpetrak',
+     ['SCC to office. Costs nothing to read. Eleven offices are reporting on',
+      'this console and yours is among them.']),
+    (CHANNEL_ORDERWIRE, 'dpetrak',
+     ['SCC to office. Costs nothing to read. No action and no reply needed.',
+      'The console is quiet.']),
+    (CHANNEL_MAIL, 'tnakamura',
+     ['A figure without a unit is not a figure. Anything sent to me is in dB',
+      'or it has not been sent.']),
+    (CHANNEL_WRITE, 'tnakamura',
+     ['Do not set two readings side by side unless both were taken at the same',
+      'frequency. The comparison is a number and it is not a measurement.']),
+    (CHANNEL_TELETYPE, 'carot',
+     ['CAROT TEST SEQUENCE STARTED',
+      'GROUP 07  24 CIRCUITS SELECTED']),
+    (CHANNEL_TELETYPE, 'carot',
+     ['CAROT SCHEDULE REVIEW',
+      'NEXT ROUTINE UNCHANGED  NO REQUEST PENDING']),
     # Said on part of the countdown only (data/tours.py windows). The
     # simulation's own; each is a person looking at the same calendar.
     (CHANNEL_MAIL, 'ehalloran',
@@ -345,10 +407,16 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
           'is still running. It is not mine. I have looked.']),
         (CHANNEL_WRITE, 'ehalloran',
          ['When the operating company takes this machine in January they',
-          'take the accounts on it. Anything in /tmp is yours until then',
-          "and nobody else's ever."]),
+          'take the accounts on it. Anything you put in /tmp is yours until',
+          "then and nobody else's ever."]),
         (CHANNEL_TELETYPE, 'adm',
          ['su: BADSU 11/14 03:47 - tty07 mreyes-root']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['df: /usr is at 81 percent',
+          'df: no change since the last check']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['uucico: call to research  no answer',
+          'uucico: 3 files held for research  will retry']),
     ),
 
     'switch': (
@@ -361,8 +429,8 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
           'objective for the second day running. Nothing is alarming. Somebody',
           'is going to ask.']),
         (CHANNEL_WRITE, 'ehalloran',
-         ['If it is a false cross or ground the loop will measure clean to',
-          'the frame every time. Do not send anybody out on one.']),
+         ['Read it before you send anybody anywhere. The board tells you who',
+          'rang and nothing else.']),
         (CHANNEL_TELETYPE, 'carot',
          ['*** OFFICE 24 HOUR SUMMARY - MACHINE ACCESS WITHIN OBJECTIVE',
           '*** MACHINE SWITCHING - 3 EXCEPTIONS - SEE COER']),
@@ -378,11 +446,30 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
           'has been doing it for three weeks. Three weeks and one report.',
           'They always wait.']),
         (CHANNEL_WRITE, 'mreyes',
-         ['Two off Elm Street in twenty minutes. Before you send anybody,',
-          'look at what cable they are on.']),
+         ['Two off Elm Street in twenty minutes, 201-200-4402 and 201-200-4409.',
+          'Do I give them one time or two?']),
         (CHANNEL_ORDERWIRE, 'abright',
          ['Lineman to test desk. That pole at Grand has been leaning since',
           "the storm and it is going to be somebody's problem in January."]),
+        (CHANNEL_ORDERWIRE, 'abright',
+         ['Lineman to test desk. I am on the pole at Orchard and the view is',
+          'good. Somebody should come and look at it before the company changes',
+          'hands.']),
+        (CHANNEL_WRITE, 'abright',
+         ['Lineman to test desk. Spent the hour on a ladder and came down with',
+          'nothing to report. I count that as a result.']),
+        (CHANNEL_ORDERWIRE, 'abright',
+         ['Lineman to test desk. The crossarm at Sixth has 1951 cut into it.',
+          'It will be here in January and so will the date.']),
+        (CHANNEL_ORDERWIRE, 'wfinch',
+         ['Station to test desk. The family had the dog put away and the porch',
+          'light on before I got there. They have waited long enough.']),
+        (CHANNEL_WRITE, 'wfinch',
+         ['Station to test desk. Nobody home. The neighbour let me into the',
+          'yard and held the dog. I left a card in the door.']),
+        (CHANNEL_ORDERWIRE, 'wfinch',
+         ['Station to test desk. Five days she waited before she rang, and she',
+          'made me coffee while I worked. I told her how long it would take.']),
     ),
 
     'noc': (
@@ -418,6 +505,9 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
          ['A permanent signal and a receiver off the hook are the same',
           'thing to the equipment. They are not the same thing to the',
           'customer, who is asleep.']),
+        (CHANNEL_WRITE, 'jhaverty',
+         ['Chief operator. A caller wanted to thank the operator who stayed on',
+          'the line with her. I could not tell her which one. They all stay on.']),
     ),
 
     'dba': (
@@ -432,6 +522,15 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
         (CHANNEL_TELETYPE, 'adm',
          ['cosmos: 3 pending frame orders unworked',
           'cosmos: load balance index 0.940 - within objective']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['cosmos: 2 pending frame orders unworked',
+          'cosmos: record count unchanged since the last run']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['cosmos: record check complete',
+          'cosmos: 14 records held for review']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['cosmos: backup to tape started',
+          'cosmos: backup to tape complete']),
         (CHANNEL_WRITE, 'rjohnson',
          ['If the cross-connect record and the frame disagree, the frame is',
           'right. It is always the frame. The frame is the thing that is',
@@ -470,13 +569,31 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
          ['Station to desk. Nothing wrong with the set. Nothing wrong with',
           'the drop. I have told them somebody will call and I would rather',
           'somebody did.']),
+        (CHANNEL_ORDERWIRE, 'wfinch',
+         ['Station to desk. The customer had the set on the floor and the cord',
+          'in her hand when I got there. She had tried everything she knew.']),
+        (CHANNEL_WRITE, 'wfinch',
+         ['Station to desk. The door was opened by a boy of nine. His mother was',
+          'at work and he knew the number by heart. He was the one who rang us.']),
+        (CHANNEL_WRITE, 'wfinch',
+         ['Station to desk. They keep the old set in the closet in case. In case',
+          'of what, I asked. In case it happens again, she said.']),
+        (CHANNEL_ORDERWIRE, 'jhaverty',
+         ['Chief operator. A woman on position nine has been holding for her',
+          'son for ten minutes. The number rings and nobody answers.']),
+        (CHANNEL_WRITE, 'jhaverty',
+         ['Chief operator. Four of my operators have asked me the same',
+          'question and I had no answer for any of them.']),
+        (CHANNEL_ORDERWIRE, 'jhaverty',
+         ['Chief operator. Two of mine are out sick. The floor is covering and',
+          'nobody has said a word. I would like that noted somewhere.']),
     ),
 
     'radio': (
         (CHANNEL_ORDERWIRE, 'tnakamura',
          ['Transmission to radio. Fade margin on the Chester hop is down',
           'four dB and it is raining on it. That is weather, not a fault,',
-          'and there is nothing on the ground to go and look at.']),
+          'and there is nothing at the site to go and look at.']),
         (CHANNEL_WRITE, 'gvasquez',
          ['A path that fades on a clear day is a dish that has moved.',
           'Winter does it. Nobody notices until spring.']),
@@ -502,6 +619,15 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
         (CHANNEL_TELETYPE, 'adm',
          ['tnds: collection window 0100-0400 - 3h 12m elapsed',
           'tnds: 1 retransmission requested']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['tnds: collection started  41 offices polled',
+          'tnds: 41 offices answered']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['tnds: 3 offices retransmitted',
+          'tnds: all 3 received on the second try']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['tnds: tape 2 mounted',
+          'tnds: tape 1 released']),
     ),
 
     'sarts': (
@@ -530,6 +656,15 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
         (CHANNEL_TELETYPE, 'adm',
          ['lpd: 2 jobs queued, 31 pages',
           'lpd: /dev/lp paper low']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['lpd: queue empty',
+          'lpd: /dev/lp ready']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['lpd: 1 job queued, 74 pages',
+          'lpd: /dev/lp busy']),
+        (CHANNEL_TELETYPE, 'adm',
+         ['spool: /usr/spool/lpd holds 12 files',
+          'spool: oldest file is from the last tour']),
         (CHANNEL_WRITE, 'tnakamura',
          ['If it is coming out mangled it is nf and fi in the wrong place.',
           'It is always nf and fi in the wrong place.']),
@@ -600,7 +735,7 @@ ARC_BEATS: Tuple[ArcBeat, ...] = (
     # Alvarez has no login and no terminal, so is spoken of, not heard.
     ArcBeat('alvarez.1', CHANNEL_MAIL, 'ehalloran', (2, 4), (
         'The position had somebody on it before you. R. Alvarez.',
-        'testlog.c in /usr/src/cmd is theirs. The log it writes is yours now.',
+        'testlog.c in /usr/src/cmd is theirs. The log it writes is kept for you.',
     )),
     ArcBeat('sandoval.1', CHANNEL_ORDERWIRE, 'jsandoval', (4, 7), (
         'Field to test desk. Small-count aerial on Grand is spliced and tested.',
@@ -791,7 +926,9 @@ class Switchroom:
 
         With a tour, nothing the career's ledger (``seen``) says was said
         within the last few tours is offered again, and the wire chief's
-        thin out as the career runs down.
+        thin out as the career runs down. When every line has been said
+        lately the answer is None: the building goes quiet rather than say
+        one over.
         """
         pool = tuple(_CHATTER) + tuple(_POSITION_CHATTER.get(position or '', ()))
         if tour is not None:
@@ -803,11 +940,8 @@ class Switchroom:
         if tour is not None:
             if self.rng.random() < halloran_quiet(tour):
                 pool = tuple(item for item in pool if item[1] != 'ehalloran')
-            pool = (tuple(item for item in pool
-                          if rested(item[2], tour, seen))
-                    or self._longest_ago(pool, seen))
-        picked = self._pick(pool, 'chatter') or (
-            self.rng.choice(pool) if pool else None)
+            pool = tuple(item for item in pool if rested(item[2], tour, seen))
+        picked = self._pick(pool, 'chatter')
         if picked is None:
             return None
         channel, sender, lines = picked[:3]
@@ -815,19 +949,6 @@ class Switchroom:
             channel=channel, sender=sender, received=now, lines=list(lines),
             kind='chatter', subject=lines[0][:40], about=None,
         ))
-
-    @staticmethod
-    def _longest_ago(pool: Sequence[tuple], seen: Sequence[str]) -> tuple:
-        """The lines in a pool that were said longest ago, or never."""
-        def last(item: tuple) -> int:
-            tail = f":{zlib.crc32(' '.join(item[2]).encode()):08x}"
-            return max((int(entry.split(':')[1]) for entry in seen
-                        if entry.startswith('said:')
-                        and entry.endswith(tail)), default=-1)
-        if not pool:
-            return ()
-        oldest = min(last(item) for item in pool)
-        return tuple(item for item in pool if last(item) == oldest)
 
     def next_message(self, now: datetime, tour: int,
                      position: Optional[str] = None,

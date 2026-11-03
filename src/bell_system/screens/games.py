@@ -209,7 +209,9 @@ class GameCommands(SessionState):
             if path in self.filesystem:
                 continue
             self.filesystem.setdefault(group, _dir(owner='uucp', group='uucp'))
-            self.filesystem[path] = _file(self._news_text(item), owner='uucp')
+            self.filesystem[path] = _file(
+                self._news_text(item), owner='uucp')._replace(
+                    mtime=self.clock.now())
         self.deliver_fragments()
 
     @staticmethod

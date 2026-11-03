@@ -22,7 +22,7 @@ def settings():
 @pytest.fixture
 def clock(settings):
     """A clock pinned to the session start, so tests are deterministic."""
-    return SimClock(settings, started_at=datetime.now())
+    return SimClock(settings)
 
 
 def test_simulated_time_is_in_the_period(clock):
@@ -37,12 +37,34 @@ def test_simulated_shift_starts_at_the_epoch(clock):
     assert now.hour == 8
 
 
-def test_shift_advances_with_real_time(settings):
-    """Twenty minutes of play is twenty minutes of the shift."""
-    started = datetime.now() - timedelta(minutes=20)
-    clock = SimClock(settings, started_at=started)
-    elapsed = clock.now() - settings.epoch()
-    assert timedelta(minutes=19) < elapsed < timedelta(minutes=21)
+def test_shift_advances_with_shift_minutes_and_nothing_else(settings):
+    """The shift minutes are the clock: twenty charged is twenty on it."""
+    charged = [0]
+    clock = SimClock(settings)
+    clock.follow(lambda: charged[0])
+    assert clock.now() == settings.epoch()
+    charged[0] = 20
+    assert clock.now() - settings.epoch() == timedelta(minutes=20)
+
+
+def test_the_host_clock_is_not_read(settings, monkeypatch):
+    """Time passing on the host moves nothing on the simulated clock."""
+    clock = SimClock(settings)
+    before = clock.now()
+
+    class Later(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.now() + timedelta(hours=9)
+
+    monkeypatch.setattr('bell_system.clock.datetime', Later)
+    assert clock.now() == before
+    assert clock.date_command() == 'Mon Nov 14 08:00:00 EST 1983'
+
+
+def test_a_clock_nobody_follows_stands_still(settings):
+    clock = SimClock(settings)
+    assert clock.now() == clock.now() == settings.epoch()
 
 
 def test_real_source_reports_the_host_clock(settings):

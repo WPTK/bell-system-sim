@@ -44,6 +44,7 @@ from .constants import (
 )
 from . import legacy, save
 from .clock import SimClock, days_to_divestiture
+from .commitment import commitment_label
 from .console import render
 from .data import geography
 from .data.regulars import REGULARS
@@ -200,6 +201,8 @@ class BellSystemTerminal(
         # every piece of state initialised below stamps itself with the time.
         self.settings = Settings(settings_path(state_dir()))
         self.clock = SimClock(self.settings)
+        # The one clock: stamps read the shift's minutes, not the host's.
+        self.clock.follow(lambda: getattr(self, 'shift_minutes', 0))
 
         # What the craftsperson carries between shifts, and how hard the
         # shift is. The setting is the authority: the career record stores a
@@ -219,7 +222,6 @@ class BellSystemTerminal(
 
         # Performance monitoring
         self._performance_log: Dict[str, Any] = {}
-        self.session_start_time = time.time()
         self.session_id = f"BELL-{int(time.time())}-{os.getpid()}"
         self.failed_command_attempts = 0
         # What the previous stage of a pipeline produced.
@@ -1516,8 +1518,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
             f"symptom     {report.symptom}",
             f"received    {report.received.strftime('%d %b %H:%M')}",
             f"commitment  {report.commitment.strftime('%d %b %H:%M')}",
-            f"due         {report.age_label()} "
-            f"{'past' if report.overdue() else 'remaining'}",
+            f"due         {commitment_label(report)}",
             f"status      {report.status}",
             f"charged     {report.minutes_spent // 60}:"
             f"{report.minutes_spent % 60:02d}",

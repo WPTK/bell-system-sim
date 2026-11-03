@@ -18,6 +18,7 @@ from ..data.trouble import (
     FAULTS,
 )
 from ..reports import COST_PLANT_TEST
+from ..commitment import commitment_label
 from ..loop_testing import (
     COIN_STATION_CURRENT_MA,
     STAGE_NOTE,
@@ -315,8 +316,7 @@ All switching functions normal.
 
         lines.append('')
         lines.append(f"Charged to {report.number}. "
-                     f"{report.age_label()} "
-                     f"{'past' if report.overdue() else 'remaining'}.")
+                     f"{commitment_label(report)}.")
         return '\n'.join(lines)
     def cmd_testline(self, args: Optional[List[str]] = None) -> str:
         """Reach a test line or responder on a circuit and read the result."""

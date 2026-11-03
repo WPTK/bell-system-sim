@@ -186,14 +186,17 @@ FRAGMENTS: Tuple[Fragment, ...] = (
     Fragment('reopened', "The chief's own list",
              '/usr/users/ehalloran/reopened', text=REOPENED,
              owner='ehalloran', group='mgmt', mode='-rw-r-----'),
-    # What was on the machine already.
+    # What was on the machine already. The two files that ship with the story
+    # belong to the machine, not the position: a beat (the
+    # chief's 'the log it writes is kept for you') points at the log, so it is
+    # not the player's to rm or overwrite.
     Fragment('notes', 'Notes for whoever has the position',
              '/usr/users/sysop/notes'),
     Fragment('testlog', 'The position test log', '/usr/adm/testlog',
-             text=TESTLOG, owner='sysop', group='craft'),
+             text=TESTLOG, owner='sys', group='craft'),
     Fragment('testlogc', 'testlog.c', '/usr/src/cmd/testlog.c'),
     Fragment('scratch', 'A file in /tmp', '/tmp/.f', tour=2,
-             text=SCRATCH, owner='sysop', group='craft'),
+             text=SCRATCH, owner='sys', group='craft'),
     Fragment('marker', 'Marker 2, as Johnson found it',
              '/usr/users/rjohnson/marker.notes'),
     Fragment('trial', 'Third trial times',

@@ -19,6 +19,7 @@ from ..field import CREWS
 from ..data import tours
 from ..data.consequences import Late
 from ..data.tours import Tour, watch_of
+from ..commitment import commitment_label
 from ..npc import (
     CRAFT,
     FAVOUR_MINUTES,
@@ -203,8 +204,8 @@ class ShiftCommands(SessionState):
         if pending:
             oldest = pending[0]
             self.emit(f"  Nearest commitment:    {oldest.number} "
-                      f"({oldest.record.telephone_number}) in "
-                      f"{oldest.age_label()}")
+                      f"({oldest.record.telephone_number}) "
+                      f"{commitment_label(oldest)}")
         self.emit(f"  Difficulty:            {difficulty.name}")
         self.emit(f"  Service index:         "
                   f"{self.career.service_index():.1f} of 100 "
@@ -397,6 +398,12 @@ class ShiftCommands(SessionState):
         """Put the clock on this tour's day and the hour of its watch."""
         self.clock.set_tour(self.career.shift,
                             tours.start_hour(self.career.shift))
+        # The office panel's book is settled by the sign-offs held as the tour
+        # opens, so it is opened here and not at the first look at the panel:
+        # a sign-off passed in the middle of the tour cannot change it.
+        office: Any = self  # The office commands, mixed into the same class.
+        office.lamp_book()
+
     def _queue_message(self, message, after: int) -> None:
         """
         Hold a message back so it lands a few commands from now.
@@ -630,13 +637,19 @@ class ShiftCommands(SessionState):
             # The favour is asked at the door, so it waits until the nearest
             # report is close enough to its commitment for an hour to matter.
             login = favour_due(self.career.rapport, ledger, self.is_in)
+            # A report is helped once: a second favour on it would stack an
+            # hour on an hour, so one that already has its hour is passed
+            # over for the next.
             waiting = sorted((r for r in self.desk.customers()
-                              if not r.overdue()), key=lambda r: r.commitment)
+                              if not r.overdue()
+                              and f'favoured:{r.number}' not in ledger),
+                             key=lambda r: r.commitment)
             window = timedelta(minutes=FAVOUR_MINUTES)
             if login and waiting and waiting[0].due_in() <= window:
                 target = waiting[0]
                 target.commitment += timedelta(minutes=FAVOUR_MINUTES)
                 self.career.beats_seen.append(f'favour:{login}')
+                self.career.beats_seen.append(f'favoured:{target.number}')
                 changed = True
                 spoken.append(render_message(room.favour(
                     self.clock.now(), login, target.number,

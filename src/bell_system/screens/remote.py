@@ -160,19 +160,37 @@ class RemoteCommands(SessionState):
         cleared on the last one says nothing about this one. ``held`` is
         kept because a late clear must not wipe the lapse: the alarm is gone
         from the panel, but the span it stood at the top lamp is not.
+
+        ``live`` is whether the tour began with the control centre's sign-off
+        in hand, which is what ``connect work`` waits on. A panel the desk
+        cannot work yet does not run (see :meth:`_panel_runs`), and the tour
+        the sign-off is passed in is that kind of tour for all of it.
         """
         book = self._lamp_book
         if book is None or book['tour'] != self.career.shift:
             book = {'tour': self.career.shift, 'cleared': [], 'rose': [],
-                    'held': []}
+                    'held': [], 'live': self.career.may_use('connect')}
             self._lamp_book = book
         return book
+
+    def _panel_runs(self) -> bool:
+        """
+        Whether the lamps run this tour: past the first, with the sign-off.
+
+        The one rule on whether the panel is scored. An alarm the desk is
+        refused ``connect work`` on cannot be cleared, so it does not climb,
+        is not held and is not counted; the tour the sign-off arrives in
+        stays that way to its end, as the first tour does, so the sign-off
+        does not land on lamps that have been climbing without it.
+        """
+        return self.career.shift > 1 and self.lamp_book()['live']
 
     def lamp_state(self) -> Dict[str, Any]:
         """The book as the save file keeps it."""
         book = self.lamp_book()
         return {'tour': book['tour'], 'cleared': list(book['cleared']),
-                'rose': list(book['rose']), 'held': list(book['held'])}
+                'rose': list(book['rose']), 'held': list(book['held']),
+                'live': book['live']}
 
     def restore_lamps(self, stored: Any) -> None:
         """
@@ -186,12 +204,15 @@ class RemoteCommands(SessionState):
         nothing back.
         """
         book: Dict[str, Any] = {'tour': self.career.shift, 'cleared': [],
-                                'rose': [], 'held': []}
+                                'rose': [], 'held': [],
+                                'live': self.career.may_use('connect')}
         if isinstance(stored, dict) and stored.get('tour') == book['tour']:
             for key in ('cleared', 'rose', 'held'):
                 listed = stored.get(key)
                 if isinstance(listed, list):
                     book[key] = [str(n) for n in listed]
+            if isinstance(stored.get('live'), bool):
+                book['live'] = stored['live']
         self._lamp_book = book
         self._office_alarms.clear()
         self._alarms_dealt = 0
@@ -229,7 +250,9 @@ class RemoteCommands(SessionState):
             alarm: Alarm = dict(self.alarm_deck[index])  # type: ignore[assignment]
             if alarm['id'] in cleared:
                 continue
-            alarm['timestamp'] = self.clock.now() - timedelta(
+            # Raised before the tour opened: anchored to its start, so a
+            # resume deals the same stamp and none is ever in the future.
+            alarm['timestamp'] = self.clock.tour_start() - timedelta(
                 minutes=rolls[index][1])
             alarm['acknowledged'] = rolls[index][2]
             standing.append(alarm)
@@ -260,11 +283,11 @@ class RemoteCommands(SessionState):
         An alarm that nobody works lights a level higher every LAMP_MINUTES
         of the shift, from its own point in the span so that they ripen at
         different times. Deterministic from the tour and the alarm's
-        identifier. It is the shift clock and nothing else, and the first
-        tour, the whole of it, is a grace.
+        identifier. It is the shift clock and nothing else, and a tour the
+        panel does not run (see :meth:`_panel_runs`) is a grace.
         """
         base = LAMPS.index(alarm['severity'])
-        if self.career.shift == 1:
+        if not self._panel_runs():
             return LAMPS[base], LAMP_MINUTES
         age = self._lamp_age(alarm)
         level = min(len(LAMPS) - 1, base + age // LAMP_MINUTES)
@@ -285,9 +308,9 @@ class RemoteCommands(SessionState):
         the top, not the moment it did. The point in the span an alarm
         ripens at staggers only the climb; one dealt at the top lamp is not
         climbing, so its span runs from the start of the tour. Read only,
-        and the first tour is a grace.
+        and a tour the panel does not run is a grace.
         """
-        if self.career.shift == 1:
+        if not self._panel_runs():
             return False
         base = LAMPS.index(alarm['severity'])
         if base == len(LAMPS) - 1:
@@ -383,15 +406,20 @@ class RemoteCommands(SessionState):
         """connect work [ALARM]: the panel, or clear one alarm at its cause."""
         rows = self.lamp_panel()
         if not args:
+            # A tour the lamps are not running has no minutes to the next
+            # one to give, so the column is left off and the panel says why.
+            runs = self._panel_runs()
+            next_head = f"{'NEXT':<7}" if runs else ''
             lines = [f"ALARM PANEL   {SCC_NAME}",
                      f"Shift time {self.shift_time()}", '=' * 70,
-                     f"{'ALARM':<9}{'OFFICE':<14}{'LAMP':<10}{'NEXT':<7}"
+                     f"{'ALARM':<9}{'OFFICE':<14}{'LAMP':<10}{next_head}"
                      f"{'COST':<6}SYSTEM", '-' * 70]
             for alarm, lamp, office, next_in, cost in rows:
                 rose = '*' if lamp != alarm['severity'] else ' '
+                next_col = f"{str(next_in) + 'm':<7}" if runs else ''
                 lines.append(
                     f"{alarm['id']:<9}{office['clli']:<14}{lamp + rose:<10}"
-                    f"{str(next_in) + 'm':<7}{str(cost) + 'm':<6}"
+                    f"{next_col}{str(cost) + 'm':<6}"
                     f"{alarm['system'][:20]}")
                 reads = self.alarm_reads(alarm, self.office_alarms(office))
                 lines.append(f"         reads: {reads}")
@@ -412,17 +440,27 @@ class RemoteCommands(SessionState):
                 "only the",
                 "symptom and the time is spent and it stays where it is.",
                 "",
-                f"An alarm nobody works lights one lamp higher every "
-                f"{LAMP_MINUTES} shift",
-                "minutes, from its own point in them. Acknowledging does "
-                "not stop it:",
-                "only clearing does. One that has stood a whole span at the "
-                "top lamp",
-                "is a missed commitment on the index (this building only), "
-                "and clearing",
-                "it late does not take that back. These figures are the "
-                "simulation's own.",
             ]
+            if runs:
+                lines += [
+                    f"An alarm nobody works lights one lamp higher every "
+                    f"{LAMP_MINUTES} shift",
+                    "minutes, from its own point in them. Acknowledging "
+                    "does not stop it:",
+                    "only clearing does. One that has stood a whole span at "
+                    "the top lamp",
+                    "is a missed commitment on the index (this building "
+                    "only), and clearing",
+                    "it late does not take that back. These figures are the "
+                    "simulation's own.",
+                ]
+            else:
+                lines += [
+                    "The lamps are not running this tour: nothing climbs and "
+                    "nothing is",
+                    "counted. They run from the next tour that opens with "
+                    "the sign-off.",
+                ]
             return '\n'.join(lines)
         wanted = args[0].upper()
         row = next((r for r in rows if r[0]['id'] == wanted), None)
@@ -795,7 +833,7 @@ class RemoteCommands(SessionState):
             # does not look like acknowledging another's.
             alarm['id'] = f"AL-{first_id + index}"
             alarm['acknowledged'] = False
-            alarm['timestamp'] = self.clock.now() - timedelta(
+            alarm['timestamp'] = self.clock.tour_start() - timedelta(
                 minutes=generator.randint(12, 400))
             alarm['system'] = f"{alarm['system']}-{clli[:4]}"
             if alarm['id'] in self.lamp_book()['cleared']:
