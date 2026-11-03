@@ -23,7 +23,7 @@ only twenty points, which would tell them nothing.
 
 import json
 import os
-from typing import Dict, List, NamedTuple, Optional
+from typing import Callable, Dict, List, NamedTuple, Optional
 
 from .data.trouble import NSPMP_WEIGHTS
 
@@ -45,8 +45,9 @@ class Difficulty(NamedTuple):
     reports_per_qualification: int
     # How heavily a wrong disposition tells against the service index.
     index_penalty: float
-    # Whether missed commitment times are counted against you.
-    count_missed_commitments: bool
+    # How much of MISSED_COMMITMENT_WEIGHT a missed commitment costs: all of
+    # it where the job counts them, a share of it where it is forgiving.
+    missed_commitment_scale: float
     # How often the other craft interrupt you, as a share of commands.
     interruption_rate: float
     # Minutes of slack added to every repair commitment.
@@ -67,11 +68,12 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         # per setting and at 0.4 an ordinary player - one who measures every
         # line and names the fault right about six times in seven - scored
         # EXCELLENT in 89 shifts out of 100. A band nearly everybody is in
-        # is not a band. At 0.7 the same player has a median of 94.9 and
+        # is not a band. At 0.7 the same player has a median of 95.0 and
         # sits on the SATISFACTORY/EXCELLENT line, a careful player is still
-        # EXCELLENT 99 times in 100, and a careless one still never is.
+        # EXCELLENT in all 200 shifts played, and a careless one never is
+        # (re-measured with commitments and the unworked board counted).
         index_penalty=0.7,
-        count_missed_commitments=False,
+        missed_commitment_scale=0.25,
         interruption_rate=0.06,
         commitment_slack_minutes=90,
     ),
@@ -85,7 +87,7 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         repeat_report_chance=0.85,
         reports_per_qualification=12,
         index_penalty=1.0,
-        count_missed_commitments=True,
+        missed_commitment_scale=1.0,
         interruption_rate=0.22,
         commitment_slack_minutes=0,
     ),
@@ -101,6 +103,41 @@ DEFAULT_DIFFICULTY = 'fun'
 WRONG_DISPOSITION_WEIGHT = 55
 REPEAT_REPORT_WEIGHT = 35
 MISSED_COMMITMENT_WEIGHT = 20
+# A report still open and past its commitment is a customer who has been told
+# somebody would come and nobody has. It is lost in full on either setting,
+# which is what keeps a board nobody works from scoring as a perfect one.
+UNWORKED_BACKLOG_WEIGHT = 50
+
+
+def score_index(closed: int, wrong: int, repeats: int, missed: int,
+                backlog: int, difficulty: 'Difficulty') -> float:
+    """
+    Score a record out of 100. Career.service_index is this with the
+    career's own counts; tools/index_calibration.py calls it with a played
+    shift's, so the two cannot drift apart.
+
+    Every report whose fate is decided is either closed or still open past
+    its commitment. A career that has closed nothing but is sitting on an
+    overdue board has a score, and it is not 100.
+    """
+    decided = closed + backlog
+    if not decided:
+        return 100.0
+
+    wrong_rate = wrong / closed if closed else 0.0
+    repeat_rate = min(1.0, repeats / closed) if closed else 0.0
+    missed_rate = min(1.0, missed / decided)
+    backlog_rate = backlog / decided
+
+    penalty = (
+        wrong_rate * WRONG_DISPOSITION_WEIGHT
+        + repeat_rate * REPEAT_REPORT_WEIGHT
+        + missed_rate * MISSED_COMMITMENT_WEIGHT
+        * difficulty.missed_commitment_scale
+        + backlog_rate * UNWORKED_BACKLOG_WEIGHT
+    ) * difficulty.index_penalty
+
+    return max(0.0, round(100.0 - penalty, 1))
 
 
 class Qualification(NamedTuple):
@@ -189,6 +226,10 @@ class Career:
         self.reports_wrong: int = 0
         self.repeat_reports: int = 0
         self.missed_commitments: int = 0
+        # Reports open and past commitment right now. Not part of the saved
+        # record: it is a fact about the board, so whoever holds the board
+        # supplies it, and a career with no board has none.
+        self.open_overdue: Callable[[], int] = lambda: 0
         self.qualifications: List[str] = ['loop']
         self.index_history: List[float] = []
         # The wire centre this career is assigned to. Chosen the first time
@@ -288,13 +329,18 @@ class Career:
         have been worth in the plan, which is where the published weight
         belongs.
 
-        The three ways to lose it are the three ways the work goes wrong: a
-        wrong disposition, a report that came back, and a commitment missed.
-        A wrong close weighs heaviest because it is the one that leaves a
-        customer out of service believing they have been dealt with.
+        The ways to lose it are the ways the work goes wrong: a wrong
+        disposition, a report that came back, a commitment missed, and a
+        report still sitting open past its commitment. A wrong close weighs
+        heaviest because it is the one that leaves a customer out of
+        service believing they have been dealt with. A commitment passes
+        whether or not anybody was working the report, so it is counted when
+        it passes, and counted softly on the forgiving setting and in full
+        on the other.
 
-        The 55/35/20 apportionment was the simulation's own and, for a long
-        time, untested. It has now been played: tools/index_calibration.py
+        The 55/35/20 apportionment (and the 50 for a board left to age) was
+        the simulation's own and, for a long time, untested. It has now been
+        played: tools/index_calibration.py
         works a few hundred shifts per setting with players who fail in one
         way each, and the ordering holds. A player who measures every line
         and then names the wrong fault scores worse than one who is merely
@@ -310,22 +356,18 @@ class Career:
         moved. The handoff record prints closed and carried beside it for
         exactly that reason.
         """
-        if not self.reports_closed:
-            return 100.0
+        return score_index(self.reports_closed, self.reports_wrong,
+                           self.repeat_reports, self.missed_commitments,
+                           self.open_overdue(), self.difficulty)
 
-        closed = self.reports_closed
-        wrong_rate = self.reports_wrong / closed
-        repeat_rate = min(1.0, self.repeat_reports / closed)
-        missed_rate = (min(1.0, self.missed_commitments / closed)
-                       if self.difficulty.count_missed_commitments else 0.0)
+    def scored(self) -> bool:
+        """
+        Whether there is anything yet for the index to be a score of.
 
-        penalty = (
-            wrong_rate * WRONG_DISPOSITION_WEIGHT
-            + repeat_rate * REPEAT_REPORT_WEIGHT
-            + missed_rate * MISSED_COMMITMENT_WEIGHT
-        ) * self.difficulty.index_penalty
-
-        return max(0.0, round(100.0 - penalty, 1))
+        Nothing closed and nothing open past its commitment is not a perfect
+        record, it is no record, and it is not banked as one.
+        """
+        return bool(self.reports_closed + self.open_overdue())
 
     def office_contribution(self, component: str = 'customer_reports') -> float:
         """
@@ -356,15 +398,18 @@ class Career:
 
     # -- recording -------------------------------------------------------
 
-    def record_closure(self, correct: bool, missed_commitment: bool = False) -> None:
+    def record_closure(self, correct: bool) -> None:
         """Record a closed trouble report."""
         self.reports_closed += 1
         if correct:
             self.reports_correct += 1
         else:
             self.reports_wrong += 1
-        if missed_commitment:
-            self.missed_commitments += 1
+        self.save()
+
+    def record_missed(self, count: int = 1) -> None:
+        """Record reports that have gone past their commitment."""
+        self.missed_commitments += count
         self.save()
 
     def record_repeat(self) -> None:
@@ -374,7 +419,8 @@ class Career:
 
     def end_shift(self) -> None:
         """Close the shift, banking the index and advancing the count."""
-        self.index_history.append(round(self.service_index(), 1))
+        if self.scored():
+            self.index_history.append(round(self.service_index(), 1))
         self.shift += 1
         self.save()
 

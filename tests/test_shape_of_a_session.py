@@ -261,6 +261,7 @@ class TestEscalationAcrossACareer:
         """Four days on is a different day, not the same one continued."""
         terminal.career.shift = 1
         before = terminal.desk.weather
+        terminal.execute_command('report')
         terminal.execute_command('handoff relieve')
         assert terminal.desk.weather is not before
 
@@ -342,6 +343,7 @@ class TestTheLastTour:
 
     def test_an_ordinary_tour_still_opens_a_board(self, terminal):
         terminal.career.shift = 2
+        terminal.execute_command('report')
         assert 'begins' in terminal.execute_command('handoff relieve')
 
     def test_the_manual_says_there_is_an_end(self):

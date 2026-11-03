@@ -323,7 +323,7 @@ class GuidanceCommands(SessionState):
             self._hint_situation = situation
             self._hint_level = 0
         self._hint_level += 1
-        self.shift_minutes += HINT_MINUTES
+        self._pass_time(HINT_MINUTES)
 
         levels = HINTS[situation]
         if self._hint_level > len(levels):

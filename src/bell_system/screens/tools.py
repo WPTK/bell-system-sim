@@ -417,7 +417,7 @@ class ToolCommands(SessionState):
         except ValueError:
             return "sleep: bad time"
         minutes = max(1, seconds // 60)
-        self.shift_minutes += minutes
+        self._pass_time(minutes)
         return ''
 
     def cmd_mesg(self, args: Optional[List[str]] = None) -> str:

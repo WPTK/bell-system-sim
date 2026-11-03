@@ -45,7 +45,9 @@ from bell_system.progression import (                         # noqa: E402
     DIFFICULTIES,
     MISSED_COMMITMENT_WEIGHT,
     REPEAT_REPORT_WEIGHT,
+    UNWORKED_BACKLOG_WEIGHT,
     WRONG_DISPOSITION_WEIGHT,
+    score_index,
 )
 from bell_system.reports import MAX_PENDING, ReportDesk       # noqa: E402
 from bell_system.screens.position import CAREER_DEPTH         # noqa: E402
@@ -123,8 +125,9 @@ def play_shift(player: Player, difficulty, seed: int,
     desk.open_shift(SHIFT_START, difficulty.commitment_slack_minutes)
 
     now = SHIFT_START
+    minutes = 0
     counts = {'closed': 0, 'wrong': 0, 'repeats': 0, 'missed': 0,
-              'dispatches': 0}
+              'backlog': 0, 'dispatches': 0}
     repeated: set = set()
 
     while now < SHIFT_START + timedelta(minutes=SHIFT_MINUTES):
@@ -155,17 +158,18 @@ def play_shift(player: Player, difficulty, seed: int,
                          and binder_of(held.record.pair)
                          == binder_of(report.record.pair)]
                 report = group[0]
-            desk.dispatch(report, FAULTS[report.record.fault].dispatch, now)
+            desk.dispatch(report, FAULTS[report.record.fault].dispatch,
+                          minutes)
             counts['dispatches'] += 1
 
         disposition, found = player.close_as(
             report.record.fault, report.tested, rng)
-        correct = desk.close(report, disposition, found, now,
-                             difficulty.count_missed_commitments)
+        flagged = report.missed_commitment
+        correct = desk.close(report, disposition, found, now)
         counts['closed'] += 1
         if not correct:
             counts['wrong'] += 1
-        if report.missed_commitment:
+        if report.missed_commitment and not flagged:
             counts['missed'] += 1
         if desk.should_repeat(report, difficulty.repeat_report_chance):
             if report.number not in repeated:
@@ -173,26 +177,21 @@ def play_shift(player: Player, difficulty, seed: int,
                 desk.repeat(report, now, difficulty.commitment_slack_minutes)
                 counts['repeats'] += 1
 
-        now += timedelta(minutes=max(1, report.desk_minutes))
+        passed = max(1, report.desk_minutes)
+        now += timedelta(minutes=passed)
+        counts['missed'] += len(desk.age(passed, minutes))
+        minutes += passed
         if not desk.full() and rng.random() < 0.4:
             desk.receive(now, difficulty.commitment_slack_minutes)
 
+    counts['backlog'] = sum(1 for held in desk.pending() if held.overdue())
     return counts
 
 
 def index_from(counts: Dict[str, int], difficulty) -> float:
     """Score a shift the way the career record scores it."""
-    closed = counts['closed']
-    if not closed:
-        return 100.0
-    wrong = counts['wrong'] / closed
-    repeat = min(1.0, counts['repeats'] / closed)
-    missed = (min(1.0, counts['missed'] / closed)
-              if difficulty.count_missed_commitments else 0.0)
-    penalty = (wrong * WRONG_DISPOSITION_WEIGHT
-               + repeat * REPEAT_REPORT_WEIGHT
-               + missed * MISSED_COMMITMENT_WEIGHT) * difficulty.index_penalty
-    return max(0.0, round(100.0 - penalty, 1))
+    return score_index(counts['closed'], counts['wrong'], counts['repeats'],
+                       counts['missed'], counts['backlog'], difficulty)
 
 
 def band(index: float) -> str:
@@ -211,12 +210,13 @@ def report(shifts: int) -> None:
     print(f"Service index over {shifts} shifts per player per difficulty")
     print(f"weights: wrong {WRONG_DISPOSITION_WEIGHT}  "
           f"repeat {REPEAT_REPORT_WEIGHT}  "
-          f"missed {MISSED_COMMITMENT_WEIGHT}")
+          f"missed {MISSED_COMMITMENT_WEIGHT}  "
+          f"left open {UNWORKED_BACKLOG_WEIGHT}")
     print()
 
     for difficulty in DIFFICULTIES.values():
         print(f"{difficulty.name}  (penalty x{difficulty.index_penalty}, "
-              f"commitments {'counted' if difficulty.count_missed_commitments else 'not counted'})")
+              f"commitments counted x{difficulty.missed_commitment_scale:g})")
         print(f"  {'player':<10}{'median':>8}{'mean':>8}{'p10':>7}{'p90':>7}"
               f"   {'closed':>7}   bands")
         for player in PLAYERS:
@@ -253,8 +253,8 @@ def sweep(shifts: int) -> None:
     bands mean anything. A multiplier that puts an ordinary player in
     EXCELLENT most of the time is not forgiving, it is uninformative.
     """
-    print(f"Penalty multiplier sweep, {shifts} shifts, commitments not "
-          f"counted")
+    print(f"Penalty multiplier sweep, {shifts} shifts, commitments "
+          f"counted on the fun setting's scale")
     print(f"  {'x':<6}" + ''.join(f"{player.name:>22}"
                                   for player in PLAYERS[:3]))
     base = DIFFICULTIES['fun']

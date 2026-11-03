@@ -99,16 +99,19 @@ class TestTheCalendar:
 
     def test_signing_off_a_shift_moves_the_day(self, terminal):
         before = terminal.clock.now().date()
+        terminal.execute_command('report')
         terminal.execute_command('handoff relieve')
         assert terminal.clock.now().date() > before
 
     def test_the_last_tour_says_so(self, terminal):
         terminal.career.shift = TOURS_TO_DIVESTITURE - 1
+        terminal.execute_command('report')
         assert 'last working day of the Bell System' in \
             terminal.execute_command('handoff relieve')
 
     def test_an_ordinary_tour_does_not(self, terminal):
         terminal.career.shift = 2
+        terminal.execute_command('report')
         assert 'last working day' not in \
             terminal.execute_command('handoff relieve')
 
