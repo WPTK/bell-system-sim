@@ -299,7 +299,7 @@ class RepairDeskCommands(SessionState):
         for report, rings, left in queue:
             known = self._has_reading(report)
             # Nobody rings after the third; there is no next ring to show.
-            until = '-' if self.gave_up(report) else f"{left}m"
+            until = 'gave up' if self.gave_up(report) else f"{left}m"
             lines.append(
                 f"{report.number:<10}{report.record.telephone_number:<14}"
                 f"{rings:<7}{until:<11}"
@@ -355,13 +355,15 @@ class RepairDeskCommands(SessionState):
                 tone = f"They had rung {rings} time(s) already."
             else:
                 tone = "They had not rung yet."
-
+            after = ("they have written in and will not ring again."
+                     if self.gave_up(report) else
+                     f"they will not ring for "
+                     f"{PATIENCE[report.out_of_service]} more.")
             return '\n'.join([
                 f"{report.number}: rang {report.record.telephone_number}. "
                 f"{tone}",
                 f"Told them: {said}",
-                f"That was {cost} minutes of the shift; they will not ring "
-                f"for {PATIENCE[report.out_of_service]} more.",
+                f"That was {cost} minutes of the shift; {after}",
             ])
         # Nothing to tell: half the wait is forgiven, no more.
         wait = report.minutes_spent - book['told'].get(report.number, 0)

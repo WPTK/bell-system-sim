@@ -2168,7 +2168,7 @@ class TestTheRepairDeskBookIsHonest:
                 if line.startswith(report.number):
                     rows[report.number] = line.split()
         # Given up: not ringing, so no rings shown and no next one.
-        assert rows[gone.number][2:4] == ['0', '-']
+        assert rows[gone.number][2:5] == ['0', 'gave', 'up']
         assert rows[calm.number][3].endswith('m')
 
 
@@ -3226,10 +3226,11 @@ class TestTheLeftoversFromPhaseNine:
         row = next(line for line in
                    terminal.execute_command('trouble advise').split('\n')
                    if line.startswith(down.number))
-        assert row.split()[2] == '0' and row.split()[3] == '-'
+        assert row.split()[2:5] == ['0', 'gave', 'up']
         assert terminal.rings_total() == 3
         before = terminal.shift_minutes
-        terminal.execute_command('trouble advise ' + down.number)
+        said = terminal.execute_command('trouble advise ' + down.number)
+        assert 'will not ring for' not in said
         spent = terminal.shift_minutes - before
         known = terminal._has_reading(down)
         # The command's own minute on top of the call, and nothing for rings.
@@ -3267,25 +3268,87 @@ class TestTheLeftoversFromPhaseNine:
                   if row.lstrip().startswith('resolve ID'))
         assert 'taken' in ' '.join(rows[at:at + 2])
 
-    def test_a_late_sarts_clear_is_a_missed_commitment_in_goals_and_summary(
+    def test_a_late_sarts_clear_is_a_desk_lapse_not_a_commitment(
             self, at_desk):
         terminal = at_desk('sarts')
         circuit = failing_circuit(terminal, 'OFFICE')
         base = terminal._tour_worked()[2]
         charged = terminal.career.missed_commitments
         terminal.shift_minutes = OUTAGE_WINDOW + 5
-        assert terminal._tour_worked()[2] == base + 1  # Standing, past it.
         terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
-        assert terminal._tour_worked()[2] == base + 1  # Cleared, still one.
-        assert terminal.goal_counts()['missed'] == base + 1
-        assert f'Missed commitments  {base + 1}' in terminal.cmd_shift()
-        # One source: the career's own counter did not take a second charge.
+        assert terminal.desk_overdue() == 1
+        # The goal, `shift` and the career screens count commitments only.
+        assert terminal._tour_worked()[2] == base
+        assert terminal.goal_counts()['missed'] == base
         assert terminal.career.missed_commitments == charged
+        shift = terminal.cmd_shift()
+        assert f'Missed commitments  {base}' in shift
+        assert 'Desk lapses         1' in shift
+        assert terminal.desk_lapse_lines() and 'Desk lapses 1' in (
+            terminal.desk_lapse_lines()[0])
 
-    def test_a_circuit_cleared_in_time_is_not_in_the_goal_count(
-            self, at_desk):
+    def test_a_circuit_cleared_in_time_has_no_desk_lapse(self, at_desk):
         terminal = at_desk('sarts')
         circuit = failing_circuit(terminal, 'OFFICE')
-        base = terminal._tour_worked()[2]
         terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        assert terminal.desk_overdue() == 0
+        assert 'Desk lapses' not in terminal.cmd_shift()
+        assert terminal.desk_lapse_lines() == []
+
+    def test_a_lapsed_noc_ticket_is_a_desk_lapse_not_a_commitment(
+            self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('MAJOR', 900), ('MINOR', 100))
+        terminal.career.shift = 2
+        base = terminal._tour_worked()[2]
+        terminal.shift_minutes = 500
+        assert terminal.desk_overdue() == 2
         assert terminal._tour_worked()[2] == base
+        assert terminal.goal_counts()['missed'] == base
+        assert 'Desk lapses         2' in terminal.cmd_shift()
+        assert 'Desk lapses 2' in terminal.desk_lapse_lines()[0]
+
+    def test_an_office_alarm_lapse_is_a_desk_lapse_not_a_commitment(
+            self, at_desk):
+        terminal = office_desk(at_desk)
+        base = terminal._tour_worked()[2]
+        terminal.shift_minutes = 10 * LAMP_MINUTES
+        assert terminal.desk_overdue() == terminal.alarms_overdue() == 4
+        assert terminal._tour_worked()[2] == base
+        assert terminal.goal_counts()['missed'] == base
+        assert 'Desk lapses         4' in terminal.cmd_shift()
+        assert 'Desk lapses 4' in terminal.desk_lapse_lines()[0]
+
+    def test_the_goal_count_is_the_commitments_the_career_counted(
+            self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('MAJOR', 900))
+        terminal.career.shift = 2
+        terminal.shift_minutes = 500
+        terminal.career.record_missed(2)
+        assert terminal.desk_overdue() == 1
+        assert terminal.goal_counts()['missed'] == 2
+        assert 'Missed commitments  2' in terminal.cmd_shift()
+        # The summary's advice is for report misses; desk lapses get a line.
+        said = ' '.join(terminal.tour_summary(5, 5, 0, 0))
+        assert 'went past' not in said
+        assert terminal.desk_lapse_lines()
+
+    def test_a_desk_with_no_window_shows_no_desk_lapses(self, at_desk):
+        terminal = at_desk('custserv')
+        assert terminal.desk_overdue() == 0
+        assert 'Desk lapses' not in terminal.cmd_shift()
+
+    def test_a_customer_who_gave_up_is_not_told_when_they_will_ring(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        terminal._pass_time(65)
+        terminal.ring_sweep()
+        assert terminal.gave_up(down)
+        down.field_finding = 'a finding'
+        down.dispatched_to = None
+        assert terminal._has_reading(down)
+        said = terminal.execute_command('trouble advise ' + down.number)
+        assert 'will not ring for' not in said
+        assert 'written in' in said
