@@ -77,6 +77,13 @@ class Position(NamedTuple):
     # resolved in screens/position.py. Not a score - a tally.
     tally: Tuple[str, ...]
 
+    # The one command only this desk can use, as typed, and the one pressure
+    # only this desk feels, in a line. Empty for the eight desks that have
+    # neither: they are unchanged, and a test holds that. Both are the
+    # simulation's own design; nothing here claims a 1983 desk worked so.
+    verb: str = ''
+    pressure: str = ''
+
 
 # Today's behaviour, and what an unknown or unselected position gets. Every
 # default here is chosen so that role=None is byte for byte what the
@@ -104,14 +111,20 @@ POSITIONS: Dict[str, Position] = {
     'switch': Position(
         key='switch', name='Switching Station Technician',
         commands=('trunk', 'switch', 'toll', 'crossbar', 'alarm', '5ess',
-                  '3a'),
+                  '3a', 'connect'),
         # The two faults whose `where` is OFFICE rather than LOOP.
         fault_bias={'FCG': 3.0, 'CO_EQUIP': 2.5},
         board_share=0.5,
         ticket_categories=('EQUIPMENT_FAILURE', 'NETWORK_OUTAGE'),
         voices=('rjohnson', 'ehalloran'),
         nspmp='customer_reports',
-        tally=('office_faults', 'alarms_open', 'wasted_trips'),
+        tally=('office_faults', 'alarms_open', 'wasted_trips',
+               'alarms_cleared', 'alarms_lit', 'alarms_held'),
+        verb='connect work',
+        pressure='Alarm lamps: an alarm nobody works lights a level higher '
+                 'every 40 shift minutes, and one in this building left a '
+                 'whole span at the top lamp counts as a missed '
+                 'commitment.',
     ),
 
     'field': Position(
@@ -129,14 +142,18 @@ POSITIONS: Dict[str, Position] = {
 
     'noc': Position(
         key='noc', name='National NOC Analyst',
-        commands=('trunk', 'emergency', 'switch', 'ticket', 'traffic',
-                  'tnds', 'satellite'),
+        commands=('trunk', 'emergency', 'switch', 'ticket', 'trouble',
+                  'traffic', 'tnds', 'satellite'),
         fault_bias={},
         board_share=0.28,
         ticket_categories=('NETWORK_OUTAGE', 'TRAFFIC_ANOMALY'),
         voices=('dpetrak', 'carot'),
         nspmp=None,
-        tally=('groups_over', 'alarms_open', 'tickets_worked'),
+        tally=('groups_over', 'alarms_open', 'tickets_worked',
+               'tickets_past_window'),
+        verb='trouble triage',
+        pressure='A triage queue: every open ticket has a response '
+                 'window that runs on the shift clock.',
     ),
 
     'tsps': Position(
@@ -180,13 +197,19 @@ POSITIONS: Dict[str, Position] = {
     'custserv': Position(
         key='custserv', name='Customer Service Interface Technician',
         # The desk that talks to customers gets the no-trouble-founds.
-        commands=('service', 'provision', 'billing', 'custdb', 'directory'),
+        commands=('service', 'provision', 'billing', 'custdb', 'directory',
+                  'trouble'),
         fault_bias={'NONE': 1.6, 'ROH': 1.4},
         board_share=0.78,
         ticket_categories=('SERVICE_INTERRUPTION',),
         voices=('mreyes', 'jhaverty'),
         nspmp='customer_reports',
-        tally=('commitments_met', 'no_trouble_found', 'repeats'),
+        tally=('commitments_met', 'no_trouble_found', 'repeats',
+               'customers_rang_back'),
+        verb='trouble advise',
+        pressure='Customers holding: each one rings again after a wait '
+                 'that runs on the shift clock, and a third ring counts '
+                 'as a missed commitment.',
     ),
 
     'radio': Position(
@@ -219,7 +242,12 @@ POSITIONS: Dict[str, Position] = {
         ticket_categories=('SERVICE_INTERRUPTION', 'EQUIPMENT_FAILURE'),
         voices=('gvasquez', 'tnakamura'),
         nspmp=None,
-        tally=('circuits_in_trouble', 'tests_run', 'tickets_worked'),
+        tally=('circuits_in_trouble', 'circuit_minutes_out',
+               'circuits_past_window', 'tests_run', 'tickets_worked'),
+        verb='sarts repair',
+        pressure='Outage clocks: every circuit held in trouble is out '
+                 'for as many shift minutes as it stays there, and one '
+                 'past 60 counts as a missed commitment.',
     ),
 
     'docprep': Position(
@@ -240,6 +268,21 @@ POSITIONS: Dict[str, Position] = {
 POSITION_COMMANDS: Dict[str, list] = {
     key: list(position.commands) for key, position in POSITIONS.items()
 }
+
+
+def desk_only(current: Position, key: str, verb: str) -> Optional[str]:
+    """
+    Return the refusal when a desk's own verb is typed at another desk.
+
+    None means the verb is yours. The refusal names the desk it belongs to,
+    so that a player who typed it by name knows where it lives rather than
+    being told it does not exist.
+    """
+    if current.key == key:
+        return None
+    owner = POSITIONS[key].name
+    return (f"{verb}: not at this position. It is the {owner} desk's.\n"
+            f"help lists the commands this desk has.")
 
 
 def get(key: Optional[str]) -> Position:

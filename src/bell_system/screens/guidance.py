@@ -733,6 +733,9 @@ class GuidanceCommands(SessionState):
                 (name, self._help_summary(name))
                 for name in sorted(role_commands)
             ))
+            if self.position.verb:
+                lines.append(f"   Only this desk: {self.position.verb}")
+                lines.append(f"   {self.position.pressure}")
 
         lines.extend(['', 'THE MACHINE', '-' * 66])
         lines.extend(self._help_rows(self.SHELL_COMMANDS))

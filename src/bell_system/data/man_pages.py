@@ -4435,3 +4435,142 @@ PRACTICALS
      while one is on the board. The report is not a customer's and cannot
      be closed with report close.
 """
+
+
+# The command only the National NOC Analyst's desk has. Appended with the
+# verbs above, so that what a desk's own command does is read in one place.
+MAN_PAGES["trouble"] += """
+TRIAGE
+     trouble triage
+     trouble triage ID
+
+     The National NOC Analyst desk only. Lists every open ticket nobody
+     is on, soonest response window first, with how long the call out to
+     the district will cost the shift. Naming a ticket takes it: status
+     goes to IN_PROGRESS and the shift loses the call's minutes.
+
+     Windows run on the shift clock, which moves with what you type and
+     what you run, and not with a stopwatch. They open with the tour:
+     CRITICAL 15 minutes, MAJOR 30, MINOR 60. A ticket nobody is on when
+     its window closes goes up a level of escalation, and it counts as a
+     missed commitment on the service index whether or not you looked:
+     one taken late counts when you take it, one still waiting counts at
+     the handoff. The first tour is a grace throughout. The calls cost 6,
+     4 and 2 minutes. These figures are the simulation's own. Reading a
+     ticket costs a minute too, so the order you read in is part of it.
+"""
+
+
+# The command only the SARTS technician's desk has.
+MAN_PAGES["sarts"] += """
+REPAIR
+     sarts repair <circuit id | row>
+     sarts repair <circuit id | row> office | facility | premises
+
+     The SARTS (Switched Access Remote Test) Technician desk only. For a
+     circuit held in trouble: the first form loops it back at this
+     office, at the far end of the facility and at the customer's end,
+     and prints what each read. Each loop reads everything between it
+     and this office, so the trouble is in the stretch after the last
+     loop that passed. The second form sends the force for that place.
+     A row is a row of the board 'sarts trouble' printed.
+
+     A force is not sent to a circuit nobody has read this tour: it
+     needs a 'sarts test' (SMAS and DACS access only) or a loop-back
+     first, and is refused, with no time spent, until it has one. The
+     right place clears the circuit. The wrong one finds nothing, costs
+     the trip and 12 minutes more to bring the force back and send it
+     again, and leaves the circuit out.
+
+     Every minute a circuit is held in trouble is counted against the
+     tour, by the shift clock and by nothing else, and sarts trouble
+     shows it. One held past 60 minutes counts as a missed commitment on
+     the index whether or not you look, and so does one cleared after
+     60; the first tour is a grace. Looping a circuit on SMAS or DACS
+     access is done by relay and costs 3 minutes; one on manual jack
+     access needs a visit and costs 15. The force costs 10 minutes at
+     the office, 20 on the facility and 15 at the customer's end. The
+     places, their odds, these minutes and the 60 are the simulation's
+     own. Engineering and Operations notes only, at p. 581 [598] n. 4,
+     that "in the case of special services, troubles may be traced to
+     interoffice facilities".
+"""
+
+
+# The command only the Customer Service Interface Technician's desk has.
+MAN_PAGES["trouble"] += """
+ADVISE
+     trouble advise
+     trouble advise REPORT
+
+     The Customer Service Interface Technician desk only. With no
+     argument, lists the customers holding: each report that is a
+     customer's, how many times they have rung, how long until the next
+     ring and what the call back would cost. Naming a report rings them
+     and tells them where it stands.
+
+     A customer rings again after 20 shift minutes out of service, 45
+     otherwise, counted from the last call, and stops at three. The clock
+     is the shift clock: it moves with what you type and run, and not
+     with a stopwatch. Each ring is said on the next prompt, whether or
+     not you were looking, and the third is a missed commitment on the
+     index: the customer stops ringing and writes in. A report is charged
+     once, for that or for the commitment passing, whichever comes first.
+     The first tour is a grace and nothing is charged.
+
+     A call costs 3 minutes, 2 more for each ring they have already
+     made, and 3 more if you have nothing to tell them. A finding is
+     something to tell them (a crew out on the right force has one), and
+     the call settles them for a full wait. A test that has only
+     measured the line is not an answer, and nor is a crew sent to the
+     wrong force: with nothing to say the call forgives only half, and
+     'report next' says what to work. These figures are the
+     simulation's own.
+"""
+
+
+# A section of a page that only one desk is shown: the commands that desk
+# alone has. man appends it at that desk and nowhere else, so the other
+# desks' pages stay about what they can do. Keyed on the command, then the
+# position key.
+DESK_SECTIONS = {
+    "connect": {"switch": """
+ALARM PANEL
+     connect work
+     connect work ALARM
+
+     The Switching Station Technician desk only. With no argument, the
+     panel: every alarm standing on every office this console watches,
+     the lamp it now shows, how many shift minutes until the lamp rises,
+     what clearing it would cost, and a line saying what it reads.
+     Naming an alarm clears it at its cause, and the shift loses the
+     minutes.
+
+     An alarm nobody works lights one lamp higher every 40 shift minutes,
+     from its own point in them, so they do not all rise together. The
+     lamp sets the cost: 3 minutes at MINOR, 5 at MAJOR, 8 at CRITICAL,
+     and 2 more for a building you are not in. alarm ack does not stop
+     the rising; only clearing does.
+
+     Some alarms are only a symptom of another. A symptom's reads line
+     names the system of the alarm that explains it, which is how to
+     match the two: a trunk group failing on the trunks riding a carrier,
+     a carrier dropping in step with a microwave span, parity errors when
+     backup power sags. Clear the cause and everything it explains clears
+     with it, for no more time. Work only a symptom and the minutes are
+     spent and nothing clears: it stays on the panel until its cause is
+     cleared.
+
+     An alarm in your own building that has stood a whole span (40
+     minutes) at the top lamp is a missed commitment, counted on the
+     service index at the handoff whether or not you ever looked at the
+     panel. The span runs from when the lamp reached the top, so one
+     dealt at the top lamp is held from minute 40. One cleared before
+     then is not; one cleared after it still is, and stays on the
+     index. The other buildings' lamps rise and show on the panel but
+     are not on the index. Each tour deals the alarms again, the same ones
+     for the same tour however many times the shift is resumed. The first
+     tour is a grace. The clock is the shift clock and not a stopwatch.
+     These figures are the simulation's own.
+"""},
+}
