@@ -81,6 +81,7 @@ from .screens.position import PositionCommands
 from .screens.preferences import PreferenceCommands
 from .screens.remote import RemoteCommands
 from .screens.records import RecordsCommands
+from .screens.repairdesk import RepairDeskCommands
 from .screens.shift import ShiftCommands
 from .screens.shell import ShellCommands
 from .screens.switching import SwitchingCommands
@@ -146,6 +147,7 @@ class BellSystemTerminal(
     TollCommands,
     TestingCommands,
     BureauCommands,
+    RepairDeskCommands,
     ShiftCommands,
     TurnoverCommands,
     DocumentCommands,

@@ -206,7 +206,8 @@ POSITIONS: Dict[str, Position] = {
                'customers_rang_back'),
         verb='trouble advise',
         pressure='Customers holding: each one rings again after a wait '
-                 'that runs on the shift clock.',
+                 'that runs on the shift clock, and a third ring counts '
+                 'as a missed commitment.',
     ),
 
     'radio': Position(
@@ -239,11 +240,12 @@ POSITIONS: Dict[str, Position] = {
         ticket_categories=('SERVICE_INTERRUPTION', 'EQUIPMENT_FAILURE'),
         voices=('gvasquez', 'tnakamura'),
         nspmp=None,
-        tally=('circuits_in_trouble', 'circuit_minutes_out', 'tests_run',
-               'tickets_worked'),
+        tally=('circuits_in_trouble', 'circuit_minutes_out',
+               'circuits_past_window', 'tests_run', 'tickets_worked'),
         verb='sarts repair',
         pressure='Outage clocks: every circuit held in trouble is out '
-                 'for as many shift minutes as it stays there.',
+                 'for as many shift minutes as it stays there, and one '
+                 'past 60 counts as a missed commitment.',
     ),
 
     'docprep': Position(
