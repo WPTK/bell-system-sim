@@ -226,6 +226,10 @@ class SessionState:
         """Return a timestamp in the form the messaging channels carried."""
         raise NotImplementedError
 
+    def start_tour_clock(self) -> None:
+        """Put the clock on this tour's day and the hour of its watch."""
+        raise NotImplementedError
+
     def _read(self, path: str) -> Optional[str]:
         """Return a file's text, or None if it is not a readable file."""
         raise NotImplementedError
@@ -398,7 +402,7 @@ class SessionState:
         raise NotImplementedError
 
     def tour_summary(self, closed: int, correct: int, missed: int,
-                     repeats: int) -> List[str]:
+                     repeats: int, unmeasured: int = 0) -> List[str]:
         """Three sentences on a tour, written from its tally."""
         raise NotImplementedError
 

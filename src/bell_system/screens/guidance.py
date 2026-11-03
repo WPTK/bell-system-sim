@@ -393,6 +393,8 @@ class GuidanceCommands(SessionState):
         lines = FIRST_TOUR.get(step)
         if lines is None:
             return None
+        if step == 'measure' and not self._difficulty().annotation_sightings:
+            lines = FIRST_TOUR_MEASURE_UNNAMED
         self._tour_nudges.add(step)
         message = self.switchroom.chief_nudge(self.clock.now(),
                                              list(lines))
@@ -464,7 +466,7 @@ class GuidanceCommands(SessionState):
     # -- looking back ------------------------------------------------------
 
     def tour_summary(self, closed: int, correct: int, missed: int,
-                     repeats: int) -> List[str]:
+                     repeats: int, unmeasured: int = 0) -> List[str]:
         """
         Three sentences on a tour, written from its tally.
 
@@ -479,6 +481,7 @@ class GuidanceCommands(SessionState):
             correct: How many of those matched what was on the line
             missed: Commitments passed
             repeats: Reports that came back after being closed
+            unmeasured: Closes this tour that no mlt came before
 
         Returns:
             The sentences, or an empty list for a tour with no work in it
@@ -512,7 +515,9 @@ class GuidanceCommands(SessionState):
         count, kind = worst
         lines.append(FAILURES[kind][0].format(count=count,
                                               s='' if count == 1 else 's'))
-        lines.append(FAILURES[kind][1])
+        lines.append(FAILURES[kind][1]
+                     + (UNMEASURED_ADVICE if kind == 'wrong' and unmeasured
+                        else ''))
         return lines
 
     def sparkline(self, values: List[float], span: int = 5) -> str:
@@ -798,8 +803,7 @@ FAILURES = {
     'wrong': (
         "{count} close out{s} named a condition the line did not have.",
         "The readings say what is on the pair, and 'report faults' says "
-        "what each one adds up to. Four minutes of mlt is worth it before "
-        "every close.",
+        "what each one adds up to.",
     ),
     'missed': (
         "{count} commitment{s} went past.",
@@ -813,9 +817,21 @@ FAILURES = {
     ),
 }
 
+# Added to the wrong-close advice only for a tour with a close nobody
+# measured first. Said to somebody who measured every line, it is a lecture.
+UNMEASURED_ADVICE = " Four minutes of mlt is worth it before every close."
+
 # Eight levels for the index trend. console.render() turns these into ASCII
 # on a terminal held to the period character set, which is most of them.
 SPARK_LEVELS = '\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588'
+
+
+# The measure step where mlt never names a crew (Craft), so he does not say
+# that it does. Same step, same place in the loop.
+FIRST_TOUR_MEASURE_UNNAMED = (
+    'Read the bottom of that, and read it against what the customer',
+    "told you. 'report faults' says what each reading adds up to.",
+)
 
 
 # What Halloran says, one message per step of the loop. Four messages and
