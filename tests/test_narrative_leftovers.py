@@ -73,3 +73,22 @@ class TestI7OneTitlePerPerson:
                                              30, 0)
         assert crew is not None and crew.name == 'Johnson, R.'
         assert came_from == 'upstairs'
+
+
+class TestI8OneTerminalEach:
+    """The roster, /etc/ttys and /dev agree, and no two people share a line."""
+
+    def test_no_two_of_the_roster_share_a_terminal(self):
+        ttys = [person.tty for person in CRAFT.values()]
+        assert len(ttys) == len(set(ttys)), ttys
+
+    def test_etc_ttys_lists_every_terminal_in_the_roster(self, terminal):
+        listed = terminal.execute_command('cat /etc/ttys').split()
+        assert listed[0] == '14console'
+        assert sorted(line[2:] for line in listed[1:]) == sorted(
+            f'tty{person.tty}' for person in CRAFT.values())
+
+    def test_every_terminal_in_the_roster_is_a_device(self, terminal):
+        listing = terminal.execute_command('ls /dev').split()
+        for person in CRAFT.values():
+            assert f'tty{person.tty}' in listing, person.login

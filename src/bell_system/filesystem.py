@@ -27,6 +27,7 @@ from .clock import DIVESTITURE as _DIVESTITURE
 from .data.finds import FRAGMENTS, Fragment
 from .data.homes import HOMES
 from .data.practices import SHEETS, index as _binder_index, render as _sheet
+from .npc import CRAFT
 from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 # Divestiture took effect on 1 January 1984. The date itself lives in
@@ -1428,10 +1429,7 @@ FILESYSTEM: Dict[str, Node] = {
     '/etc/group': _file(GROUP),
     '/etc/rc': _file("/etc/update &\n/usr/lib/lpd\n/etc/cron\nrm -f /tmp/*\n",
                      mode='-rwxr--r--'),
-    '/etc/ttys': _file("14console\n12tty01\n12tty02\n12tty03\n02tty04\n"),
-
     '/dev/console': _file('', mode='crw--w--w-'),
-    '/dev/tty01': _file('', mode='crw--w--w-'),
     '/dev/null': _file('', mode='crw-rw-rw-'),
     '/dev/rk0': _file('', mode='brw-------'),
 
@@ -1508,6 +1506,15 @@ FILESYSTEM: Dict[str, Node] = {
         "gvasquez  4\nrjohnson  5\nsysop     -\nmreyes    7\n"
         "lokafor  11  (says the terminal was slow)\n"),
 }
+
+# The terminals. The roster (npc.CRAFT) says which terminal each of the
+# others is on, so /etc/ttys and /dev are written from it and cannot list
+# fewer, or more, than the building has, and no two of the others share one.
+FILESYSTEM['/etc/ttys'] = _file('14console\n' + ''.join(
+    f'12tty{person.tty}\n'
+    for person in sorted(CRAFT.values(), key=lambda person: person.tty)))
+for _person in CRAFT.values():
+    FILESYSTEM[f'/dev/tty{_person.tty}'] = _file('', mode='crw--w--w-')
 
 # The Practices binder: one file to a sheet, built from the data the
 # simulation runs on (data/practices.py).

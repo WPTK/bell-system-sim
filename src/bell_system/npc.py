@@ -158,7 +158,7 @@ CRAFT: Dict[str, Craft] = {
         watches=('day',)),
     'carot': Craft(
         'carot', 'CAROT', 'Centralized Automatic Reporting On Trunks',
-        'CAROT_CENTER', '11',
+        'CAROT_CENTER', '13',
         'Not a person. Tests trunks all night and prints what it finds.'),
 }
 
