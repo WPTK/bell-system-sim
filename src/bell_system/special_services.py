@@ -158,7 +158,7 @@ class SartsInventory:
     def __init__(self, home_clli: str, rng: Optional[random.Random] = None,
                  count: int = 24):
         self.home_clli = home_clli
-        self.rng = rng or random.Random()
+        self.rng = rng or random.Random(random.getrandbits(64))
         self.circuits: Dict[str, Circuit] = {}
         self._build(count)
 

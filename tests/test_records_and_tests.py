@@ -268,9 +268,15 @@ class TestStrangersGetDistinctNumbers:
     class _RepeatingLine(random.Random):
         """Deals the same four-digit line until told otherwise."""
 
-        def __init__(self, lines):
-            super().__init__(5)
-            self.lines = list(lines)
+        # No constructor argument: on 3.9 and 3.10 `Random.__new__` seeds
+        # from whatever it is given, and a list is not hashable.
+        lines: list = []
+
+        @classmethod
+        def dealing(cls, lines):
+            rng = cls(0)
+            rng.lines = list(lines)
+            return rng
 
         def randint(self, a, b):
             if (a, b) == (0, 9999) and self.lines:
@@ -279,7 +285,7 @@ class TestStrangersGetDistinctNumbers:
 
     def test_the_second_stranger_is_redealt_a_free_number(self, terminal):
         desk = terminal.desk
-        desk.rng = self._RepeatingLine([1234, 1234, 1234, 4321])
+        desk.rng = self._RepeatingLine.dealing([1234, 1234, 1234, 4321])
         first = desk.receive(terminal.clock.now(), fault='WET')
         second = desk.receive(terminal.clock.now(), fault='WET')
         assert first.record.line == '1234'
@@ -292,7 +298,7 @@ class TestStrangersGetDistinctNumbers:
 
     def test_a_number_freed_by_closing_may_be_dealt_again(self, terminal):
         desk = terminal.desk
-        desk.rng = self._RepeatingLine([1234, 1234])
+        desk.rng = self._RepeatingLine.dealing([1234, 1234])
         first = desk.receive(terminal.clock.now(), fault='WET')
         first.status = 'CLOSED'
         second = desk.receive(terminal.clock.now(), fault='WET')

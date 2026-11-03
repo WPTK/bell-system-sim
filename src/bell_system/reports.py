@@ -328,7 +328,7 @@ class ReportDesk:
         self.npa = npa
         self.nxx = nxx
         self.clli = clli
-        self.rng = rng or random.Random()
+        self.rng = rng or random.Random(random.getrandbits(64))
         self.reports: Dict[str, TroubleReport] = {}
         self.order: List[str] = []
         # The numbers on the board as the player last saw it, so that a
