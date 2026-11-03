@@ -18,7 +18,7 @@ of it, and the board is still on the machine afterwards, because the
 machine did not stop on the first of January either.
 """
 
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .. import save
 from ..clock import career_progress, days_to_divestiture
@@ -110,7 +110,7 @@ Service Index:            {self.career.service_index():.1f} \
 Qualifications Held:      {len(self.career.qualifications)} of \
 {len(QUALIFICATIONS)}
 {self._tour_account()}
-"""
+{self._goal_section(final=False)}"""
 
         if pending_reports:
             output += ("\nREPORTS CARRIED TO THE NEXT SHIFT\n" + "=" * 40)
@@ -155,6 +155,54 @@ this shift and the next one starts on a fresh board."""
                 return self._nothing_to_hand_over()
             return self._end_shift()
         return output
+
+    def goal_counts(self) -> Dict[str, int]:
+        """
+        Read off the figures a tour's goals ask about.
+
+        The tour's own tally, and the board as it stands. Reading only: a
+        goal is never a reason for anything to change, and never moves the
+        index.
+        """
+        closed, correct, missed, repeats = self._tour_worked()
+        pending = self.desk.pending()
+        return {
+            'closed': closed, 'correct': correct, 'wrong': closed - correct,
+            'missed': missed, 'repeats': repeats, 'carried': len(pending),
+            'late': sum(1 for report in pending if report.overdue()),
+            'unmeasured': sum(1 for report in pending if not report.tested),
+        }
+
+    def goal_lines(self, final: bool) -> List[str]:
+        """
+        The tour's goals, each marked met or missed.
+
+        Args:
+            final: Whether the tour is being handed over. Until it is, a
+                goal is shown as it stands and may still go either way.
+        """
+        entry = self.tour_script()
+        if entry is None:
+            return []
+        counts = self.goal_counts()
+        rows = []
+        for goal in entry.goals:
+            met = goal.met(counts)
+            if final:
+                verdict = 'met' if met else 'missed'
+            else:
+                verdict = f"so far {counts[goal.metric]}"
+            rows.append(f"  [{'x' if met else ' '}] {goal.text:<46}{verdict}")
+        return rows
+
+    def _goal_section(self, final: bool) -> str:
+        """The goals under their heading, or nothing on a tour with none."""
+        rows = self.goal_lines(final)
+        if not rows:
+            return ''
+        return '\n'.join(['TOUR GOALS', '=' * 40, *rows,
+                          'Not scored. The service index is the only score.',
+                          ''])
 
     def _tour_has_work(self) -> bool:
         """
@@ -206,6 +254,7 @@ this shift and the next one starts on a fresh board."""
         worked = self.shift_time()
         carried = self.desk.pending()
         summary = self.tour_summary(*self._tour_worked())
+        goals = self._goal_section(final=True)
         if self.clock.last_tour(self.career.shift):
             if self.career.finished:
                 return (
@@ -214,7 +263,7 @@ this shift and the next one starts on a fresh board."""
                     "there is no shift after this one to open.\n\n"
                     "The board is still there if you want it. "
                     "'qual' has the career record.")
-            return self._end_career(banked, worked, summary)
+            return self._end_career(banked, worked, summary, goals)
         self.career.end_shift()
         self.current_shift = self.career.shift
         # The tour that was saved is over. The next command writes the new
@@ -260,6 +309,8 @@ this shift and the next one starts on a fresh board."""
             for sentence in summary:
                 lines.extend(f"  {line}" for line in wrap(sentence, 64))
             lines.append('')
+        if goals:
+            lines.extend([goals, ''])
         lines.extend([
             f"  Service index banked      {self._banked_line(banked)}",
             f"  Reports closed to date    {self.career.reports_closed}",
@@ -293,7 +344,7 @@ this shift and the next one starts on a fresh board."""
         return f"{banked:.1f}  {self.career.index_band()}"
 
     def _end_career(self, banked: Optional[float], worked: str,
-                    summary: List[str]) -> str:
+                    summary: List[str], goals: str = '') -> str:
         """
         The end of the last tour, which is the end of the Bell System.
 
@@ -317,6 +368,8 @@ this shift and the next one starts on a fresh board."""
         ]
         for sentence in summary:
             lines.extend(f"  {line}" for line in wrap(sentence, 64))
+        if goals:
+            lines.extend(['', goals])
         lines.extend([
             '',
             'THE CAREER',
@@ -376,6 +429,8 @@ this shift and the next one starts on a fresh board."""
             f"Tour {self.career.shift}   {self.clock.date(now)}   "
             f"{days_to_divestiture(now)} days to divestiture",
             '=' * 62,
+            *self.tour_brief(self.goal_counts()),
+            '',
             f"  Worked              {self.shift_time()} of "
             f"{SHIFT_LENGTH_MINUTES // 60}:00",
             f"  Left                {left // 60}:{left % 60:02d}",

@@ -106,7 +106,7 @@ User Input → CLI Parser → Role Selection → Command Processing → Output
 1. **Initialization**: CLI argument parsing and module selection
 2. **Role Selection**: One of 12 authentic Bell System positions, either from the
    interactive menu or from `--role N`
-3. **Shift Briefing**: Role-appropriate briefing and generated shift events
+3. **Shift Briefing**: Role-appropriate briefing, the tour's theme and goals, and its dated shift events
 4. **Command Loop**: Interactive command processing with historical accuracy
 5. **State Management**: Session command history, persisted via readline
 6. **Logging**: Operation tracking to the per-user state directory

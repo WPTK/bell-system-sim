@@ -8,9 +8,11 @@ from collections import (
 )
 from typing import (
     List,
+    Mapping,
     Optional,
 )
-from ..data.shift_events import build as build_shift_events
+from ..data import tours
+from ..data.tours import Tour
 from ..npc import (
     CRAFT,
     Message,
@@ -52,17 +54,50 @@ class ShiftCommands(SessionState):
                 "special_instructions": "Monitor trunk TG-047 for blocking threshold"
             }
         }
+    def tour_script(self) -> Optional[Tour]:
+        """
+        Return this tour's entry in data/tours.py, if it applies.
+
+        It does not on a calendar other than the one it was written for: a
+        player who moved the epoch gets the routine and no set pieces.
+        """
+        return tours.script(self.career.shift, self.clock.tour_day())
+
+    def tour_brief(self, counts: Optional[Mapping[str, int]] = None
+                   ) -> List[str]:
+        """
+        The tour's theme, its briefing and its goals, as printed lines.
+
+        Shared by the briefing a shift opens with and by shift(1), so the
+        two cannot disagree about what today is for. Given the tour's
+        counts, each goal says how far along it is.
+        """
+        entry = self.tour_script()
+        if entry is None:
+            return []
+        lines = [f"Tour {entry.number} of {len(tours.TOURS)}: "
+                 f"{entry.theme} ({entry.kind})"]
+        lines.extend(f"  {line}" for line in entry.briefing)
+        lines.append("  Goals, struck at handoff and never scored:")
+        for goal in entry.goals:
+            progress = f"  (so far {counts[goal.metric]})" if counts else ''
+            lines.append(f"    - {goal.text}{progress}")
+        return lines
+
     def generate_shift_events(self) -> None:
         """
-        Put the shift's scheduled work, tests and known conditions on the
-        board.
+        Put the tour's scheduled work, tests and known conditions on the
+        board, and the news the feed has brought in.
 
-        The catalogue is reference data and lives in data/shift_events.py;
-        what is here is when to ask for it. Re-run at every shift change,
-        which is why it is safe to call again once a position is taken.
+        The catalogue is reference data and lives in data/tours.py; what is
+        here is when to ask for it. Re-run at every shift change, which is
+        why it is safe to call again once a position is taken. The board is
+        the same for the same tour at the same office, because a saved shift
+        rebuilds it and the events that have fired are remembered by number.
         """
-        self.shift_events = build_shift_events(
-            self.clock.now().hour, self.clock.now().month)
+        self.shift_events = tours.build(
+            self.career.shift, self.home_office, self.clock.tour_day())
+        self.deliver_news()
     def show_shift_briefing(self) -> None:
         """
         Display role-specific shift briefing.
@@ -90,6 +125,12 @@ class ShiftCommands(SessionState):
             self.emit(f"Resumed: {self.shift_time()} already worked, "
                       f"{len(self.desk.pending())} on the board")
         self.emit(f"{'='*60}")
+        brief = self.tour_brief()
+        if brief:
+            self.emit()
+            for line in brief:
+                self.emit(line)
+            self.emit()
 
         # Role-specific briefings
         role_briefings = {
@@ -214,6 +255,8 @@ class ShiftCommands(SessionState):
             output.append(f"Priority:    {found_event['priority']}")
             output.append(f"Status:      {found_event['status']}")
             output.append(f"Title:       {found_event['title']}")
+            output.append(f"Origin:      {found_event['origin'].title()}"
+                          f" - {found_event['source']}")
             output.append("")
             output.append("Description:")
             output.append(f"  {found_event['description']}")

@@ -11,7 +11,7 @@ period-accurate UNIX ``date(1)`` order by default, with ISO and US layouts and
 a 12-hour clock available for readability.
 """
 
-from datetime import datetime, timedelta
+from datetime import date as Day, datetime, timedelta
 from typing import Optional
 
 from .settings import Settings
@@ -94,6 +94,20 @@ class SimClock:
         # the whole career with it.
         final = (DIVESTITURE.date() - self._settings.epoch().date()).days - 1
         self._day_offset = max(0, min((tour - 1) * DAYS_PER_TOUR, final))
+
+    def tour_day(self) -> Day:
+        """
+        Return the calendar day the current tour falls on.
+
+        Unlike ``now().date()`` this does not move when a long session runs
+        past midnight, so anything keyed to the day (the tour script, the
+        news that has arrived) reads the same at the start of a tour as at
+        the end of it. With ``date.source`` set to ``real`` it is today.
+        """
+        if self._settings.get('date.source') == 'real':
+            return datetime.now().date()
+        return (self._settings.epoch()
+                + timedelta(days=self._day_offset)).date()
 
     def last_tour(self, tour: int) -> bool:
         """Return whether this tour is the last day of the Bell System."""
