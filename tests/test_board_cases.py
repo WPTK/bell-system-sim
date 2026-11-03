@@ -354,10 +354,19 @@ class TestAPlan:
 
     def test_a_planted_cause_is_written_in_the_ledger(self, terminal):
         from bell_system.cases import MARKER_LEDGER
-        _tour(terminal, 9)
+        case = _tour(terminal, 9)
+        terminal.desk.depth_limit = 40
+        terminal.shift_minutes = min(case.due)
+        terminal._case_events()
         assert MARKER_LEDGER in terminal.career.beats_seen
-        later = _tour(terminal, 10)
-        assert later is None or later.kind != 'marker'
+        _tour(terminal, 10)
+        assert not [c for c in terminal.desk.cases
+                    if c.ident == 'CASE-10-marker']
+
+    def test_it_is_not_used_up_before_any_of_it_has_come(self, terminal):
+        from bell_system.cases import MARKER_LEDGER
+        _tour(terminal, 9)
+        assert MARKER_LEDGER not in terminal.career.beats_seen
 
     def test_planting_does_not_deal_a_report(self, terminal):
         before = len(terminal.desk.reports)

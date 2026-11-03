@@ -116,12 +116,18 @@ class CaseCommands(SessionState):
         or not; only what arrives later is the case's.
         """
         self._plant_leak()
-        ledger = self.career.beats_seen
-        case = plan(self.career.shift, ledger)
-        self.desk.cases = [case] if case else []
-        if case and case.kind == 'marker':
-            ledger.append(MARKER_LEDGER)
-            self.career.save()
+        case = plan(self.career.shift, self.career.beats_seen)
+        # A cause a tour left behind is still a cause while any report of
+        # it is open: one right trip clears the run on the next tour as it
+        # did on the one it began. It throws no more reports of its own,
+        # because the minutes it was due at were that tour's.
+        carried = []
+        for old in self.desk.cases:
+            if any(self.desk.reports[number].status != 'CLOSED'
+                   for number in old.members if number in self.desk.reports):
+                old.due = []
+                carried.append(old)
+        self.desk.cases = carried + ([case] if case else [])
 
     def _plant_leak(self) -> None:
         """
@@ -153,6 +159,13 @@ class CaseCommands(SessionState):
                 now, report.number, report.record.telephone_number,
                 report.symptom, report.commitment.strftime('%H:%M')))
             case = case_of(self.desk, report)
+            # Kept once the first of it has come, and not when it was
+            # planned: a shift resumed from a save that has no cases would
+            # otherwise have used up the one it never saw.
+            if (case and case.kind == 'marker'
+                    and MARKER_LEDGER not in self.career.beats_seen):
+                self.career.beats_seen.append(MARKER_LEDGER)
+                self.career.save()
             if case and not case.opened and len(case.members) >= 3:
                 case.opened = True
                 note = self.switchroom.case_note(now, case.spec, report.number)
