@@ -8,7 +8,7 @@ STARTING
 --------
 bell-system                 Start; the login prompt lists the positions with ?
 bell-system --role N        Start at position N (1-12), skipping the menu
-bell-system --simple        The simplified four-role interface
+bell-system --simple        A plain Unix V7 sandbox (shell only, no board)
 bell-system --version       Print the version and exit
 
 IF YOU ARE STUCK
@@ -75,8 +75,9 @@ qual [index]            Craft record, qualifications and service index
 DIFFICULTY AND SETTINGS
 -----------------------
 set                     Every setting, its value and its options
-set game.difficulty fun     Fun Simulation. Loop testing names the fault,
-                            a wrong call costs little
+set game.difficulty fun     Fun Simulation. Loop testing names the fault for
+                            the first four sightings of each kind, a wrong
+                            call costs little
 set game.difficulty craft   I Hate Myself. Measure before you close, repeat
                             reports come back on your index, commitments are
                             counted, and qualification is slow

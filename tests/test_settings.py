@@ -260,23 +260,28 @@ class TestAssists:
         difficulty = self.career_with(settings, 'craft').difficulty
         assert score_index(10, 0, 0, 10, 0, difficulty) == 100.0
 
-    def test_annotation_is_a_profile_field_with_no_assist_yet(self):
+    def test_annotation_is_a_profile_field_with_an_assist(self):
         from bell_system.progression import ASSISTS_BY_KEY, DIFFICULTIES
         assert DIFFICULTIES['fun'].annotation_sightings == 4
         assert DIFFICULTIES['craft'].annotation_sightings == 0
-        assert 'assist.annotate' not in ASSISTS_BY_KEY
-        with pytest.raises(KeyError):
-            Settings().set('assist.annotate', 'on')
+        assert 'assist.annotate' in ASSISTS_BY_KEY
+        settings = Settings()
+        settings.set('assist.annotate', 'off')
+        fun = self.career_with(settings, 'fun').difficulty
+        assert fun.annotation_sightings == 0
+        settings.set('assist.annotate', 'on')
+        craft = self.career_with(settings, 'craft').difficulty
+        assert craft.annotation_sightings > 1000
 
-    def test_naming_the_fault_does_not_follow_test_first(self):
+    def test_annotation_does_not_follow_test_first(self):
         settings = Settings()
         settings.set('assist.test_first', 'off')
         craft = self.career_with(settings, 'craft').difficulty
         assert not craft.require_test_before_close
-        assert not craft.names_fault
+        assert not craft.annotation_sightings
         settings.set('assist.test_first', 'on')
         fun = self.career_with(settings, 'fun').difficulty
-        assert fun.require_test_before_close and fun.names_fault
+        assert fun.require_test_before_close and fun.annotation_sightings
 
 
 class TestAssistsAtTheTerminal:

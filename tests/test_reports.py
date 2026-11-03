@@ -597,6 +597,20 @@ class TestAmbience:
             assert terminal.execute_command('pwd').strip() == \
                 terminal.current_directory
 
+    def test_ambience_off_files_nothing_in_the_mailbox(self, terminal,
+                                                       monkeypatch):
+        # The roll that would have made somebody speak, forced, and the
+        # one who speaks forced onto the mail channel, so this is not a
+        # matter of luck: the craft are not asked at all.
+        monkeypatch.setattr(random, 'random', lambda: 0.0)
+        monkeypatch.setattr(
+            terminal, '_craft_interruption',
+            lambda difficulty: terminal.switchroom.qualification_notice(
+                terminal.clock.now(), 'Chatter', ('pwd',)))
+        for _ in range(10):
+            terminal.execute_command('pwd')
+        assert terminal.execute_command('mail') == 'No mail.'
+
     def test_ambience_on_eventually_says_something(self, raw_terminal):
         raw_terminal.settings.set('game.difficulty', 'craft')
         raw_terminal.career.set_difficulty('craft')

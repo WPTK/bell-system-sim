@@ -30,6 +30,8 @@ from typing import Iterable, List, NamedTuple, Optional, Tuple
 
 from ..data.positions import POSITION_COMMANDS
 from ..data.hints import EXHAUSTED, HINTS
+from ..data.trouble import FAULTS
+from ..loop_testing import STAGE_NUMBERS, measure_loop, reading_is_clean
 from ..npc import render as render_message
 from ..progression import QUALIFICATIONS_BY_KEY
 from .session import SessionState
@@ -95,7 +97,19 @@ class GuidanceCommands(SessionState):
                 if report.field_finding or report.sheath_repaired]
         if done:
             report = done[0]
-            found = report.field_finding or 'WET'
+            if report.field_finding == 'NONE':
+                # Nothing was there. Closing it as trouble found is scored
+                # wrong, and the right close names no condition.
+                return NextAction(
+                    f"{report.number} was looked at in the field and "
+                    f"nothing was wrong. It is waiting to be closed out.",
+                    f"report close {report.number} 8", 'close')
+            # The code is the answer, so it is only typed for the player
+            # while the fault is still being named to them.
+            if self._reading_stage(report, count=False) == STAGE_NUMBERS:
+                found = '<fault>'
+            else:
+                found = report.field_finding or 'WET'
             return NextAction(
                 f"{report.number} has been cleared in the field and is "
                 f"waiting to be closed out.",
@@ -110,6 +124,8 @@ class GuidanceCommands(SessionState):
                     f"{report.number} is past its commitment and has not "
                     f"been measured.",
                     f"mlt {report.number}", 'measure')
+            if self._reads_clean(report):
+                return self._clean_reading(report)
             return NextAction(
                 f"{report.number} is past its commitment. It has been "
                 f"measured; somebody needs to go.",
@@ -118,6 +134,11 @@ class GuidanceCommands(SessionState):
         untested = [report for report in pending if not report.tested]
         if untested:
             report = untested[0]
+            if self.first_tour() and 'callback' not in self._tour_nudges:
+                return NextAction(
+                    f"{report.number} says one thing on the card and the "
+                    f"customer will say another.",
+                    f"report callback {report.number}", 'callback')
             return NextAction(
                 f"{report.number} has not been measured. "
                 f"{report.age_label()} on the commitment.",
@@ -126,9 +147,12 @@ class GuidanceCommands(SessionState):
         # Everything measured, nothing overdue: send somebody to the one
         # that runs out first.
         report = pending[0]
+        if not report.dispatched_to and self._reads_clean(report):
+            return self._clean_reading(report)
         if not report.dispatched_to:
             fault = report.record.fault
-            force = self._dispatch_for(fault)
+            force = ('' if self._reading_stage(report, count=False)
+                     == STAGE_NUMBERS else self._dispatch_for(fault))
             return NextAction(
                 f"{report.number} is measured and waiting on a crew. "
                 f"{report.age_label()} left.",
@@ -148,9 +172,49 @@ class GuidanceCommands(SessionState):
         force before the measurement would hand over the answer, and the
         measurement is the part worth doing.
         """
-        from ..data.trouble import FAULTS
         where = FAULTS[fault].dispatch
         return '' if where.startswith('None') else where
+
+    def _reads_clean(self, report) -> bool:
+        """
+        Whether a measured report's readings cannot tell the office from
+        nothing, so that a dispatch would be a guess.
+
+        Only at the numbers stage: before that mlt has named a crew class
+        for the report, and the prompt must not contradict it.
+        """
+        if not report.tested or report.dispatched_to:
+            return False
+        if self._reading_stage(report, count=False) != STAGE_NUMBERS:
+            return False
+        record = report.record
+        return reading_is_clean(measure_loop(
+            record.telephone_number, record.fault, name_fault=False))
+
+    def _clean_reading(self, report) -> NextAction:
+        """
+        What to do with a report whose loop reads clean everywhere.
+
+        Office equipment, a false cross or ground and no trouble all look
+        the same to mlt, and the one cheap thing that separates them is the
+        frame record. Once it has been looked up, or where the player is not
+        signed off to look, the answer is no longer a lookup, and nothing
+        here says which of the three it is.
+        """
+        number = report.number
+        if not self.career.may_use('cosmos'):
+            return NextAction(
+                f"{number} reads clean on every measurement; sheet 660-003.",
+                f"report show {number}", 'dispatch')
+        if report.frame_looked_up:
+            return NextAction(
+                f"{number} reads clean and its frame record has been read. "
+                f"What is left is your call; sheet 660-003.",
+                f"report show {number}", 'dispatch')
+        return NextAction(
+            f"{number} reads clean on every measurement; sheet 660-003. "
+            f"The frame record has more.",
+            f"cosmos jumper {report.record.telephone_number}", 'frame')
 
     def _nothing_pending(self) -> NextAction:
         """What is worth doing with a clear board."""
@@ -254,8 +318,9 @@ class GuidanceCommands(SessionState):
         rows.append('')
         rows.append("   The whole job is four commands: report, mlt, "
                     "report dispatch,")
-        rows.append("   report close. mlt tells you what the fault is and "
-                    "who to send.")
+        rows.append("   report close. mlt gives you the readings; "
+                    "'report faults' says")
+        rows.append("   what they add up to.")
         rows.append("   Stuck on something? 'hint' asks somebody. Ask "
                     "again for more.")
         return rows
@@ -620,8 +685,9 @@ class GuidanceCommands(SessionState):
 FAILURES = {
     'wrong': (
         "{count} close out{s} named a condition the line did not have.",
-        "mlt names the fault outright at the bottom of the reading. It is "
-        "worth four minutes before every close.",
+        "The readings say what is on the pair, and 'report faults' says "
+        "what each one adds up to. Four minutes of mlt is worth it before "
+        "every close.",
     ),
     'missed': (
         "{count} commitment{s} went past.",
@@ -652,17 +718,23 @@ FIRST_TOUR = {
     'board': (
         'That is the board. One line to a report: who is out, what they',
         'say is wrong, and when we promised them.',
-        "Measure it before you send anybody. 'mlt 1'.",
+        'What they say is what they noticed, and it is not always what is',
+        "on the pair. Ring them back first: 'report callback 1'.",
+    ),
+    'callback': (
+        'Hear the difference? The card said one thing and the customer',
+        'said another. The pair has the last word, so put a meter on it.',
+        "'mlt 1', and read the numbers against both.",
     ),
     'measure': (
-        'Read the bottom of that. TEST RESULT tells you what the fault is',
-        'and which crew it wants. It is not a riddle - it says it outright.',
-        'Send whoever it names.',
+        'Read the bottom of that, and read it against what the customer',
+        "told you. Where it names a crew, send them; 'report faults' says",
+        'what each reading adds up to when it does not.',
     ),
     'dispatch': (
         'They will call in when they have been. Then close it out: code 5',
         'if they found trouble, code 8 if there was none, and name the',
-        'fault the measurement gave you.',
+        'fault the readings showed.',
     ),
     'closed': (
         'That is the job. The rest of the board is coming.',

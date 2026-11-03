@@ -416,14 +416,17 @@ class ShiftCommands(SessionState):
         # off: they asked for it, so they get it.
         fired = self.at_due()
 
-        # Somebody says something, at the difficulty's rate.
+        # Somebody says something, at the difficulty's rate. With ambience
+        # off nobody does: a message built and not shown is still filed in
+        # the mailbox, which would put craft traffic into mail(1) on a
+        # terminal that was told to leave you alone.
+        if quiet:
+            return '\n'.join(fired)
         if random.random() < difficulty.interruption_rate:
             message = self._craft_interruption(difficulty)
             if message is not None:
                 pieces.append(render_message(message, self._stamp()))
 
-        if quiet:
-            return '\n'.join(fired)
         return '\n'.join(fired + pieces)
     def _craft_interruption(self, difficulty):
         """
@@ -443,7 +446,7 @@ class ShiftCommands(SessionState):
             target = random.choice(overdue)
             return self.switchroom.chase(
                 now, target.number, target.record.telephone_number)
-        if untested and roll < 0.60 and difficulty.names_fault:
+        if untested and roll < 0.60 and difficulty.annotation_sightings:
             return self.switchroom.hint(now)
         if untested and roll < 0.50:
             return self.switchroom.hint(now)

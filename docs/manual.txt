@@ -32,7 +32,7 @@ INSTALLATION
 
 OPTIONS
      --role N     Start at position N (1-12) and skip the selection menu.
-     --simple     Use the simplified four-role interface.
+     --simple     Run a plain Unix V7 sandbox (shell only).
      --version    Print the version and exit.
 
 USAGE
@@ -167,8 +167,8 @@ TEST CALLS
 
 DIFFICULTY
      set game.difficulty fun
-         Fun Simulation. Loop testing names the fault it reads, a report
-         may be closed without measuring, a wrong call costs little,
+         Fun Simulation. Loop testing names the fault it reads for the
+         first four sightings of each kind, a report may be closed without measuring, a wrong call costs little,
          commitments are not counted, and qualification comes quickly.
 
      set game.difficulty craft

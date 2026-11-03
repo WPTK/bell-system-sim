@@ -1537,6 +1537,10 @@ ASSISTS
                          A sign-off is offered at every 3 or 12 correct closures.
      assist.scoring             profile | gentle | strict
                          Scales every penalty on the index by 0.7 or 1.0.
+     assist.annotate            profile | off | fade | on
+                         Whether mlt and the crews keep naming the fault:
+                         never, for the first four sightings of each kind
+                         of trouble, or always.
 
 SEE ALSO
      date(1), status(1), verbosity(1)
@@ -1873,9 +1877,15 @@ DESIGN LIMITS
      limit at the same 1300 ohms, about three miles.
 
 DIFFICULTY
-     On the forgiving setting the system names the condition it reads. On
-     the other one it prints the numbers and nothing else, because reading
-     them is the job.
+     On the forgiving setting the system names the condition it reads for
+     the first four times you meet each kind of trouble: the first two with
+     the condition, the crew and a note on why the numbers say so, the next
+     two with the crew alone. From the fifth it prints the numbers and
+     nothing else, because reading them is the job. The count is kept for
+     the whole career, for each kind of trouble separately, and a crew's
+     report of what they cleared follows the same count. The other
+     setting prints the numbers from the start. 'set assist.annotate on'
+     keeps the notes for good; 'off' drops them at once.
 
 NOTES
      The abbreviation table in Engineering and Operations expands MLT as

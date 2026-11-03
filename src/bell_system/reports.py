@@ -43,6 +43,7 @@ from .data.trouble import (
     DISPOSITIONS,
     FAULTS,
     REAL_FAULTS,
+    FIRST_REPORT_SYMPTOMS,
     REPORT_SYMPTOMS,
 )
 
@@ -233,6 +234,13 @@ class TroubleReport:
         self.test_notes: List[str] = []
         self.dispatched_to: Optional[str] = None
         self.field_finding: Optional[str] = None
+        # Which sighting of its fault type this report was, fixed the first
+        # time the player read it or the field named it, so that measuring
+        # twice does not count twice. None until then.
+        self.sighting: Optional[int] = None
+        # Whether cosmos has shown this line's cross-connect record, which
+        # is what separates the conditions that read clean.
+        self.frame_looked_up = False
         # Who went, and how long it took them to get there.
         self.crew: Optional[str] = None
         self.travel_minutes = 0
@@ -497,7 +505,8 @@ class ReportDesk:
     def receive(self, now: datetime, slack_minutes: int = 0,
                 fault: Optional[str] = None,
                 record: Optional[LineRecord] = None,
-                repeat_of: Optional[str] = None) -> TroubleReport:
+                repeat_of: Optional[str] = None,
+                symptom: Optional[str] = None) -> TroubleReport:
         """
         Take a new report onto the pending list.
 
@@ -507,6 +516,8 @@ class ReportDesk:
             fault: Force a particular electrical condition
             record: Reuse an existing line record, as a repeat does
             repeat_of: The report number this one came back from
+            symptom: What the customer says, where it is not drawn from
+                the condition's own list
 
         Returns:
             The report that was created
@@ -519,7 +530,8 @@ class ReportDesk:
             condition = fault or self._choose_fault()
             line_record = record or self._make_record(condition, now)
         line_record.fault = condition
-        symptom = self.rng.choice(REPORT_SYMPTOMS.get(condition, ('Trouble',)))
+        symptom = symptom or self.rng.choice(
+            REPORT_SYMPTOMS.get(condition, ('Trouble',)))
         report = TroubleReport(
             number=self._next_number(),
             record=line_record,
@@ -536,7 +548,8 @@ class ReportDesk:
         return report
 
     def open_shift(self, now: datetime, slack_minutes: int = 0,
-                   count: Optional[int] = None) -> List[TroubleReport]:
+                   count: Optional[int] = None,
+                   teaching: bool = False) -> List[TroubleReport]:
         """
         Seed the pending list a shift starts with.
 
@@ -546,17 +559,23 @@ class ReportDesk:
             count: How many to deal. A first tour is dealt one, so that a
                 new craftsperson learns the loop on a board they can see
                 the whole of rather than on five reports at once.
+            teaching: Whether the first report is the one that shows the
+                customer's words and the pair disagreeing
         """
         count = self.rng.randint(*OPENING_BACKLOG) if count is None else count
         opened = []
         for index in range(count):
             received = now - timedelta(minutes=self.rng.randint(20, 240))
-            report = self.receive(received, slack_minutes)
+            if teaching and index == 0:
+                fault = self.rng.choice(sorted(FIRST_REPORT_SYMPTOMS))
+                report = self.receive(received, slack_minutes, fault=fault,
+                                      symptom=FIRST_REPORT_SYMPTOMS[fault])
+            else:
+                report = self.receive(received, slack_minutes)
             # Reports held over have already had time charged against them,
             # by whoever worked the shift before you. It is not your time.
             report.spend(self.rng.randint(0, 30), desk=0)
             opened.append(report)
-            del index
         return opened
 
     # -- access ----------------------------------------------------------
@@ -617,12 +636,15 @@ class ReportDesk:
         report.spend(minutes)
 
     def dispatch(self, report: TroubleReport, force: str,
-                 now: int = 0) -> str:
+                 now: int = 0, name_fault: bool = True) -> str:
         """
         Send a repair force and return what the field reports back.
 
         ``now`` is minutes into the tour on the shift clock, the same clock
-        the commitments and the crews' return times run on.
+        the commitments and the crews' return times run on. ``name_fault``
+        is whether the crew says what they cleared: a correct dispatch that
+        names the fault is the answer to the report, and the closing code
+        is the one thing the player is meant to work out.
 
         Dispatching to the wrong place is the expensive mistake it was: the
         trip is charged against the commitment and the trouble is still there.
@@ -636,10 +658,11 @@ class ReportDesk:
             # second crew to a sheath that is dry is the exact waste the
             # cable model exists to teach against, so it does not happen.
             report.dispatched_to = None
+            close = ('code 5, found WET' if name_fault
+                     else 'trouble found, and say what')
             return (f"{report.number} is on a sheath a splicer has already "
                     f"opened. The pair came back with the rest of the "
-                    f"group.\nNobody needs to go. Close it out: code 5, "
-                    f"found WET.")
+                    f"group.\nNobody needs to go. Close it out: {close}.")
 
         report.dispatched_to = force
 
@@ -693,12 +716,13 @@ class ReportDesk:
                     f"the station. {repair} minutes on the job.")
         if fault.code == 'WET':
             return f"{went}\n" + self._repair_sheath(
-                report, crew.name, repair)
-        return (f"{went}\n{crew.name} reports {fault.name.lower()} located "
+                report, crew.name, repair, name_fault)
+        cleared = fault.name.lower() if name_fault else 'the trouble'
+        return (f"{went}\n{crew.name} reports {cleared} located "
                 f"and cleared. {repair} minutes on the job.")
 
     def _repair_sheath(self, report: 'TroubleReport', force: str,
-                       repair: int) -> str:
+                       repair: int, name_fault: bool = True) -> str:
         """
         A splicer has opened one sheath, which repairs every pair in it.
 
@@ -712,7 +736,8 @@ class ReportDesk:
         record = report.record
         section = self.plant.section_at(record.cable, record.pair)
         if section is None:
-            return (f"{force} reports wet cable located and cleared. "
+            what = 'wet cable' if name_fault else 'the trouble'
+            return (f"{force} reports {what} located and cleared. "
                     f"{repair} minutes charged.")
 
         cleared = self.plant.repair(section, report.received)
@@ -730,7 +755,8 @@ class ReportDesk:
             if other.status == STATUS_PENDING:
                 other.status = STATUS_TESTED
 
-        lines = [f"{force} reports water in cable {section.cable}, binder "
+        found = 'water in' if name_fault else 'trouble in'
+        lines = [f"{force} reports {found} cable {section.cable}, binder "
                  f"{section.binder} ({section.colour()}), pairs "
                  f"{section.first_pair}-{section.last_pair}.",
                  f"Sheath opened, dried and resealed. {repair} minutes "

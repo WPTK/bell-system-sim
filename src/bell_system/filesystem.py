@@ -25,6 +25,7 @@ words for a thing that really was about to happen.
 
 from .clock import DIVESTITURE as _DIVESTITURE
 from .data.homes import HOMES
+from .data.practices import SHEETS, index as _binder_index, render as _sheet
 from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 # Divestiture took effect on 1 January 1984. The date itself lives in
@@ -1490,6 +1491,7 @@ FILESYSTEM: Dict[str, Node] = {
     '/usr/spool/news/net.unix-wizards/126': _file(NEWS_WIZARDS_126, owner='uucp'),
 
     '/usr/bsp': _dir(),
+    '/usr/bsp/index': _file(_binder_index()),
     '/usr/lmos': _dir(owner='sysop', group='craft'),
 
     '/usr/users': _dir(),
@@ -1505,6 +1507,11 @@ FILESYSTEM: Dict[str, Node] = {
         "gvasquez  4\nrjohnson  5\nsysop     -\nmreyes    7\n"
         "lokafor  11  (says the terminal was slow)\n"),
 }
+
+# The Practices binder: one file to a sheet, built from the data the
+# simulation runs on (data/practices.py).
+for _number in SHEETS:
+    FILESYSTEM[f'/usr/bsp/{_number}'] = _file(_sheet(_number))
 
 # Home directories for the other craft, so /usr/users is not a lie.
 for _login in ('rjohnson', 'mreyes', 'dpetrak', 'lokafor', 'gvasquez',
