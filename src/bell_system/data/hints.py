@@ -62,17 +62,32 @@ HINTS: Dict[str, Tuple[Hint, Hint, Hint]] = {
             "centre operation, and 'report faults' lists every condition.",
         )),
         ('ehalloran', (
-            "Type 'mlt' and the report number. Read the TEST RESULT block",
-            'at the bottom. It names the fault and it names the crew. It',
-            'is not a riddle.',
+            "Type 'mlt' and the report number. Read the numbers against",
+            "'report faults'. Early on the TEST RESULT block at the bottom",
+            'names the crew as well. Later it will not, and that is the job.',
+        )),
+    ),
+    # A first tour that has seen the board and not yet rung the customer.
+    'callback': (
+        ('gvasquez', (
+            'The card is what the customer noticed. It is not always what',
+            'is on the pair.',
+        )),
+        ('ehalloran', (
+            "'man report' lists callback. The customer will tell you more",
+            'than the card carries, and it costs a few minutes of the',
+            'commitment.',
+        )),
+        ('ehalloran', (
+            "'report callback 1'. Then 'mlt 1', and read the numbers",
+            'against what they said.',
         )),
     ),
     # Measured, and now somebody has to go.
     'dispatch': (
         ('gvasquez', (
-            'You have the reading. The bottom of it told you where the',
-            'trouble is, and where it is decides who goes: the loop is not',
-            'the office and the office is not the station.',
+            'You have the reading. Where the trouble is decides who goes:',
+            'the loop is not the office and the office is not the station.',
         )),
         ('ehalloran', (
             "'report forces' lists who we can send. Division 620 under",
@@ -80,9 +95,9 @@ HINTS: Dict[str, Tuple[Hint, Hint, Hint]] = {
             "'report show' will show you the reading again.",
         )),
         ('ehalloran', (
-            "'report dispatch <number> <force>'. The force is the one the",
-            'test named. Send anybody else and you have spent three',
-            'quarters of an hour proving the meter right.',
+            "'report dispatch <number> <force>'. The force is the one for",
+            'where the readings put it. Send anybody else and you have spent',
+            'three quarters of an hour proving the meter right.',
         )),
     ),
     # The field has been and gone and nobody has closed it out.
@@ -98,8 +113,8 @@ HINTS: Dict[str, Tuple[Hint, Hint, Hint]] = {
             'are counted separately and they are counted.',
         )),
         ('ehalloran', (
-            "'report close <number> 5 <fault>', with the fault the test",
-            'gave you. Not the one the customer described - the one on the',
+            "'report close <number> 5 <fault>', with the fault the readings",
+            'showed. Not the one the customer described - the one on the',
             'pair.',
         )),
     ),

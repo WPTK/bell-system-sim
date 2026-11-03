@@ -108,6 +108,11 @@ class GuidanceCommands(SessionState):
         untested = [report for report in pending if not report.tested]
         if untested:
             report = untested[0]
+            if self.first_tour() and 'callback' not in self._tour_nudges:
+                return NextAction(
+                    f"{report.number} says one thing on the card and the "
+                    f"customer will say another.",
+                    f"report callback {report.number}", 'callback')
             return NextAction(
                 f"{report.number} has not been measured. "
                 f"{report.age_label()} on the commitment.",
@@ -237,8 +242,9 @@ class GuidanceCommands(SessionState):
         rows.append('')
         rows.append("   The whole job is four commands: report, mlt, "
                     "report dispatch,")
-        rows.append("   report close. mlt tells you what the fault is and "
-                    "who to send.")
+        rows.append("   report close. mlt gives you the readings; "
+                    "'report faults' says")
+        rows.append("   what they add up to.")
         rows.append("   Stuck on something? 'hint' asks somebody. Ask "
                     "again for more.")
         return rows
@@ -597,8 +603,9 @@ class GuidanceCommands(SessionState):
 FAILURES = {
     'wrong': (
         "{count} close out{s} named a condition the line did not have.",
-        "mlt names the fault outright at the bottom of the reading. It is "
-        "worth four minutes before every close.",
+        "The readings say what is on the pair, and 'report faults' says "
+        "what each one adds up to. Four minutes of mlt is worth it before "
+        "every close.",
     ),
     'missed': (
         "{count} commitment{s} went past.",
@@ -629,17 +636,23 @@ FIRST_TOUR = {
     'board': (
         'That is the board. One line to a report: who is out, what they',
         'say is wrong, and when we promised them.',
-        "Measure it before you send anybody. 'mlt 1'.",
+        'What they say is what they noticed, and it is not always what is',
+        "on the pair. Ring them back first: 'report callback 1'.",
+    ),
+    'callback': (
+        'Hear the difference? The card said one thing and the customer',
+        'said another. The pair has the last word, so put a meter on it.',
+        "'mlt 1', and read the numbers against both.",
     ),
     'measure': (
-        'Read the bottom of that. TEST RESULT tells you what the fault is',
-        'and which crew it wants. It is not a riddle - it says it outright.',
-        'Send whoever it names.',
+        'Read the bottom of that, and read it against what the customer',
+        "told you. Where it names a crew, send them; 'report faults' says",
+        'what each reading adds up to when it does not.',
     ),
     'dispatch': (
         'They will call in when they have been. Then close it out: code 5',
         'if they found trouble, code 8 if there was none, and name the',
-        'fault the measurement gave you.',
+        'fault the readings showed.',
     ),
     'closed': (
         'That is the job. The rest of the board is coming.',

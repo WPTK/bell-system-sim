@@ -408,8 +408,8 @@ class TestFirstTour:
 
     def test_every_step_of_the_loop_has_something_to_say(self):
         from bell_system.screens.guidance import FIRST_TOUR
-        assert set(FIRST_TOUR) == {'open', 'board', 'measure', 'dispatch',
-                                   'closed'}
+        assert set(FIRST_TOUR) == {'open', 'board', 'callback', 'measure',
+                                   'dispatch', 'closed'}
 
     def test_each_step_speaks_once(self, raw_terminal):
         terminal = self._fresh(raw_terminal)

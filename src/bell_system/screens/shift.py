@@ -443,7 +443,7 @@ class ShiftCommands(SessionState):
             target = random.choice(overdue)
             return self.switchroom.chase(
                 now, target.number, target.record.telephone_number)
-        if untested and roll < 0.60 and difficulty.names_fault:
+        if untested and roll < 0.60 and difficulty.annotation_sightings:
             return self.switchroom.hint(now)
         if untested and roll < 0.50:
             return self.switchroom.hint(now)

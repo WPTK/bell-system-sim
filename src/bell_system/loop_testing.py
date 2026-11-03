@@ -91,6 +91,33 @@ class LoopMeasurement(NamedTuple):
     suspected: Optional[str]
 
 
+# How much the system says about a fault type, by how often this career has
+# seen it. A craftsperson learns a reading from being told what it is, and
+# then has to be able to do it without being told.
+STAGE_NOTE = 'note'        # the name, the crew, and why the numbers say so
+STAGE_CREW = 'crew'        # the crew class and nothing else
+STAGE_NUMBERS = 'numbers'  # the readings
+
+
+def reading_stage(sighting: int, annotate_sightings: int) -> str:
+    """
+    Say how much to tell somebody who is seeing a fault type again.
+
+    Args:
+        sighting: Which sighting of this fault type it is, 1 for the first
+        annotate_sightings: How many sightings the difficulty still
+            annotates, Difficulty.annotation_sightings
+
+    Returns:
+        STAGE_NOTE for the first half of those sightings, STAGE_CREW for
+        the rest and STAGE_NUMBERS for every sighting after
+    """
+    if sighting > annotate_sightings:
+        return STAGE_NUMBERS
+    note_sightings = (annotate_sightings + 1) // 2
+    return STAGE_NOTE if sighting <= note_sightings else STAGE_CREW
+
+
 def _line_seed(number: str, fault: str) -> random.Random:
     """Return a generator seeded so one line always measures the same."""
     return random.Random(f"{number}:{fault}")
@@ -183,7 +210,7 @@ def measure_loop(telephone_number: str, fault_code: str,
 # measurement the player actually took, because "you should have measured
 # more carefully" teaches nothing and "tip to ring measured 39 ohms" teaches
 # the reading.
-def _reading_tell(fault_code: str, measured: LoopMeasurement) -> str:
+def reading_tell(fault_code: str, measured: LoopMeasurement) -> str:
     """Return the sentence naming what the readings said."""
     tip_ring = f"{measured.tip_ring_ohms:,}"
     to_ground = min(measured.tip_ground_ohms, measured.ring_ground_ohms)
@@ -260,7 +287,7 @@ def post_mortem(telephone_number: str, actual: str,
         return (f"That line was never measured. mlt would have read: "
                 f"{signature[0].lower()}{signature[1:]}.")
 
-    lines = [_reading_tell(actual, measured)]
+    lines = [reading_tell(actual, measured)]
     if claimed is not None and claimed in FAULTS and claimed != actual:
         signature = FAULTS[claimed].mlt_signature
         lines.append(f"{FAULTS[claimed].name} reads "
