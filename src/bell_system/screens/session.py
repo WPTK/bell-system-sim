@@ -368,6 +368,10 @@ class SessionState:
         """Put the files that have arrived by this tour on the machine."""
         raise NotImplementedError
 
+    def sync_groups(self) -> None:
+        """Record the groups the held sign-offs give."""
+        raise NotImplementedError
+
     def _note_read(self, path: str) -> None:
         """Record that a file has been put in front of the player."""
         raise NotImplementedError

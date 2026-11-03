@@ -4,7 +4,8 @@ Things the machine holds that are worth finding, and who may read them.
 Two rules govern this module, both from pillar 4 of ``docs/design/plan.md``.
 Lore is found with ls, cat and grep, and nothing here is pushed at the player:
 no briefing points at a file, and no file says what the player ought to do
-about a report.
+about a report. And each sign-off opens the next layer, which is why the
+groups below follow the ladder.
 
 Everything in here is the simulation's own invention. The people are the
 roster's (``npc.CRAFT``) except R. Alvarez, who held the sysop position
@@ -20,7 +21,7 @@ the way the netnews does, and live where nobody would browse: a dotfile in
 a home directory, a dot directory in the uucp spool. Those are for ``grep``.
 """
 
-from typing import Dict, NamedTuple, Optional, Tuple
+from typing import Dict, FrozenSet, NamedTuple, Optional, Tuple
 
 # filesystem.MOO_SCORES, which this module cannot import (the tree imports
 # this module); a test holds the two together.
@@ -47,6 +48,74 @@ class Fragment(NamedTuple):
     group: Optional[str] = None
     mode: Optional[str] = None
 
+
+# Which Unix group each sign-off puts the player in, by how many sign-offs
+# are held. Halloran signs all of them; the third is the one he says he
+# notices, and it is the adm group he mentions. The others are the groups
+# the file in question would belong to on a real machine. The simulation's
+# own: no source says a sign-off gated a file.
+GROUP_FOR_SIGN_OFF: Dict[int, str] = {
+    1: 'craft',
+    2: 'uucp',
+    3: 'adm',
+    4: 'sys',
+    5: 'mgmt',
+}
+
+# How many sign-offs the third group takes, which is when the wire chief
+# says the su log is open to you.
+ADM_GROUP_QUALIFICATIONS = 3
+
+
+def groups_for(held: int) -> FrozenSet[str]:
+    """Return the groups a craftsperson holding this many sign-offs is in."""
+    return frozenset(group for number, group in GROUP_FOR_SIGN_OFF.items()
+                     if number <= held)
+
+
+# -- the last holder of the position ------------------------------------
+
+SENT = """From sysop Fri Nov 11 23:02:40 1983
+To: ehalloran
+Subject: handover
+
+Board is clear. Notes are in my home directory. Franklin Street
+is done. Anything else is in the log.
+
+R. Alvarez
+"""
+
+# The record journal. Reyes tries to reopen what the position closed and is
+# refused; she tries su; Halloran su's at 06:15 and does it himself. The
+# journal never says why he did.
+LMOSLOG = """line record journal, mhuxco                     11/14
+03:41  REOPEN  mreyes     refused: closed records are root's
+03:44  REOPEN  mreyes     refused: closed records are root's
+03:47  SU      mreyes     root: refused
+03:52  REOPEN  mreyes     refused: closed records are root's
+06:15  SU      ehalloran  root: ok
+06:16  REOPEN  ehalloran  ok  records closed by sysop 11/07-11/11
+                          that had been rung back on
+06:21  CLOSE   ehalloran  journal
+"""
+
+# Halloran's own list. He is plain and says as little as he can; this is
+# the one file where he says why.
+REOPENED = """records reopened 11/14, under my name
+
+The memo says what is open on the 31st goes to the operating company
+with the name of whoever held it. I would rather the name was mine.
+The position has nobody in it, and Reyes has signed for none of them.
+
+She tried at 03:47. It was the right thing to try. It was not hers to
+try and I have not told her so.
+
+Alvarez closed twenty-nine no trouble found in the last week. Some of
+them rang back. Those are the ones. They are mine until they are
+closed.
+
+                                                       E. Halloran
+"""
 
 # -- Alvarez's log, which testlog.c writes ------------------------------
 
@@ -114,7 +183,19 @@ TRANSFER = """accounts on mhuxco, for the operating company. from the wire chief
 # The order here is the number ``finds`` prints beside each title, so new
 # fragments go on the end.
 FRAGMENTS: Tuple[Fragment, ...] = (
+    # The thread of the last holder, one layer to a sign-off.
+    # dead.letter ships with the sysop home (data/homes.py).
+    Fragment('letter', 'Mail to the chief, not sent',
+             '/usr/users/sysop/dead.letter', mode='-rw-r-----'),
+    Fragment('sent', 'Mail to the chief, sent',
+             '/usr/spool/uucp/D.mhuxcoB0212', text=SENT,
+             owner='uucp', group='uucp', mode='-rw-r-----'),
     Fragment('sulog', 'Who became whom', '/usr/adm/sulog'),
+    Fragment('lmoslog', 'The record journal', '/usr/adm/lmoslog',
+             text=LMOSLOG, owner='sys', group='sys', mode='-rw-r-----'),
+    Fragment('reopened', "The chief's own list",
+             '/usr/users/ehalloran/reopened', text=REOPENED,
+             owner='ehalloran', group='mgmt', mode='-rw-r-----'),
     # What was on the machine already.
     Fragment('notes', 'Notes for whoever has the position',
              '/usr/users/sysop/notes'),

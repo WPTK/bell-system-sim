@@ -15,9 +15,12 @@ the next.
 """
 
 import fnmatch
+from datetime import datetime, timedelta
 from typing import FrozenSet, List, Optional
 
+from ..data.finds import GROUP_FOR_SIGN_OFF, groups_for
 from ..filesystem import (
+    GROUP,
     PLAYER_LIMIT,
     Node,
     children,
@@ -29,8 +32,16 @@ from .finds import FindsCommands
 
 # How many sign-offs the wire chief wants behind somebody before he puts
 # them in the group that owns /usr/adm/sulog. The simulation's own figure:
-# it is the third, which is the one he says he notices.
+# it is the third, which is the one he says he notices. The ladder of
+# groups it belongs to is data/finds.py GROUP_FOR_SIGN_OFF.
 ADM_GROUP_QUALIFICATIONS = 3
+
+# The first morning of the game, which the career counts group grants from.
+GRANT_EPOCH = datetime(1983, 11, 14)
+
+SULOG = '/usr/adm/sulog'
+# Halloran's terminal, which he is on when he puts someone in a group.
+CHIEF_LINE = 'tty01'
 
 
 class ShellCommands(FindsCommands):
@@ -74,26 +85,82 @@ class ShellCommands(FindsCommands):
         """
         Return whether this position may read a file.
 
-        The mode column has been on every listing since the filesystem was
-        written and has never meant anything. It means something on the one
-        file that denies the rest of the machine: an operator reads it when
-        the wire chief has put them in the group that owns it, and he does
-        that once he has signed off enough of their qualifications to
-        decide they are staying.
+        The mode column means what it says: anybody reads a file that is
+        readable by others, its owner reads it, and a member of its group
+        reads it when the group bit is set. The groups are the ones the
+        wire chief has put this position in (``_groups``), one more with
+        each sign-off, so the files that are shut are the next chapter of
+        the story and not the same wall.
         """
         node = self._node(path)
         if node is None:
             return True
         if node.mode[7:8] == 'r' or node.owner == (self.username or 'sysop'):
             return True
-        return node.group in self._groups()
+        return node.mode[4:5] == 'r' and node.group in self._groups()
 
     def _groups(self) -> FrozenSet[str]:
-        """Which groups this position has been put in."""
-        groups = {'craft'}
-        if len(self.career.qualifications) >= ADM_GROUP_QUALIFICATIONS:
-            groups.add('adm')
-        return frozenset(groups)
+        """
+        Return which groups this position is in.
+
+        What the held sign-offs give (data/finds.py), and anything the
+        career has been put in by name. The first comes from how many are
+        held and not from a record of having been told, so a career signed
+        off before the groups were kept has them from the first command.
+        """
+        return groups_for(len(self.career.qualifications)) | frozenset(
+            self.career.groups)
+
+    def sync_groups(self) -> None:
+        """
+        Record the groups the held sign-offs give, and what that leaves in
+        the su log.
+
+        Halloran says the log "has your name in it" when he adds someone to
+        adm. This makes it true: one successful su, from his login to the
+        player's, at the moment of the sign-off (narrative bible T5).
+        Called when a sign-off is passed, when a position is taken (the
+        login is the position) and when the machine starts. The log is
+        rebuilt every session, so the line is written again each time from
+        the stamp the career kept.
+        """
+        career = self.career
+        held = groups_for(len(career.qualifications))
+        minutes = int((self.clock.now() - GRANT_EPOCH).total_seconds() // 60)
+        changed = False
+        for number in sorted(GROUP_FOR_SIGN_OFF):
+            group = GROUP_FOR_SIGN_OFF[number]
+            if group in held and group not in career.groups:
+                career.groups.append(group)
+                career.granted[group] = max(0, minutes)
+                changed = True
+        if changed:
+            career.save()
+        node = self.filesystem.get(SULOG)
+        if 'adm' not in career.granted or node is None:
+            return
+        if not isinstance(node.content, str):
+            return
+        stamp = (GRANT_EPOCH + timedelta(minutes=career.granted['adm'])
+                 ).strftime('%m/%d %H:%M')
+        head = f"SU {stamp} + {CHIEF_LINE} ehalloran-"
+        kept = [line for line in node.content.split('\n')
+                if line and not line.startswith(head)]
+        kept.append(f"{head}{self.username or 'sysop'}")
+        self.filesystem[SULOG] = node._replace(
+            content='\n'.join(kept) + '\n')
+
+    def _render_group(self) -> str:
+        """Render /etc/group with this position in the groups it holds."""
+        mine = self.username or 'sysop'
+        rows = []
+        for row in GROUP.splitlines():
+            name, password, number, members = row.split(':')
+            names = members.split(',') if members else []
+            if name in self._groups() and mine not in names:
+                names.append(mine)
+            rows.append(f"{name}:{password}:{number}:{','.join(names)}")
+        return '\n'.join(rows) + '\n'
 
     def _refusal(self, name: str, command: str) -> str:
         """Say why a file could not be read."""

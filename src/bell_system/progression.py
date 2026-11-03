@@ -52,7 +52,10 @@ _LIST_FIELDS = ('commendations', 'finds', 'groups', 'beats_seen',
 # the career's running totals for the KPIs and ``tour_mark`` is the same
 # counters as they stood when the tour opened, so that a tour's own figures
 # are the difference and there is one set of books.
-_COUNT_FIELDS = ('fault_sightings', 'rapport', 'kpi', 'tour_mark')
+# ``granted`` is when each Unix group was given, in minutes from the first
+# morning of the game, which is what the su log's line for the player is
+# written from every session.
+_COUNT_FIELDS = ('fault_sightings', 'rapport', 'kpi', 'tour_mark', 'granted')
 # Every key save() writes. Anything else in the file is a later version's.
 _KNOWN_KEYS = frozenset((
     'schema', 'difficulty', 'shift', 'reports_closed', 'reports_correct',
@@ -494,8 +497,10 @@ class Career:
         self.commendations: List[str] = []
         # Fragments of the machine the player has read.
         self.finds: List[str] = []
-        # Unix groups the player has been added to.
+        # Unix groups the player has been added to, and when (minutes since
+        # 00:00 on 14 November 1983 on the simulated clock).
         self.groups: List[str] = []
+        self.granted: Dict[str, int] = {}
         # Goodwill with the other craft, by login.
         self.rapport: Dict[str, int] = {}
         # Story beats that have already been played.

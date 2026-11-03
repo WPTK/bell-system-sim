@@ -197,9 +197,12 @@ class UnixCommands(SessionState):
         self.filesystem['/usr/lmos/cable'] = _generated(
             lambda terminal: terminal._render_cable_file(),
             owner='sysop', group='craft')
+        self.filesystem['/etc/group'] = _generated(
+            lambda terminal: terminal._render_group())
         self.filesystem['/usr/spool/mail'] = Node(
             'dir', 'root', 'other', 'drwxrwxr-x', '')
         self.add_mailbox()
+        self.sync_groups()
 
     def add_mailbox(self) -> None:
         """

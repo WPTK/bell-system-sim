@@ -821,6 +821,7 @@ class BellSystemTerminal(
         # The mailbox is made out to whoever is at the position, and until
         # now nobody was.
         self.add_mailbox()
+        self.sync_groups()
 
         # The first moment the machine knows which desk it is. Everything
         # above ran while self.role was still None.

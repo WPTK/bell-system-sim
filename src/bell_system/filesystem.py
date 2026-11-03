@@ -219,7 +219,7 @@ main()
 
 TESTLOG_C = """/*
  * testlog - append a line to the position test log
- * R. Alvarez, tour 2
+ * R. Alvarez, evening tour
  */
 #include <stdio.h>
 
@@ -1437,7 +1437,7 @@ FILESYSTEM: Dict[str, Node] = {
 
     '/usr/adm': _dir(owner='adm', group='adm'),
     '/usr/adm/messages': _file(MESSAGES, owner='adm', group='adm'),
-    '/usr/adm/sulog': _file(SULOG, owner='adm', group='adm', mode='-rw-------'),
+    '/usr/adm/sulog': _file(SULOG, owner='adm', group='adm', mode='-rw-r-----'),
     '/usr/adm/uucplog': _file(UUCPLOG, owner='uucp', group='uucp'),
 
     '/usr/bin': _dir(),

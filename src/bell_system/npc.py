@@ -295,7 +295,7 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
           'take the accounts on it. Anything in /tmp is yours until then',
           "and nobody else's ever."]),
         (CHANNEL_TELETYPE, 'adm',
-         ['su: BADSU 11/14 07:52 - tty03 mreyes-root']),
+         ['su: BADSU 11/14 03:47 - tty07 mreyes-root']),
     ),
 
     'switch': (
