@@ -227,6 +227,25 @@ class CablePlant:
         section.reserve(pair)
         return section.cable, pair
 
+    def wet_over(self, cable: int, pair: int, now: datetime) -> WetSection:
+        """
+        Return the open wet section over a cable and pair, opening one if
+        there is none.
+
+        For a line whose pair is fixed rather than drawn: its water has to
+        be in the binder group it is actually in, so one splicer trip still
+        clears the group.
+        """
+        section = self.section_at(cable, pair)
+        if section is None:
+            binder = (pair - 1) // PAIRS_PER_BINDER + 1
+            section = WetSection(cable, binder,
+                                 self.rng.randint(*SECTION_REPORTS), now)
+            self.sections.append(section)
+        if pair not in section.pairs:
+            section.reserve(pair)
+        return section
+
     def attach(self, cable: int, pair: int, number: str) -> None:
         """Note which report a wet pair produced, once it has a number."""
         section = self.section_at(cable, pair)

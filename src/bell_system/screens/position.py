@@ -66,80 +66,62 @@ class PositionCommands(SessionState):
         self.position = get_position(role_key)
         self.desk.fault_bias = dict(self.position.fault_bias)
         self.desk.depth_limit = self.board_depth()
+        if self.position.key in ('noc', 'sarts', 'switch'):
+            self._count_desk()
+        office: Any = self  # The desks' commands, mixed into the class.
         if self.position.key == 'noc':
-            self._count_triage()
+            # The tour's book, before anybody is on the queue.
+            office.triage_book()
         if self.position.key == 'custserv':
             # The tour's book, before anybody is on the board: see
             # RepairDeskCommands._opening_book.
-            console: Any = self
-            console.patience_book()
-        if self.position.key == 'sarts':
-            self._count_outages()
+            office.patience_book()
         if self.position.key == 'switch':
-            self._count_lamps()
-            office: Any = self  # The office commands, mixed into the class.
             office.deal_alarms()
 
-    _triage_counted = False
+    _desk_counted = False
 
-    def _count_triage(self) -> None:
+    def _count_desk(self) -> None:
         """
-        Open the NOC's windows with the tour, and put them on the index.
+        Put what the desk holds past its window on the index.
 
-        A ticket nobody is on past its window is the NOC's version of a
+        A NOC ticket nobody is on, an office alarm held at the top lamp and
+        a SARTS circuit left in trouble are each the desk's version of a
         report left open past its commitment, and the service index already
-        counts those through career.open_overdue. Adding the tickets to
-        that count is what makes ignoring the queue cost something without
-        anyone looking, and the handoff already prints the result.
+        counts those through career.open_overdue. Adding the desk's own
+        count to that is what makes ignoring the queue, the panel or the
+        board cost something without anyone looking, and the handoff
+        already prints the result.
 
-        Every ticket whose window passed stays in the count, taken or not.
-        The index only sees a missed commitment next to a report closed or
-        one still open, so a late take that left the count would cost
-        nothing on a tour with no closes.
+        Every one whose window passed stays in the count, cleared or taken
+        later or not: the index only sees a missed commitment next to a
+        report closed or one still open, so a late take that left the
+        count would cost nothing on a tour with no closes.
         """
-        queue: Any = self  # The ticket commands, mixed into the same class.
-        queue.triage_book()
-        if self._triage_counted:
+        if self._desk_counted:
             return
-        self._triage_counted = True
+        self._desk_counted = True
         reports = self.career.open_overdue
-        self.career.open_overdue = (
-            lambda: reports() + queue.triage_lapsed())
+        self.career.open_overdue = lambda: reports() + self.desk_overdue()
 
-    _lamps_counted = False
-
-    def _count_lamps(self) -> None:
+    def desk_overdue(self) -> int:
         """
-        Put the office desk's alarms held at the top lamp on the index.
+        What this desk holds past its window, beyond the board's reports.
 
-        The same road the NOC's tickets and the SARTS circuits take: an
-        alarm nobody cleared in a whole span at the top lamp is a
-        commitment missed, whether or not anyone looks at the panel.
+        The one figure the index (as backlog) and the tour's goals and
+        summary (as missed commitments) both read, so a late clear is
+        counted once and the same everywhere. Read only; off a desk with
+        such a window it is nothing.
         """
-        if self._lamps_counted:
-            return
-        self._lamps_counted = True
-        console: Any = self  # The office commands, mixed into the same class.
-        reports = self.career.open_overdue
-        self.career.open_overdue = (
-            lambda: reports() + console.alarms_overdue())
-
-    _outages_counted = False
-
-    def _count_outages(self) -> None:
-        """
-        Put the SARTS desk's circuits held past their window on the index.
-
-        The same road the NOC's tickets take: a circuit nobody has cleared
-        within the window is a commitment missed, whether or not anyone
-        looks at the board, and the handoff prints the index.
-        """
-        if self._outages_counted:
-            return
-        self._outages_counted = True
-        reports = self.career.open_overdue
-        self.career.open_overdue = (
-            lambda: reports() + self.outages_overdue())
+        office: Any = self  # The desk's commands, mixed into the class.
+        key = self.position.key
+        if key == 'noc':
+            return office.triage_lapsed()
+        if key == 'sarts':
+            return office.outages_overdue()
+        if key == 'switch':
+            return office.alarms_overdue()
+        return 0
 
     def outages_overdue(self) -> int:
         """

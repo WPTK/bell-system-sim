@@ -10,7 +10,7 @@ deleted, and a fourth, ``legacy.json``, carries two things forward:
 * the files the player wrote under ``/usr/users/``.
 
 The next career finds them under ``/usr/users/prior/``, as the files of an
-earlier holder of the desk. They are undated and unsigned (the bible, W16).
+earlier holder of the desk. They are undated and unsigned (the bible, W17).
 They carry no fact about any report, so a second career has no key to a
 board by reading the first one's files (pillar 1).
 

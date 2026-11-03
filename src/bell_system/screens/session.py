@@ -428,6 +428,10 @@ class SessionState:
         """Closed, correct, missed and repeats for this tour alone."""
         raise NotImplementedError
 
+    def desk_overdue(self) -> int:
+        """What this desk holds past its window, beyond the board."""
+        raise NotImplementedError
+
     def add_mailbox(self) -> None:
         """Put this position's mailbox under /usr/spool/mail."""
         raise NotImplementedError
