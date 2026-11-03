@@ -136,6 +136,7 @@ def _report_out(report: TroubleReport) -> Dict[str, Any]:
     written['practical'] = report.practical
     written['sighting'] = report.sighting
     written['frame_looked_up'] = report.frame_looked_up
+    written['first_dispatch_judged'] = report.first_dispatch_judged
     written['record'] = _record_out(report.record)
     written['received'] = _stamp(report.received)
     written['commitment'] = _stamp(report.commitment)
@@ -174,6 +175,10 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     report.sighting = stored.get('sighting')
     # Written since help learned to send a clean reading to the frame.
     report.frame_looked_up = stored.get('frame_looked_up', False)
+    # Written since commendations judged the first crew sent. A report from
+    # before is taken to have had its first dispatch if it ever had a crew.
+    report.first_dispatch_judged = stored.get(
+        'first_dispatch_judged', stored.get('dispatched_to') is not None)
     # Nor were overdue reports flagged while they were open. Left alone,
     # the first age() after loading would find every one of them late at
     # once and answer with a burst of misses and escalations for lateness

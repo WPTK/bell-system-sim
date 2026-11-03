@@ -50,7 +50,8 @@ class Evidence(NamedTuple):
     # Customer reports left open past their commitment at the handoff. Only
     # known when the tour is being struck, so zero at any other time.
     late_open: int
-    # Correct closes in a row, across tours, ending at the latest close.
+    # Closes in a row, across tours, each measured and correct, ending at the
+    # latest close.
     streak: int
     # Other reports one splicer's trip has just repaired. Only known when
     # the dispatch is made.
@@ -93,8 +94,8 @@ COMMENDATIONS: Tuple[Commendation, ...] = (
         _clean_tour),
     Commendation(
         'five_straight', 'Five straight', 'close',
-        f"{STRAIGHT_RUN} closes in a row that matched the line, across "
-        "tours if it took that long.",
+        f"{STRAIGHT_RUN} closes in a row, each one measured first and each "
+        "one matching the line, across tours if it took that long.",
         lambda evidence: evidence.streak >= STRAIGHT_RUN),
     Commendation(
         'right_first_time', 'Right the first time', 'tour',

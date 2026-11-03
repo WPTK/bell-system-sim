@@ -153,6 +153,9 @@ class BureauCommands(SessionState):
             1 for report in self.desk.pending() if report.overdue())
         self.career.open_ages = lambda: [
             report.minutes_spent for report in self.desk.customers()]
+        self.career.overdue_numbers = lambda: [
+            report.number for report in self.desk.customers()
+            if report.overdue()]
         self.switchroom = Switchroom()
         self.special_services = SartsInventory(self.home_office['clli'])
         self.lmos_console = LmosConsole(self)
@@ -487,13 +490,13 @@ class BureauCommands(SessionState):
         # A crew that goes to the wrong place reads nothing, so only a
         # dispatch that finds something is a sighting.
         name_fault = self._reading_stage(report, count=False) != STAGE_NUMBERS
-        first = report.dispatched_to is None
         repaired = sum(r.sheath_repaired for r in self.desk.reports.values())
         finding = self.desk.dispatch(report, canonical, self.shift_minutes,
                                      name_fault)
-        if first and report.dispatched_to is not None:
-            # The first crew sent is the judgement; a retry after a wrong one
-            # is not. Nobody sent, or nobody needed, is not a dispatch.
+        if not report.first_dispatch_judged and report.dispatched_to:
+            # The first crew sent is the judgement; whatever follows it is
+            # not. Nobody sent, or nobody needed, is not a dispatch.
+            report.first_dispatch_judged = True
             self.career.record_dispatch(
                 canonical.lower()
                 == FAULTS[report.record.fault].dispatch.lower(),
@@ -626,7 +629,7 @@ class BureauCommands(SessionState):
             # Ran past the commitment on the close itself.
             self.career.record_missed()
         self.career.record_closure(correct, report.minutes_spent,
-                                   report.tested)
+                                   report.tested, report.number)
 
         lines = [
             f"{report.number} closed, code {disposition} - "

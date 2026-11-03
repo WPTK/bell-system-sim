@@ -592,19 +592,20 @@ class GuidanceCommands(SessionState):
 
     def credit_rows(self) -> List[str]:
         """The tour's index, its meter and its KPIs: what a handoff shows."""
-        return [self.tour_index_row(), self.board_meter(),
-                *self.kpi_rows(self.career.tour_kpis(),
-                               'THIS TOUR')[2:]]
+        kpis = self.kpi_rows(self.career.tour_kpis(), 'KPIs THIS TOUR')
+        # The heading carries the PROVISIONAL label, so it stays; the rule
+        # under it is for the qual screen.
+        return [self.tour_index_row(), self.board_meter(), '',
+                kpis[0], *kpis[2:]]
 
     def commendation_lines(self, earned: List[str]) -> List[str]:
         """The commendations earned this tour, named, or nothing."""
-        if not earned:
+        known = [COMMENDATIONS_BY_KEY[key] for key in earned
+                 if key in COMMENDATIONS_BY_KEY]
+        if not known:
             return []
         rows = ['COMMENDATIONS EARNED THIS TOUR', '-' * 66]
-        for key in earned:
-            commendation = COMMENDATIONS_BY_KEY.get(key)
-            if commendation is None:
-                continue
+        for commendation in known:
             rows.append(f"  {commendation.name}")
             rows.extend(f"    {line}" for line in
                         wrap(commendation.description, 60))

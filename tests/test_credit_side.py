@@ -9,6 +9,9 @@ the board themselves.
 
 import pytest
 
+from bell_system import save
+from bell_system.clock import TOURS_TO_DIVESTITURE
+from bell_system.data.trouble import FAULTS
 from bell_system.data.commendations import (
     COMMENDATIONS, COMMENDATIONS_BY_KEY, MINIMUM_CLOSES, Evidence)
 from bell_system.progression import (
@@ -56,9 +59,10 @@ class TestTheFiveKpis:
             id='nothing yet is none yet, not zero and not perfect'),
         pytest.param(
             [(False, 200, False)] * 2, [False, False], 2, 2, 3, [50, 70, 90],
-            dict(mttr=200.0, commitments_met=60.0, first_time_right=0.0,
+            dict(mttr=None, commitments_met=60.0, first_time_right=0.0,
                  repeat_rate=100.0, backlog_age=70.0, provisional=True),
-            id='a board left to age counts against the commitments'),
+            id='a board left to age counts against the commitments; wrong '
+               'closes are not repairs'),
     ]
 
     @pytest.mark.parametrize(
@@ -387,3 +391,225 @@ class TestTheTerminal:
         clean_board(terminal)
         terminal.desk.receive(terminal.clock.now(), fault='OPEN')
         assert len(terminal.career.open_ages()) == 1
+
+
+def heading_line(text):
+    """The KPI block's heading line, where the PROVISIONAL label lives."""
+    return next(line for line in text.splitlines()
+                if line.startswith('KPIs THIS TOUR'))
+
+
+class TestHandoffPrintsEachNameOnce:
+    """B1: the sign-off printed what the tour earned twice."""
+
+    def test_relieve_names_each_commendation_once(self, terminal):
+        clean_board(terminal)
+        close_clean(terminal.career, 5)
+        text = terminal.execute_command(RELIEVE)
+        assert text.count('Five straight') == 1
+        assert text.count('First clean tour') == 1
+        assert text.count('COMMENDATIONS EARNED THIS TOUR') == 1
+
+    def test_the_last_tour_names_each_once_too(self, terminal):
+        terminal.career.shift = TOURS_TO_DIVESTITURE
+        terminal.career.save()
+        terminal.clock.set_tour(terminal.career.shift)
+        terminal.generate_shift_events()
+        terminal.desk.reports.clear()
+        terminal.desk.order.clear()
+        close_clean(terminal.career, 5)
+        text = terminal.execute_command(RELIEVE)
+        assert text.count('Five straight') == 1
+        assert text.count('COMMENDATIONS EARNED THIS TOUR') == 1
+
+    def test_the_preview_still_shows_what_is_earned_so_far(self, terminal):
+        clean_board(terminal)
+        close_clean(terminal.career, 5)
+        text = terminal.execute_command('handoff')
+        assert text.count('COMMENDATIONS EARNED THIS TOUR') == 1
+        assert text.count('Five straight') == 1
+
+
+class TestAResumedFirstTour:
+    """F1: a new career saves an empty mark, and loading must keep it."""
+
+    def test_reloading_in_tour_one_keeps_the_tours_closes(self, tmp_path):
+        path = career_path(str(tmp_path))
+        career = Career(path)
+        close_clean(career, 3)
+        assert Career(path).tour_counts()['closed'] == 3
+        assert Career(path).tour_counts()['closed'] == 3
+
+
+class TestCarriedBacklogIsChargedOnce:
+    """F2, F3: what was late at the last handoff is that tour's, not this one's."""
+
+    @staticmethod
+    def second_tour(late_numbers):
+        """A career whose first tour ended with these reports past due."""
+        career = Career()
+        career.open_overdue = lambda: len(late_numbers)
+        career.overdue_numbers = lambda: list(late_numbers)
+        close_clean(career, 5)
+        career.end_shift()
+        assert career.carried_late == list(late_numbers)
+        return career
+
+    def test_a_tour_of_nothing_but_carried_backlog_is_not_scored(self):
+        career = self.second_tour(['TR-1', 'TR-2'])
+        assert not career.tour_scored()
+        career.end_shift()
+        assert len(career.tour_index_history) == 1
+
+    def test_the_carried_reports_do_not_cost_the_new_tour_its_index(self):
+        career = self.second_tour(['TR-1'])
+        close_clean(career, 5)
+        assert career.tour_index() == 100.0
+
+    def test_a_new_late_report_does_cost_it(self):
+        career = self.second_tour(['TR-1'])
+        close_clean(career, 5)
+        career.open_overdue = lambda: 2
+        career.overdue_numbers = lambda: ['TR-1', 'TR-9']
+        assert career.tour_index() < 100.0
+
+    def test_closing_a_carried_late_report_does_not_read_as_met(self):
+        career = self.second_tour(['TR-1'])
+        career.open_overdue = lambda: 0
+        career.overdue_numbers = lambda: []
+        career.record_closure(True, 600, True, 'TR-1')
+        close_clean(career, 4)
+        career.record_missed(1)
+        # TR-1 was settled at the last handoff: this tour decided four of
+        # its own, and missed one of them.
+        assert career.tour_kpis().commitments_met == 75.0
+        # The career as a whole counts every close it made.
+        assert career.kpis().commitments_met == 90.0
+
+    def test_it_still_spoils_a_clean_tour_at_the_handoff(self):
+        """On purpose: a board handed over past commitment is not clean."""
+        career = self.second_tour(['TR-1'])
+        close_clean(career, 5)
+        assert 'first_clean_tour' not in career.end_shift()
+
+
+class TestMttrIsOfCorrectClosesOnly:
+    """F4."""
+
+    def test_a_wrong_close_is_not_a_quick_repair(self):
+        career = Career()
+        career.record_closure(True, 100, True)
+        career.record_closure(False, 2, True)
+        assert career.kpis().mttr == 100.0
+
+    def test_only_wrong_closes_is_no_mttr(self):
+        career = Career()
+        career.record_closure(False, 2, True)
+        assert career.kpis().mttr is None
+
+
+class TestTheFirstDispatchIsJudgedOnce:
+    """F5: a refused retry resets dispatched_to, not the judgement."""
+
+    @staticmethod
+    def fill(terminal, report):
+        """Send every crew on the right force out, so a call is refused."""
+        force = FAULTS[report.record.fault].dispatch
+        while terminal.desk.force.send(force, 'TR-FULL', 600, 0)[0]:
+            pass
+
+    def test_wrong_then_refused_then_right_is_not_right_first(
+            self, terminal):
+        clean_board(terminal)
+        report = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
+        terminal.execute_command(f'mlt {report.number}')
+        terminal.execute_command(f'report dispatch {report.number} cable')
+        assert report.first_dispatch_judged
+        self.fill(terminal, report)
+        terminal.execute_command(f'report dispatch {report.number} outside')
+        assert report.dispatched_to is None
+        terminal.desk.force.out.clear()
+        terminal.execute_command(f'report dispatch {report.number} outside')
+        assert report.dispatched_to
+        kpi = terminal.career.kpi
+        assert kpi['dispatches'] == 1
+        assert kpi.get('dispatches_right', 0) == 0
+        assert terminal.career.kpis().first_time_right == 0.0
+        assert 'right_first_time' not in terminal.career.commendations
+        assert 'one_trip' not in terminal.career.commendations
+
+    def test_a_refusal_alone_is_not_a_dispatch(self, terminal):
+        clean_board(terminal)
+        report = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
+        self.fill(terminal, report)
+        terminal.execute_command(f'report dispatch {report.number} outside')
+        assert not report.first_dispatch_judged
+        assert terminal.career.kpi.get('dispatches', 0) == 0
+
+    def test_the_judgement_survives_a_save(self, terminal):
+        clean_board(terminal)
+        report = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
+        report.first_dispatch_judged = True
+        written = save._report_out(report)
+        assert save._report_in(written).first_dispatch_judged
+        del written['first_dispatch_judged']
+        assert not save._report_in(written).first_dispatch_judged
+
+
+class TestTheHandoffKpiBlockKeepsItsLabel:
+    """F6."""
+
+    def test_the_tour_kpi_heading_says_provisional(self, terminal):
+        clean_board(terminal)
+        close_clean(terminal.career, 3)
+        heading = heading_line(terminal.execute_command('handoff'))
+        assert 'PROVISIONAL (3 of 5 closes)' in heading
+        close_clean(terminal.career, 2)
+        heading = heading_line(terminal.execute_command('handoff'))
+        assert 'PROVISIONAL' not in heading
+
+    def test_the_sign_off_keeps_it_too(self, terminal):
+        clean_board(terminal)
+        close_clean(terminal.career, 3)
+        heading = heading_line(terminal.execute_command(RELIEVE))
+        assert 'PROVISIONAL' in heading
+
+
+class TestTheStreakNeedsMeasuring:
+    """F7."""
+
+    def test_correct_closes_nobody_measured_do_not_make_a_run(self):
+        career = Career()
+        for _ in range(8):
+            career.record_closure(True, 60, False)
+        assert 'five_straight' not in career.commendations
+
+    def test_an_unmeasured_close_ends_the_run(self):
+        career = Career()
+        close_clean(career, 4)
+        career.record_closure(True, 60, False)
+        close_clean(career, 4)
+        assert 'five_straight' not in career.commendations
+        close_clean(career, 1)
+        assert 'five_straight' in career.commendations
+
+    def test_the_text_says_so(self):
+        assert 'measured' in COMMENDATIONS_BY_KEY['five_straight'].description
+
+
+class TestSmallThings:
+    """The nits."""
+
+    def test_the_repeat_rate_is_a_percentage(self):
+        kpis = compute_kpis({'closed': 2, 'repeats': 5}, backlog=0, ages=[])
+        assert kpis.repeat_rate == 100.0
+
+    def test_a_tour_never_counts_below_nothing(self):
+        career = Career()
+        close_clean(career, 3)
+        career.tour_mark = {'closed': 9, 'commendations': 4}
+        assert min(career.tour_counts().values()) == 0
+
+    def test_an_unknown_commendation_prints_no_lone_heading(self, terminal):
+        assert terminal.commendation_lines(['from_a_later_version']) == []
+        assert terminal.commendation_lines([]) == []

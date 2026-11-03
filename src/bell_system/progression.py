@@ -47,7 +47,7 @@ SCHEMA = 3
 
 # Career attributes that are a list of names, in the order they happened.
 _LIST_FIELDS = ('commendations', 'finds', 'groups', 'beats_seen',
-                'practicals_passed', 'offered', 'audit_open')
+                'practicals_passed', 'offered', 'audit_open', 'carried_late')
 # Career attributes that are a count for each of a set of names. ``kpi`` is
 # the career's running totals for the KPIs and ``tour_mark`` is the same
 # counters as they stood when the tour opened, so that a tour's own figures
@@ -265,7 +265,7 @@ def score_index(closed: int, wrong: int, repeats: int, missed: int,
 # commendations. Running totals across the career; the tour's own are the
 # difference from ``tour_mark``.
 _KPI_COUNTERS = ('repairs', 'repair_minutes', 'measured', 'dispatches',
-                 'dispatches_right')
+                 'dispatches_right', 'carried_closed')
 
 
 class Kpis(NamedTuple):
@@ -281,7 +281,9 @@ class Kpis(NamedTuple):
 
     closed: int
     # Minutes from a report being received to its close, averaged over the
-    # reports closed. The same elapsed clock the commitment runs on.
+    # reports closed correctly. Received to close is the same elapsed clock
+    # the commitment runs on; a wrong close is not a repair, so it is left
+    # out rather than counted as a quick one.
     mttr: Optional[float]
     # Percent of the reports whose fate is decided (closed, or open past
     # commitment) that did not pass their commitment.
@@ -297,7 +299,7 @@ class Kpis(NamedTuple):
 
 
 def compute_kpis(counts: Mapping[str, int], backlog: int,
-                 ages: Sequence[int]) -> Kpis:
+                 ages: Sequence[int], carried_closed: int = 0) -> Kpis:
     """
     Work the five KPIs out of a set of counts.
 
@@ -309,9 +311,12 @@ def compute_kpis(counts: Mapping[str, int], backlog: int,
             dispatches and dispatches_right, any of which may be absent
         backlog: Customer reports open and past commitment now
         ages: Elapsed minutes on every customer report open now
+        carried_closed: Closes of reports that were already past commitment
+            when the tour opened. Their miss was charged to the tour before,
+            so a tour's own figures leave them out of what it decided
     """
     closed = counts.get('closed', 0)
-    decided = closed + backlog
+    decided = closed - carried_closed + backlog
     missed = min(counts.get('missed', 0), decided)
     repairs = counts.get('repairs', 0)
     dispatches = counts.get('dispatches', 0)
@@ -323,8 +328,8 @@ def compute_kpis(counts: Mapping[str, int], backlog: int,
                          if decided else None),
         first_time_right=(round(100.0 * counts.get('dispatches_right', 0)
                                 / dispatches, 1) if dispatches else None),
-        repeat_rate=(round(100.0 * counts.get('repeats', 0) / closed, 1)
-                     if closed else None),
+        repeat_rate=(min(100.0, round(
+            100.0 * counts.get('repeats', 0) / closed, 1)) if closed else None),
         backlog_age=(round(sum(ages) / len(ages), 1) if ages else None),
         provisional=closed < MINIMUM_CLOSES,
     )
@@ -455,6 +460,7 @@ class Career:
         # Elapsed minutes on each customer report open now, supplied by the
         # board in the same way and for the same reason.
         self.open_ages: Callable[[], List[int]] = lambda: []
+        self.overdue_numbers: Callable[[], List[str]] = lambda: []
         self.qualifications: List[str] = ['loop']
         self.index_history: List[float] = []
         # The index of each tour on its own, banked at the handoff beside the
@@ -463,6 +469,9 @@ class Career:
         # Running totals for the KPIs, and the counters as the tour opened.
         self.kpi: Dict[str, int] = {}
         self.tour_mark: Dict[str, int] = {}
+        # Reports already past commitment when the tour opened: charged at
+        # the handoff before, so the tour does not charge them again.
+        self.carried_late: List[str] = []
         # The wire centre this career is assigned to. Chosen the first time
         # a session opens and then kept: the switching machine at an office
         # is drawn at random, so the COMMON LANGUAGE code was coming out
@@ -704,7 +713,7 @@ class Career:
 
     def tour_counts(self) -> Dict[str, int]:
         """This tour's own counts: the totals less what they were at its start."""
-        return {name: total - self.tour_mark.get(name, 0)
+        return {name: max(0, total - self.tour_mark.get(name, 0))
                 for name, total in self._counters().items()}
 
     def kpis(self) -> Kpis:
@@ -714,8 +723,21 @@ class Career:
 
     def tour_kpis(self) -> Kpis:
         """The five KPIs over this tour alone."""
-        return compute_kpis(self.tour_counts(), self.open_overdue(),
-                            self.open_ages())
+        tour = self.tour_counts()
+        return compute_kpis(tour, self._tour_backlog(), self.open_ages(),
+                            tour['carried_closed'])
+
+    def _tour_backlog(self) -> int:
+        """
+        Reports open past commitment that this tour is answerable for.
+
+        One that was already past it when the tour opened was charged at the
+        handoff before, and stays charged to that tour; it is the next
+        handoff's to hand over, not this tour's to be scored on a second time.
+        """
+        still_late = set(self.overdue_numbers())
+        carried = sum(1 for number in self.carried_late if number in still_late)
+        return max(0, self.open_overdue() - carried)
 
     def tour_index(self) -> float:
         """
@@ -727,12 +749,12 @@ class Career:
         """
         tour = self.tour_counts()
         return score_index(tour['closed'], tour['wrong'], tour['repeats'],
-                           tour['missed'], self.open_overdue(),
+                           tour['missed'], self._tour_backlog(),
                            self.difficulty)
 
     def tour_scored(self) -> bool:
         """Whether the tour has anything yet for its index to be a score of."""
-        return bool(self.tour_counts()['closed'] + self.open_overdue())
+        return bool(self.tour_counts()['closed'] + self._tour_backlog())
 
     def tour_provisional(self) -> bool:
         """Whether the tour's index rests on too few closes to be believed."""
@@ -773,28 +795,35 @@ class Career:
     # -- recording -------------------------------------------------------
 
     def record_closure(self, correct: bool, minutes: Optional[int] = None,
-                       measured: bool = False) -> None:
+                       measured: bool = False, number: str = '') -> None:
         """
         Record a closed trouble report.
 
         Args:
             correct: Whether the close matched what was on the line
             minutes: Elapsed minutes on the report, received to closed, for
-                the MTTR. A close with no time to give is not averaged in
+                the MTTR. A close with no time to give is not averaged in,
+                and neither is a wrong one: it did not repair anything
             measured: Whether the line was measured before it was closed
+            number: The report, to tell one carried in past its commitment
         """
         self.reports_closed += 1
         if correct:
             self.reports_correct += 1
         else:
             self.reports_wrong += 1
-        if minutes is not None:
+        if number and number in self.carried_late:
+            self._count('carried_closed')
+        if minutes is not None and correct:
             self._count('repairs')
             self._count('repair_minutes', max(0, minutes))
         if measured:
             self._count('measured')
-        # A run of correct closes, which a wrong one ends.
-        self.kpi['streak'] = self.kpi.get('streak', 0) + 1 if correct else 0
+        # A run of closes that were measured and right. A wrong close, or one
+        # nobody measured first, ends it: a guess that happened to match the
+        # line is not reading it.
+        run = self.kpi.get('streak', 0) + 1 if correct and measured else 0
+        self.kpi['streak'] = run
         self.review('close')
         self.save()
 
@@ -858,6 +887,7 @@ class Career:
         self.review('tour', late_open=self.open_overdue())
         earned = self.earned_this_tour()
         self.tour_mark = self._counters()
+        self.carried_late = self.overdue_numbers()
         return earned
 
     def end_shift(self) -> List[str]:
@@ -924,7 +954,7 @@ class Career:
         # A record from before the marks existed has no tour to measure
         # from. Its current tour starts here and its totals are not
         # mistaken for one tour's work.
-        if not self.tour_mark:
+        if 'tour_mark' not in stored:
             self.tour_mark = self._counters()
 
         difficulty = stored.get('difficulty')
