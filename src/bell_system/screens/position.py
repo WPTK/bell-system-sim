@@ -421,6 +421,19 @@ def _customers_rang_back(terminal: Any) -> Tuple[str, str]:
             str(sum(terminal.patience_book()['rung'].values())))
 
 
+def _alarms_cleared(terminal: Any) -> Tuple[str, str]:
+    """Alarms cleared at the cause, not only acknowledged."""
+    return ('alarms cleared at the cause',
+            str(len(terminal.lamp_book()['cleared'])))
+
+
+def _alarms_lit(terminal: Any) -> Tuple[str, str]:
+    """Alarms whose lamp rose above their class while nobody worked them."""
+    terminal.lamp_panel()  # Looking is when a lamp that rose is noticed.
+    return ('alarm lamps that rose',
+            str(len(terminal.lamp_book()['lit'])))
+
+
 def _no_trouble_found(terminal: Any) -> Tuple[str, str]:
     """Reports closed code 8."""
     count = sum(1 for report in _closed(terminal) if report.disposition == 8)
@@ -518,6 +531,8 @@ _COUNTERS: Dict[str, Any] = {
     'tickets_worked': _tickets_worked,
     'tickets_past_window': _tickets_past_window,
     'customers_rang_back': _customers_rang_back,
+    'alarms_cleared': _alarms_cleared,
+    'alarms_lit': _alarms_lit,
     'no_trouble_found': _no_trouble_found,
     'off_hook_caught': _off_hook_caught,
     'commitments_met': _commitments_met,

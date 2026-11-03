@@ -4452,3 +4452,24 @@ ADVISE
      say, and the call settles them for a full wait; with nothing to say
      it forgives only half. These figures are the simulation's own.
 """
+
+
+# The command only the Switching Station Technician's desk has.
+MAN_PAGES["connect"] += """
+ALARM PANEL
+     connect work
+     connect work ALARM
+
+     The Switching Station Technician desk only. With no argument, the
+     panel: every alarm standing on every office this console watches,
+     the lamp it now shows, how many shift minutes until the lamp rises,
+     and what clearing it would cost. Naming an alarm clears it at its
+     cause, and the shift loses the minutes.
+
+     An alarm nobody works lights one lamp higher every 40 shift minutes,
+     from its own point in them, so they do not all rise together. The
+     lamp sets the cost: 3 minutes at MINOR, 5 at MAJOR, 8 at CRITICAL,
+     and 2 more for a building you are not in. alarm ack does not stop
+     the rising; only clearing does. The clock is the shift clock and not
+     a stopwatch. These figures are the simulation's own.
+"""

@@ -27,6 +27,7 @@ from datetime import timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..data.clli import STATE_CODES, parse as parse_clli
+from ..data.positions import desk_only
 from ..data.trouble import DISPATCH_FORCES
 from ..reports import COST_DISPATCH, valid_force
 from ..types import Alarm, SystemHealth
@@ -61,6 +62,21 @@ ALARM_CANDIDATES: Tuple[Dict[str, Any], ...] = (
      'description': 'Microwave path experiencing excessive fade'},
 )
 
+# The lamps an alarm can show, lowest first, and how many shift minutes an
+# alarm left standing takes to light the next. Every alarm ripens at its own
+# point in that span (see RemoteCommands.lamp), so they do not all rise
+# together. What working one costs in shift minutes follows the lamp, and
+# another building costs the console two more. The simulation's own figures.
+LAMPS = ('MINOR', 'MAJOR', 'CRITICAL')
+LAMP_MINUTES = 40
+WORK_COST = {'MINOR': 3, 'MAJOR': 5, 'CRITICAL': 8}
+WORK_REMOTE = 2
+
+# The counters on the office's own health summary, by the class an alarm
+# was counted in when it was dealt.
+HEALTH_KEY = {'CRITICAL': 'critical_alarms', 'MAJOR': 'major_alarms',
+              'MINOR': 'minor_alarms'}
+
 
 class RemoteCommands(SessionState):
     """
@@ -93,6 +109,9 @@ class RemoteCommands(SessionState):
             return self._disconnect()
         if wanted.lower() == 'pool':
             return self._draw_pool(args[1:])
+        if wanted.lower() == 'work':
+            refusal = desk_only(self.position, 'switch', 'connect work')
+            return refusal or self._work_alarm(args[1:])
 
         office = self._find_office(wanted)
         if office is None:
@@ -101,6 +120,124 @@ class RemoteCommands(SessionState):
 
         self.remote_office = office
         return self._office_card(office, connecting=True)
+
+    # -- the alarm panel: lamps that rise on the shift clock ----------------
+
+    _lamp_book: Optional[Dict[str, Any]] = None
+
+    def lamp_book(self) -> Dict[str, Any]:
+        """
+        Which alarms this desk has cleared, and which it let light up.
+
+        Tied to the board it was kept for, like the other desk books: a new
+        board is a new book.
+        """
+        book = self._lamp_book
+        if book is None or book['desk'] != id(self.desk):
+            book = {'desk': id(self.desk), 'cleared': set(), 'lit': set()}
+            self._lamp_book = book
+        return book
+
+    def lamp(self, alarm: Alarm) -> Tuple[str, int]:
+        """
+        Return the lamp an alarm shows and the shift minutes until the next.
+
+        An alarm that nobody works lights a level higher every LAMP_MINUTES
+        of the shift, from its own point in the span so that they ripen at
+        different times. Deterministic from the alarm's identifier. It is
+        the shift clock and nothing else, and the first tour is a grace.
+        """
+        base = LAMPS.index(alarm['severity'])
+        ripe = random.Random(f"lamp:{alarm['id']}").randrange(LAMP_MINUTES)
+        if self.first_tour():
+            return LAMPS[base], LAMP_MINUTES
+        age = self.shift_minutes + ripe
+        level = min(len(LAMPS) - 1, base + age // LAMP_MINUTES)
+        return LAMPS[level], LAMP_MINUTES - age % LAMP_MINUTES
+
+    def lamp_panel(self) -> List[Tuple[Alarm, str, Any, int, int]]:
+        """
+        Every alarm standing on the console: the alarm, its lamp, its
+        office, the minutes to the next lamp and what working it costs.
+
+        Highest lamp first, then soonest to light. Looking is when a lamp
+        that rose is noticed, and what rose is kept.
+        """
+        offices = list(self.watched_offices())
+        home = self.home_office
+        if home['clli'] not in {o['clli'] for o in offices}:
+            offices.insert(0, home)
+        book = self.lamp_book()
+        rows = []
+        for office in offices:
+            for alarm in self.office_alarms(office):
+                lamp, next_in = self.lamp(alarm)
+                if lamp != alarm['severity']:
+                    book['lit'].add(alarm['id'])
+                cost = WORK_COST[lamp] + (
+                    0 if office['clli'] == home['clli'] else WORK_REMOTE)
+                rows.append((alarm, lamp, office, next_in, cost))
+        rows.sort(key=lambda row: (-LAMPS.index(row[1]), row[3]))
+        return rows
+
+    def _work_alarm(self, args: List[str]) -> str:
+        """connect work [ALARM]: the panel, or clear one alarm at its cause."""
+        rows = self.lamp_panel()
+        if not args:
+            lines = [f"ALARM PANEL   {SCC_NAME}",
+                     f"Shift time {self.shift_time()}", '=' * 70,
+                     f"{'ALARM':<9}{'OFFICE':<14}{'LAMP':<10}{'NEXT':<7}"
+                     f"{'COST':<6}SYSTEM", '-' * 70]
+            for alarm, lamp, office, next_in, cost in rows:
+                rose = '*' if lamp != alarm['severity'] else ' '
+                lines.append(
+                    f"{alarm['id']:<9}{office['clli']:<14}{lamp + rose:<10}"
+                    f"{str(next_in) + 'm':<7}{str(cost) + 'm':<6}"
+                    f"{alarm['system'][:20]}")
+            if not rows:
+                lines.append("No alarms standing on any office.")
+            lines += [
+                '-' * 70,
+                f"{len(rows)} standing. * marks a lamp that has risen above "
+                f"the alarm's class.",
+                "",
+                "  connect work <ALARM>   Clear it at the cause (COST "
+                "minutes)",
+                "  alarm status           What the alarm itself says",
+                "",
+                f"An alarm nobody works lights one lamp higher every "
+                f"{LAMP_MINUTES} shift",
+                "minutes, from its own point in them. Acknowledging does "
+                "not stop it:",
+                "only clearing does. These figures are the simulation's "
+                "own.",
+            ]
+            return '\n'.join(lines)
+        wanted = args[0].upper()
+        row = next((r for r in rows if r[0]['id'] == wanted), None)
+        if row is None:
+            return (f"connect work: no alarm '{args[0]}' standing on this "
+                    f"console.\n'connect work' lists them.")
+        alarm, lamp, office, _, cost = row
+        self._pass_time(cost)
+        self.office_alarms(office).remove(alarm)
+        home = office['clli'] == self.home_office['clli']
+        if home:
+            health: Any = self.system_health
+            key = HEALTH_KEY[alarm['severity']]
+            health[key] = max(0, health[key] - 1)
+        self.lamp_book()['cleared'].add(alarm['id'])
+        return '\n'.join([
+            f"{alarm['id']}: cleared at the cause on {alarm['system']} in "
+            f"{office['clli']}.",
+            f"{alarm['description']}.",
+            f"It was showing {lamp}"
+            + (f" (dealt as {alarm['severity']})."
+               if lamp != alarm['severity'] else "."),
+            f"That was {cost} minutes of the shift"
+            + ("." if home else ", with the console's two for the other "
+               "building."),
+        ])
 
     def _connect_listing(self) -> str:
         """The offices this console watches, and where you are now."""

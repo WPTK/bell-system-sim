@@ -27,6 +27,9 @@ from bell_system.data.trouble import (
 )
 from bell_system.npc import CRAFT, _CHATTER, _POSITION_CHATTER
 from bell_system.reports import MAX_PENDING, OPENING_BACKLOG, ReportDesk
+from bell_system.screens.remote import (
+    LAMP_MINUTES, LAMPS, WORK_COST, WORK_REMOTE,
+)
 from bell_system.screens.position import _COUNTERS
 from bell_system.special_services import (
     LOOP_REMOTE_MINUTES,
@@ -453,7 +456,7 @@ class TestNothingChangedForASessionWithNoPosition:
 
 # The desks that play differently. The other eight are unchanged, and
 # TestTheFourDesks holds that. Each desk gets a PR; the set grows with them.
-FOUR_DESKS = ('noc', 'sarts', 'custserv')
+FOUR_DESKS = ('noc', 'sarts', 'custserv', 'switch')
 
 
 class TestTheFourDesks:
@@ -990,4 +993,168 @@ class TestTheRepairDeskHolds:
         terminal = at_desk('custserv')
         hold(terminal, (True, 45), (False, 10))
         output = terminal.execute_command('trouble advise')
+        assert max(len(line) for line in output.split('\n')) <= 74
+
+
+def office_desk(at_desk):
+    """
+    The office desk with four known alarms standing at home.
+
+    The deal is chance (each alarm is 30 per cent likely), so the home
+    office's list is replaced with one that is not.
+    """
+    terminal = at_desk('switch')
+    terminal.active_alarms[:] = [
+        {'id': f'AL-70{index}', 'type': 'TEST', 'severity': severity,
+         'system': f'SYS-{index}', 'description': 'A standing alarm',
+         'acknowledged': False, 'timestamp': terminal.clock.now()}
+        for index, severity in enumerate(
+            ('MINOR', 'MINOR', 'MAJOR', 'CRITICAL'))]
+    for severity in ('CRITICAL', 'MAJOR', 'MINOR'):
+        terminal.system_health[f'{severity.lower()}_alarms'] = sum(
+            1 for a in terminal.active_alarms if a['severity'] == severity)
+    return terminal
+
+
+class TestTheOfficeAlarmPanel:
+    """
+    Alarm lamps rise on the shift clock, and connect work clears them.
+
+    Reading pays: the panel says which lamp is about to rise and what each
+    costs, and the order you clear them in is the whole of the decision.
+    """
+
+    def test_the_verb_is_the_office_desks_alone(self, at_desk):
+        for role in ROLE_KEYS:
+            if role == 'switch':
+                continue
+            output = at_desk(role).execute_command('connect work')
+            assert 'not at this position' in output, role
+            assert 'Switching Station' in output, role
+
+    def test_the_other_connect_verbs_are_not_taken_from_anyone(
+            self, at_desk):
+        output = at_desk('noc').execute_command('connect')
+        assert 'not at this position' not in output
+
+    def test_a_lamp_is_deterministic_and_never_below_its_class(
+            self, at_desk):
+        terminal = office_desk(at_desk)
+        for alarm, lamp, *_ in terminal.lamp_panel():
+            assert lamp in LAMPS
+            assert LAMPS.index(lamp) >= LAMPS.index(alarm['severity'])
+            assert terminal.lamp(alarm)[0] == lamp
+
+    def test_an_alarm_rises_one_lamp_per_span_and_stops_at_critical(
+            self, at_desk):
+        terminal = office_desk(at_desk)
+        alarm = {'id': 'AL-1', 'severity': 'MINOR'}
+        seen = []
+        for minutes in range(0, 400, 5):
+            terminal.shift_minutes = minutes
+            seen.append(LAMPS.index(terminal.lamp(alarm)[0]))
+        assert seen == sorted(seen)
+        assert seen[0] <= 1 and seen[-1] == 2
+        assert all(b - a <= 1 for a, b in zip(seen, seen[1:]))
+
+    def test_alarms_do_not_all_rise_together(self, at_desk):
+        terminal = office_desk(at_desk)
+        starts = {terminal.lamp({'id': f'AL-{n}', 'severity': 'MINOR'})[1]
+                  for n in range(40)}
+        assert len(starts) > 5
+
+    def test_it_is_the_shift_clock_and_not_the_wall_clock(self, at_desk):
+        from datetime import timedelta
+        terminal = office_desk(at_desk)
+        before = [(a['id'], lamp) for a, lamp, *_ in terminal.lamp_panel()]
+        terminal.clock._session_start -= timedelta(hours=9)
+        after = [(a['id'], lamp) for a, lamp, *_ in terminal.lamp_panel()]
+        assert before == after
+
+    def test_a_passing_shift_is_what_lights_them(self, at_desk):
+        terminal = office_desk(at_desk)
+        before = {a['id']: lamp for a, lamp, *_ in terminal.lamp_panel()}
+        terminal._pass_time(LAMP_MINUTES)
+        after = {a['id']: lamp for a, lamp, *_ in terminal.lamp_panel()}
+        assert any(LAMPS.index(after[i]) > LAMPS.index(before[i])
+                   for i in before)
+
+    def test_the_first_tour_is_a_grace(self, at_desk):
+        terminal = office_desk(at_desk)
+        terminal.career.shift = 1
+        terminal.career.reports_closed = 0
+        terminal.shift_minutes = 500
+        for alarm, lamp, *_ in terminal.lamp_panel():
+            assert lamp == alarm['severity']
+
+    def test_clearing_one_costs_its_lamp_and_removes_it(self, at_desk):
+        terminal = office_desk(at_desk)
+        home = terminal.home_office['clli']
+        row = next(r for r in terminal.lamp_panel() if r[2]['clli'] == home)
+        alarm, lamp, _, _, cost = row
+        assert cost == WORK_COST[lamp]
+        before = terminal.shift_minutes
+        output = terminal.execute_command(f"connect work {alarm['id']}")
+        assert 'cleared at the cause' in output
+        assert terminal.shift_minutes - before >= cost
+        assert alarm not in terminal.active_alarms
+        assert alarm['id'] not in [r[0]['id'] for r in terminal.lamp_panel()]
+
+    def test_clearing_the_home_office_keeps_its_health_counts_honest(
+            self, at_desk):
+        terminal = office_desk(at_desk)
+        health = terminal.system_health
+        alarm = terminal.active_alarms[0]
+        key = {'CRITICAL': 'critical_alarms', 'MAJOR': 'major_alarms',
+               'MINOR': 'minor_alarms'}[alarm['severity']]
+        was = health[key]
+        terminal.execute_command(f"connect work {alarm['id']}")
+        assert health[key] == was - 1
+
+    def test_another_building_costs_the_console_two_more(self, at_desk):
+        terminal = office_desk(at_desk)
+        home = terminal.home_office['clli']
+        others = [o for o in terminal.watched_offices()
+                  if o['clli'] != home]
+        assert others, 'a console that watches only its own building'
+        terminal.office_alarms(others[0]).append({
+            'id': 'AL-9999', 'type': 'POWER_SUPPLY', 'severity': 'MINOR',
+            'system': 'PWR', 'description': 'Backup power supply low',
+            'acknowledged': False, 'timestamp': terminal.clock.now()})
+        row = next(r for r in terminal.lamp_panel()
+                   if r[0]['id'] == 'AL-9999')
+        assert row[4] == WORK_COST[row[1]] + WORK_REMOTE
+        before = terminal.shift_minutes
+        terminal.execute_command('connect work AL-9999')
+        assert terminal.shift_minutes - before >= row[4]
+
+    def test_a_number_that_is_not_standing_costs_nothing(self, at_desk):
+        terminal = office_desk(at_desk)
+        before = terminal.shift_minutes
+        output = terminal.execute_command('connect work AL-0')
+        assert 'no alarm' in output
+        assert terminal.shift_minutes - before <= 1
+
+    def test_acknowledging_does_not_stop_the_lamp(self, at_desk):
+        terminal = office_desk(at_desk)
+        alarm = terminal.active_alarms[0]
+        before = terminal.lamp(alarm)
+        terminal.execute_command(f"alarm ack {alarm['id']}")
+        assert alarm in terminal.active_alarms
+        assert (LAMPS.index(terminal.lamp(alarm)[0])
+                >= LAMPS.index(before[0]))
+
+    def test_the_tally_counts_clears_and_lamps_that_rose(self, at_desk):
+        terminal = office_desk(at_desk)
+        terminal.shift_minutes = 3 * LAMP_MINUTES
+        rows = dict(terminal.position_tally())
+        assert int(rows['alarm lamps that rose']) > 0
+        alarm = terminal.active_alarms[0]
+        terminal.execute_command(f"connect work {alarm['id']}")
+        rows = dict(terminal.position_tally())
+        assert rows['alarms cleared at the cause'] == '1'
+
+    def test_the_panel_fits_the_terminal(self, at_desk):
+        terminal = office_desk(at_desk)
+        output = terminal.execute_command('connect work')
         assert max(len(line) for line in output.split('\n')) <= 74

@@ -111,14 +111,18 @@ POSITIONS: Dict[str, Position] = {
     'switch': Position(
         key='switch', name='Switching Station Technician',
         commands=('trunk', 'switch', 'toll', 'crossbar', 'alarm', '5ess',
-                  '3a'),
+                  '3a', 'connect'),
         # The two faults whose `where` is OFFICE rather than LOOP.
         fault_bias={'FCG': 3.0, 'CO_EQUIP': 2.5},
         board_share=0.5,
         ticket_categories=('EQUIPMENT_FAILURE', 'NETWORK_OUTAGE'),
         voices=('rjohnson', 'ehalloran'),
         nspmp='customer_reports',
-        tally=('office_faults', 'alarms_open', 'wasted_trips'),
+        tally=('office_faults', 'alarms_open', 'wasted_trips',
+               'alarms_cleared', 'alarms_lit'),
+        verb='connect work',
+        pressure='Alarm lamps: an alarm nobody works lights a level higher '
+                 'every 40 shift minutes.',
     ),
 
     'field': Position(
