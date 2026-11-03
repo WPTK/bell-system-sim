@@ -73,6 +73,18 @@ class TriageCommands(SessionState):
                 self.triage_stamp(ticket, 0)
         return book
 
+    def triage_admit(self, ticket: TroubleTicket) -> None:
+        """
+        Put a newly entered ticket in the pool, with its window opening now.
+
+        The tour's book is made first. A book made after the ticket is in
+        the pool stamps it at minute 0 with the rest, and a ticket entered
+        late in the tour would be born overdue.
+        """
+        self.triage_book()
+        self.active_tickets.append(ticket)
+        self.triage_stamp(ticket)
+
     def triage_stamp(self, ticket: TroubleTicket,
                      at: Optional[int] = None) -> None:
         """
@@ -96,6 +108,11 @@ class TriageCommands(SessionState):
                                  'earlier': dict(book['earlier'])}
         for key in ('opened', 'klass', 'sig', 'taken', 'lapsed'):
             state[key] = dict(book[key])
+        # A window that has passed counts whether or not it was noticed. The
+        # pool is dealt again on a resume, so a lapse that is not in the
+        # book would be lost with the ticket it belonged to.
+        for ticket in self.triage_overdue():
+            state['lapsed'].setdefault(ticket['id'], self.shift_minutes)
         return state
 
     def restore_triage(self, stored: Any) -> None:
@@ -106,10 +123,12 @@ class TriageCommands(SessionState):
         tickets reuse the numbers of the ones it replaces. So a saved
         entry only describes the ticket now holding that number if the
         ticket is the same one (its signature matches); otherwise the
-        entry is retired into the tour's running counts and the new ticket
-        opens its window from now, not from minute 0, which would make
-        everything late. A save from before the book existed brings none,
-        and every ticket opens from now.
+        entry is retired into the tour's running counts, the new ticket
+        opens its window from now (not from minute 0, which would make
+        everything late) and the old ticket's assignment is let go, or the
+        new one would be left out of the queue and could never lapse. A
+        save from before the book existed brings none, and every ticket
+        opens from now.
         """
         book = _new_book(self.career.shift)
         if isinstance(stored, dict) and stored.get('tour') == book['tour']:
@@ -130,6 +149,8 @@ class TriageCommands(SessionState):
         for ticket in self.active_tickets:
             ticket_id = ticket['id']
             if book['sig'].get(ticket_id) != _signature(ticket):
+                if ticket_id in book['sig']:
+                    self._assigned_tickets.discard(ticket_id)
                 for key in ('taken', 'lapsed'):
                     if book[key].pop(ticket_id, None) is not None:
                         book['earlier'][key] += 1
@@ -207,6 +228,23 @@ class TriageCommands(SessionState):
                 f"nobody on it; escalation level "
                 f"{ticket['escalation_level']}")
 
+    def triage_notice(self) -> None:
+        """
+        Notice the windows that have passed, if this is the NOC's queue.
+
+        Run as the shift clock moves on and before a ticket is given to
+        anybody, so that a ticket assigned late, here or by the switching
+        control centre, has its lapse on record before it leaves the queue.
+        """
+        if self.position.key == 'noc':
+            self.triage_sweep()
+
+    def _advance_shift(self) -> List[str]:
+        """Charge the shift, then notice any window the clock has passed."""
+        pieces = super()._advance_shift()
+        self.triage_notice()
+        return pieces
+
     def _triage(self, args: List[str]) -> str:
         """trouble triage [ID]: show the queue, or take a ticket from it."""
         if args:
@@ -221,10 +259,11 @@ class TriageCommands(SessionState):
                  f"{'CUSTOMERS':>10}  OFFICE", '-' * 66]
         for ticket in queue:
             left = self.triage_due(ticket) - now
+            klass = book['klass'][ticket['id']]
             window = f"{left}m left" if left >= 0 else f"LATE {-left}m"
             lines.append(
-                f"{ticket['id']:<9}{ticket['priority']:<9}{window:<11}"
-                f"{TRIAGE_CALL[ticket['priority']]:>2}m   "
+                f"{ticket['id']:<9}{klass:<9}{window:<11}"
+                f"{TRIAGE_CALL[klass]:>2}m   "
                 f"{ticket['customer_impact']:>10,}  "
                 f"{self._office_label(ticket['affected_office'])[:24]}")
         if not queue:
@@ -240,13 +279,13 @@ class TriageCommands(SessionState):
             "minutes",
             "  trouble detail <ID>   Read it first (that costs a minute)",
             "",
-            "Windows run on the shift clock from the start of the tour:",
-            "CRITICAL 15, MAJOR 30, MINOR 60. A ticket nobody is on when "
-            "its",
-            "window closes goes up a level, and counts as a missed "
-            "commitment",
-            "on your index whether or not you look. The figures are the "
-            "simulation's own.",
+            "Windows run on the shift clock from the start of the tour,",
+            "or from when the ticket was entered. CRITICAL 15, MAJOR 30,",
+            "MINOR 60, on the class it had then; escalating it later does",
+            "not shorten the window. A ticket nobody is on when its window",
+            "closes goes up a level and counts against your index whether",
+            "or not you look, and it stays counted once you have taken it.",
+            "The figures are the simulation's own.",
         ]
         return '\n'.join(lines)
 
@@ -263,7 +302,7 @@ class TriageCommands(SessionState):
                     f"'trouble triage' lists what is waiting.")
         now = self.shift_minutes
         due = self.triage_due(ticket)
-        cost = TRIAGE_CALL[ticket['priority']]
+        cost = TRIAGE_CALL[book['klass'][ticket_id]]
         book['taken'][ticket_id] = now
         if ticket['status'] == 'OPEN':
             ticket['status'] = 'IN_PROGRESS'
@@ -276,10 +315,10 @@ class TriageCommands(SessionState):
             verdict = f"in time, with {due - now} minutes of the window left"
         else:
             verdict = "on a first tour, which is a grace"
-        if late:
-            # The same cost a report that passes its commitment carries,
-            # through the same path: the handoff prints it.
-            self.career.record_missed(1)
+        # The lapse is on record (the sweep above wrote it) and the index
+        # counts every lapsed ticket, taken or not, so taking it late is
+        # not counted a second time. A late take that cost more than
+        # leaving the ticket would be a reason not to take it.
         ticket['resolution_steps'].append(
             f"[{self.shift_time()}] Taken by {self.username}, {verdict}")
         self._pass_time(cost)
