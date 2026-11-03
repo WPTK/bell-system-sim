@@ -8,6 +8,7 @@ verb is dispatched from ``trouble triage`` there; everything else is here.
 
 from typing import Any, Dict, List, Optional
 
+from ..constants import SHIFT_LENGTH_MINUTES
 from ..data.positions import POSITIONS
 from ..types import TroubleTicket
 from .session import SessionState
@@ -30,6 +31,20 @@ def _new_book(tour: int) -> Dict[str, Any]:
 def _signature(ticket: TroubleTicket) -> str:
     """What says a ticket is the one a saved entry was made for."""
     return f"{ticket['title']}|{ticket['customer_impact']}"
+
+
+def _retire(book: Dict[str, Any], ticket_id: str) -> None:
+    """
+    Take a ticket's entries out of the book, keeping what they counted.
+
+    A ticket taken or lapsed stays counted in the tour's running totals
+    after its entries are gone, so retiring one cannot make it free.
+    """
+    for key in ('taken', 'lapsed'):
+        if book[key].pop(ticket_id, None) is not None:
+            book['earlier'][key] += 1
+    for key in ('opened', 'klass', 'sig'):
+        book[key].pop(ticket_id, None)
 
 
 def _whole_minutes(value: Any) -> Dict[str, int]:
@@ -81,7 +96,10 @@ class TriageCommands(SessionState):
         the pool stamps it at minute 0 with the rest, and a ticket entered
         late in the tour would be born overdue.
         """
-        self.triage_book()
+        book = self.triage_book()
+        # Whatever the book still holds under this number is for another
+        # ticket, which has gone; it must not be read as this one's.
+        _retire(book, ticket['id'])
         self.active_tickets.append(ticket)
         self.triage_stamp(ticket)
 
@@ -129,6 +147,12 @@ class TriageCommands(SessionState):
         new one would be left out of the queue and could never lapse. A
         save from before the book existed brings none, and every ticket
         opens from now.
+
+        A save that carries the pool brings the same tickets back, so their
+        entries match and their windows go on from where they were. Every
+        entry and assignment for a ticket that is not in the pool is
+        retired either way: a number nobody holds is a number a later
+        ticket could be born under.
         """
         book = _new_book(self.career.shift)
         if isinstance(stored, dict) and stored.get('tour') == book['tour']:
@@ -146,16 +170,17 @@ class TriageCommands(SessionState):
                     value = earlier.get(key)
                     if isinstance(value, int) and value >= 0:
                         book['earlier'][key] = value
-        for ticket in self.active_tickets:
-            ticket_id = ticket['id']
-            if book['sig'].get(ticket_id) != _signature(ticket):
-                if ticket_id in book['sig']:
-                    self._assigned_tickets.discard(ticket_id)
-                for key in ('taken', 'lapsed'):
-                    if book[key].pop(ticket_id, None) is not None:
-                        book['earlier'][key] += 1
-                for key in ('opened', 'klass', 'sig'):
-                    book[key].pop(ticket_id, None)
+        held = {ticket['id']: ticket for ticket in self.active_tickets}
+        entered = set()
+        for key in ('opened', 'klass', 'sig', 'taken', 'lapsed'):
+            entered.update(book[key])
+        for ticket_id in entered:
+            ticket = held.get(ticket_id)
+            if ticket is None or book['sig'].get(ticket_id) != _signature(
+                    ticket):
+                self._assigned_tickets.discard(ticket_id)
+                _retire(book, ticket_id)
+        self._assigned_tickets &= set(held)
         self._triage_book = book
         for ticket in self.active_tickets:
             self.triage_stamp(ticket)
@@ -199,7 +224,7 @@ class TriageCommands(SessionState):
         """
         if self.triage_grace():
             return []
-        now = self.shift_minutes
+        now = self.tour_minute()
         return [t for t in self.triage_queue() if now > self.triage_due(t)]
 
     def triage_lapsed(self) -> int:
@@ -244,6 +269,52 @@ class TriageCommands(SessionState):
         pieces = super()._advance_shift()
         self.triage_notice()
         return pieces
+
+    # -- a handoff before the tour is out -----------------------------------
+
+    _relieving = 0  # The tour being signed off, while it is.
+
+    def tour_minute(self) -> int:
+        """
+        The shift minute the desks count their windows against.
+
+        Now, except while the tour is being signed off: the rest of it goes
+        by with the board as it was left (the reports are aged to the end of
+        the tour in the same step), so a window that would have closed in
+        the hours not worked is closed by the time the index is banked. The
+        triage queue, the circuits held in trouble and the alarm lamps all
+        ask here, or relieving early would make every one of them free.
+        """
+        if self._relieving == self.career.shift:
+            return max(self.shift_minutes, SHIFT_LENGTH_MINUTES)
+        return self.shift_minutes
+
+    def _end_shift(self) -> str:
+        """Sign off with the desks counted at the end of the tour."""
+        self._relieving = self.career.shift
+        try:
+            return super()._end_shift()
+        finally:
+            self._relieving = 0
+
+    def triage_resolve_refusal(self, ticket: TroubleTicket) -> Optional[str]:
+        """
+        Why a ticket cannot be resolved from here yet, at the NOC's desk.
+
+        A ticket nobody has taken is still in the queue, and resolving it
+        would close it with its window running and nothing on record: the
+        queue could be emptied for free. It has to be taken first, or given
+        to somebody. Anywhere else, and for any ticket somebody is on, this
+        is nothing.
+        """
+        if self.position.key != 'noc':
+            return None
+        self.triage_notice()
+        if any(t['id'] == ticket['id'] for t in self.triage_queue()):
+            return (f"trouble resolve: {ticket['id']} is still in the "
+                    f"triage queue with nobody on it.\n"
+                    f"'trouble triage {ticket['id']}' takes it first.")
+        return None
 
     def _triage(self, args: List[str]) -> str:
         """trouble triage [ID]: show the queue, or take a ticket from it."""

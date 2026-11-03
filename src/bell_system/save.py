@@ -38,7 +38,7 @@ mid-write leaves the old file and not a short one.
 import json
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .cable import WetSection
 from .data.practicals import PRACTICALS
@@ -115,6 +115,59 @@ def _record_out(record: LineRecord) -> Dict[str, Any]:
 def _record_in(stored: Dict[str, Any]) -> LineRecord:
     """Read a line record back."""
     return LineRecord(**{field: stored[field] for field in _RECORD_FIELDS})
+
+
+# -- the NOC's trouble tickets --------------------------------------------
+
+# Written as text and read back as datetimes; everything else on a ticket is
+# plain. A ticket that will not read back is not guessed at.
+_TICKET_STAMPS = ('created_time', 'resolution_time')
+_TICKET_FIELDS = ('id', 'category', 'priority', 'title', 'affected_office',
+                  'customer_impact', 'status', 'assigned_team',
+                  'created_time', 'escalation_level', 'resolution_steps')
+
+
+def _ticket_out(ticket: Dict[str, Any]) -> Dict[str, Any]:
+    """Write one trouble ticket."""
+    written = {key: value for key, value in ticket.items()
+               if key not in _TICKET_STAMPS}
+    for key in _TICKET_STAMPS:
+        if key in ticket:
+            written[key] = _stamp(ticket[key])
+    return written
+
+
+def _ticket_in(stored: Any) -> Dict[str, Any]:
+    """Read one trouble ticket back, or raise if it will not read."""
+    if not isinstance(stored, dict):
+        raise TypeError('ticket')
+    ticket = dict(stored)
+    for key in _TICKET_FIELDS:
+        ticket[key]
+    for key in _TICKET_STAMPS:
+        if key in ticket:
+            moment = _moment(ticket[key])
+            if moment is None:
+                raise ValueError(key)
+            ticket[key] = moment
+    return ticket
+
+
+def _pool_in(tour: Dict[str, Any]) -> Optional[Tuple[List[Any], int]]:
+    """
+    The saved ticket pool and counter, or nothing if there is not a whole
+    one: a save from before they were kept, or a damaged one, leaves the
+    pool the session was dealt.
+    """
+    stored = tour.get('tickets')
+    counter = tour.get('ticket_counter')
+    if (not isinstance(stored, list) or isinstance(counter, bool)
+            or not isinstance(counter, int)):
+        return None
+    try:
+        return [_ticket_in(entry) for entry in stored], counter
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 # -- the trouble report ---------------------------------------------------
@@ -309,8 +362,11 @@ def capture(terminal: Any) -> Dict[str, Any]:
             'tour_desk_start': terminal._tour_desk_start,
             'board_reviewed': terminal._board_reviewed,
             'triage': terminal.triage_state(),
-            'sarts': terminal.special_services.state(),
+            'sarts': terminal.special_services.state(
+                terminal.career.shift, terminal.shift_minutes),
             'patience': terminal.patience_state(),
+            'tickets': [_ticket_out(t) for t in terminal.active_tickets],
+            'ticket_counter': terminal.ticket_counter,
         },
     }
 
@@ -356,6 +412,7 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
                    and control in CONTROLS else None)
         _plant_in(desk, stored['plant'])
         _force_in(desk, stored['force'])
+        pool = _pool_in(tour)
     except (KeyError, TypeError, ValueError):
         return False
 
@@ -385,8 +442,12 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     # been worked, which is the kinder way to be wrong about a resumed shift.
     terminal._tour_desk_start = tour.get('tour_desk_start', 0)
     terminal._board_reviewed = tour.get('board_reviewed', True)
-    # The NOC's windows. The ticket pool is dealt again on a resume, so what
-    # the book has not seen opens from now; see restore_triage.
+    # The NOC's tickets come back as they were, so their windows go on from
+    # where they stood. A save from before they were kept has the pool the
+    # session was dealt, and the book copes with that (see restore_triage).
+    if pool is not None:
+        terminal.active_tickets[:] = pool[0]
+        terminal.ticket_counter = pool[1]
     terminal.restore_triage(tour.get('triage'))
     # The repair desk's customers, and what they have been told.
     terminal.restore_patience(tour.get('patience'))

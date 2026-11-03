@@ -130,7 +130,7 @@ class PositionCommands(SessionState):
         if self.position.key != 'sarts' or self.career.shift == 1:
             return 0
         return self.special_services.past_window(
-            self.career.shift, self.shift_minutes)
+            self.career.shift, self.tour_minute())
 
     def board_depth(self) -> int:
         """
