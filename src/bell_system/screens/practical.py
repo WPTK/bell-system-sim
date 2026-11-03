@@ -186,6 +186,7 @@ class PracticalCommands(SessionState):
             # carries sign-offs). Nothing to grant, so nothing to announce.
             return (f"Practical: {practical.title}\n\n"
                     f"Worked, but you are already signed off on it.")
+        self.sync_groups()
         message = self.switchroom.qualification_notice(
             self.clock.now(), qualification.name, qualification.unlocks,
             held=len(self.career.qualifications),

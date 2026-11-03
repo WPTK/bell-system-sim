@@ -14,9 +14,13 @@ file, ``wc`` prints lines, words and characters in that order, ``head`` and
 the next.
 """
 
+import fnmatch
+from datetime import datetime, timedelta
 from typing import FrozenSet, List, Optional
 
+from ..data.finds import GROUP_FOR_SIGN_OFF, groups_for
 from ..filesystem import (
+    GROUP,
     PLAYER_LIMIT,
     Node,
     children,
@@ -24,16 +28,28 @@ from ..filesystem import (
     normalise,
 )
 from ..save import home_size
-from .session import SessionState
-
+from .finds import FindsCommands
 
 # How many sign-offs the wire chief wants behind somebody before he puts
 # them in the group that owns /usr/adm/sulog. The simulation's own figure:
-# it is the third, which is the one he says he notices.
+# it is the third, which is the one he says he notices. The ladder of
+# groups it belongs to is data/finds.py GROUP_FOR_SIGN_OFF.
 ADM_GROUP_QUALIFICATIONS = 3
 
+# The first morning of the game, which the career counts group grants from.
+GRANT_EPOCH = datetime(1983, 11, 14)
 
-class ShellCommands(SessionState):
+SULOG = '/usr/adm/sulog'
+DEV_NULL = '/dev/null'
+# The su log's last shipped line is Halloran's at 06:15 on the first morning,
+# so a grant is never stamped before 06:16 that day or after the last night.
+FIRST_GRANT = 6 * 60 + 16
+LAST_GRANT = (datetime(1983, 12, 31) - GRANT_EPOCH).days * 1440 + 1439
+# Halloran's terminal, which he is on when he puts someone in a group.
+CHIEF_LINE = 'tty01'
+
+
+class ShellCommands(FindsCommands):
     """
     Navigation, file reading and text handling.
 
@@ -54,9 +70,13 @@ class ShellCommands(SessionState):
         Content may be a callable, so a file can render live state - the
         line records under /usr/lmos are the reports actually on the board.
 
-        A file whose mode denies the rest of the machine also reads as
-        None, and callers turn that into a refusal by looking at the mode
-        themselves. There is exactly one such file, and it is the su log.
+        A file whose mode denies this position also reads as None, and
+        callers turn that into a refusal by looking at the mode themselves
+        (``_refusal``).
+
+        Reading is not finding: the commands that show a file to the player
+        call ``_note_read`` themselves, because ``_read`` is also how the
+        machine reads its own files.
         """
         node = self._node(path)
         if node is None or node.is_dir or not self._may_read(path):
@@ -70,48 +90,152 @@ class ShellCommands(SessionState):
         """
         Return whether this position may read a file.
 
-        The mode column has been on every listing since the filesystem was
-        written and has never meant anything. It means something on the one
-        file that denies the rest of the machine: an operator reads it when
-        the wire chief has put them in the group that owns it, and he does
-        that once he has signed off enough of their qualifications to
-        decide they are staying.
+        The mode column means what it says: anybody reads a file that is
+        readable by others, its owner reads it, and a member of its group
+        reads it when the group bit is set. The groups are the ones the
+        wire chief has put this position in (``_groups``), one more with
+        each sign-off, so the files that are shut are the next chapter of
+        the story and not the same wall.
         """
         node = self._node(path)
         if node is None:
             return True
         if node.mode[7:8] == 'r' or node.owner == (self.username or 'sysop'):
             return True
-        return node.group in self._groups()
+        return node.mode[4:5] == 'r' and node.group in self._groups()
 
     def _groups(self) -> FrozenSet[str]:
-        """Which groups this position has been put in."""
-        groups = {'craft'}
-        if len(self.career.qualifications) >= ADM_GROUP_QUALIFICATIONS:
-            groups.add('adm')
-        return frozenset(groups)
+        """
+        Return which groups this position is in.
 
-    def _gather(self, args: List[str], command: str) -> tuple:
+        Only what the held sign-offs give (data/finds.py). ``career.groups``
+        and ``career.granted`` are a record of when each group was given,
+        kept for the su log, and are not a second source of membership: a
+        career signed off before they were kept has its groups from the
+        first command, and nothing that is written there can add one.
+        """
+        return groups_for(len(self.career.qualifications))
+
+    def sync_groups(self) -> None:
+        """
+        Record when each group was given, and put the player in the su log.
+
+        Halloran says the log "has your name in it" when he adds someone to
+        adm. This makes it true: one successful su, from his login to the
+        player's, at the moment of the third sign-off (narrative bible T5).
+        Called when a sign-off is passed and when a position is taken (the
+        login is the position). The record is the career's; the log is
+        rebuilt every session, and the line is put back once, in its place
+        by the clock, and left where it is.
+        """
+        career = self.career
+        held = groups_for(len(career.qualifications))
+        minutes = int((self.clock.now() - GRANT_EPOCH).total_seconds() // 60)
+        minutes = min(max(minutes, FIRST_GRANT), LAST_GRANT)
+        changed = False
+        for number in sorted(GROUP_FOR_SIGN_OFF):
+            group = GROUP_FOR_SIGN_OFF[number]
+            if group in held and group not in career.groups:
+                career.groups.append(group)
+                career.granted[group] = minutes
+                changed = True
+        if changed:
+            career.save()
+        node = self.filesystem.get(SULOG)
+        if 'adm' not in career.granted or node is None:
+            return
+        if not isinstance(node.content, str):
+            return
+        when = min(max(career.granted['adm'], FIRST_GRANT), LAST_GRANT)
+        stamp = (GRANT_EPOCH + timedelta(minutes=when)).strftime('%m/%d %H:%M')
+        line = (f"SU {stamp} + {CHIEF_LINE} "
+                f"ehalloran-{self.username or 'sysop'}")
+        lines = [row for row in node.content.split('\n') if row]
+        if line in lines:
+            return
+        # In its place: the log is in the order things happened.
+        place = next((n for n, row in enumerate(lines)
+                      if row[3:14] > stamp), len(lines))
+        lines.insert(place, line)
+        self.filesystem[SULOG] = node._replace(
+            content='\n'.join(lines) + '\n')
+
+    def _render_group(self) -> str:
+        """Render /etc/group with this position in the groups it holds."""
+        mine = self.username or 'sysop'
+        rows = []
+        for row in GROUP.splitlines():
+            name, password, number, members = row.split(':')
+            names = members.split(',') if members else []
+            if name in self._groups() and mine not in names:
+                names.append(mine)
+            rows.append(f"{name}:{password}:{number}:{','.join(names)}")
+        return '\n'.join(rows) + '\n'
+
+    def _refusal(self, name: str, command: str) -> str:
+        """Say why a file could not be read."""
+        node = self._node(name)
+        if node is not None and node.is_dir:
+            return f"{command}: {name}: is a directory"
+        if node is not None and not self._may_read(name):
+            return f"{command}: {name}: permission denied"
+        return f"{command}: {name}: no such file or directory"
+
+    def _operands(self, args: List[str]) -> List[str]:
+        """
+        Return the files a command was given, with patterns expanded.
+
+        The shell does this and the command never sees the pattern, which
+        is why ``grep pwba /usr/adm/*`` reads every file in the directory.
+        ``*``, ``?`` and ``[`` match within one name and never across a
+        slash, a leading dot has to be typed, and a pattern that matches
+        nothing is passed on as typed, as sh did. Only files match:
+        a command cannot read a directory.
+        """
+        base = self.current_directory.rstrip('/') + '/'
+        names: List[str] = []
+        for arg in args:
+            if arg.startswith('-') or not any(c in arg for c in '*?['):
+                names.append(arg)
+                continue
+            wanted = normalise(arg, self.current_directory).split('/')[1:]
+            found = []
+            for path, node in sorted(self.filesystem.items()):
+                parts = path.split('/')[1:]
+                if node.is_dir or len(parts) != len(wanted):
+                    continue
+                if all(fnmatch.fnmatchcase(part, piece)
+                       and (piece.startswith('.') or not part.startswith('.'))
+                       for part, piece in zip(parts, wanted)):
+                    shown = path
+                    if not arg.startswith('/') and path.startswith(base):
+                        shown = path[len(base):]
+                    found.append(shown)
+            names.extend(found or [arg])
+        return names
+
+    def _gather(self, args: List[str], command: str,
+                note: bool = False) -> tuple:
         """
         Return (text, error) for commands that read files or standard input.
 
         With no file arguments a command reads what the previous stage of the
-        pipeline produced, which is what makes a pipeline work.
+        pipeline produced, which is what makes a pipeline work. ``note`` is
+        for the commands that print the text of what they read: only those
+        make a find, and wc, od and sum read a file without reading it.
         """
-        files = [a for a in args if not a.startswith('-')]
+        files = self._operands([a for a in args if not a.startswith('-')])
         if not files:
             return getattr(self, '_pipe_input', '') or '', None
         chunks = []
         for name in files:
             text = self._read(name)
             if text is None:
-                node = self._node(name)
-                if node is not None and node.is_dir:
-                    return None, f"{command}: {name}: is a directory"
-                if node is not None and not self._may_read(name):
-                    return None, f"{command}: {name}: permission denied"
-                return None, f"{command}: {name}: no such file or directory"
+                return None, self._refusal(name, command)
             chunks.append(text)
+        if note:
+            for name in files:
+                self._note_read(name)
         return ''.join(chunks), None
 
     # -- moving around ---------------------------------------------------
@@ -186,7 +310,7 @@ class ShellCommands(SessionState):
 
     def cmd_cat(self, args: Optional[List[str]] = None) -> str:
         """Concatenate and print files."""
-        text, error = self._gather(args or [], 'cat')
+        text, error = self._gather(args or [], 'cat', note=True)
         return error if error else text.rstrip('\n')
 
     def cmd_more(self, args: Optional[List[str]] = None) -> str:
@@ -196,7 +320,7 @@ class ShellCommands(SessionState):
         There is no interactive pager here: the terminal this runs in scrolls
         on its own, so more(1) prints the file and says how long it was.
         """
-        text, error = self._gather(args or [], 'more')
+        text, error = self._gather(args or [], 'more', note=True)
         if error:
             return error
         lines = text.rstrip('\n').split('\n')
@@ -211,9 +335,9 @@ class ShellCommands(SessionState):
         args = args or []
         count = 10
         for arg in args:
-            if arg.startswith('-') and arg[1:].isdigit():
+            if arg.startswith('-') and arg[1:].isdecimal():
                 count = int(arg[1:])
-        text, error = self._gather(args, 'head')
+        text, error = self._gather(args, 'head', note=True)
         if error:
             return error
         return '\n'.join(text.rstrip('\n').split('\n')[:count])
@@ -223,9 +347,9 @@ class ShellCommands(SessionState):
         args = args or []
         count = 10
         for arg in args:
-            if arg.startswith('-') and arg[1:].isdigit():
+            if arg.startswith('-') and arg[1:].isdecimal():
                 count = int(arg[1:])
-        text, error = self._gather(args, 'tail')
+        text, error = self._gather(args, 'tail', note=True)
         if error:
             return error
         return '\n'.join(text.rstrip('\n').split('\n')[-count:])
@@ -261,30 +385,51 @@ class ShellCommands(SessionState):
         Print lines matching a pattern.
 
         ``-i`` ignores case, ``-n`` numbers the lines, ``-v`` inverts the
-        match, ``-c`` counts instead of printing.
+        match, ``-c`` counts instead of printing, ``-l`` names the files
+        that match and ``-h`` leaves the names off. Given more than one
+        file, as it is by a pattern like ``/usr/adm/*``, it puts the file's
+        name in front of each line, and a file it cannot read costs a line
+        of complaint and not the whole search.
         """
         args = args or []
         flags = ''.join(a[1:] for a in args if a.startswith('-'))
         rest = [a for a in args if not a.startswith('-')]
         if not rest:
-            return "grep: usage: grep [-inv] pattern [file]..."
+            return "grep: usage: grep [-chilnv] pattern [file]..."
 
-        pattern, files = rest[0], rest[1:]
-        text, error = self._gather(files, 'grep')
-        if error:
-            return error
-
+        pattern = rest[0]
         needle = pattern.lower() if 'i' in flags else pattern
-        found = []
-        for number, line in enumerate(text.rstrip('\n').split('\n'), 1):
-            subject = line.lower() if 'i' in flags else line
-            hit = needle in subject
-            if hit == ('v' not in flags):
-                found.append(f"{number}:{line}" if 'n' in flags else line)
+        names = self._operands(rest[1:])
+        if names:
+            sources = [(name, self._read(name)) for name in names]
+        else:
+            sources = [('', getattr(self, '_pipe_input', '') or '')]
+        labelled = len(names) > 1 and 'h' not in flags
 
-        if 'c' in flags:
-            return str(len(found))
-        return '\n'.join(found)
+        found: List[str] = []
+        problems: List[str] = []
+        for name, text in sources:
+            if text is None:
+                problems.append(self._refusal(name, 'grep'))
+                continue
+            hits = []
+            for number, line in enumerate(text.rstrip('\n').split('\n'), 1):
+                subject = line.lower() if 'i' in flags else line
+                if (needle in subject) == ('v' not in flags):
+                    hits.append(f"{number}:{line}" if 'n' in flags else line)
+            # -c and -l report on a file without showing it.
+            if hits and name and not set('cl') & set(flags):
+                self._note_read(name)
+            label = f"{name}:" if labelled else ''
+            if 'l' in flags:
+                if hits:
+                    found.append(name)
+            elif 'c' in flags:
+                found.append(f"{label}{len(hits)}")
+            else:
+                found.extend(f"{label}{hit}" for hit in hits)
+
+        return '\n'.join(found + problems)
 
     def cmd_wc(self, args: Optional[List[str]] = None) -> str:
         """Count lines, words and characters."""
@@ -312,7 +457,7 @@ class ShellCommands(SessionState):
         """Sort lines. ``-r`` reverses, ``-u`` drops duplicates."""
         args = args or []
         flags = ''.join(a[1:] for a in args if a.startswith('-'))
-        text, error = self._gather(args, 'sort')
+        text, error = self._gather(args, 'sort', note=True)
         if error:
             return error
         lines = text.rstrip('\n').split('\n') if text.strip() else []
@@ -325,7 +470,7 @@ class ShellCommands(SessionState):
         """Drop repeated adjacent lines. ``-c`` prefixes a count."""
         args = args or []
         flags = ''.join(a[1:] for a in args if a.startswith('-'))
-        text, error = self._gather(args, 'uniq')
+        text, error = self._gather(args, 'uniq', note=True)
         if error:
             return error
         out, previous, run = [], None, 0
@@ -389,6 +534,17 @@ class ShellCommands(SessionState):
             return f"{command}: {parent}: not a directory"
         return None
 
+    def _owns(self, node: Node) -> bool:
+        """
+        Return whether this position owns a file.
+
+        chmod, rm and mv act on a file the way its owner may, which keeps a
+        file the player can read (and so, by a group, one the next sign-off
+        was meant to open) from being made readable by chmod 644 and moved
+        or removed out of its turn.
+        """
+        return node.owner == (self.username or 'sysop')
+
     def write_file(self, path: str, text: str,
                    append: bool = False) -> Optional[str]:
         """
@@ -399,14 +555,33 @@ class ShellCommands(SessionState):
             text: What to write
             append: Add to the end rather than replacing
         """
+        if path == DEV_NULL:
+            return None
         error = self._writable(path, 'sh')
         if error:
             return error
         existing = self.filesystem.get(path)
+        if existing is not None and not self._owns(existing):
+            return f"sh: {path}: not owner"
+        return self.put_file(path, text, append)
+
+    def put_file(self, path: str, text: str,
+                 append: bool = False) -> Optional[str]:
+        """
+        Write a file as the machine does: no owner, no permission.
+
+        write_file is what the player's commands use and is the owner's to
+        change; this is for what the simulation itself writes (the moo
+        scoreboard), which belongs to somebody else and is changed by play.
+        """
+        existing = self.filesystem.get(path)
         if append and existing is not None and isinstance(existing.content, str):
             text = existing.content + text
-        owner = self.username or 'sysop'
-        node = Node('file', owner, 'craft', '-rw-r--r--', text)
+        if existing is None:
+            node = Node('file', self.username or 'sysop', 'craft',
+                        '-rw-r--r--', text)
+        else:
+            node = existing._replace(content=text)
         return self.store_node(path, node, 'sh')
 
     def store_node(self, path: str, node: Node,
@@ -487,12 +662,18 @@ class ShellCommands(SessionState):
             if node is None:
                 problems.append(f"rm: {name}: no such file or directory")
                 continue
+            if not self._owns(node):
+                problems.append(f"rm: {name}: permission denied")
+                continue
             if node.is_dir:
                 if 'r' not in flags:
                     problems.append(f"rm: {name}: is a directory")
                     continue
                 doomed = [p for p in self.filesystem
                           if p == path or p.startswith(path + '/')]
+                if not all(self._owns(self.filesystem[v]) for v in doomed):
+                    problems.append(f"rm: {name}: permission denied")
+                    continue
                 for victim in doomed:
                     del self.filesystem[victim]
                 continue
@@ -521,12 +702,17 @@ class ShellCommands(SessionState):
         node = self.filesystem.get(source)
         if node is None:
             return f"mv: {args[0]}: cannot access"
+        if not self._owns(node):
+            return f"mv: {args[0]}: permission denied"
         target = normalise(args[1], self.current_directory)
         if target in self.filesystem and self.filesystem[target].is_dir:
             target = f"{target}/{source.rsplit('/', 1)[-1]}"
         error = self._writable(target, 'mv')
         if error:
             return error
+        held = self.filesystem.get(target)
+        if held is not None and not self._owns(held):
+            return f"mv: {target}: not owner"
         del self.filesystem[source]
         error = self.store_node(target, node, 'mv')
         if error:
@@ -551,15 +737,15 @@ class ShellCommands(SessionState):
         """
         Change a file's mode.
 
-        Takes the octal form. The mode is displayed by ls(1) and read by
-        file(1); nothing here enforces permission, which is honest about
-        what this simulation does and does not model.
+        Takes the octal form, and only on a file the position owns. The mode
+        is what decides who may read it (``_may_read``), so a mode that
+        anybody could change would open the whole of the machine at once.
         """
         args = args or []
         if len(args) < 2:
             return "chmod: usage: chmod mode file ..."
         octal = args[0]
-        if not (octal.isdigit() and len(octal) in (3, 4)):
+        if not (octal.isdecimal() and len(octal) in (3, 4)):
             return f"chmod: {octal}: bad mode"
         bits = octal[-3:]
         letters = ''.join(
@@ -571,6 +757,9 @@ class ShellCommands(SessionState):
             node = self.filesystem.get(path)
             if node is None:
                 problems.append(f"chmod: {name}: cannot access")
+                continue
+            if not self._owns(node):
+                problems.append(f"chmod: {name}: not owner")
                 continue
             head = 'd' if node.is_dir else '-'
             error = self.store_node(

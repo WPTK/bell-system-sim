@@ -153,8 +153,9 @@ class TestTheMailbox:
         """
         raw_terminal._apply_role('cro', 'Central Office Repair',
                                  announce=False)
+        # The chief's own mailbox is in the spool too.
         assert raw_terminal.execute_command(
-            'ls /usr/spool/mail').split() == ['cro']
+            'ls /usr/spool/mail').split() == ['cro', 'ehalloran']
 
     def test_mail_can_be_read_with_cat(self, terminal):
         terminal.switchroom.qualification_notice(
