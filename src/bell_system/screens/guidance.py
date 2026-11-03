@@ -30,6 +30,7 @@ from typing import Iterable, List, NamedTuple, Optional, Tuple
 
 from ..data.positions import POSITION_COMMANDS
 from ..data.hints import EXHAUSTED, HINTS
+from ..loop_testing import STAGE_NUMBERS
 from ..npc import render as render_message
 from ..progression import QUALIFICATIONS_BY_KEY
 from .session import SessionState
@@ -85,7 +86,12 @@ class GuidanceCommands(SessionState):
                 if report.field_finding or report.sheath_repaired]
         if done:
             report = done[0]
-            found = report.field_finding or 'WET'
+            # The code is the answer, so it is only typed for the player
+            # while the fault is still being named to them.
+            if self._reading_stage(report, count=False) == STAGE_NUMBERS:
+                found = '<fault>'
+            else:
+                found = report.field_finding or 'WET'
             return NextAction(
                 f"{report.number} has been cleared in the field and is "
                 f"waiting to be closed out.",
@@ -123,7 +129,8 @@ class GuidanceCommands(SessionState):
         report = pending[0]
         if not report.dispatched_to:
             fault = report.record.fault
-            force = self._dispatch_for(fault)
+            force = ('' if self._reading_stage(report, count=False)
+                     == STAGE_NUMBERS else self._dispatch_for(fault))
             return NextAction(
                 f"{report.number} is measured and waiting on a crew. "
                 f"{report.age_label()} left.",
