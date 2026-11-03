@@ -199,6 +199,8 @@ this shift and the next one starts on a fresh board."""
         # nobody worked pass their commitments in the hours left, and the
         # index you bank is the one for the board you are handing over.
         left = max(0, SHIFT_LENGTH_MINUTES - self.shift_minutes)
+        # A practical is this tour's. It does not go on the board of the next.
+        self._abandon_practical()
         late = self.desk.new_tour(left, self.shift_minutes)
         if late:
             self.career.record_missed(len(late))
@@ -277,10 +279,10 @@ this shift and the next one starts on a fresh board."""
                                for entry in self.career.index_history[-8:])
             lines.append(f"  Index history             {recent}"
                          + (f"  {trend}" if trend else ''))
-        granted = self._grant_qualifications()
-        if granted:
+        offered = self._offer_qualifications()
+        if offered:
             lines.append('')
-            lines.extend(granted)
+            lines.extend(offered)
         if self.clock.last_tour(self.career.shift):
             lines.append('')
             lines.extend(LAST_TOUR_NOTICE)

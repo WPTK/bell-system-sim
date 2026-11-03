@@ -108,6 +108,8 @@ class SessionState:
     # resets when the situation changes.
     _hint_situation: str
     _hint_level: int
+    # Sign-offs already announced as ready for a practical, this session.
+    _offered: Set[str]
     shift_minutes: int
     shift_events: List[Dict[str, Any]]
     shift_handoff: Dict[str, Any]
@@ -395,8 +397,28 @@ class SessionState:
         """Hold a message back so it lands a few commands from now."""
         raise NotImplementedError
 
-    def _grant_qualifications(self) -> List[str]:
-        """Award anything newly earned and return the notices."""
+    def _offer_qualifications(self) -> List[str]:
+        """Say once that a sign-off is ready for its practical."""
+        raise NotImplementedError
+
+    def _practical_open(self) -> Optional[Tuple[Any, Any]]:
+        """The practical on the board and the report it staged."""
+        raise NotImplementedError
+
+    def _practical_key(self) -> Optional[str]:
+        """The sign-off whose practical is on the board, if one is."""
+        raise NotImplementedError
+
+    def _practical_hints(self) -> List[Tuple[str, List[str]]]:
+        """The nudges for the practical on the board, smallest first."""
+        raise NotImplementedError
+
+    def _abandon_practical(self) -> None:
+        """End a practical that was never handed in."""
+        raise NotImplementedError
+
+    def _qual_practical(self, args: List[str]) -> str:
+        """Take a practical, or hand one in."""
         raise NotImplementedError
 
     def reports_all(self) -> List[Any]:

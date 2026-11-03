@@ -245,6 +245,9 @@ class TroubleReport:
         self.closed_at: Optional[datetime] = None
         self.correct: Optional[bool] = None
         self.missed_commitment = False
+        # The sign-off whose practical this report was staged for. Such a
+        # report is never the customer's: it is not closed, it is handed in.
+        self.practical: Optional[str] = None
 
     # -- derived ---------------------------------------------------------
 
@@ -839,6 +842,12 @@ class ReportDesk:
         for report in late:
             report.missed_commitment = True
         return late
+
+    def discard(self, report: TroubleReport) -> None:
+        """Take a report off the board as though it had never been on it."""
+        self.reports.pop(report.number, None)
+        if report.number in self.order:
+            self.order.remove(report.number)
 
     def new_tour(self, elapsed: int, was: int) -> List[TroubleReport]:
         """

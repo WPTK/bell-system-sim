@@ -468,14 +468,23 @@ class Career:
             and self.reports_correct >= qualification.requires_reports * threshold
         ]
 
-    def grant_available(self) -> List[Qualification]:
-        """Award every qualification whose requirement is met."""
-        granted = self.offer_available()
-        for qualification in granted:
-            self.qualifications.append(qualification.key)
-        if granted:
-            self.save()
-        return granted
+    def pass_practical(self, key: str) -> Optional[Qualification]:
+        """
+        Sign off a qualification whose practical has been passed.
+
+        The count only offers it. Returns None for a key that is not on
+        offer, so a practical passed for a sign-off already held, or not yet
+        reached, changes nothing.
+        """
+        offered = {q.key: q for q in self.offer_available()}
+        qualification = offered.get(key)
+        if qualification is None:
+            return None
+        if key not in self.practicals_passed:
+            self.practicals_passed.append(key)
+        self.qualifications.append(key)
+        self.save()
+        return qualification
 
     def next_qualification(self) -> Optional[Qualification]:
         """Return the next qualification to work toward."""

@@ -36,7 +36,7 @@ import warnings
 import time
 from collections import defaultdict, deque
 from datetime import timedelta
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Set, Tuple
 
 from .constants import (
     BELL_SYSTEM_ROLES,
@@ -74,6 +74,7 @@ from .screens.editor import EditorCommands
 from .screens.filters import FilterCommands
 from .screens.jobs import JobCommands
 from .screens.plant import PlantCommands
+from .screens.practical import PracticalCommands
 from .screens.guidance import GuidanceCommands
 from .screens.position import PositionCommands
 from .screens.preferences import PreferenceCommands
@@ -155,6 +156,7 @@ class BellSystemTerminal(
     FilterCommands,
     JobCommands,
     PlantCommands,
+    PracticalCommands,
     GuidanceCommands,
     PreferenceCommands,
     PositionCommands,
@@ -244,6 +246,7 @@ class BellSystemTerminal(
         # over when it changes.
         self._hint_situation: str = ''
         self._hint_level: int = 0
+        self._offered: Set[str] = set()
         self._tour_baseline: Tuple[int, int, int, int] = (
             self.career.reports_closed, self.career.reports_correct,
             self.career.missed_commitments, self.career.repeat_reports)

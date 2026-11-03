@@ -313,7 +313,8 @@ class GuidanceCommands(SessionState):
         because a player who has just moved on to a different problem is
         at the beginning of that one.
 
-        A minute of shift time and nothing else. There is no score
+        A minute of shift time and nothing else, and not even that while a
+        practical is on the board. There is no score
         penalty for asking: being stuck is already the penalty, and a hint
         system with a cost attached is a hint system nobody uses.
         """
@@ -323,9 +324,12 @@ class GuidanceCommands(SessionState):
             self._hint_situation = situation
             self._hint_level = 0
         self._hint_level += 1
-        self._pass_time(HINT_MINUTES)
+        # A practical is not the shift, and the minute is for the shift.
+        if situation != 'practical':
+            self._pass_time(HINT_MINUTES)
 
-        levels = HINTS[situation]
+        levels = (self._practical_hints() if situation == 'practical'
+                  else HINTS[situation])
         if self._hint_level > len(levels):
             return render_message(self.switchroom.advice(
                 self.clock.now(), 'ehalloran', list(EXHAUSTED),
@@ -351,6 +355,8 @@ class GuidanceCommands(SessionState):
         once. After that a first tour is stuck on the same things anybody
         else is stuck on, and gets the same three levels about them.
         """
+        if self._practical_open() is not None:
+            return 'practical'
         # 'board' is marked the first time report(1) runs, so this is
         # exactly "has not looked at the board yet".
         if self.first_tour() and 'board' not in self._tour_nudges:

@@ -96,20 +96,24 @@ class TestQualifications:
         assert Career().may_use('help')
         assert Career().may_use('ls')
 
-    def test_correct_closures_earn_the_next_sign_off(self):
+    def test_correct_closures_offer_the_next_sign_off_and_a_practical_gives_it(
+            self):
         career = Career(difficulty='fun')
         threshold = DIFFICULTIES['fun'].reports_per_qualification
         for _ in range(threshold):
             career.record_closure(correct=True)
-        granted = career.grant_available()
-        assert 'frame' in [q.key for q in granted]
+        assert 'frame' in [q.key for q in career.offer_available()]
+        assert not career.may_use('cosmos')
+        assert career.pass_practical('frame').key == 'frame'
         assert career.may_use('cosmos')
+        assert career.practicals_passed == ['frame']
 
     def test_wrong_closures_earn_nothing(self):
         career = Career(difficulty='fun')
         for _ in range(20):
             career.record_closure(correct=False)
-        assert career.grant_available() == []
+        assert career.offer_available() == []
+        assert career.pass_practical('frame') is None
         assert not career.may_use('cosmos')
 
     def test_craft_needs_far_more_closures_than_fun(self):
@@ -546,8 +550,10 @@ class TestCareerSchema:
         career.reports_correct = 3
         assert [q.key for q in career.offer_available()] == ['frame']
         assert career.qualifications == ['loop']
-        career.grant_available()
+        assert career.pass_practical('frame') is not None
         assert 'frame' in career.qualifications
+        assert career.pass_practical('frame') is None
+        assert career.pass_practical('toll') is None
 
 
 class TestAssistsApplyToTheCareer:

@@ -4342,3 +4342,23 @@ QUALIFICATION VERB
 }
 for _command, _section in _VERB_SECTIONS.items():
     MAN_PAGES[_command] += _section
+
+
+# The practical each sign-off waits on. Appended with the verbs above, for the
+# same reason: so that what the ladder asks is read in one place.
+MAN_PAGES["qual"] += """
+PRACTICALS
+     qual take <sign-off>
+     qual submit
+
+     The count of correct closures offers a sign-off and does not give
+     it. When the count is met, qual take stages one report on your board
+     that wants what the sign-off is for, and the tools of the sign-off
+     are yours while it is there. Work it, then qual submit. The wire
+     chief signs, or says what you missed. A report left unsubmitted goes
+     at the handoff; take it again when you are ready.
+
+     The practical is the same on fun and on craft. hint costs nothing
+     while one is on the board. The report is not a customer's and cannot
+     be closed with report close.
+"""

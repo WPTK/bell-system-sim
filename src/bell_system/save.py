@@ -132,6 +132,7 @@ def _report_out(report: TroubleReport) -> Dict[str, Any]:
     """Write one trouble report, everything on it included."""
     written = {field: getattr(report, field) for field in _REPORT_FIELDS}
     written['desk_booked'] = report.desk_booked
+    written['practical'] = report.practical
     written['record'] = _record_out(report.record)
     written['received'] = _stamp(report.received)
     written['commitment'] = _stamp(report.commitment)
@@ -159,6 +160,9 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     # Written since reports began ageing on the shift clock. A shift saved
     # before that has been aged by exactly the desk time it charged.
     report.desk_booked = stored.get('desk_booked', report.desk_minutes)
+    # Written since practicals; a report from before one is an ordinary one.
+    practical = stored.get('practical')
+    report.practical = practical if isinstance(practical, str) else None
     # Nor were overdue reports flagged while they were open. Left alone,
     # the first age() after loading would find every one of them late at
     # once and answer with a burst of misses and escalations for lateness
