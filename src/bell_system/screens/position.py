@@ -68,6 +68,11 @@ class PositionCommands(SessionState):
         self.desk.depth_limit = self.board_depth()
         if self.position.key == 'noc':
             self._count_triage()
+        if self.position.key == 'custserv':
+            # The tour's book, before anybody is on the board: see
+            # RepairDeskCommands._opening_book.
+            console: Any = self
+            console.patience_book()
         if self.position.key == 'sarts':
             self._count_outages()
 

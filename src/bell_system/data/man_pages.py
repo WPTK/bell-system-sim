@@ -4461,13 +4461,16 @@ ADVISE
      is the shift clock: it moves with what you type and run, and not
      with a stopwatch. Each ring is said on the next prompt, whether or
      not you were looking, and the third is a missed commitment on the
-     index: the customer stops ringing and writes in. The first tour is
-     a grace and nothing is charged.
+     index: the customer stops ringing and writes in. A report is charged
+     once, for that or for the commitment passing, whichever comes first.
+     The first tour is a grace and nothing is charged.
 
      A call costs 3 minutes, 2 more for each ring they have already
-     made, and 3 more if you have nothing to tell them. A finding or a
-     crew out is something to tell them, and the call settles them for a
-     full wait. A test that has only measured the line is not an answer:
-     with nothing to say the call forgives only half, and 'report next'
-     says what to work. These figures are the simulation's own.
+     made, and 3 more if you have nothing to tell them. A finding is
+     something to tell them (a crew out on the right force has one), and
+     the call settles them for a full wait. A test that has only
+     measured the line is not an answer, and nor is a crew sent to the
+     wrong force: with nothing to say the call forgives only half, and
+     'report next' says what to work. These figures are the
+     simulation's own.
 """

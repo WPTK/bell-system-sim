@@ -45,10 +45,11 @@ def _new_book(tour: int) -> Dict[str, Any]:
     ``told`` is the report's elapsed time when the customer was last
     advised. ``seen`` is how many rings the clock has counted in the wait
     since, and ``rings`` how many the report has had in all this tour, so
-    that closing it does not take them away. ``missed`` lists the reports
-    whose customer gave up and was charged for it, once each.
+    that closing it does not take them away. Whether a customer who gave up
+    has been charged for it is the report's own ``missed_commitment`` flag,
+    the one the commitment itself sets, so a report is charged once.
     """
-    return {'tour': tour, 'told': {}, 'seen': {}, 'rings': {}, 'missed': []}
+    return {'tour': tour, 'told': {}, 'seen': {}, 'rings': {}}
 
 
 def _whole_minutes(value: Any) -> Dict[str, int]:
@@ -82,37 +83,44 @@ class RepairDeskCommands(SessionState):
         """
         book = self._patience_book
         if book is None or book['tour'] != self.career.shift:
-            book = _new_book(self.career.shift)
+            book = self._opening_book()
             self._patience_book = book
+        return book
+
+    def _opening_book(self) -> Dict[str, Any]:
+        """
+        A book for a tour that is just starting, or for a save that has none.
+
+        Every customer already holding is taken to have been told just now.
+        A report carried over a handoff has all of its elapsed time on it,
+        and counting their wait from the minute the report was received
+        would ring every one of them three times on the first prompt.
+        """
+        book = _new_book(self.career.shift)
+        for report in self.desk.customers():
+            book['told'][report.number] = report.minutes_spent
         return book
 
     def patience_state(self) -> Dict[str, Any]:
         """The book as the save file keeps it."""
         book = self.patience_book()
         return {'tour': book['tour'], 'told': dict(book['told']),
-                'seen': dict(book['seen']), 'rings': dict(book['rings']),
-                'missed': list(book['missed'])}
+                'seen': dict(book['seen']), 'rings': dict(book['rings'])}
 
     def restore_patience(self, stored: Any) -> None:
         """
         Put a saved book back.
 
         A save from before the book existed, from another tour or damaged
-        brings none, and then every customer already holding is taken to
-        have been told just now: their wait counts from here, not from the
-        minute their report was received, which would ring all of them at
-        once.
+        brings none, and then it is a book for a tour just starting (see
+        _opening_book).
         """
-        book = _new_book(self.career.shift)
-        if isinstance(stored, dict) and stored.get('tour') == book['tour']:
+        if isinstance(stored, dict) and stored.get('tour') == self.career.shift:
+            book = _new_book(self.career.shift)
             for key in ('told', 'seen', 'rings'):
                 book[key] = _whole_minutes(stored.get(key))
-            missed = stored.get('missed')
-            book['missed'] = ([str(n) for n in missed]
-                              if isinstance(missed, list) else [])
         else:
-            for report in self.desk.customers():
-                book['told'][report.number] = report.minutes_spent
+            book = self._opening_book()
         self._patience_book = book
 
     # -- the clock -----------------------------------------------------------
@@ -160,8 +168,11 @@ class RepairDeskCommands(SessionState):
         Notice the customers who have rung since the clock last moved.
 
         Counts each ring once, says so in the attendant's words, and charges
-        the third to the index as a missed commitment, once per report. Only
-        the repair desk has customers to ring, and the first tour is a
+        the third to the index as a missed commitment. A report is charged
+        once whichever comes first, the customer giving up or the commitment
+        passing: both set the report's ``missed_commitment`` flag, which the
+        commitment's own count (and the close) look at before they charge.
+        Only the repair desk has customers to ring, and the first tour is a
         grace, so anywhere else this does nothing.
         """
         if self.position.key != 'custserv' or self.first_tour():
@@ -181,10 +192,11 @@ class RepairDeskCommands(SessionState):
             book['seen'][number] = rings
             book['rings'][number] = book['rings'].get(number, 0) + rings - seen
             notice = self._ring_notice(report, rings)
-            if rings >= MAX_RINGS and number not in book['missed']:
-                book['missed'].append(number)
+            if rings >= MAX_RINGS and not report.missed_commitment:
                 # The same cost a report that passes its commitment carries,
-                # through the same path; the handoff prints it.
+                # through the same path; the handoff prints it. The flag is
+                # what keeps the commitment from charging it again.
+                report.missed_commitment = True
                 self.career.record_missed(1)
             self.switchroom.log.append(notice)
             notices.append(notice)
@@ -227,11 +239,14 @@ class RepairDeskCommands(SessionState):
         """
         Whether there is anything true to tell this customer.
 
-        A finding, or a crew out. A test alone is not an answer: it says
-        the line was measured, and the customer asked what is wrong with it.
+        What the field has found, which is set only when the crew sent was
+        the right force for the fault: a crew out on the right force has a
+        finding already, and one sent to the wrong force has none. A test
+        alone is not an answer (it says the line was measured, and the
+        customer asked what is wrong with it), and nor is a wrong dispatch,
+        which would be telling the customer something false.
         """
-        return bool(report.found or report.field_finding
-                    or report.dispatched_to)
+        return bool(report.field_finding)
 
     def advise(self, args: List[str]) -> str:
         """
@@ -256,9 +271,11 @@ class RepairDeskCommands(SessionState):
                  f"{'CALL':<6}TOLD", '-' * 66]
         for report, rings, left in queue:
             known = self._has_reading(report)
+            # Nobody rings after the third; there is no next ring to show.
+            until = '-' if rings >= MAX_RINGS else f"{left}m"
             lines.append(
                 f"{report.number:<10}{report.record.telephone_number:<14}"
-                f"{rings:<7}{str(left) + 'm':<11}"
+                f"{rings:<7}{until:<11}"
                 f"{self._advise_cost(rings, known):>2}m   "
                 f"{'status' if known else 'nothing yet'}")
         if not queue:
@@ -274,9 +291,10 @@ class RepairDeskCommands(SessionState):
             "",
             "A customer rings again after 20 shift minutes out of service,",
             "45 otherwise, counted from the last call, and the third ring",
-            "counts as a missed commitment. A finding or a crew out is",
-            "something to tell them; a test alone is not. These figures",
-            "are the simulation's own.",
+            "counts as a missed commitment. A finding is something to",
+            "tell them, which a crew out on the right force has; a test",
+            "alone is not, nor a crew sent to the wrong force. These",
+            "figures are the simulation's own.",
         ]
         return '\n'.join(lines)
 
@@ -302,11 +320,8 @@ class RepairDeskCommands(SessionState):
             if report.dispatched_to:
                 said = (f"{report.crew or report.dispatched_to} is on it"
                         f" ({report.dispatched_to}).")
-            elif report.field_finding:
-                said = f"it has been found: {report.field_finding}."
             else:
-                said = (report.test_notes[-1] if report.test_notes
-                        else "it has been looked at.")
+                said = f"it has been found: {report.field_finding}."
             tone = (f"They had rung {rings} time(s) already." if rings
                     else "They had not rung yet.")
             return '\n'.join([
@@ -324,7 +339,7 @@ class RepairDeskCommands(SessionState):
             f"nothing to tell them.",
             f"That was {cost} minutes of the shift, and half of what they "
             f"had waited",
-            "is still owed. A finding or a crew out is an answer; "
-            "'report next'",
-            "says what to work.",
+            "is still owed. A finding is an answer; 'report next' says "
+            "what to",
+            "work.",
         ])

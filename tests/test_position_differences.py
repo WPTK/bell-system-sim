@@ -45,10 +45,19 @@ SHIFT_START = datetime(1983, 11, 14, 8, 0)
 
 
 def skew_the_wall_clock(terminal, monkeypatch, hours=9):
-    """Make the session clock run hours ahead, as a long lunch would."""
-    real = terminal.clock.now
-    monkeypatch.setattr(terminal.clock, 'now',
-                        lambda: real() + timedelta(hours=hours))
+    """
+    Make the session clock run hours ahead, as a long lunch would.
+
+    Moves the session's start back, so that now() and elapsed() both read
+    the later time, and checks that it took: a skew that moved nothing
+    would let every test that uses it pass without looking at anything.
+    """
+    before = terminal.clock.now()
+    monkeypatch.setattr(terminal.clock, '_session_start',
+                        terminal.clock._session_start
+                        - timedelta(hours=hours))
+    assert terminal.clock.now() - before >= timedelta(hours=hours - 1)
+    assert terminal.clock.elapsed() >= timedelta(hours=hours - 1)
 
 
 ROLE_KEYS = [key for key, _ in BELL_SYSTEM_ROLES.values()]
@@ -923,7 +932,8 @@ def hold(terminal, *waits):
         report.dispatched_to = None
         report.crew = None
         report.test_notes = []
-    terminal._patience_book = None
+    from bell_system.screens.repairdesk import _new_book
+    terminal._patience_book = _new_book(terminal.career.shift)
     return chosen
 
 
@@ -1006,7 +1016,9 @@ class TestTheRepairDeskHolds:
     def test_a_crew_on_the_job_is_something_to_tell(self, at_desk):
         terminal = at_desk('custserv')
         (down,) = hold(terminal, (True, 20))
+        # A crew out on the right force is one that has a finding.
         down.dispatched_to = 'splicer'
+        down.field_finding = 'OPEN'
         down.crew = 'Wheeler'
         output = terminal.execute_command(f'trouble advise {down.number}')
         assert 'Wheeler is on it' in output
@@ -1035,6 +1047,9 @@ class TestTheRepairDeskHolds:
         (down,) = hold(terminal, (True, 5))
         skew_the_wall_clock(terminal, monkeypatch)
         assert terminal.patience(down)[0] == 0
+        terminal._advance_shift()
+        assert ring_messages(terminal) == []
+        assert terminal.rings_total() == 0
 
     def test_a_passing_shift_is_what_brings_the_ring(self, at_desk):
         terminal = at_desk('custserv')
@@ -1138,7 +1153,7 @@ class TestTheRepairDeskCostsTheIndex:
         terminal._pass_time(500)
         terminal.execute_command('trouble list')
         assert terminal.career.missed_commitments == before + 1
-        assert len(terminal.patience_book()['missed']) == 1
+        assert terminal.desk.customers()[0].missed_commitment
 
     def test_a_call_in_time_is_a_cost_not_paid(self, at_desk):
         terminal = at_desk('custserv')
@@ -1160,14 +1175,15 @@ class TestTheRepairDeskCostsTheIndex:
 
     def test_the_first_tour_is_never_charged(self, at_desk):
         terminal = at_desk('custserv')
-        hold(terminal, (True, 0))
+        (down,) = hold(terminal, (True, 0))
         terminal.career.shift = 1
         terminal.career.reports_closed = 0
         terminal._pass_time(600)
         late = terminal.career.missed_commitments
+        flagged = down.missed_commitment
         terminal.ring_sweep()
         assert terminal.career.missed_commitments == late
-        assert terminal.patience_book()['missed'] == []
+        assert down.missed_commitment == flagged
         assert ring_messages(terminal) == []
 
 
@@ -1182,7 +1198,10 @@ class TestTheRepairDeskBookIsHonest:
         terminal.career.shift += 1
         book = terminal.patience_book()
         assert book['tour'] == terminal.career.shift
-        assert book['told'] == {} and book['rings'] == {}
+        # Nothing carried from the last tour's book, and the customer
+        # holding is told as of now, not from the minute they rang in.
+        assert book['rings'] == {}
+        assert book['told'] == {down.number: down.minutes_spent}
         assert terminal.rings_total() == 0
 
     def test_looking_does_not_change_who_rang(self, at_desk):
@@ -1215,9 +1234,107 @@ class TestTheRepairDeskBookIsHonest:
         found, sent = hold(terminal, (True, 10), (True, 10))
         found.field_finding = 'OPEN'
         sent.dispatched_to = 'splicer'
+        sent.field_finding = 'OPEN'
         output = terminal.execute_command('trouble advise')
         assert output.count('status') >= 2
         assert 'nothing yet' not in output
+
+
+    def test_a_handoff_does_not_ring_every_carried_report(self, at_desk):
+        terminal = at_desk('custserv')
+        hold(terminal, (True, 10), (False, 10), (True, 30))
+        terminal._end_shift()
+        assert terminal.career.shift == 3
+        carried = terminal.desk.customers()
+        assert carried
+        terminal._advance_shift()
+        assert ring_messages(terminal) == []
+        assert terminal.rings_total() == 0
+        for report in carried:
+            assert terminal.patience(report)[0] == 0, report.number
+
+    def test_a_customer_carried_over_rings_on_their_own_wait(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 10))
+        terminal._end_shift()
+        terminal._advance_shift()
+        assert terminal.patience(down)[0] == 0
+        terminal._pass_time(25)
+        terminal._advance_shift()
+        assert terminal.patience(down)[0] == 1
+        assert [m.about for m in ring_messages(terminal)
+                if m.about == down.number] == [down.number]
+
+    def test_only_the_right_force_gives_the_desk_something_to_say(
+            self, at_desk):
+        from bell_system.reports import FAULTS
+        terminal = at_desk('custserv')
+        right, wrong = hold(terminal, (True, 5), (True, 5))
+        wanted = FAULTS[right.record.fault].dispatch
+        other = next(fault.dispatch for fault in FAULTS.values()
+                     if fault.dispatch.lower() != wanted.lower())
+        terminal.desk.dispatch(right, wanted, terminal.shift_minutes)
+        terminal.desk.dispatch(wrong, other, terminal.shift_minutes)
+        assert wrong.dispatched_to is not None and not wrong.field_finding
+        assert terminal._has_reading(right)
+        assert not terminal._has_reading(wrong)
+        said = terminal.execute_command(f'trouble advise {wrong.number}')
+        assert 'nothing to tell' in said and 'is on it' not in said
+
+    def test_a_report_is_charged_once_for_giving_up_and_for_passing(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        before = terminal.career.missed_commitments
+        terminal._pass_time(65)
+        terminal.ring_sweep()
+        assert terminal.patience(down)[0] == 3
+        assert not down.overdue()
+        assert terminal.career.missed_commitments == before + 1
+        assert down.missed_commitment
+        down.minutes_spent += 100_000
+        terminal._pass_time(1)
+        assert down.overdue()
+        assert terminal.career.missed_commitments == before + 1
+
+    def test_a_report_already_late_is_not_charged_again_at_the_third_ring(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        before = terminal.career.missed_commitments
+        down.minutes_spent += 100_000
+        terminal._pass_time(1)
+        assert terminal.career.missed_commitments == before + 1
+        terminal.ring_sweep()
+        assert terminal.patience(down)[0] == 3
+        assert ring_messages(terminal)
+        assert terminal.career.missed_commitments == before + 1
+
+    def test_the_handoff_does_not_charge_a_given_up_report_again(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        terminal._pass_time(65)
+        terminal.ring_sweep()
+        # Near enough to its commitment that the rest of the tour passes it.
+        allowed = int((down.commitment - down.received).total_seconds() // 60)
+        down.minutes_spent = allowed - 100
+        assert not down.overdue()
+        charged = terminal.career.missed_commitments
+        terminal._end_shift()
+        assert down.overdue()
+        assert terminal.career.missed_commitments == charged
+
+    def test_the_countdown_is_gone_after_the_third_ring(self, at_desk):
+        terminal = at_desk('custserv')
+        gone, calm = hold(terminal, (True, 10_000), (False, 5))
+        rows = {}
+        for line in terminal.execute_command('trouble advise').split('\n'):
+            for report in (gone, calm):
+                if line.startswith(report.number):
+                    rows[report.number] = line.split()
+        assert rows[gone.number][2:4] == ['3', '-']
+        assert rows[calm.number][3].endswith('m')
 
 
 class TestTheRepairDeskAcrossAResume:
