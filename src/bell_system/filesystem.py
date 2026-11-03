@@ -1595,6 +1595,15 @@ ARRIVING = frozenset(
 # outside them the games ask you to write to. Everything else on the machine
 # is rebuilt at construction, which is why the rest of the tree is not saved.
 PLAYER_PREFIX = '/usr/users/'
+# An earlier career's files, put here each session from legacy.json. They are
+# under the users' directories but they are not this player's, so they are not
+# saved with the player.
+PRIOR = '/usr/users/prior'
+
+
+def is_prior_path(path: str) -> bool:
+    """Return whether a path is an earlier career's, and so not to be written."""
+    return path == PRIOR or path.startswith(PRIOR + '/')
 # The most home.json may come to, in bytes. A cap is what keeps a save file a
 # thing a person can read, and makes echo in a loop a refusal instead of a
 # slowly growing state directory. It is measured on the file (save.home_size)
@@ -1622,6 +1631,7 @@ def player_changes(tree: Dict[str, Node]) -> Tuple[Dict[str, Node], List[str]]:
     changed = {path: node for path, node in tree.items()
                if is_player_path(path) and FILESYSTEM.get(path) != node
                and path not in ARRIVING
+               and not is_prior_path(path)
                and (node.is_dir or isinstance(node.content, str))}
     removed = sorted(path for path in FILESYSTEM
                      if is_player_path(path) and path not in tree)

@@ -194,7 +194,9 @@ much left that he can sign.
 thirteenth falls on 31 December 1983 and there is no fourteenth. The board
 gets deeper as you go and the weather gets worse, because it is December.
 Signing off that last tour closes the career: the whole record, every tour
-of the service index drawn as a trend, and the wire chief. It happens once.
+of the service index drawn as a trend, and the wire chief. It happens once
+per career: `career new` files the record away (nothing is deleted) and the
+next career starts at tour 1, with your files left in `/usr/users/prior/`.
 
 ```
 shift                        Where you are in the tour
@@ -385,6 +387,8 @@ otherwise `~/.local/state/bell-system`.
 | `career.json` | Difficulty, sign-offs, index history, your wire centre |
 | `settings.json` | Everything `set` changes |
 | `shift.json` | The tour you are in the middle of |
+| `legacy.json` | What a finished career hands to the next (`career new`) |
+| `archive/career-N/` | A finished career's files, moved here by `career new` |
 | `bell_system.log` | Rotating application log |
 | `bell_system_history.txt` | Command history |
 

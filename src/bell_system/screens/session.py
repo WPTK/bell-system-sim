@@ -99,6 +99,10 @@ class SessionState:
     # whether this session picked one up.
     shift_file: str
     resumed: bool
+    # Set when 'career new' files the career: nothing this session does from
+    # then on is written to the career's files, or to the player's home.
+    _career_filed: bool = False
+    _home_locked: bool = False
 
     # The career counters as they stood when this tour opened.
     _tour_baseline: Tuple[int, int, int, int]
@@ -276,6 +280,10 @@ class SessionState:
 
     def run_profile(self) -> str:
         """Run the home directory's .profile, the way login does."""
+        raise NotImplementedError
+
+    def cmd_qual(self, args: Optional[List[str]] = None) -> str:
+        """Show the craft record, which career(1) falls back to."""
         raise NotImplementedError
 
     def at_due(self) -> List[str]:
