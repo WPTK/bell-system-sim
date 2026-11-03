@@ -24,8 +24,7 @@ source ~/.bashrc
 
 ### Q: How do I start the simulation?
 **A:** Use the `bell-system` command:
-- `bell-system` - Interactive role selection
-- `bell-system --tutorial` - Guided learning mode  
+- `bell-system` - Log in and pick a position
 - `bell-system --role 1` - Start as a specific role (1-12), skipping the menu
 - `bell-system --simple` - Simplified four-role interface
 - `bell-system --version` - Print the version and exit
@@ -48,10 +47,15 @@ source ~/.bashrc
 11. SARTS (Switched Access Remote Test) Technician
 12. Document Preparation Specialist
 
+### Q: Is there a tutorial?
+**A:** No, and nothing to read first. The first tour opens with one report on the board and the wire chief walks you through the loop on `write(1)`. The job is four commands: `report`, `mlt 1`, `report dispatch 1 outside`, `report close 1 5 SHORT`.
+
 ### Q: How do I get help within the simulation?
 **A:** Use these commands:
-- `help` - Overview of the commands available to your role
-- `help <command>` - Summary for a single command
+- `help` - What to do now, worked out from your board, then the commands for your position
+- `help <command>` - One line on a single command
+- `hint` - Ask somebody. Ask again and you get more
+- `report next` - The one report that most wants working
 - `man <command>` - Detailed manual page
 - `?` or `h` - Aliases for `help`
 
@@ -64,8 +68,11 @@ source ~/.bashrc
 - UNIX V7 system documentation
 - Bell System Practices (BSP) documents
 
-### Q: Why doesn't `help` list every command?
-**A:** `help` shows the command set belonging to your operational role, just as an actual Bell System position would have had its own responsibilities and tools. The listing is role-specific; commands outside it are not blocked, so `man <command>` will document any command and you can still run it if you want to explore another role's work.
+### Q: Why is a command refused?
+**A:** Qualification governs what you may work on. You start signed off on Loop and Station plus whatever your position carries, and earn the rest a correctly closed report at a time. `help` marks the commands you cannot use yet with an asterisk, and `qual` shows your craft record and how many correct closes the next sign-off needs. `man <command>` documents any command, signed off or not.
+
+### Q: What is the difference between the difficulties?
+**A:** `set game.difficulty fun` is forgiving: loop testing names the fault, you may close a report you never measured, and commitments are not counted. `set game.difficulty craft` ("I Hate Myself") prints only the numbers, requires a measurement before a close, brings wrongly closed lines back as repeats, and counts missed commitments. Difficulty changes how forgiving the scoring is and nothing else.
 
 ### Q: Are the error messages authentic?
 **A:** Yes, error messages and system responses are modeled after actual Bell System and UNIX V7 patterns from the period.

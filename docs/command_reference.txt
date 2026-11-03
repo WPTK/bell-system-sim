@@ -1,52 +1,60 @@
 ===============================================================================
                     BELL SYSTEM UNIX V7 TERMINAL SIMULATION
                          COMMAND REFERENCE CHEAT SHEET
-                           Version 2.0 - November 2024
+                                  Version 4.0.0
 ===============================================================================
 
-BASIC COMMANDS
---------------
-help [command]          Show available commands or detailed help
-  Syntax: help | help <command>
-  Example: help radio | help
+STARTING
+--------
+bell-system                 Start; the login prompt lists the positions with ?
+bell-system --role N        Start at position N (1-12), skipping the menu
+bell-system --simple        The simplified four-role interface
+bell-system --version       Print the version and exit
 
-man <command>           Display full manual page for command
-  Syntax: man <command>
-  Example: man t1carrier | man emergency
+IF YOU ARE STUCK
+----------------
+help                    Opens on what to do now, from your actual board
+help <command>          One line on a single command
+man <command>           The manual page for any command
+hint                    Ask somebody. Ask again for more, three levels deep
+report next             The one report that most wants working
 
-events [action] [id]    View and interact with shift events
-  Syntax: events | events detail <id> | events work <id>
-  Example: events | events detail EV-8001
+THE REPAIR BUREAU
+-----------------
+The loop is four commands:
 
-ticket <action> [args]  Trouble ticket management system
-  Syntax: ticket create | ticket status | ticket <number>
-  Example: ticket create | ticket T-83047
+  report                          What is on your board
+  mlt 1                           Measure the line
+  report dispatch 1 outside       Send somebody
+  report close 1 5 SHORT          Close it out
 
-REPAIR SERVICE BUREAU
----------------------
-report                  Pending customer trouble reports, nearest commitment
-                        first
-  Syntax: report | report show <n> | report callback <n>
+report                  The pending list, nearest commitment first
+  Syntax: report | report next | report show <n> | report callback <n>
           report dispatch <n> <force> | report close <n> <5|8> [fault]
           report closed | report faults | report forces
-  Example: report | report show TR-04471 | report close TR-04471 5 GROUND
+  Example: report show TR-04471 | report close TR-04471 5 GROUND
 
   A report answers to its number, to the telephone number on it, or to its
-  position on the board. Disposition code 5 is trouble found and needs the
-  fault named; code 8 is no trouble found. Closing a faulty line as code 8
-  brings the customer back as a repeat report.
+  position on the board. Code 5 is trouble found and needs the fault named;
+  code 8 is no trouble found. Closing a faulty line as code 8 brings the
+  customer back as a repeat report.
 
 mlt <report|number>     Mechanised loop testing
   Syntax: mlt <report number | telephone number>
-  Example: mlt TR-04471 | mlt 201-555-9455
+  Example: mlt TR-04471 | mlt 1
 
-  Reports insulation resistance (tip-ring, tip-ground, ring-ground), loop
+  Insulation resistance on tip-ring, tip-ground and ring-ground, loop
   resistance, capacitance and foreign potential. Local cable is 0.083 uF to
   the mile, so capacitance on an open pair is a distance to the break.
 
+testboard               The test board
+  Syntax: testboard | testboard loop <report> | testboard supervision <circuit>
+          testboard results | testboard status
+  Example: testboard supervision TG-001-NYC
+
 testline [code] [ckt]   Far-end test lines and responders
   Syntax: testline | testline <code> | testline <code> <circuit>
-  Example: testline 105 TG-023-BOS | testline rotl TG-001-NYC
+  Example: testline 105 TG-023-BOS
 
   102-type loss; 100-type loss and noise; 105-type two-way loss, noise,
   noise with tone and gain slope; balance test line; remote office test
@@ -54,229 +62,84 @@ testline [code] [ckt]   Far-end test lines and responders
 
 testcall <from> <to> [test line]
                         Place a test call through the network
-  Syntax: testcall | testcall <from> <to> | testcall <from> <to> <test line>
   Example: testcall EO-NYC-01 EO-BOS-01 105
 
-  Seizure removes the 2600 Hz supervisory tone toward the far end, the far
-  end returns a start signal, the address goes out in multifrequency
-  bracketed by KP and ST, the call advances through the hierarchy, and
-  answer supervision comes back. Name a test line and the connection is
-  measured rather than merely completed.
+orderwire [scc|report <text>]
+                        The maintenance order wire
 
+shift                   Where you are in the tour
+handoff                 The full turnover record
+handoff relieve         Sign off. The index banks, the day moves on
 qual [index]            Craft record, qualifications and service index
-  Syntax: qual | qual index
-  Example: qual
 
-  Qualification governs what you may work on. You start on Loop and Station
-  plus whatever your assigned position carries, and earn the rest a
-  correctly closed report at a time.
-
-DIFFICULTY
-----------
-set game.difficulty fun     Fun Simulation. Close reports without measuring,
-                            advance quickly, a wrong call costs little
+DIFFICULTY AND SETTINGS
+-----------------------
+set                     Every setting, its value and its options
+set game.difficulty fun     Fun Simulation. Loop testing names the fault,
+                            a wrong call costs little
 set game.difficulty craft   I Hate Myself. Measure before you close, repeat
                             reports come back on your index, commitments are
                             counted, and qualification is slow
-set game.ambience off       Silence the other craft
+set game.prompts off    Stop the terminal telling you what to do next
+set game.ambience off   Silence the other craft
+set display.pacing off  Print at once instead of at 300 baud
+set date.source real    Use your own system clock instead of 1983
+set reset               Restore period-accurate defaults
+
+QUALIFICATION
+-------------
+You start on Loop and Station, plus whatever your position carries. A
+command you are not signed off on is refused; help marks it with an asterisk.
+
+Loop and Station          report, mlt, trouble, testboard, testline
+Main Distributing Frame   cosmos, lmos
+Central Office Switching  switch, alarm, crossbar, 3a
+Switching Control Center  sarts, orderwire, connect
+Interoffice Trunks        trunk, routing, dialtone, testcall
+Toll Network              toll, tnds, traffic
 
 THE OTHER CRAFT
 ---------------
-who                     Who is logged on, and what they do
+who                     Who is on the system
 write <user> [message]  Write to another terminal, as write(1) did
 mail                    Read mail left for you
-orderwire [scc|report]  The maintenance order wire to the control centre
+orderwire               The maintenance circuit to the control centre
 
-  Traffic reaches you on four channels: write(1) interrupts your terminal,
-  mail(1) waits, the order wire carries the field and the switching control
-  centre, and the maintenance teletype prints CAROT's exceptions whether
-  anybody is reading or not.
+THE MACHINE
+-----------
+cd  ls  pwd  cat  more  head  tail  grep  wc  sort  uniq  cut  tr  sed  rev
+tee  cmp  diff  comm  join  look  split  od  sum  dd  pr  spell  find  file
+du  df  cp  mv  rm  mkdir  rmdir  touch  chmod  echo  expr  bc  units  factor
+primes  basename  cal  date  time  sleep  tty  stty  sync  ps  kill  nice
+nohup  at  make  su  logname  passwd  true  false  ed  cc
+nroff  troff  tbl  eqn  pic  refer
+uucp  uux  uuname  uulog  send  rjestat
+tone  banner  bcd  ppt  fortune  moo  arithmetic  readnews  wall  mesg
 
-SYSTEM INFORMATION
-------------------
-ps                      Display running Bell System processes
-who                     Show logged-in users
-date                    Show current system date and time
-df                      Display filesystem disk usage
-pwd                     Print current working directory
-ls [options]            List directory contents
+Commands join with a pipe: who | wc -l. The board is /usr/lmos; mail is
+/usr/spool/mail; the practices are /usr/bsp. 'training unix' is the refresher.
 
-BELL SYSTEM OPERATIONS
-----------------------
-switch <action>         Switching center management
-  Syntax: switch status | switch test <switch>
-  Example: switch status | switch test 4ESS-NYC-001
+SWITCHING, PLANT AND RECORDS
+----------------------------
+Each of these has a manual page that lists its arguments.
 
-3a <action>             3A Central Control switching operations
-  Syntax: 3a status | 3a test | 3a maintenance
-  Example: 3a status | 3a test CCS-001
+3a  5ess  alarm  crossbar  switch  cosmos  lmos  sarts  trunk  routing
+dialtone  toll  tnds  traffic  capacity  trace  clli  t1carrier  lcarrier
+multiplex  regenerator  radio  microwave  antenna  satellite  coer  western
+custdb  dbquery  directory  billing  service  provision  tariff  operator
+collect  tsps  ticket  events  emergency  netplan  training  bsp
+company  era  force  weather  connect
 
-trunk <action>          Trunk status and management
-  Syntax: trunk status | trunk test <trunk>
-  Example: trunk status | trunk test T1-NYC-001
-
-testboard <action>      Central office test board
-  Syntax: testboard | testboard loop <report> | testboard supervision <tg>
-  Example: testboard loop TR-04471 | testboard supervision TG-001-NYC
-
-TRANSMISSION SYSTEMS
---------------------
-t1carrier <action>      T1 Digital Carrier System operations
-  Syntax: t1carrier status | t1carrier test <circuit>
-  Example: t1carrier status | t1carrier test DS1-NYC-001
-
-lcarrier <action>       L-Carrier Coaxial Cable systems
-  Syntax: lcarrier status | lcarrier test <route>
-  Example: lcarrier status | lcarrier pilot
-
-radio <action>          TH-3 microwave radio system operations
-  Syntax: radio status | radio fade | radio weather
-  Example: radio status | radio path NYC-WAS-001
-
-multiplex <action>      Digital multiplexing operations
-  Syntax: multiplex status | multiplex m12 | multiplex m23
-  Example: multiplex m12 | multiplex stuff
-
-regenerator <action>    Digital signal regenerator management
-  Syntax: regenerator status | regenerator test <id>
-  Example: regenerator status | regenerator power
-
-NETWORK OPERATIONS
-------------------
-tnds <action>           Total Network Data System operations
-  Syntax: tnds status | tnds query | tnds report
-  Example: tnds status | tnds query traffic
-
-traffic <action>        Network traffic analysis
-  Syntax: traffic status | traffic analysis | traffic forecast
-  Example: traffic status | traffic analysis NYC-WAS
-
-routing <action>        Call routing and path analysis
-  Syntax: routing status | routing analyze <path>
-  Example: routing status | routing trace 212-555-1234
-
-capacity <action>       Network capacity planning
-  Syntax: capacity status | capacity forecast | capacity report
-  Example: capacity status | capacity forecast Q4-1983
-
-CUSTOMER SERVICES
------------------
-billing <action>        Customer billing operations
-  Syntax: billing status | billing query <account>
-  Example: billing status | billing query 212-555-1234
-
-service <action>        Service order management
-  Syntax: service status | service provision <order>
-  Example: service status | service provision SO-83047
-
-operator <action>       Operator services and assisted calling
-  Syntax: operator status | operator queue | operator assist
-  Example: operator status | operator queue NYC
-
-tsps <action>           Traffic Service Position System
-  Syntax: tsps status | tsps position <pos> | tsps queue
-  Example: tsps status | tsps position POS-001
-
-SPECIALIZED SYSTEMS
--------------------
-5ess <action>           5ESS Electronic Switching System
-  Syntax: 5ess status | 5ess test | 5ess maintenance
-  Example: 5ess status | 5ess test NYC-001
-
-coer <action>           Central Office Equipment Reports
-  Syntax: coer status | coer generate | coer query
-  Example: coer status | coer generate monthly
-
-lmos <action>           Loop Maintenance Operations System
-  Syntax: lmos status | lmos test <circuit> | lmos locate
-  Example: lmos status | lmos test 212-555-1234
-
-sarts <action>          Special service remote testing
-  Syntax: sarts status | sarts test <circuit>
-  Example: sarts status | sarts test DS1-NYC-001
-
-western <action>        Western Electric equipment specs
-  Syntax: western catalog | western specs <model>
-  Example: western catalog | western specs WE-5ESS
-
-DATABASE OPERATIONS
--------------------
-dbquery <action>        Database query and management
-  Syntax: dbquery status | dbquery search <criteria>
-  Example: dbquery status | dbquery search customer
-
-custdb <action>         Customer database operations
-  Syntax: custdb status | custdb lookup <number>
-  Example: custdb status | custdb lookup 212-555-1234
-
-EMERGENCY PROCEDURES
---------------------
-emergency <action>      Emergency dispatch and escalation
-  Syntax: emergency status | emergency escalate <level>
-  Example: emergency status | emergency escalate CRITICAL
-
-alarm <action>          Central office alarm monitoring
-  Syntax: alarm status | alarm ack <alarm> | alarm clear
-  Example: alarm status | alarm ack ALM-83047
-
-DOCUMENTATION
--------------
-bsp <action>            Bell System Practices (procedures)
-  Syntax: bsp index | bsp search <topic> | bsp <section>
-  Example: bsp index | bsp 100-010-001
-
-training <action>       Bell System training programs
-  Syntax: training catalog | training enroll <course>
-  Example: training catalog | training status
-
-nroff <file>            Document formatting with nroff
-troff <file>            Typesetting with troff
-pic <file>              Picture drawing language
-eqn <file>              Mathematical equation formatting
-
-MAINTENANCE & TESTING
----------------------
-provision <action>      Service provisioning procedures
-  Syntax: provision status | provision order <type>
-  Example: provision status | provision order T1
-
-handoff <action>        Shift handoff procedures
-  Syntax: handoff status | handoff create | handoff review
-  Example: handoff status | handoff create
+SESSION
+-------
+set  help  man  status  test  history  errors  verbosity  clear  quit
 
 COMMAND ALIASES
 ---------------
-h, ?     = help          q        = quit
-st       = status        tst      = test
-alm      = alarm         mnt      = maintenance
-perf     = performance   cls      = clear
-
-QUICK TIPS
-----------
-• Most commands accept 'status' as first argument for overview
-• Use 'help <command>' for syntax and examples
-• Type 'events' to see current shift activities
-• Commands can be abbreviated (e.g., 'rad st' for 'radio status')
-• All ticket numbers follow format: T-XXXXX, EV-XXXX
-• Emergency procedures use 'emergency' command with escalation levels
-
-ROLE-SPECIFIC ACCESS
---------------------
-Commands available vary by operational role:
-1. UNIX Systems Operator    - System commands, processes
-2. Switching Technician     - Switch operations, testing  
-3. Field Support           - Customer interface, provisioning
-4. NOC Analyst             - Network monitoring, traffic
-5. TSPS Operator           - Operator services, assistance
-6. Database Administrator  - Database operations, queries
-7. Network Planning        - Capacity, routing, forecasting
-8. Customer Service        - Service orders, billing
-9. Radio/Microwave Tech    - Transmission systems, testing
-10. TNDS Analyst           - Network data, analysis
-11. SARTS Technician       - Special testing, circuits
-12. Document Specialist    - Documentation, training
+h, ?      = help          q, exit, logout = quit      st, stat = status
+board, reports, rsb = report      loop = mlt          career, index = qual
+tl = testline     tc, call = testcall     ow = orderwire
+settings, options, config = set   ll, la, dir = ls    w, users = who
 
 ===============================================================================
-Bell System UNIX V7 Terminal Simulation - Internal Operations Training System
-For questions or support, contact your shift supervisor or training coordinator
-===============================================================================
+Bell System UNIX V7 Terminal Simulation
