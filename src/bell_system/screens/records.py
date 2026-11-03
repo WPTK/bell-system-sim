@@ -98,9 +98,11 @@ class RecordsCommands(SessionState):
                 f"  Frame           H {record.horizontal}  V {record.vertical}",
                 f"  Line equipment  {record.line_equipment}",
                 '',
-                "TROUBLE HISTORY",
-                f"  Reports         {card.report_count}",
-                f"  Repeats         {card.repeat_count}"]
+                "TROUBLE HISTORY"]
+        # A retired regular has no report on this board to count.
+        if card.history:
+            rows.extend([f"  Reports         {card.report_count}",
+                         f"  Repeats         {card.repeat_count}"])
         # One of the four the bureau knows by heart. The note is what the
         # last craftsperson wrote on the card, and it is the difference
         # between a number and somebody you have been out to.

@@ -31,12 +31,16 @@ from bell_system.reports import ReportDesk
 
 TOURS = range(1, TOURS_TO_DIVESTITURE + 1)
 
-# Words that name a diagnosis, a force or a close code. Whole words, so
-# "ground" is caught and "background" is not.
+# W15: after the opening card, a beat is paperwork and people. It names no
+# diagnosis, force or close code, and none of the symptoms or conditions a
+# report is drawn from (water, weather, the handset), because those would say
+# what the next report will be. Whole words and stems, so "ground" is caught
+# and "background" is not.
 NAMING = re.compile(
     r"\b(open|short|ground|cross|wet|emf|off hook|central office|"
     r"outside plant|cable repair|station|disposition|no trouble found|"
-    r"fcg|femf|roh|co_equip|none)\b", re.IGNORECASE)
+    r"fcg|femf|roh|co_equip|none|weather|water\w*|rain\w*|pump\w*|"
+    r"hook\w*|handset|hang\w*|storm\w*|sheath)\b", re.IGNORECASE)
 
 
 def draw(terminal, tour, count=400):
@@ -123,11 +127,23 @@ class TestTheDesk:
         reports = draw(terminal, TOURS_TO_DIVESTITURE)
         assert not any(report.record.regular for report in reports)
 
-    def test_what_a_line_is_like_to_work_follows_its_beat(self, terminal):
-        reports = draw(terminal, 7)
-        wet = [r for r in reports if r.record.regular == 'kowalczyk'
-               and r.record.fault == 'WET']
-        assert wet
+    def test_what_a_line_is_like_to_work_follows_its_beat(self):
+        kowalczyk, duchesne = REGULARS['kowalczyk'], REGULARS['duchesne']
+        assert faults_at(kowalczyk, 6) == kowalczyk.faults
+        assert faults_at(kowalczyk, 7) != kowalczyk.faults
+        assert faults_at(kowalczyk, 11) == faults_at(kowalczyk, 7)
+        assert faults_at(duchesne, 7) == duchesne.faults
+        assert faults_at(duchesne, 8) != duchesne.faults
+
+    def test_the_desk_draws_from_the_mix_for_the_tour(self, terminal):
+        """Duchesne at tour 8 is drawn with no fault the beat dropped."""
+        terminal.desk.tour_of = lambda: 8
+        reports = [terminal.desk.receive(terminal.clock.now(), 0)
+                   for _ in range(600)]
+        allowed = {code for code, _ in faults_at(REGULARS['duchesne'], 8)}
+        faults = {r.record.fault for r in reports
+                  if r.record.regular == 'duchesne'}
+        assert faults and faults <= allowed
 
     def test_the_tour_is_read_when_a_report_comes_in(self, terminal):
         """The desk outlives a handoff, so it must not cache the tour."""
@@ -145,7 +161,7 @@ class TestTheDesk:
                    for _ in range(1000)]
         share = sum(1 for r in reports if r.record.regular) / len(reports)
         # Two of four are live. Eighteen per cent was for four.
-        assert share < 0.18
+        assert share < 0.13
 
 
 class TestTheSameLineEveryTour:
@@ -182,6 +198,26 @@ class TestTheSameLineEveryTour:
                    and r.record.fault == 'WET')
         assert terminal.desk.plant.section_at(
             wet.record.cable, wet.record.pair) is not None
+
+    def test_one_splicer_trip_clears_every_report_on_the_pair(self, terminal):
+        """Two reports from one line on one pair are one sheath."""
+        desk = terminal.desk
+        now = terminal.clock.now()
+        line = desk.regular_record('kowalczyk')
+        desk.plant.wet_over(line.cable, line.pair, now)
+        first = desk.receive(now, 0, fault='WET', record=line)
+        second = desk.receive(now, 0, fault='WET',
+                              record=desk.regular_record('kowalczyk'))
+        assert (first.record.cable, first.record.pair) == (
+            second.record.cable, second.record.pair)
+        assert desk.plant.section_at(
+            first.record.cable, first.record.pair) is not None
+        # The section remembers only the later report on the pair.
+        message = desk._repair_sheath(second, 'Outside plant', 30)
+        assert first.number in message
+        assert first.sheath_repaired
+        assert desk.plant.section_at(
+            first.record.cable, first.record.pair) is None
 
     def test_a_shift_saved_with_its_own_lines_picks_them_back_up(
             self, terminal):
@@ -241,6 +277,7 @@ class TestTheCard:
         card = terminal.execute_command(
             f"custdb {self.number(terminal, 'ferrante')}")
         assert 'Closed by you   2' in card
+        assert 'Reports' not in card and 'Repeats' not in card
 
     def test_a_line_you_have_not_met_is_not_handed_to_you(self, terminal):
         terminal.career.shift = 9

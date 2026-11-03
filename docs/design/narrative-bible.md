@@ -205,7 +205,7 @@ normalised to one line.
 
 ### The regulars: the customers  (`data/regulars.py`)
 
-**Canon:** Established as cards, with an arc each (phase 7a, C16): Kowalczyk (214 Sussex St, 1FB, wet sheath), Ferrante (1109 Ocean Ave, coin, off-hook), Whitcomb (87 Bergen Ave, 1FR, aerial drop), Duchesne (466 Central Ave, 1MR, a doctor's answering line). They have no lines of speech yet; the card note is the voice, and from tour 2 it changes on named tours.
+**Canon:** Established as cards, with an arc each (phase 7a, C16): Kowalczyk (214 Sussex St, 1FB, wet sheath), Ferrante (1109 Ocean Ave, coin, off-hook), Whitcomb (87 Bergen Ave, 1FR, aerial drop), Duchesne (466 Central Ave, 1MR, a doctor's answering line). They have no lines of speech yet; the card note is the voice, and from tour 3 it changes on named tours.
 
 | Line | Beats (tour) | Ends |
 | --- | --- | --- |

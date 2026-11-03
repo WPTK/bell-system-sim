@@ -90,7 +90,7 @@ REGULARS: Dict[str, Regular] = {
                     'answer on the card is "before the holidays".',
                  faults=(('WET', 7), ('GROUND', 2), ('NONE', 1))),
             Beat(11, 'New cable in from the corner to the manhole and the '
-                     'old sheath dead-ended. Nothing left to pump. This '
+                     'old run dead-ended. Nothing left to chase. This '
                      'line is closed out of the chronic file.',
                  ends=RESOLVED),
         ),
@@ -106,8 +106,9 @@ REGULARS: Dict[str, Regular] = {
              'building.',
         since='January 1983',
         arc=(
-            Beat(3, 'Collector has found the box emptied and the handset '
-                    'hanging twice since the building changed managers.'),
+            Beat(3, 'Building changed managers. The collector has asked '
+                    'the new one who to leave the key with, and has not '
+                    'been told.'),
             Beat(5, 'Landlord has been written to about the lobby. No '
                     'answer. Nobody on the card can say who owns the '
                     'coin telephone now.'),
@@ -131,8 +132,7 @@ REGULARS: Dict[str, Regular] = {
             Beat(3, 'Somebody has asked the bus company for a clearance on '
                     'the route. Nothing back yet.'),
             Beat(6, 'New drop is on the order list for the pole across the '
-                    'lot. Until it is up, expect the line back whenever '
-                    'the weather turns.'),
+                    'lot.'),
             Beat(9, 'New drop placed on the far pole, well clear of the '
                     'bus route. A. Whitcomb called to say thank you, which '
                     'nobody on the card remembers happening before.',
@@ -157,7 +157,7 @@ REGULARS: Dict[str, Regular] = {
                     'stays tagged until it is in.',
                  faults=(('CO_EQUIP', 4), ('FCG', 3), ('NONE', 2))),
             Beat(12, 'Rotary in: two lines on the one number, tagged and on '
-                     'different blocks. The exchange no longer hangs on '
+                     'different blocks. The exchange no longer depends on '
                      'one pair. Closed out of the chronic file.',
                  ends=RESOLVED),
         ),

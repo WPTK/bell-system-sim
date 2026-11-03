@@ -839,6 +839,13 @@ class ReportDesk:
                     f"{repair} minutes charged.")
 
         cleared = self.plant.repair(section, report.received)
+        # A line that reports twice on one pair has two reports open and the
+        # section only remembers the later one. The sheath is dry for both.
+        cleared += [number for number, other in self.reports.items()
+                    if other.record.fault == 'WET'
+                    and other.record.cable == section.cable
+                    and other.record.pair in section.pairs
+                    and number not in cleared]
         others = [self.reports[number] for number in cleared
                   if number in self.reports
                   and number != report.number
