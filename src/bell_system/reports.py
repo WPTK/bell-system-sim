@@ -31,12 +31,14 @@ maintenance sequence, the disposition codes and the electrical vocabulary.
 
 import random
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from .cable import CablePlant
+from .cable import BINDERS_PER_UNIT, PAIRS_PER_BINDER, CablePlant
 from .field import FieldForce
 from .weather import Weather
-from .data.regulars import REGULAR_SHARE, REGULARS
+from .data.regulars import (
+    REGULAR_SHARE, REGULARS, faults_at, reporting_at,
+)
 from .data.trouble import (
     DISPATCH_FORCES,
     FRAME_DEFECT_CODES,
@@ -328,7 +330,7 @@ class ReportDesk:
         self.npa = npa
         self.nxx = nxx
         self.clli = clli
-        self.rng = rng or random.Random()
+        self.rng = rng or random.Random(random.getrandbits(64))
         self.reports: Dict[str, TroubleReport] = {}
         self.order: List[str] = []
         # The numbers on the board as the player last saw it, so that a
@@ -358,21 +360,25 @@ class ReportDesk:
         # planning desk does, and the arrival rate alone cannot express
         # that, because arrival is damped by depth and so self-limiting.
         self.depth_limit = MAX_PENDING
-        # The four lines this bureau knows by heart. Built lazily, once
-        # each, and then handed back every time one of them reports: the
-        # same LineRecord object every time, so the trouble history piles
-        # up on one card the way it did.
+        # The four lines this bureau knows by heart are fixed by the office
+        # and their name (see regular_record), so nothing is held for them
+        # here. This is only what a shift saved before that was fixed
+        # remembers, so that it picks up the same lines it put down.
         self._regulars: Dict[str, LineRecord] = {}
+        # Which tour of the career it is, asked for each time: the desk
+        # outlives a handoff, and what the regulars are up to is a matter
+        # of the tour. Whoever holds the career supplies it.
+        self.tour_of: Callable[[], int] = lambda: 1
         # The network management control left on, if any. See CONTROLS.
         self.control: Optional[str] = None
 
     # -- generation ------------------------------------------------------
 
-    def regular_record(self, key: str, now: datetime) -> LineRecord:
+    def regular_record(self, key: str) -> LineRecord:
         """
         Return a line record for one of the bureau's regulars.
 
-        The line itself is drawn once and then never moves: the telephone
+        The line itself is fixed once and then never moves: the telephone
         number, the cable and pair, the frame appearance. Everything that
         identifies it is fixed, which is what makes it the same line every
         time and what lets the trouble history pile up on one card.
@@ -387,22 +393,25 @@ class ReportDesk:
         held = self._regulars.get(key)
         if held is None:
             regular = REGULARS[key]
-            wet = any(code == 'WET' for code, _ in regular.faults)
-            cable, pair = (self.plant.wet_pair(now) if wet
-                           else self.plant.dry_pair())
-            held = self._regulars[key] = LineRecord(
+            # Drawn from the line's own name, not from the desk: the same
+            # office has to hand back the same number, cable and pair on
+            # every tour of a career, and the desk is built fresh each
+            # session.
+            fixed = random.Random(f"{self.clli}/{key}")
+            held = LineRecord(
                 npa=self.npa, nxx=self.nxx,
-                line=f"{self.rng.randint(0, 9999):04d}",
+                line=f"{fixed.randint(0, 9999):04d}",
                 name=regular.name,
                 address=regular.address,
-                cable=cable, pair=pair,
+                cable=fixed.randint(1, self.plant.cable_count),
+                pair=fixed.randint(1, BINDERS_PER_UNIT * PAIRS_PER_BINDER),
                 class_of_service=regular.class_of_service,
-                horizontal=f"{self.rng.randint(1, 24):02d}",
-                vertical=f"{self.rng.randint(1, 52):02d}",
-                line_equipment=f"{self.rng.randint(0, 3)}-"
-                               f"{self.rng.randint(0, 7)}-"
-                               f"{self.rng.randint(0, 19):02d}-"
-                               f"{self.rng.randint(0, 9):02d}",
+                horizontal=f"{fixed.randint(1, 24):02d}",
+                vertical=f"{fixed.randint(1, 52):02d}",
+                line_equipment=f"{fixed.randint(0, 3)}-"
+                               f"{fixed.randint(0, 7)}-"
+                               f"{fixed.randint(0, 19):02d}-"
+                               f"{fixed.randint(0, 9):02d}",
                 clli=self.clli,
                 regular=key,
             )
@@ -425,13 +434,22 @@ class ReportDesk:
         the sheath on Sussex Street is wet, and the coin station in the
         lobby is nobody's fault at all.
         """
-        if self.rng.random() >= REGULAR_SHARE:
+        # A line that has been resolved or given up on stops reporting, and
+        # the share they had goes back to everyone else rather than piling
+        # onto whoever is left.
+        live = reporting_at(self.tour_of())
+        if self.rng.random() >= REGULAR_SHARE * len(live) / len(REGULARS):
             return None
-        regular = REGULARS[self.rng.choice(list(REGULARS))]
-        codes = [code for code, _ in regular.faults]
-        weights = [weight for _, weight in regular.faults]
-        fault = self.rng.choices(codes, weights=weights)[0]
-        return fault, self.regular_record(regular.key, now)
+        regular = self.rng.choice(live)
+        weights = faults_at(regular, self.tour_of())
+        fault = self.rng.choices([code for code, _ in weights],
+                                 weights=[w for _, w in weights])[0]
+        record = self.regular_record(regular.key)
+        if fault == 'WET':
+            # The water is in the sheath the line is on, not wherever the
+            # plant would have put the next wet pair.
+            self.plant.wet_over(record.cable, record.pair, now)
+        return fault, record
 
     def _next_number(self) -> str:
         """Return the next report number in the bureau's series."""
@@ -447,7 +465,14 @@ class ReportDesk:
         a dry fault deliberately does not, so that several reports off one
         sheath mean what they look like they mean.
         """
+        # find() resolves a telephone number to the first report not yet
+        # closed, so a stranger must not be dealt a number one of those holds.
+        taken = {(report.record.nxx, report.record.line)
+                 for report in self.reports.values()
+                 if report.status != STATUS_CLOSED}
         line = f"{self.rng.randint(0, 9999):04d}"
+        while (self.nxx, line) in taken:
+            line = f"{self.rng.randint(0, 9999):04d}"
         surname = self.rng.choice(_SURNAMES)
         initial = self.rng.choice(_INITIALS)
         cable, pair = (self.plant.wet_pair(now)
@@ -821,6 +846,13 @@ class ReportDesk:
                     f"{repair} minutes charged.")
 
         cleared = self.plant.repair(section, report.received)
+        # A line that reports twice on one pair has two reports open and the
+        # section only remembers the later one. The sheath is dry for both.
+        cleared += [number for number, other in self.reports.items()
+                    if other.record.fault == 'WET'
+                    and other.record.cable == section.cable
+                    and other.record.pair in section.pairs
+                    and number not in cleared]
         others = [self.reports[number] for number in cleared
                   if number in self.reports
                   and number != report.number

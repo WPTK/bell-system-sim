@@ -49,7 +49,7 @@ END_OFFICE_TOLL_TRUNK_SHARE_OF_TRUNKS = 0.21
 
 # Shared source of randomness when a caller does not supply one. Assigning
 # the random module itself would type as a module rather than a generator.
-_DEFAULT_RNG = random.Random()
+_DEFAULT_RNG = random.Random(random.getrandbits(64))
 
 CLASS_NAMES: Dict[int, str] = {
     1: 'Regional Center',

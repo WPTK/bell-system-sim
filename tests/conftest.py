@@ -1,11 +1,26 @@
 """Shared pytest fixtures for the Bell System simulation test suite."""
 
 import os
+import random
 import sys
+import zlib
 
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+
+@pytest.fixture(autouse=True)
+def seeded_random(request):
+    """
+    Seed the global generator from the test's own id.
+
+    Boards, plants and alarms that are not handed a generator fall back to
+    one drawn from the global one, so without this a test that depends on
+    where a report lands passes on some runs and fails on others. Each test
+    gets the same board every run, and a different one from its neighbours.
+    """
+    random.seed(zlib.crc32(request.node.nodeid.encode()))
 
 
 @pytest.fixture(autouse=True)
