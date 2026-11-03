@@ -23,7 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
 Examples:
   bell-system                 Start the interactive simulation
   bell-system --role 1        Start as UNIX Systems Operator
-  bell-system --simple        Use the simplified four-role interface
+  bell-system --simple        A plain Unix V7 sandbox: no board, no positions
 """,
     )
     parser.add_argument(
@@ -41,7 +41,8 @@ Examples:
     parser.add_argument(
         '--simple',
         action='store_true',
-        help='use the simplified four-role interface',
+        help='run a plain Unix V7 sandbox (a shell and filesystem only: '
+             'no trouble board and no positions)',
     )
     return parser
 

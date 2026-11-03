@@ -44,7 +44,8 @@ terminal.run()
 - `command_history` - A bounded `deque` of the commands entered this session.
 
 ### `SimpleTerminal`
-Simplified four-role interface for educational purposes. Defined in
+A plain Unix V7 sandbox: a shell and an in-memory filesystem, with no
+trouble board, positions or reports. Defined in
 `bell_system/simple_terminal.py` and reached from the CLI with `--simple`.
 
 ```python
@@ -55,7 +56,7 @@ terminal.run()
 ```
 
 **Methods:**
-- `run()` - Start the interactive four-role session.
+- `run()` - Start the interactive sandbox session.
 - `execute_command(command_line: str) -> str` - Execute a command and return its
   output.
 

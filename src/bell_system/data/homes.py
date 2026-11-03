@@ -14,6 +14,35 @@ job actually lives.
 
 The people named are this simulation's own. Everything they describe about
 the plant is grounded where the rest of the simulation grounds it.
+
+Each note is signed by someone on the craft roster (npc.CRAFT) whose job
+would have given them the knowledge in it, apart from R. Alvarez, who is
+not on the roster: Alvarez is the previous systems operator and the
+author of testlog.c, so the only person here who writes software. Where
+the fit is not clean:
+
+  docprep   Nobody on the roster has a document-preparation job. Alvarez
+            is signed because a systems operator is who would know a
+            troff pipeline; there is no compositor to sign it.
+  netplan   Nobody on the roster does network planning. Nakamura, the
+            transmission engineer, is the nearest: carrier and toll
+            facility lead times are what the note turns on.
+  dba       Nobody on the roster holds a records job. Halloran, the wire
+            chief, is signed because the wire centre's assignment records
+            are his to answer for; Okafor, who finds the drift in the
+            field, was the other candidate and does not sit the desk.
+  tnds      Nobody on the roster collects traffic data. Johnson is signed
+            because a switching technician is who knows how an office's
+            counters were wired and what they count.
+  field     The note mentions "Vasquez's crew", but Vasquez is the
+            testboard technician and field.CREWS has no such crew. The
+            wording is left as written; the signature, the wire chief
+            who sends crews out, is what fits.
+
+field.CREWS also lists Nakamura as a switching equipment technician,
+where npc.CRAFT has him as the transmission engineer and Johnson as the
+switching technician. The notes follow npc.CRAFT, which is also where the
+.mailrc aliases come from.
 """
 
 from typing import Dict
@@ -97,7 +126,7 @@ marginal does not break one call, it makes thousands of calls slightly
 worse and none of them badly enough to report. That is why you find it
 in the peg count and not in a trouble ticket.
 
-                                             - T. Nakamura
+                                             - R. Johnson
 """,
     },
 
@@ -124,7 +153,7 @@ The commitment is a promise the company made to a person, not a target
 somebody set for you. When it is going to be missed, the useful thing
 is to say so early, not to be right about why.
 
-                                             - M. Reyes
+                                             - E. Halloran
 """,
     },
 
@@ -153,7 +182,7 @@ Mother's Day is the busiest calling day of the year and everybody has
 known that for forty years. It is not a surprise and it is not an
 outage. Do not raise anything.
 
-                                             - E. Halloran
+                                             - D. Petrak
 """,
     },
 
@@ -185,7 +214,7 @@ several hundred of them in a tour. It is not hard work. It is the same
 work, at speed, all day, and the mistake people make is treating the
 four hundredth one differently from the first.
 
-                                             - D. Petrak
+                                             - J. Haverty
 """,
     },
 
@@ -216,7 +245,7 @@ and neither report makes any sense.
 When you find one, fix the record and then go and find out how it got
 that way. There is almost never only one.
 
-                                             - L. Okafor
+                                             - E. Halloran
 """,
     },
 
@@ -251,7 +280,7 @@ After January this is somebody else's forecast anyway. The lines cross
 a boundary that will exist by then, and nobody has told me who does the
 arithmetic for a circuit with one end in each company.
 
-                                             - E. Halloran
+                                             - T. Nakamura
 """,
     },
 
@@ -316,7 +345,7 @@ The other one is a path that is fine except at the same time every day.
 That is the sun, or it is somebody else's transmitter, and either way
 it is a pattern and patterns are findable.
 
-                                             - G. Vasquez
+                                             - T. Nakamura
 """,
     },
 
@@ -346,7 +375,7 @@ the highest hour, found by measuring, and it moves. An office
 engineered to a busy hour that stopped being the busy hour three years
 ago is engineered to nothing at all.
 
-                                             - T. Nakamura
+                                             - R. Johnson
 """,
     },
 
@@ -376,7 +405,7 @@ Get the layout record before you get on the phone to anybody. Half the
 troubles on this desk are somebody testing a section that is not in
 the circuit any more because it was rearranged in 1979.
 
-                                             - R. Johnson
+                                             - G. Vasquez
 """,
     },
 
@@ -413,7 +442,7 @@ has ever brought to this desk was one of those two in the wrong place.
 /usr/doc/why.unix has citations in it if you want something to practise
 refer on.
 
-                                             - D. Petrak
+                                             - R. Alvarez
 """,
     },
 }
