@@ -70,6 +70,8 @@ these changes this table first.
 | W14 | A player may read anything their qualifications and group allow, and the machine never hides lore behind a puzzle that needs outside knowledge. | Provisional (pillar 4 test) | `plan.md` section 1 |
 | W15 | The groups are a ladder, one rung to a sign-off: `craft`, `uucp`, `adm`, `sys`, `mgmt`. A file shut to the player is shut by its mode and group bits, as on a real machine, and opens when the group is given. The ladder is [own]; `mgmt` is a group the player is put in and not a rank: it opens Halloran's file and no command. A new shut file goes on the ladder in `data/finds.py`, and a sign-off that opens nothing is a defect. | Established | `data/finds.py` `GROUP_FOR_SIGN_OFF`; `screens/shell.py` `_may_read` |
 | W16 | A regular's card says what has happened to the line and the people on it, never what the next report off it will be. Fault, force and close code stay in `mlt` and the field finding. | Established (C16) | `data/regulars.py` arcs; `tests/test_regulars_arc.py` |
+| W17 | Trouble can go by itself. A ground, a cross or foreign voltage may clear between two tests, and the second reading is then true of the plant as it is: this is W1 kept, not broken. A close judged after it is judged against the line as it then stands. | Established (A9) | `reports.py` `transient_after`; `tests/test_board_cases.py` |
+| W18 | One cause can stand behind several reports. A case says where its reports are alike (a line link frame, a cable) and never what is wrong with any of them, who clears it or how to close it; only `mlt` and the crew's finding say that. One right trip clears the run, and reports that had not yet come in do not come. | Established (A7) | `cases.py`, `data/cases.py`; `tests/test_board_cases.py` |
 
 ## 4. Voices
 
@@ -111,6 +113,7 @@ normalised to one line.
 - **Does:** tells you what he did, not what the manual says. Understates. Dry about machines that nearly work.
 - **Never:** quotes a practice number; raises a ticket on Marker 2.
 - **Sample:** "Marker 2 took eleven seconds on a third trial earlier. Peg count is up and nothing is out of limits, which is the whole problem with a marker." (`npc.py`)
+- **On the day it fails (A7):** says where the frame is and what the marker did, and "I am only telling you where it is." Does not say what to dispatch, and does not raise a ticket. When it is cleared: "Two years I have been saying it." (`data/cases.py`)
 
 ### Okafor, L.: cable splicer  (`lokafor`, FIELD_SUP, tty04)
 
@@ -236,7 +239,7 @@ text is that it contradicts none of these.
 **Shown now (Established):** a slow third trial on the number 5 crossbar's marker 2 in aisle 4, "since 81"; Johnson says do not raise a ticket because it will be closed no trouble found; two homes name the cause differently (section 8, I4). `filesystem.py` `marker.notes`, `data/homes.py` (sysop, switch), `npc.py`.
 
 **True answer (Provisional):** the sequence relay in marker 2 is wearing out. It lengthens the third trial slightly each month, which is why the timing chain is "within limits" and the peg count is up. Johnson is right and has been right for two years. The relay fails outright on tour 9 or tour 10, takes the marker out, and produces a run of reports on lines with no cable in common. A player who has read `marker.notes` and the peg count sees it coming; one who has not sees three or four unrelated troubles and learns the pattern from Johnson.
-**Pays off:** phase 8, row A7 (8b). **Check first:** A21. The sequence relay detail is [own] until `SD_26030-01` is read against it.
+**Pays off (Established, phase 8, row A7):** tour 9, or tour 10 if the career never had it on 9, plants a run of three to five reports on one line link frame (cables differ, as above), each a false cross or ground, arriving between 25 and 170 minutes into the tour. At the third, Johnson says on write(1) where the frame is and what the marker did that morning, and tells the player nothing to do; the board's "see also" line names the frame and the other reports and nothing else. A Central office crew sent on any one of them finds Marker 2 down and busied out, and the rest of the run needs only a close (5, `FCG`). `cases.py`, `data/cases.py` `marker`. **Check first:** A21. The sequence relay detail is [own] until `SD_26030-01` is read against it.
 **Period facts:** a number 5 crossbar has markers and registers [sourced, E&O and `SD_26030-01`]; dial tone speed and peg count as the measures are [sourced, E&O]. The relay failure is [own].
 
 ### T2. The RSA's failed su at 03:47
@@ -310,6 +313,8 @@ PR can see what it must not contradict. All **Established**.
 | The finds: the numbered files in `data/finds.py` `FRAGMENTS` that `finds` lists once read. New in A4, all the simulation's own and Provisional: `/usr/adm/testlog` (Alvarez), `/tmp/.f` (tour 2), `/usr/users/rjohnson/.trial` (tour 5, Johnson's third-trial times, which rise by a second or so a season), `/usr/adm/.retain` (tour 8, the chief's retention list), `/usr/lib/.xfer` (tour 10, accounts for transfer) | `data/finds.py` | [own]; log formats follow the Seventh Edition where it had them. None says what is true about T1 or T2 |
 | The thread of the last holder, one file to a sign-off: `~sysop/dead.letter`, the sent handover (`/usr/spool/mail/ehalloran`), `/usr/adm/sulog`, `/usr/adm/lmoslog`, `~ehalloran/reopened` | `data/finds.py`, `data/homes.py` | [own]; the su log format follows the Seventh Edition. Shut by group, W15 |
 | The Okafor eleven | `screens/games.py`, `npc.py`, `filesystem.py` | [own] |
+| Marker 2 fails outright on tour 9 or 10, takes down the line link frame it serves and is busied out; Johnson has been saying so for two years. New in A7, the simulation's own | `data/cases.py`, `cases.py` | [own]; that a marker which cannot finish times out and leaves calls incomplete is [sourced] E&O p. 802 [819]; the relay, the number and the seconds are not |
+| A trench crew cuts a cable on the route and Okafor hears the machine. New in A7, the simulation's own: three or four reports on one cable, any tour from the fourth, about one tour in three | `data/cases.py`, `cases.py` | [own] |
 
 ## 8. Inconsistencies found
 

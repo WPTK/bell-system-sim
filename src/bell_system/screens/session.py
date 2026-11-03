@@ -377,6 +377,22 @@ class SessionState:
         """Refuse a Cable repair dispatch that does not say where to go."""
         raise NotImplementedError
 
+    def cmd_cable(self, args: Optional[List[str]] = None) -> str:
+        """The binder groups of a 600-pair cable."""
+        raise NotImplementedError
+
+    def _plant_case(self) -> None:
+        """Decide whether this tour's trouble has a shared cause."""
+        raise NotImplementedError
+
+    def _case_events(self) -> List[Any]:
+        """Let whatever reports a cause has thrown come onto the board."""
+        raise NotImplementedError
+
+    def _case_cleared(self, report: Any) -> None:
+        """Say once that the cause behind a report has been cleared."""
+        raise NotImplementedError
+
     def _is_own_section(self, report: Any,
                         section: Optional[Tuple[int, int]]) -> bool:
         """Whether a dispatch's section is the one the report is in."""

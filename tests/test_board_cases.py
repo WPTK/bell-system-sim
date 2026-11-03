@@ -279,3 +279,298 @@ class TestNamingTheSection:
         from bell_system.progression import DIFFICULTIES
         assert not DIFFICULTIES['fun'].section_required
         assert DIFFICULTIES['craft'].section_required
+
+
+# -- A7: a cause behind several reports -----------------------------------
+
+# What a case must never say about a report: the fault, the force that
+# clears it, or how to close it. The crew's own finding is the one place
+# that is allowed to, and it is tested where it is made.
+FORBIDDEN = ('false cross', 'FCG', 'central office', 'outside plant',
+             'code 5', 'code 8', 'trouble found', 'no trouble', 'ground',
+             'cable repair')
+
+
+def _tour(terminal, tour):
+    """Move the session to a tour and let it decide what the tour holds."""
+    terminal.career.shift = tour
+    terminal._plant_case()
+    return terminal.desk.cases[0] if terminal.desk.cases else None
+
+
+def _run(terminal, tour=9):
+    """Plant the tour's case and let every one of its reports arrive."""
+    case = _tour(terminal, tour)
+    terminal.desk.depth_limit = 40
+    terminal.shift_minutes = 500
+    notices = terminal._case_events()
+    return case, [terminal.desk.reports[n] for n in case.members], notices
+
+
+def _dig(terminal):
+    """A cut cable with three reports already on the board."""
+    from bell_system.cases import Case
+    terminal.career.shift = 5
+    terminal.desk.depth_limit = 40
+    terminal.desk.cases = [Case('CASE-5-dig', 'dig', '0042', [30, 40, 50])]
+    terminal.shift_minutes = 100
+    terminal._case_events()
+    case = terminal.desk.cases[0]
+    return case, [terminal.desk.reports[n] for n in case.members]
+
+
+class TestAPlan:
+    """The plan is the tour's alone, and says how many and when."""
+
+    def test_tour_nine_is_marker_two(self):
+        from bell_system.cases import plan
+        case = plan(9, [])
+        assert case.kind == 'marker'
+        assert 3 <= len(case.due) <= 5
+        assert all(25 <= minute <= 170 for minute in case.due)
+
+    def test_it_is_the_same_plan_every_time(self):
+        from bell_system.cases import plan
+        assert plan(9, []).out() == plan(9, []).out()
+
+    def test_marker_two_fires_on_nine_or_ten_and_once(self):
+        from bell_system.cases import MARKER_LEDGER, plan
+        ledger = []
+        fired = []
+        for tour in range(1, 14):
+            case = plan(tour, ledger)
+            if case and case.kind == 'marker':
+                fired.append(tour)
+                ledger.append(MARKER_LEDGER)
+        assert fired == [9]
+
+    def test_tour_ten_has_it_if_nine_never_did(self):
+        from bell_system.cases import plan
+        assert plan(10, []).kind == 'marker'
+
+    def test_the_early_tours_have_none(self):
+        from bell_system.cases import plan
+        assert all(plan(tour, []) is None for tour in (1, 2, 3))
+
+    def test_a_planted_cause_is_written_in_the_ledger(self, terminal):
+        from bell_system.cases import MARKER_LEDGER
+        _tour(terminal, 9)
+        assert MARKER_LEDGER in terminal.career.beats_seen
+        later = _tour(terminal, 10)
+        assert later is None or later.kind != 'marker'
+
+    def test_planting_does_not_deal_a_report(self, terminal):
+        before = len(terminal.desk.reports)
+        _tour(terminal, 9)
+        assert len(terminal.desk.reports) == before
+
+
+class TestTheRunOfReports:
+    """A7: three to five reports, one cause, and the board says so."""
+
+    def test_three_to_five_reports_arrive(self, terminal):
+        case, members, notices = _run(terminal)
+        assert 3 <= len(members) <= 5
+        assert case.due == []
+
+    def test_none_arrive_before_their_minute(self, terminal):
+        case = _tour(terminal, 9)
+        terminal.shift_minutes = min(case.due) - 1
+        assert terminal._case_events() == []
+        assert case.members == []
+
+    def test_the_lines_share_a_frame(self, terminal):
+        case, members, _ = _run(terminal)
+        frames = {r.record.line_equipment.rsplit('-', 2)[0] for r in members}
+        assert frames == {case.where}
+
+    def test_a_dig_shares_a_cable_and_no_pair(self, terminal):
+        _, members = _dig(terminal)
+        assert {r.record.cable for r in members} == {42}
+        assert len({r.record.pair for r in members}) == len(members)
+
+    def test_each_comes_in_as_an_assignment(self, terminal):
+        _, members, notices = _run(terminal)
+        assigned = [m for m in notices if m.kind == 'assignment']
+        assert len(assigned) == len(members)
+
+    def test_whoever_is_nearest_says_so_once_at_the_third(self, terminal):
+        _, _, notices = _run(terminal)
+        notes = [m for m in notices if m.kind == 'case']
+        assert len(notes) == 1 and notes[0].sender == 'rjohnson'
+        assert terminal._case_events() == []
+
+    def test_a_full_board_holds_the_rest_back(self, terminal):
+        case = _tour(terminal, 9)
+        terminal.desk.depth_limit = len(terminal.desk.pending())
+        terminal.shift_minutes = 500
+        terminal._case_events()
+        assert case.members == [] and case.due
+        terminal.desk.depth_limit += 40
+        terminal._case_events()
+        assert case.due == []
+
+    def test_report_show_says_see_also(self, terminal):
+        _, members, _ = _run(terminal)
+        shown = terminal.execute_command(f'report show {members[0].number}')
+        assert 'See also' in shown
+        for other in members[1:]:
+            assert other.number in shown
+        assert 'line link frame' in shown
+
+    def test_a_report_with_no_company_says_nothing(self, terminal):
+        report = terminal.desk.receive(terminal.clock.now(), fault='SHORT')
+        assert 'See also' not in terminal.execute_command(
+            f'report show {report.number}')
+
+    def test_reading_it_changes_nothing(self, terminal):
+        from bell_system import save
+        _, members, _ = _run(terminal)
+        before = save.capture(terminal)['board']['cases']
+        for report in members:
+            terminal.execute_command(f'report show {report.number}')
+        assert save.capture(terminal)['board']['cases'] == before
+
+    def test_nothing_it_says_names_a_fault_a_force_or_a_code(self, terminal):
+        case, members, notices = _run(terminal)
+        said = '\n'.join(' '.join(m.lines) for m in notices
+                         if m.kind in ('assignment', 'case'))
+        for report in members:
+            shown = terminal.execute_command(f'report show {report.number}')
+            said += shown.split('See also')[-1].split('MEASUREMENTS')[0]
+        for word in FORBIDDEN:
+            assert word.lower() not in said.lower(), word
+
+
+class TestOneActionClearsThem:
+    """A7: the crew that clears the cause has cleared every report in it."""
+
+    def _clear(self, terminal):
+        case, members, _ = _run(terminal)
+        result = terminal.execute_command(
+            f'report dispatch {members[0].number} central office')
+        return case, members, result
+
+    def test_the_rest_are_repaired_and_need_only_a_close(self, terminal):
+        case, members, _ = self._clear(terminal)
+        assert case.cleared
+        for other in members[1:]:
+            assert other.sheath_repaired
+            assert other.field_finding == 'FCG'
+            assert other.dispatched_to is None
+
+    def test_a_second_crew_is_not_sent(self, terminal):
+        _, members, _ = self._clear(terminal)
+        result = terminal.execute_command(
+            f'report dispatch {members[1].number} central office')
+        assert 'Nobody needs to go' in result
+        assert members[1].dispatched_to is None
+
+    def test_the_crew_says_what_it_found(self, terminal):
+        _, _, result = self._clear(terminal)
+        assert 'can be closed without a further dispatch' in result
+
+    def test_a_crew_that_names_nothing_names_nothing(self, terminal):
+        _, members, _ = _run(terminal)
+        found, _ = terminal.desk.send_crew(
+            members[0], 'Central office', 0, name_fault=False)
+        assert 'Marker' not in found
+        assert 'can be closed without a further dispatch' in found
+
+    def test_a_crew_that_names_it_names_the_marker(self, terminal):
+        _, members, _ = _run(terminal)
+        found, _ = terminal.desk.send_crew(
+            members[0], 'Central office', 0, name_fault=True)
+        assert 'Marker 2' in found
+
+    def test_the_rest_close_as_found_and_are_right(self, terminal):
+        _, members, _ = self._clear(terminal)
+        for report in members:
+            assert terminal.desk.close(
+                report, 5, 'FCG', terminal.clock.now())
+            assert report.correct
+
+    def test_the_wrong_force_clears_nothing(self, terminal):
+        case, members, _ = _run(terminal)
+        terminal.execute_command(
+            f'report dispatch {members[0].number} outside plant')
+        assert not case.cleared
+        assert not any(r.sheath_repaired for r in members)
+
+    def test_reports_yet_to_come_do_not(self, terminal):
+        case = _tour(terminal, 9)
+        terminal.desk.depth_limit = 40
+        terminal.shift_minutes = min(case.due)
+        terminal._case_events()
+        first = terminal.desk.reports[case.members[0]]
+        terminal.execute_command(
+            f'report dispatch {first.number} central office')
+        assert case.cleared and case.due == []
+        terminal.shift_minutes = 500
+        assert terminal._case_events() == []
+
+    def test_the_cause_is_said_cleared_once(self, terminal):
+        _, members, _ = self._clear(terminal)
+        said = [m for _, m in terminal._queued_messages if m.kind == 'case']
+        assert len(said) == 1 and said[0].sender == 'rjohnson'
+        terminal.execute_command(
+            f'report dispatch {members[1].number} central office')
+        assert len([m for _, m in terminal._queued_messages
+                    if m.kind == 'case']) == 1
+
+    def test_a_dig_is_cleared_by_outside_plant(self, terminal):
+        _, members = _dig(terminal)
+        terminal.execute_command(
+            f'report dispatch {members[0].number} outside plant')
+        assert all(r.sheath_repaired for r in members[1:])
+
+
+class TestACaseIsSaved:
+    """A7: the run survives a quit, and a save from before has none."""
+
+    def _fresh(self, terminal):
+        from bell_system.terminal import BellSystemTerminal
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        return fresh
+
+    def _written(self, terminal):
+        import json
+        from bell_system import save
+        return json.loads(json.dumps(save.capture(terminal)))
+
+    def test_it_round_trips(self, terminal):
+        from bell_system import save
+        case, members, _ = _run(terminal)
+        fresh = self._fresh(terminal)
+        assert save.restore(fresh, self._written(terminal))
+        assert [c.out() for c in fresh.desk.cases] == [case.out()]
+        assert fresh.desk.reports[members[0].number].case == case.ident
+
+    def test_an_unarrived_report_is_still_to_come(self, terminal):
+        from bell_system import save
+        case = _tour(terminal, 9)
+        fresh = self._fresh(terminal)
+        assert save.restore(fresh, self._written(terminal))
+        assert fresh.desk.cases[0].due == case.due
+
+    def test_a_save_from_before_loads_with_none(self, terminal):
+        from bell_system import save
+        _run(terminal)
+        captured = self._written(terminal)
+        del captured['board']['cases']
+        for entry in captured['board']['reports']:
+            del entry['case']
+        fresh = self._fresh(terminal)
+        assert save.restore(fresh, captured)
+        assert fresh.desk.cases == []
+        assert all(r.case is None for r in fresh.desk.reports.values())
+
+    def test_a_damaged_case_is_not_half_loaded(self, terminal):
+        from bell_system import save
+        _run(terminal)
+        captured = self._written(terminal)
+        captured['board']['cases'][0]['kind'] = 'nonsense'
+        fresh = self._fresh(terminal)
+        assert not save.restore(fresh, captured)

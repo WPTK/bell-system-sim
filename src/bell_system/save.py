@@ -41,6 +41,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from .cable import WetSection
+from .cases import Case
 from .data.practicals import PRACTICALS
 from .field import Assignment, CREWS, POOL_CREW
 from .filesystem import (
@@ -192,6 +193,7 @@ def _report_out(report: TroubleReport) -> Dict[str, Any]:
     written['first_dispatch_judged'] = report.first_dispatch_judged
     written['clears_after'] = report.clears_after
     written['clears_at'] = report.clears_at
+    written['case'] = report.case
     written['record'] = _record_out(report.record)
     written['received'] = _stamp(report.received)
     written['commitment'] = _stamp(report.commitment)
@@ -238,6 +240,9 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     # the usual kind, which stays until it is fixed.
     report.clears_after = stored.get('clears_after')
     report.clears_at = stored.get('clears_at')
+    # Written since one cause could stand behind several reports.
+    case = stored.get('case')
+    report.case = case if isinstance(case, str) else None
     # Nor were overdue reports flagged while they were open. Left alone,
     # the first age() after loading would find every one of them late at
     # once and answer with a burst of misses and escalations for lateness
@@ -350,6 +355,7 @@ def capture(terminal: Any) -> Dict[str, Any]:
             'closed_count': desk.closed_count,
             'repeat_count': desk.repeat_count,
             'control': desk.control,
+            'cases': [case.out() for case in desk.cases],
             'regulars': {key: _record_out(record)
                          for key, record in desk._regulars.items()},
         },
@@ -422,6 +428,8 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
         control = board.get('control')
         control = (control if isinstance(control, str)
                    and control in CONTROLS else None)
+        # Absent from a shift saved before there were cases: none stood.
+        cases = [Case.read(entry) for entry in board.get('cases', [])]
         _plant_in(desk, stored['plant'])
         _force_in(desk, stored['force'])
         pool = _pool_in(tour)
@@ -435,6 +443,7 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     desk.listed = None
     desk.repeat_count = board['repeat_count']
     desk.control = control
+    desk.cases = cases
     desk._regulars = regulars
 
     desk.weather.regime = weather['regime']

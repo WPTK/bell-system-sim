@@ -1526,7 +1526,8 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
             rows.append("field found "
                         + (report.field_finding if named else 'cleared'))
         if report.sheath_repaired:
-            rows.append("sheath      repaired on somebody else's report")
+            rows.append("case        cleared with another report" if report.case
+                        else "sheath      repaired on somebody else's report")
         rows.append('')
         if report.test_notes:
             rows.append('measurements')

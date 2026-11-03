@@ -33,6 +33,7 @@ import random
 from datetime import datetime, timedelta
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
+from .cases import Case, clear as clear_case
 from .cable import (
     BINDERS_PER_UNIT,
     PAIRS_PER_BINDER,
@@ -306,6 +307,9 @@ class TroubleReport:
         # that reads the condition reads the new one.
         self.clears_after: Optional[int] = None
         self.clears_at: Optional[int] = None
+        # The shared cause this report is one of the symptoms of, if it is
+        # (cases.py). The key of the case, not the case.
+        self.case: Optional[str] = None
 
     # -- derived ---------------------------------------------------------
 
@@ -429,6 +433,8 @@ class ReportDesk:
         self.tour_of: Callable[[], int] = lambda: 1
         # The network management control left on, if any. See CONTROLS.
         self.control: Optional[str] = None
+        # The causes standing behind more than one report this tour.
+        self.cases: List[Case] = []
 
     # -- generation ------------------------------------------------------
 
@@ -834,6 +840,11 @@ class ReportDesk:
         fault = FAULTS[report.record.fault]
         wanted = fault.dispatch
 
+        if report.sheath_repaired and report.case:
+            return (f"{report.number} is one of a run that one crew has "
+                    f"already cleared.\nNobody needs to go. Close it out.",
+                    False)
+
         if report.sheath_repaired:
             # A splicer has already been to this binder group on somebody
             # else's report and the pair came back with it. Sending a
@@ -891,6 +902,11 @@ class ReportDesk:
         report.field_finding = fault.code
         went = (f"{crew.name} ({crew.title.lower()}) rolled from "
                 f"{came_from}, {travel} minutes.")
+        shared = clear_case(self, report, name_fault)
+        if shared:
+            return (f"{went}\n{crew.name} reports the trouble located and "
+                    f"cleared. {repair} minutes on the job.\n"
+                    + "\n".join(shared), True)
         if fault.code == 'NONE':
             return (f"{went}\n{crew.name} reports the line tests good at "
                     f"the station. {repair} minutes on the job.", True)

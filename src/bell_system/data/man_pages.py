@@ -4155,6 +4155,7 @@ NAME
      cable - cable and binder group, and how to tell a splicer where to go
 
 SYNOPSIS
+     cable [<pair>]
      report dispatch <number> cable <cable>/<binder>
 
 DESCRIPTION
@@ -4168,6 +4169,10 @@ DESCRIPTION
      one the pairs inside follow: group 1 is white-blue, group 2
      white-orange, and group 24 violet-brown. Violet-slate is a real pair
      colour and is never used as a binder.
+
+     cable with no argument lists the twenty-four groups and their colours.
+     cable with a pair number says which group that pair is in. Neither
+     reads a report or changes the board.
 
      Water is a binder group fault. A splicer who opens the group the water
      is in dries it and reseals it, and every pair in the group comes back

@@ -21,6 +21,7 @@ from ..data.trouble import (
     NSPMP_CATEGORIES,
     NSPMP_WEIGHTS,
 )
+from ..cases import see_also
 from ..clock import career_progress
 from ..console import article as _a, sentence_case as _lower, wrap
 from ..lmos import LmosConsole
@@ -194,6 +195,7 @@ class BureauCommands(SessionState):
         self.desk.open_shift(self.clock.now(), slack,
                              count=1 if first_tour else None,
                              teaching=first_tour)
+        self._plant_case()
     def _difficulty(self):
         """Return the active difficulty profile."""
         return self.career.difficulty
@@ -412,6 +414,7 @@ class BureauCommands(SessionState):
             lines.append(f"  Repeat of           {report.repeat_of}")
         if report.dispatched_to:
             lines.append(f"  Dispatched to       {report.dispatched_to}")
+        lines.extend(see_also(self.desk, report))
 
         lines.extend(['', 'MEASUREMENTS'])
         if report.test_notes:
@@ -528,6 +531,8 @@ class BureauCommands(SessionState):
                 and self._is_own_section(report, section),
                 sum(r.sheath_repaired for r in self.desk.reports.values())
                 - repaired if report.tested else 0)
+        if went:
+            self._case_cleared(report)
         # Only a crew that went reads the plant. A report another report's
         # splice repaired carries a finding but nobody was sent, and one
         # splice must not burn a sighting for every pair in the sheath.

@@ -29,6 +29,7 @@ from typing import (
 )
 
 from .data import consequences
+from .data.cases import CaseKind
 from .data.consequences import Late
 from .data.tours import (
     EARLY, LAST, LATE, MIDDLE, WATCHES, Window, heard_on,
@@ -1301,6 +1302,26 @@ class Switchroom:
             ],
             kind='field', subject=f'{report_number} field report',
             about=report_number,
+        ))
+
+    def case_note(self, now: datetime, kind: CaseKind, about: str,
+                  closing: bool = False) -> Optional[Message]:
+        """
+        Whoever stands nearest a shared cause, saying what they can see.
+
+        What they say is what they can see from where they stand and never
+        what to do about it: a case is not named for the player, and the
+        words say nothing of a fault, a force or a code. Nothing is said
+        when that person is not on the watch.
+        """
+        if not self.present(kind.sender, now):
+            return None
+        channel = (CHANNEL_WRITE if kind.sender == 'rjohnson'
+                   else CHANNEL_ORDERWIRE)
+        return self._deliver(Message(
+            channel=channel, sender=kind.sender, received=now,
+            lines=list(kind.closed if closing else kind.opened),
+            kind='case', subject=f'{about} run', about=about,
         ))
 
     def practical_offer(self, now: datetime, name: str,

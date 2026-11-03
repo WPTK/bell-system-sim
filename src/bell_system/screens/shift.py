@@ -662,6 +662,8 @@ class ShiftCommands(SessionState):
         late_notices = [render_message(message, self._stamp())
                         for message in self._report_late(late)]
         return (late_notices + self._weather_events(was)
+                + [render_message(message, self._stamp())
+                   for message in self._case_events()]
                 + self._fire_due_events())
 
     def _pass_time(self, minutes: int) -> None:
@@ -678,6 +680,8 @@ class ShiftCommands(SessionState):
         late = self.desk.age(minutes, was)
         for message in self._report_late(late):
             self._queue_message(message, after=1)
+        for notice in self._case_events():
+            self._queue_message(notice, after=1)
 
     def _report_late(self, late) -> List[Message]:
         """

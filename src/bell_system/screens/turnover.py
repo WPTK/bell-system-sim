@@ -487,6 +487,7 @@ this shift and the next one starts on a fresh board."""
         difficulty = self._difficulty()
         opened = self.desk.open_shift(
             self.clock.now(), difficulty.commitment_slack_minutes)
+        self._plant_case()
 
         past = sum(1 for report in carried if report.overdue())
         carried_late = f", {past} past commitment" if past else ''
