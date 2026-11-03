@@ -569,12 +569,12 @@ class TestTheNocQueue:
     def test_taking_late_says_so_and_counts(self, at_desk):
         terminal = at_desk('noc')
         (minor,) = put_tickets(terminal, ('MINOR', 10))
+        base = terminal.career.open_overdue()
         terminal.shift_minutes = 75
-        missed = terminal.career.missed_commitments
         output = terminal.execute_command('trouble triage ' + minor['id'])
         assert 'after the window closed' in output
         assert len(terminal.triage_book()['lapsed']) == 1
-        assert terminal.career.missed_commitments == missed + 1
+        assert terminal.career.open_overdue() == base + 1
 
     def test_the_first_tour_is_a_grace(self, at_desk):
         terminal = at_desk('noc')
@@ -730,6 +730,9 @@ class TestTheNocQueueIsHonest:
         fresh = BellSystemTerminal()
         fresh.career.shift = terminal.career.shift
         fresh.career.reports_closed = terminal.career.reports_closed
+        # The resumed pool is dealt again; put the same ticket back in it
+        # rather than leave which numbers it reuses to chance.
+        fresh.active_tickets[:] = [dict(major)]
         assert save.restore(fresh, captured)
         assert fresh.triage_book()['taken'] == {major['id']: 10}
 
@@ -754,6 +757,135 @@ class TestTheNocQueueIsHonest:
                                     'taken': [1], 'lapsed': {'T': -4}}):
             terminal.restore_triage(junk)
             assert terminal.triage_overdue() == []
+
+    def test_a_lapse_is_a_cost_that_survives_the_take(self, at_desk):
+        """
+        The index scores nothing for a tour with no closes and no backlog,
+        so a late take that only left the backlog would have cost nothing.
+        """
+        terminal = at_desk('noc')
+        terminal.career.reports_closed = 0
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.shift_minutes = 31
+        waiting = terminal.career.service_index()
+        assert waiting < 100
+        output = terminal.execute_command('trouble triage ' + major['id'])
+        assert 'after the window closed' in output
+        assert terminal.career.service_index() == waiting
+
+    def test_a_lapse_costs_the_same_taken_late_as_left_waiting(
+            self, at_desk):
+        late, never = at_desk('noc'), at_desk('noc')
+        for terminal in (late, never):
+            terminal.career.reports_closed = 0
+            put_tickets(terminal, ('MAJOR', 900))
+            terminal.shift_minutes = 31
+        late.execute_command('trouble triage ' + late.active_tickets[0]['id'])
+        assert late.career.service_index() == never.career.service_index()
+
+    def test_a_late_assign_is_a_lapse(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        base = terminal.career.open_overdue()
+        terminal.shift_minutes = 31
+        terminal.execute_command(f"trouble assign {major['id']} Outside Plant")
+        assert major['id'] in terminal._assigned_tickets
+        assert terminal.triage_lapsed() == 1
+        assert terminal.career.open_overdue() == base + 1
+
+    def test_an_assign_in_time_is_not(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.shift_minutes = 29
+        terminal.execute_command(f"trouble assign {major['id']} Outside Plant")
+        assert terminal.triage_lapsed() == 0
+
+    def test_the_control_centre_assigning_late_is_a_lapse(self, at_desk):
+        """The clock notices the window before the switching control
+        centre gets to hand the ticket to somebody."""
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.shift_minutes = 31
+        terminal._advance_shift()
+        terminal._assigned_tickets.add(major['id'])
+        assert terminal.triage_lapsed() == 1
+        assert major['escalation_level'] == 2
+
+    def test_only_the_nocs_assign_is_ever_noticed(self, at_desk):
+        terminal = at_desk('field')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.shift_minutes = 31
+        terminal.execute_command(f"trouble assign {major['id']} Outside Plant")
+        terminal._advance_shift()
+        assert terminal.triage_book()['lapsed'] == {}
+        assert major['escalation_level'] == 1
+
+    def test_resuming_keeps_an_overdue_ticket_nobody_looked_at(
+            self, at_desk):
+        import json
+        from bell_system import save
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.shift_minutes = 45
+        assert terminal.triage_book()['lapsed'] == {}
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        fresh.take_position('noc')
+        assert save.restore(fresh, captured)
+        assert fresh.triage_lapsed() >= 1
+        assert fresh.career.open_overdue() >= 1
+
+    def test_a_resumed_ticket_reusing_an_assigned_number_can_lapse(
+            self, at_desk):
+        import json
+        from bell_system import save
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 5))
+        terminal.execute_command('trouble triage ' + major['id'])
+        assert major['id'] in terminal._assigned_tickets
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        other = dict(major, title='a different ticket', status='OPEN',
+                     assigned_team='UNASSIGNED', resolution_steps=[])
+        fresh.active_tickets[:] = [other]
+        assert save.restore(fresh, captured)
+        assert other['id'] not in fresh._assigned_tickets
+        assert [t['id'] for t in fresh.triage_queue()] == [other['id']]
+
+    def test_a_ticket_entered_late_in_a_new_tour_is_not_born_overdue(
+            self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal)
+        terminal.triage_book()
+        terminal.career.shift += 1  # A new tour, and no call has made its book.
+        terminal.shift_minutes = 31
+        terminal.execute_command('trouble create MAINTENANCE MAJOR Test')
+        (entered,) = terminal.active_tickets
+        assert terminal.triage_due(entered) == 61
+        assert terminal.triage_overdue() == []
+
+    def test_the_table_and_the_call_use_the_class_fixed_at_the_stamp(
+            self, at_desk):
+        terminal = at_desk('noc')
+        (minor,) = put_tickets(terminal, ('MINOR', 900))
+        terminal.execute_command('trouble escalate ' + minor['id'])
+        assert minor['priority'] != 'MINOR'
+        terminal.shift_minutes = 0
+        row = next(line for line in
+                   terminal.execute_command('trouble triage').split('\n')
+                   if line.startswith(minor['id']))
+        assert 'MINOR' in row and '60m left' in row and ' 2m ' in row
+        before = terminal.shift_minutes
+        terminal.execute_command('trouble triage ' + minor['id'])
+        spent = terminal.shift_minutes - before
+        plain = at_desk('noc')
+        (same,) = put_tickets(plain, ('MINOR', 900))
+        plain.execute_command('trouble triage ' + same['id'])
+        assert spent == plain.shift_minutes
 
     def test_help_names_the_desks_verb_and_pressure(self, at_desk):
         for key in FOUR_DESKS:
