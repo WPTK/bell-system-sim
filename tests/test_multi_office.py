@@ -207,30 +207,17 @@ class TestEachOfficeHasItsOwnState:
             for alarm in terminal.office_alarms(office):
                 assert start <= int(alarm['id'][3:]) < start + width
 
-    @pytest.mark.parametrize('seed', ['0', '1', '2', '3'])
-    def test_alarm_identifiers_are_unique_under_any_hash_seed(
-            self, tmp_path, seed):
-        """
-        A str hash is salted per process, so identifiers built from hash()
-        collided in some runs and not in others. Run the whole console in
-        a fresh process under several seeds.
-        """
-        import os
-        import subprocess
-        import sys
+    def test_other_offices_number_above_the_home_offices(self):
+        """The home office is dealt fixed AL-44xx identifiers at startup."""
+        import inspect
+        import re
 
-        script = '; '.join([
-            'from bell_system.terminal import BellSystemTerminal',
-            't = BellSystemTerminal()',
-            "ids = [a['id'] for o in t.watched_offices() "
-            "if o['clli'] != t.home_office['clli'] "
-            "for a in t.office_alarms(o)]",
-            'assert len(ids) == len(set(ids)), ids',
-        ])
-        src = os.path.join(os.path.dirname(__file__), '..', 'src')
-        env = dict(os.environ, PYTHONHASHSEED=seed, PYTHONPATH=src,
-                   BELL_SYSTEM_HOME=str(tmp_path / 'state'))
-        subprocess.run([sys.executable, '-c', script], env=env, check=True)
+        from bell_system.terminal import BellSystemTerminal
+
+        source = inspect.getsource(BellSystemTerminal._initialize_alarm_state)
+        home = [int(number) for number in re.findall(r'AL-(\d+)', source)]
+        assert home
+        assert ALARM_ID_BASE > max(home)
 
     def test_the_alarm_screen_reads_the_connected_office(self, terminal):
         target = next(office for office in terminal.watched_offices()

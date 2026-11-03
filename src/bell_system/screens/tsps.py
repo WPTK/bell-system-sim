@@ -119,7 +119,7 @@ Commands:
                 return self._show_available_tsps_reports()
 
         else:
-            available_commands = ["position", "operators", "training", "queue", "reports"]
+            available_commands = ["status", "position", "operators", "training", "queue", "reports"]
             return f"tsps: Unknown option '{args[0] if args else 'missing'}'\nAvailable commands: {', '.join(available_commands)}"
     def _update_tsps_state(self) -> None:
         """Update TSPS operational state with realistic patterns."""

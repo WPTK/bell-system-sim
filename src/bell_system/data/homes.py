@@ -18,8 +18,8 @@ the plant is grounded where the rest of the simulation grounds it.
 Each note is signed by someone on the craft roster (npc.CRAFT) whose job
 would have given them the knowledge in it, apart from R. Alvarez, who is
 not on the roster: Alvarez is the previous systems operator and the
-author of testlog.c, so the only person here who writes software. Where the fit is not
-clean:
+author of testlog.c, so the only person here who writes software. Where
+the fit is not clean:
 
   docprep   Nobody on the roster has a document-preparation job. Alvarez
             is signed because a systems operator is who would know a
@@ -27,6 +27,13 @@ clean:
   netplan   Nobody on the roster does network planning. Nakamura, the
             transmission engineer, is the nearest: carrier and toll
             facility lead times are what the note turns on.
+  dba       Nobody on the roster holds a records job. Halloran, the wire
+            chief, is signed because the wire centre's assignment records
+            are his to answer for; Okafor, who finds the drift in the
+            field, was the other candidate and does not sit the desk.
+  tnds      Nobody on the roster collects traffic data. Johnson is signed
+            because a switching technician is who knows how an office's
+            counters were wired and what they count.
   field     The note mentions "Vasquez's crew", but Vasquez is the
             testboard technician and field.CREWS has no such crew. The
             wording is left as written; the signature, the wire chief

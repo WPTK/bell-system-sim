@@ -38,13 +38,13 @@ from .session import SessionState
 # is what the qualification is for.
 SCC_NAME = 'SCC BEDMINSTER'
 
-# The alarm conditions an office can be standing in. The same five the home
-# office is dealt from at startup; kept here so a remote office is dealt
-# from the same deck rather than a second invented one.
 # Where other offices' alarm identifiers start: above the home office's
 # fixed AL-4472..4476.
 ALARM_ID_BASE = 4500
 
+# The alarm conditions an office can be standing in. The same five the home
+# office is dealt from at startup; kept here so a remote office is dealt
+# from the same deck rather than a second invented one.
 ALARM_CANDIDATES: Tuple[Dict[str, Any], ...] = (
     {'type': 'TRUNK_DEGRADED', 'severity': 'MINOR', 'system': 'TG-004',
      'description': 'Intermittent failures on trunk group'},
@@ -365,10 +365,11 @@ class RemoteCommands(SessionState):
         # numbered by its place on the console and starting clear of the
         # home office's AL-4472..4476, so two buildings cannot share one.
         # Not hash(): a str hash is salted per process, so the numbers
-        # changed from run to run and the blocks could overlap.
-        slot = next((place for place, watched in enumerate(
-            self.watched_offices()) if watched['clli'] == clli),
-            len(self.watched_offices()))
+        # changed from run to run and the blocks could overlap. An office
+        # that is not on the console has no slot, and the lookup raises
+        # rather than hand it one that another building could share.
+        slot = next(place for place, watched in enumerate(
+            self.watched_offices()) if watched['clli'] == clli)
         first_id = ALARM_ID_BASE + slot * len(ALARM_CANDIDATES)
         standing: List[Alarm] = []
         for index, candidate in enumerate(ALARM_CANDIDATES):
