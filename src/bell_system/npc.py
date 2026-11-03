@@ -214,20 +214,20 @@ _CHATTER: Sequence[tuple] = (
     # Said on part of the countdown only (data/tours.py windows). The
     # simulation's own; each is a person looking at the same calendar.
     (CHANNEL_MAIL, 'ehalloran',
-     ['Work the oldest report first unless the plant gives you a reason.',
-      'When it does, write the reason on the report.'], EARLY),
+     ['Work the report nearest its commitment first, unless the plant gives',
+      'you a reason not to.'], EARLY),
     (CHANNEL_MAIL, 'ehalloran',
-     ['Anything still open at handoff goes over with your name on it.',
-      'Close what you can and leave a clear note on the rest.'], MIDDLE),
+     ['Anything still open at handoff goes over as it stands.',
+      'Close what you can.'], MIDDLE),
     (CHANNEL_ORDERWIRE, 'dpetrak',
      ['SCC to office. Routine. No action, and I expect to say the same',
       'thing to you in January under another name.'], LATE),
     (CHANNEL_WRITE, 'rjohnson',
      ['Wired up the last of the spare shelves today. Whoever has the frame',
-      'in January will find them where I left them.'], LATE),
+      'next will find them where I left them.'], LATE),
     (CHANNEL_ORDERWIRE, 'dpetrak',
-     ['SCC to office. Routine. No action. This is the last routine I log',
-      'under this name, and I am logging it the same as the others.'], LAST),
+     ['SCC to office. Routine. No action, logged the same as the others.'],
+     LAST),
 )
 
 
