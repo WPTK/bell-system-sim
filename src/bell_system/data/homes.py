@@ -34,10 +34,8 @@ the fit is not clean:
   tnds      Nobody on the roster collects traffic data. Johnson is signed
             because a switching technician is who knows how an office's
             counters were wired and what they count.
-  field     The note mentions "Vasquez's crew", but Vasquez is the
-            testboard technician and field.CREWS has no such crew. The
-            wording is left as written; the signature, the wire chief
-            who sends crews out, is what fits.
+  field     The wire chief who sends crews out signs it, and the crews it
+            names are ones field.CREWS has.
 
 field.CREWS also lists Nakamura as a switching equipment technician,
 where npc.CRAFT has him as the transmission engineer and Johnson as the
@@ -158,8 +156,8 @@ not guess - run a loop test first. An installer sent to a wet cable
 comes back having done nothing and the customer has had a morning off
 work for nothing.
 
-Vasquez's crew will take a fourth job at four o'clock and finish it.
-Nobody else will. Do not spend that on something that could wait.
+Finch will take a fourth job at four o'clock and finish it. Nobody
+else will. Do not spend that on something that could wait.
 
 The commitment is a promise the company made to a person, not a target
 somebody set for you. When it is going to be missed, the useful thing
