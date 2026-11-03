@@ -87,6 +87,13 @@ class GuidanceCommands(SessionState):
                 if report.field_finding or report.sheath_repaired]
         if done:
             report = done[0]
+            if report.field_finding == 'NONE':
+                # Nothing was there. Closing it as trouble found is scored
+                # wrong, and the right close names no condition.
+                return NextAction(
+                    f"{report.number} was looked at in the field and "
+                    f"nothing was wrong. It is waiting to be closed out.",
+                    f"report close {report.number} 8", 'close')
             # The code is the answer, so it is only typed for the player
             # while the fault is still being named to them.
             if self._reading_stage(report, count=False) == STAGE_NUMBERS:
