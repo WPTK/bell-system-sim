@@ -58,6 +58,18 @@ def open_report(desk: ReportDesk,
     return report, ''
 
 
+def already_done(report: TroubleReport, kind: str) -> bool:
+    """
+    Whether this verb has already been worked on this report.
+
+    ``kind`` is the prefix the verb writes on the report's notes, 'office' or
+    'trunk'. A second go would charge the time again, write a second note and,
+    for a trace, move another group's quality, so the screens turn it away
+    before it costs anything.
+    """
+    return any(note.startswith(f"{kind}:") for note in report.test_notes)
+
+
 def _cleared(report: TroubleReport, note: str, minutes: int) -> None:
     """
     Record that the desk cleared this report's fault itself.
@@ -112,7 +124,7 @@ def clear_office(report: TroubleReport) -> bool:
 def trace_trunk(report: TroubleReport,
                 groups: Dict[str, TrunkGroup]) -> Optional[str]:
     """
-    Test the trunks a customer's calls take, and busy out the bad one.
+    Test the trunks a customer's calls take, and certify the bad one.
 
     A caller whose calls will not complete and whose line measures good
     is, often enough, a caller who has reached a trunk that is not. Only a
@@ -120,7 +132,7 @@ def trace_trunk(report: TroubleReport,
     report's trunks test clean, and that is the answer.
 
     Returns:
-        The trunk group that was busied out, or None
+        The trunk group that was tested and certified, or None
     """
     candidates = [name for name, group in groups.items()
                   if group['status'] == 'ACTIVE']
@@ -132,7 +144,7 @@ def trace_trunk(report: TroubleReport,
         return None
     worst = min(candidates, key=lambda name: groups[name]['quality'])
     groups[worst]['quality'] = min(0.999, groups[worst]['quality'] + 0.004)
-    _cleared(report, f"trunk: bad member busied out of {worst}",
+    _cleared(report, f"trunk: bad member found in {worst}, certified",
              COST_TRUNK_TRACE)
     return worst
 
@@ -150,6 +162,14 @@ def hold_calls(desk: ReportDesk, name: str) -> Optional[str]:
     before = desk.control
     desk.control = name if name in CONTROLS else None
     return before
+
+
+def control_standing(desk: ReportDesk) -> str:
+    """One line saying a control is on, or nothing. A control left on costs."""
+    if not desk.control:
+        return ''
+    return (f"Toll control on: {desk.control}. It stays until "
+            f"'toll control off'.")
 
 
 def borrow_crew(desk: ReportDesk, force: str) -> bool:

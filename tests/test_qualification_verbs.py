@@ -169,7 +169,7 @@ def test_connect_pool_lends_one_crew_for_one_category(terminal):
     assert 'yours for outside plant' in reply
     # The pool has one crew.
     again = terminal.execute_command('connect pool station')
-    assert 'already spoken for' in again
+    assert 'already loaned to outside plant' in again
     assert force.loaned == 'Outside plant'
 
 
@@ -333,3 +333,107 @@ def test_a_control_the_desk_does_not_know_is_no_control(terminal):
     stored['board']['control'] = 'sdoc'
     assert save.restore(terminal, stored)
     assert terminal.desk.control is None
+
+
+# -- review of the first push ------------------------------------------------
+
+
+def test_the_wait_names_the_pool_crew_when_it_is_the_one_coming_back():
+    force = FieldForce(random.Random(1))
+    assert force.borrow('Station')
+    station = next(crew for crew in force.crews_for('Station')
+                   if crew.key != POOL_CREW.key)
+    force.out[station.key] = Assignment(station, 'a', 10, 120, 0)
+    force.out[POOL_CREW.key] = Assignment(POOL_CREW, 'b', 20, 30, 0)
+    assert force.soonest_free('Station', 5).crew == POOL_CREW
+
+
+def test_the_wait_ignores_the_pool_crew_when_it_is_not_here():
+    force = FieldForce(random.Random(1))
+    station = force.crews_for('Station')[0]
+    force.out[station.key] = Assignment(station, 'a', 10, 120, 0)
+    force.out[POOL_CREW.key] = Assignment(POOL_CREW, 'b', 20, 30, 0)
+    assert force.soonest_free('Station', 5).crew == station
+
+
+def test_a_crew_back_from_a_job_goes_to_its_own_home():
+    force = FieldForce(random.Random(1))
+    force.borrow('Station')
+    force.out[POOL_CREW.key] = Assignment(POOL_CREW, 'b', 20, 30, 0)
+    force.free('Station', 100)
+    assert force.at[POOL_CREW.key] == 'FAR'
+
+
+def test_a_second_switch_clear_costs_nothing_and_adds_no_note(terminal):
+    report = new_report(terminal, 'FCG', 'Calls do not complete')
+    terminal.execute_command(f'switch clear {report.number}')
+    spent, notes = report.desk_minutes, list(report.test_notes)
+    again = terminal.execute_command(f'switch clear {report.number}')
+    assert 'cleared already' in again
+    assert report.desk_minutes == spent and report.test_notes == notes
+    assert f'report close {report.number} 5 FCG' in again
+
+
+def test_a_second_trunk_trace_costs_nothing_and_moves_no_group(
+        terminal, monkeypatch):
+    # The trunk screens let the groups drift on their own at every command;
+    # what is being asked is whether the trace itself moves one.
+    monkeypatch.setattr(terminal, '_update_trunk_states', lambda: None)
+    report = new_report(terminal, 'NONE', 'Calls do not complete')
+    first = terminal.execute_command(f'trunk trace {report.number}')
+    assert f'report close {report.number} 8' in first
+    qualities = {name: group['quality']
+                 for name, group in terminal.trunk_groups.items()}
+    spent, notes = report.desk_minutes, list(report.test_notes)
+    for _ in range(10):
+        again = terminal.execute_command(f'trunk trace {report.number}')
+    assert 'traced already' in again
+    assert report.desk_minutes == spent and report.test_notes == notes
+    assert {name: group['quality']
+            for name, group in terminal.trunk_groups.items()} == qualities
+
+
+def test_the_close_commands_are_spelled_out(terminal):
+    frame = new_report(terminal, 'CO_EQUIP', 'Calls do not complete')
+    assert (f'report close {frame.number} 5 CO_EQUIP'
+            in terminal.execute_command(f'cosmos fix {frame.number}'))
+    office = new_report(terminal, 'FCG', 'Calls do not complete')
+    assert (f'report close {office.number} 5 FCG'
+            in terminal.execute_command(f'switch clear {office.number}'))
+
+
+def test_cosmos_fix_with_no_report_gives_usage(terminal):
+    assert 'usage: cosmos fix <report>' in terminal.execute_command('cosmos fix')
+
+
+def test_a_second_loan_says_who_has_the_crew(terminal):
+    terminal.execute_command('connect pool Station')
+    again = terminal.execute_command('connect pool Cable repair')
+    assert 'already loaned to station until the tour ends' in again
+
+
+def test_a_toll_control_is_one_line_on_shift_and_toll_status(terminal):
+    assert 'Toll control on' not in terminal.execute_command('shift')
+    terminal.execute_command('toll control reroute')
+    assert 'Toll control on: reroute' in terminal.execute_command('shift')
+    assert 'Toll control on: reroute' in terminal.execute_command('toll')
+    terminal.execute_command('toll control off')
+    assert 'Toll control on' not in terminal.execute_command('toll')
+
+
+@pytest.mark.parametrize('bad', [['block'], {'a': 1}, 7, 'sdoc'])
+def test_a_control_that_is_not_a_known_string_is_none_and_restores_whole(
+        terminal, bad):
+    stored = save.capture(terminal)
+    stored['board']['control'] = bad
+    terminal.desk.control = 'block'
+    assert save.restore(terminal, stored)
+    assert terminal.desk.control is None
+
+
+def test_a_loan_saved_without_the_pool_position_gets_one(terminal):
+    terminal.execute_command('connect pool Station')
+    stored = save.capture(terminal)
+    del stored['force']['at'][POOL_CREW.key]
+    assert save.restore(terminal, stored)
+    assert terminal.desk.force.at[POOL_CREW.key] == 'FAR'

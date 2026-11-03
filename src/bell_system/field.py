@@ -170,9 +170,7 @@ class FieldForce:
             if job.back_at() <= now:
                 del self.out[key]
                 # They come back to the garage unless they work inside.
-                self.at[key] = ('OFFICE'
-                                if job.crew.force == 'Central office'
-                                else 'GARAGE')
+                self.at[key] = self._home(job.crew)
 
     @staticmethod
     def _home(crew: Crew) -> str:
@@ -243,6 +241,6 @@ class FieldForce:
 
     def soonest_free(self, force: str, now: int) -> Optional[Assignment]:
         """The job that has to finish before this category is free again."""
-        out = [job for job in self.busy(now)
-               if job.crew.force.lower() == force.lower()]
+        answering = {crew.key for crew in self.crews_for(force)}
+        out = [job for job in self.busy(now) if job.crew.key in answering]
         return out[0] if out else None
