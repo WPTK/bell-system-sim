@@ -28,6 +28,8 @@ class TicketCommands(SessionState):
         def _triage(self, args: List[str]) -> str: ...
         def triage_admit(self, ticket: TroubleTicket) -> None: ...
         def triage_notice(self) -> None: ...
+        def triage_resolve_refusal(
+            self, ticket: TroubleTicket) -> Optional[str]: ...
 
     def cmd_ticket(self, args: List[str]) -> str:
         """Trouble ticket management system"""
@@ -462,6 +464,9 @@ Escalation logged in Bell System Operations Database."""
         ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
         if not ticket:
             return f"trouble: Ticket {ticket_id} not found"
+        refusal = self.triage_resolve_refusal(ticket)
+        if refusal:
+            return refusal
 
         # Calculate resolution time
         resolution_time = self.clock.now()
