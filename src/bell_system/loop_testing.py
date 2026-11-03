@@ -44,6 +44,13 @@ from .data.trouble import FAULTS
 # Local exchange cable mutual capacitance, microfarads per mile.
 CABLE_UF_PER_MILE = 0.083
 
+# What counts as reading clean: the least any insulation resistance is
+# allowed to read, and the most loop current a line with nobody on it draws.
+# The simulation's own; they sit under every clean condition's range in
+# data/trouble.py and over every condition that is not clean.
+CLEAN_MINIMUM_OHMS = 100_000
+CLEAN_MAXIMUM_LOOP_MA = 1.0
+
 # Loop resistance per mile of cable, derived from the statement that 1300
 # ohms is typically about three miles. Real figures vary with conductor
 # gauge; this is one working number, not a gauge table.
@@ -116,6 +123,23 @@ def reading_stage(sighting: int, annotate_sightings: int) -> str:
         return STAGE_NUMBERS
     note_sightings = (annotate_sightings + 1) // 2
     return STAGE_NOTE if sighting <= note_sightings else STAGE_CREW
+
+
+def reading_is_clean(measured: 'LoopMeasurement') -> bool:
+    """
+    Say whether every reading is inside limits.
+
+    A loop that reads clean everywhere cannot be told, from the numbers
+    alone, from office equipment trouble, a false cross or ground, or no
+    trouble at all: those three share the same ranges. It is a property of
+    the readings, so it holds without knowing which of the three the line
+    has.
+    """
+    return (measured.station_termination
+            and measured.dc_volts == 0 and measured.ac_volts == 0
+            and min(measured.tip_ring_ohms, measured.tip_ground_ohms,
+                    measured.ring_ground_ohms) >= CLEAN_MINIMUM_OHMS
+            and measured.loop_current_ma < CLEAN_MAXIMUM_LOOP_MA)
 
 
 def _line_seed(number: str, fault: str) -> random.Random:

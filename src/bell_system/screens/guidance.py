@@ -30,6 +30,8 @@ from typing import Iterable, List, NamedTuple, Optional, Tuple
 
 from ..data.positions import POSITION_COMMANDS
 from ..data.hints import EXHAUSTED, HINTS
+from ..data.trouble import FAULTS
+from ..loop_testing import measure_loop, reading_is_clean
 from ..npc import render as render_message
 from ..progression import QUALIFICATIONS_BY_KEY
 from .session import SessionState
@@ -100,6 +102,8 @@ class GuidanceCommands(SessionState):
                     f"{report.number} is past its commitment and has not "
                     f"been measured.",
                     f"mlt {report.number}", 'measure')
+            if self._reads_clean(report):
+                return self._clean_reading(report)
             return NextAction(
                 f"{report.number} is past its commitment. It has been "
                 f"measured; somebody needs to go.",
@@ -121,6 +125,8 @@ class GuidanceCommands(SessionState):
         # Everything measured, nothing overdue: send somebody to the one
         # that runs out first.
         report = pending[0]
+        if not report.dispatched_to and self._reads_clean(report):
+            return self._clean_reading(report)
         if not report.dispatched_to:
             fault = report.record.fault
             force = self._dispatch_for(fault)
@@ -143,9 +149,49 @@ class GuidanceCommands(SessionState):
         force before the measurement would hand over the answer, and the
         measurement is the part worth doing.
         """
-        from ..data.trouble import FAULTS
         where = FAULTS[fault].dispatch
         return '' if where.startswith('None') else where
+
+    def _reads_clean(self, report) -> bool:
+        """
+        Whether a measured report's readings cannot tell the office from
+        nothing, so that a dispatch would be a guess.
+        """
+        if not report.tested or report.dispatched_to:
+            return False
+        record = report.record
+        return reading_is_clean(measure_loop(
+            record.telephone_number, record.fault, name_fault=False))
+
+    def _clean_reading(self, report) -> NextAction:
+        """
+        What to do with a report whose loop reads clean everywhere.
+
+        Office equipment, a false cross or ground and no trouble all look
+        the same to mlt, and the one cheap thing that separates them is the
+        frame record. Once it has been looked up, or where the player is not
+        signed off to look, the answer is no longer a lookup, and nothing
+        here says which of the three it is.
+        """
+        number = report.number
+        if not self.career.may_use('cosmos'):
+            return NextAction(
+                f"{number} reads clean on every measurement. That is the "
+                f"office or nothing.",
+                f"report show {number}", 'dispatch')
+        record = report.record
+        asked = (record.telephone_number, record.local_number, number)
+        if any(entry.lower().startswith('cosmos jumper')
+               and any(token in entry for token in asked)
+               for entry in self.command_history):
+            return NextAction(
+                f"{number} reads clean and its frame record has been read. "
+                f"What is left is your call.",
+                f"report show {number}", 'dispatch')
+        return NextAction(
+            f"{number} reads clean on every measurement, and mlt cannot "
+            f"tell the office from nothing. The frame record can.",
+            f"cosmos jumper {record.telephone_number}", 'frame')
 
     def _nothing_pending(self) -> NextAction:
         """What is worth doing with a clear board."""
