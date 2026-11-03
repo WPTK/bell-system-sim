@@ -484,7 +484,11 @@ microwave(1), radio(1), trace(1)
         raining, and each pair that goes is another report on your board.
         """
         weather = self.desk.weather
-        sections = self.desk.plant.open_sections()
+        # A sheath nobody has reported is not on the board until its gauge
+        # shows it: the weather must not name water the player has no way
+        # to know of.
+        sections = [section for section in self.desk.plant.open_sections()
+                    if not section.latent or section.alarming()]
         rows = ["WEATHER", self.clock.timestamp(), '=' * 62, '',
                 f"  Now           {weather.label()}",
                 f"  Outlook       {weather.outlook()}",

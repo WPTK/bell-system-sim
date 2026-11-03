@@ -15,8 +15,13 @@ them it is, so the answer cannot tell the two apart; the measurement and the
 field have to. How far a question narrows it is the test in
 tests/test_board_cases.py: no answer is given by every condition, and none
 by only one that the others could not also be said of, except where the
-customer has in fact seen nothing else (a clean line, a wet sheath that the
-neighbours share).
+customer has in fact seen nothing else (a clean line).
+
+Nor do two questions together settle which force to send. For every pair of
+them there is a condition whose two answers fit conditions that different
+forces clear: a cross and a wet sheath both creep up on a house and are
+both shared with a neighbour. That is tests/test_phase8_fixes.py, over the
+pairs and not over any one answer.
 
 The simulation's own. The conditions are the documented ones (data.trouble);
 what a customer says of each is the simulation's own, as REPORT_SYMPTOMS is.
@@ -87,8 +92,6 @@ _ALL_AT_ONCE = ("All at once. It was fine and then it was not, and it has "
                 "not changed since.")
 _CREEPING = ("It crept up on us. A little worse every day, and a good deal "
              "worse after it rains.")
-_ON_AND_OFF = ("It is on and off. Some days it is fine, and some days it is "
-               "not, and I cannot say what the days have in common.")
 _PASSED = ("It was bad twice and then it stopped. It is fine as I talk to "
            "you, if that is any help.")
 
@@ -110,16 +113,17 @@ TOPICS: Dict[str, Topic] = {
         'OPEN': _ALL_AT_ONCE, 'SHORT': _ALL_AT_ONCE, 'FCG': _ALL_AT_ONCE,
         'CO_EQUIP': _ALL_AT_ONCE, 'ROH': _ALL_AT_ONCE,
         'WET': _CREEPING, 'GROUND': _CREEPING,
-        'CROSS': _ON_AND_OFF, 'FEMF': _ON_AND_OFF,
+        'CROSS': _CREEPING, 'FEMF': _CREEPING,
         'NONE': _PASSED,
     }),
     'others': Topic(
         'others', 'Is it the same on other telephones, or next door?', {
             'OPEN': _EVERY_TELEPHONE, 'SHORT': _EVERY_TELEPHONE,
-            'GROUND': _EVERY_TELEPHONE, 'CROSS': _EVERY_TELEPHONE,
+            'GROUND': _EVERY_TELEPHONE,
             'FCG': _EVERY_TELEPHONE, 'FEMF': _EVERY_TELEPHONE,
             'CO_EQUIP': _EVERY_TELEPHONE,
-            'WET': _NEIGHBOURS,
+            # A cross has a second pair in it, and that is a neighbour's.
+            'WET': _NEIGHBOURS, 'CROSS': _NEIGHBOURS,
             'ROH': _ONE_SET, 'NONE': _ONE_SET,
         }),
     'hear': Topic('hear', 'What do you hear when you pick it up?', {

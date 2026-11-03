@@ -110,7 +110,7 @@ class TestTransientTrouble:
         result = terminal.execute_command(
             f'report close {report.number} 5 GROUND')
         assert report.correct is False
-        assert 'Nothing was actually wrong' in result
+        assert 'cleared by itself before the close' in ' '.join(result.split())
 
     def test_a_crew_that_reached_it_while_it_was_there_cleared_it(
             self, terminal):

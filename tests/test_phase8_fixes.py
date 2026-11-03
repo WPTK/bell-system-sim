@@ -505,3 +505,95 @@ class TestAClearedLineIsJudgedAsOne:
     def test_a_home_file_says_so_in_a_voice(self):
         from bell_system.data.homes import HOMES
         assert 'goes by itself' in HOMES['sysop']['notes']
+
+
+class TestQuestionsTogetherDoNotNameTheForce:
+    """C22: W19, over the combinations and not over any one answer."""
+
+    @staticmethod
+    def _fits(first, second, fault):
+        from bell_system.data.callbacks import TOPICS, narrowed
+        return (set(narrowed(first, TOPICS[first].heard[fault]))
+                & set(narrowed(second, TOPICS[second].heard[fault])))
+
+    @pytest.mark.parametrize('pair', [('start', 'others'),
+                                      ('start', 'hear'),
+                                      ('others', 'hear')])
+    def test_no_pair_tells_the_force_for_every_condition(self, pair):
+        from bell_system.data.callbacks import GENERAL
+        from bell_system.data.trouble import FAULTS
+        loose = [
+            fault for fault in GENERAL
+            if len({FAULTS[f].dispatch
+                    for f in self._fits(*pair, fault)}) > 1]
+        assert loose, pair
+
+    @pytest.mark.parametrize('pair', [('start', 'others'),
+                                      ('start', 'hear'),
+                                      ('others', 'hear')])
+    def test_the_condition_is_always_among_those_a_pair_fits(self, pair):
+        from bell_system.data.callbacks import GENERAL
+        for fault in GENERAL:
+            assert fault in self._fits(*pair, fault), (pair, fault)
+
+    def test_even_all_three_leave_two_conditions_with_the_same_words(self):
+        from bell_system.data.callbacks import GENERAL, TOPICS, narrowed
+        shared = 0
+        for fault in GENERAL:
+            fits = set(GENERAL)
+            for key, topic in TOPICS.items():
+                fits &= set(narrowed(key, topic.heard[fault]))
+            shared += len(fits) > 1
+        assert shared >= 2
+
+
+class TestSmallThingsTheReviewFound:
+    """The nits that are tests."""
+
+    def test_weather_does_not_list_a_sheath_before_the_gauge_shows_it(
+            self, terminal):
+        from test_board_cases import _leaking_tour
+        section = _leaking_tour(terminal)
+        assert section.latent and not section.alarming()
+        shown = terminal.execute_command('weather')
+        assert f'cable {section.cable} binder {section.binder}' not in shown
+        assert 'No wet sheath on this board' in shown
+
+    def test_weather_lists_it_once_the_gauge_does(self, terminal):
+        from test_board_cases import _leaking_tour
+        section = _leaking_tour(terminal)
+        terminal.desk.plant.leak(110, 0.0)
+        assert f'cable {section.cable} binder {section.binder}' in (
+            terminal.execute_command('weather'))
+
+    def test_the_marker_note_says_nothing_about_an_hour(self):
+        from bell_system.data.cases import CASE_KINDS
+        assert 'hour' not in ' '.join(CASE_KINDS['marker'].opened)
+
+    def test_the_toll_note_states_the_night_figure_and_not_the_1976_end(self):
+        from bell_system.data import fraud
+        said = ' '.join(fraud.note(9, 'x'))
+        assert f"{fraud.figures(9, 'x')['night']}%" in said
+        assert 'nearly all of it after midnight' not in said
+        assert 'still carried on the channel' in said
+
+    def test_the_toll_note_comes_only_to_a_holder_of_toll(self, terminal):
+        from bell_system.data import fraud
+        terminal.career.shift = fraud.FIRST_TOUR
+        terminal.shift_minutes = fraud.MAIL_AFTER + 1
+        terminal.career.qualifications = ['loop']
+        assert terminal._fraud_events() == []
+        assert fraud.LEDGER not in terminal.career.beats_seen
+        terminal.career.qualifications = ['loop', 'toll']
+        assert len(terminal._fraud_events()) == 1
+        assert fraud.LEDGER in terminal.career.beats_seen
+
+    def test_the_toll_note_is_saved_when_it_is_delivered(self, terminal):
+        import json
+        from bell_system.data import fraud
+        terminal.career.shift = fraud.FIRST_TOUR
+        terminal.shift_minutes = fraud.MAIL_AFTER + 1
+        terminal.career.qualifications = ['loop', 'toll']
+        terminal._fraud_events()
+        stored = json.loads(open(terminal.career.path).read())
+        assert fraud.LEDGER in stored['beats_seen']
