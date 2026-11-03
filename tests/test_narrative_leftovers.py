@@ -54,11 +54,14 @@ class TestTheItemsPhases7And7bFixedStayFixed:
 class TestI6TheFieldNotesNameOnlyRealCrews:
     """A crew a note speaks of is one the dispatcher can send."""
 
-    def test_the_crew_that_takes_the_fourth_job_is_on_the_crew_list(self):
-        surnames = {crew.name.split(',')[0] for crew in CREWS}
+    def test_the_note_lists_the_crews_there_are(self):
         text = HOMES['field']['crews.notes']
-        who = re.findall(r'(\w+) will take a fourth job', text)
-        assert who and set(who) <= surnames, who
+        assert 'This wire centre has two cable splicers, a lineman, a station ' \
+            'installer and a switching equipment technician' in text
+        assert 'three splicing crews' not in text
+
+    def test_the_note_offers_no_dispatch_tip_with_nothing_behind_it(self):
+        assert 'fourth job' not in HOMES['field']['crews.notes']
 
     def test_no_note_speaks_of_a_crew_that_is_somebody_elses_trade(self):
         surnames = {crew.name.split(',')[0] for crew in CREWS}

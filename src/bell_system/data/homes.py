@@ -45,6 +45,30 @@ from.
 
 from typing import Dict
 
+from ..field import CREWS
+
+
+def _force() -> str:
+    """
+    The people field.CREWS sends, by title, as a sentence would list them.
+
+    Counted from the crew list, so a note cannot say there are more (or
+    fewer) than there are.
+    """
+    numbers = {1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five'}
+    counts: Dict[str, int] = {}
+    for crew in CREWS:
+        title = crew.title.lower()
+        counts[title] = counts.get(title, 0) + 1
+    parts = []
+    for title, count in counts.items():
+        if count > 1:
+            parts.append(f'{numbers[count]} {title}s')
+        else:
+            parts.append(f"{'an' if title[0] in 'aeiou' else 'a'} {title}")
+    return ', '.join(parts[:-1]) + ' and ' + parts[-1]
+
+
 # What every .profile on this machine starts with. The real ones were this
 # short: a path, a terminal, and the erase and kill characters, because a
 # terminal that could not backspace was the first thing you fixed.
@@ -144,20 +168,16 @@ in the peg count and not in a trouble ticket.
         '.profile': _profile(
             'field liaison',
             'echo "Dispatched:"; trouble list\n'),
-        'crews.notes': """Who is out, and what they are good for.
+        'crews.notes': f"""Who is out, and what they are good for.
 
-There are three splicing crews and one installation crew on this wire
-centre, and the difference between a good tour and a bad one is whether
-you sent the right one.
+This wire centre has {_force()}, and the difference between a good tour
+and a bad one is whether you sent the right one.
 
 A splicer fixes the cable. An installer fixes the station and the drop.
 If you are not sure which side of the protector the trouble is on, do
 not guess - run a loop test first. An installer sent to a wet cable
 comes back having done nothing and the customer has had a morning off
 work for nothing.
-
-Finch will take a fourth job at four o'clock and finish it. Nobody
-else will. Do not spend that on something that could wait.
 
 The commitment is a promise the company made to a person, not a target
 somebody set for you. When it is going to be missed, the useful thing
