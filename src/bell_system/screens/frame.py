@@ -21,7 +21,7 @@ from ..data.clli import (
 
 from ..data.trouble import FRAME_DEFECTS
 from ..reports import COST_FRAME_FIX, COST_FRAME_LOOKUP, COST_OFFICE_CLEAR
-from ..verbs import clear_office, fix_frame, open_report
+from ..verbs import already_done, clear_office, fix_frame, open_report
 from .session import SessionState
 
 
@@ -214,7 +214,9 @@ Load balance after assignment: {frame['balance_index'] + random.uniform(-0.004, 
         if action == 'jumper' and len(args) > 1:
             return self._cross_connect(args[1])
 
-        if action == 'fix' and len(args) > 1:
+        if action == 'fix':
+            if len(args) < 2:
+                return "cosmos: usage: cosmos fix <report>"
             return self._frame_fix(args[1])
 
         if action == 'balance':
@@ -392,7 +394,7 @@ equipment at the next convenient frame visit."""
                 f"{COST_FRAME_FIX} minutes charged. "
                 f"{report.age_label()} "
                 f"{'past' if report.overdue() else 'remaining'}.",
-                f"Close it out: report close {report.number} ..."]
+                f"Close it out: report close {report.number} 5 CO_EQUIP"]
         return '\n'.join(rows)
 
     def _office_clear(self, args: List[str]) -> str:
@@ -414,6 +416,10 @@ equipment at the next convenient frame visit."""
         report, why = open_report(self.desk, args[0])
         if report is None:
             return f"switch: {why}"
+        if already_done(report, 'office'):
+            return (f"switch: {report.number} has been cleared already; the "
+                    f"line is on its spare appearance.\n"
+                    f"Close it out: report close {report.number} 5 FCG")
         record = report.record
         if not clear_office(report):
             return (f"switch: {report.number}: line equipment "
@@ -434,7 +440,7 @@ equipment at the next convenient frame visit."""
             '',
             f"{COST_OFFICE_CLEAR} minutes charged. {report.age_label()} "
             f"{'past' if report.overdue() else 'remaining'}.",
-            f"Close it out: report close {report.number} ...",
+            f"Close it out: report close {report.number} 5 FCG",
         ])
 
     def _frame_orders(self) -> str:

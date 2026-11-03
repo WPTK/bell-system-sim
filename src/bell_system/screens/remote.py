@@ -147,10 +147,12 @@ class RemoteCommands(SessionState):
             return ("connect: usage: connect pool <force>\n"
                     f"Forces: {', '.join(DISPATCH_FORCES)}")
         if not borrow_crew(self.desk, force):
-            return ("connect: the pool has one crew and it is already "
-                    "spoken for.\n"
-                    "It goes back when the tour ends, or when the job it "
-                    "is out on is done.")
+            loaned = self.desk.force.loaned
+            if loaned:
+                return (f"connect: the pool's one crew is already loaned to "
+                        f"{loaned.lower()} until the tour ends.")
+            return ("connect: the pool's one crew is still out on its last "
+                    "job. It can be loaned again when that is done.")
         self._pass_time(COST_DISPATCH)
         return (f"{SCC_NAME}: the pool crew is yours for {force.lower()} "
                 f"until the tour ends.\n"

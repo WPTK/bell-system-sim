@@ -22,7 +22,7 @@ from ..data.signaling import (
 
 
 from ..reports import CONTROLS, COST_TOLL_CONTROL
-from ..verbs import hold_calls
+from ..verbs import control_standing, hold_calls
 from .session import SessionState
 
 
@@ -114,6 +114,9 @@ class TollCommands(SessionState):
                          f"{sample.class_name():<24}{by_class[switch_class]:>4}")
         lines.append(f"  {'End offices (class 5)':<32}"
                      f"{len(network.offices) - len(toll_offices):>4}")
+        standing = control_standing(self.desk)
+        if standing:
+            lines.extend(['', standing])
 
         active = [group for group in self.trunk_groups.values()
                   if group['status'] == 'ACTIVE']
@@ -145,8 +148,8 @@ class TollCommands(SessionState):
         hears from fewer of the people they happen to; it also keeps real
         customers off the network, and those are the ones who ring the
         bureau with a shorter patience than before. It stays on until it is
-        taken off, across the tour and the shift file, and the cost of
-        leaving it stays with it.
+        taken off, for the rest of the tour, and the cost of leaving it
+        stays with it.
         """
         held = self.desk.control
         word = args[0].lower() if args else ''

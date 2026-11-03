@@ -316,7 +316,7 @@ QUALIFICATIONS: List[Qualification] = [
         requires_reports=6,
         unlocks=('trunk', 'routing', 'dialtone', 'testcall'),
         verb='trunk trace <report>',
-        verb_effect='Test the trunks the customer calls take and busy out '
+        verb_effect='Test the trunks the customer calls take and find '
                     'the bad one, which is what a no-trouble report on '
                     'calls not completing usually is.',
     ),

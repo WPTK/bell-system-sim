@@ -4320,9 +4320,10 @@ QUALIFICATION VERB
      customer's calls take. A line that measures good, whose customer says
      calls do not complete, often has nothing wrong with it: the calls
      reached a trunk group with a bad member in it. The trace finds the
-     member, busies it out, and leaves the report with nothing to find. It
-     costs 12 minutes. On any other report the trunks test good, which
-     costs the 2 minutes of looking and is an answer of its own.
+     member, has it tagged and the group certified, and leaves it with
+     nothing to find. It costs 12 minutes. On any other report the trunks
+     test good, which costs the 2 minutes of looking and is an answer of
+     its own.
 """,
     "toll": """
 QUALIFICATION VERB
@@ -4334,8 +4335,8 @@ QUALIFICATION VERB
      four in ten of what they were, reroute to seven in ten. It also keeps
      real customers off the network, and every report that arrives while
      it is on carries a commitment shorter by 20 minutes for block and 8
-     for reroute. It stays on, through the end of the tour and across a
-     saved shift, until it is taken off with toll control off. Engineering
+     for reroute. It stays on for the rest of the tour, until it is taken
+     off with toll control off. Engineering
      and Operations notes that manual controls are often left in effect
      too long. It costs 10 minutes to put on and 10 to take off.
 """,

@@ -11,7 +11,7 @@ from typing import (
 
 
 from ..reports import COST_FRAME_LOOKUP, COST_TRUNK_TRACE
-from ..verbs import open_report, trace_trunk
+from ..verbs import already_done, open_report, trace_trunk
 from .session import SessionState
 
 
@@ -80,7 +80,7 @@ Commands:
   trunk test <TG-xxx>       Initiate testing sequence
   trunk traffic <TG-xxx>    Real-time traffic monitoring
   trunk maintenance         Scheduled maintenance status
-  trunk trace <report>      Test a customer's route, busy out the bad trunk"""
+  trunk trace <report>      Test a customer's route, find the bad trunk"""
 
             return status_output
 
@@ -269,6 +269,10 @@ Next test due: {(self.clock.now() + timedelta(days=30)).strftime('%B %d, %Y')}""
         report, why = open_report(self.desk, args[0])
         if report is None:
             return f"trunk: {why}"
+        if already_done(report, 'trunk'):
+            return (f"trunk: {report.number} has been traced already. "
+                    f"Nothing more to find.\n"
+                    f"Close it out: report close {report.number} 8")
         group = trace_trunk(report, self.trunk_groups)
         if group is None:
             return (f"trunk: {report.number}: every trunk on the route "
@@ -282,13 +286,13 @@ Next test due: {(self.clock.now() + timedelta(days=30)).strftime('%B %d, %Y')}""
             f"{group}.",
             "One member fails supervision and answers neither seizure nor "
             "release.",
-            f"Busied out and tagged for the trunk maintenance crew. "
-            f"{group} certified again.",
+            f"Member tagged for the trunk maintenance crew and {group} "
+            f"tested and certified again.",
             '',
             "The customer's line was never the trouble.",
             f"{COST_TRUNK_TRACE} minutes charged. {report.age_label()} "
             f"{'past' if report.overdue() else 'remaining'}.",
-            f"Close it out: report close {report.number} ...",
+            f"Close it out: report close {report.number} 8",
         ])
 
     def _update_trunk_states(self) -> None:

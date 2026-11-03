@@ -223,6 +223,8 @@ def _force_in(desk: ReportDesk, stored: Dict[str, Any]) -> None:
     desk.force.loaned = loaned if isinstance(loaned, str) else None
     desk.force.at = {key: where for key, where in stored['at'].items()
                      if key in crews}
+    if desk.force.loaned:
+        desk.force.at.setdefault(POOL_CREW.key, 'FAR')
     out = {}
     for key, job in stored['out'].items():
         left = job['left']
@@ -328,6 +330,12 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
                     for key, entry in board['regulars'].items()}
         tour = stored['tour']
         weather = stored['weather']
+        # Absent from a shift saved before there were controls, and not a
+        # control the desk knows is as good as none. Anything that is not a
+        # string is not one, and is not allowed to raise below.
+        control = board.get('control')
+        control = (control if isinstance(control, str)
+                   and control in CONTROLS else None)
         _plant_in(desk, stored['plant'])
         _force_in(desk, stored['force'])
     except (KeyError, TypeError, ValueError):
@@ -338,10 +346,7 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     desk._sequence = board['sequence']
     desk.closed_count = board['closed_count']
     desk.repeat_count = board['repeat_count']
-    # Absent from a shift saved before there were controls, and not a
-    # control the desk knows is as good as none.
-    control = board.get('control')
-    desk.control = control if control in CONTROLS else None
+    desk.control = control
     desk._regulars = regulars
 
     desk.weather.regime = weather['regime']

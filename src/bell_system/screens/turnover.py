@@ -27,6 +27,7 @@ from ..constants import SHIFT_LENGTH_MINUTES
 from ..npc import render as render_message
 from ..progression import QUALIFICATIONS
 from ..reports import hours_minutes
+from ..verbs import control_standing
 from ..weather import Weather
 from .session import SessionState
 
@@ -405,6 +406,9 @@ this shift and the next one starts on a fresh board."""
                 rows.append(f"  {job.crew.name:<16}{job.report:<11}"
                             f"back in "
                             f"{hours_minutes(job.back_at() - self.shift_minutes)}")
+        standing = control_standing(self.desk)
+        if standing:
+            rows.extend(['', standing])
         rows.extend(['', "'handoff' is the full turnover record. "
                          "'handoff relieve' signs off."])
         return '\n'.join(rows)
