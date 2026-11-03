@@ -77,7 +77,17 @@ class GuidanceCommands(SessionState):
         A report is never suggested twice in a row for the same reason,
         because the point is to move the board rather than to nag.
         """
-        pending = self.desk.pending()
+        # A practical's report is Halloran's, not a customer's: nothing
+        # about it is worth closing, dispatching or measuring for its own
+        # sake, and 'report close' on it is refused.
+        staged = self._practical_open()
+        pending = [report for report in self.desk.pending()
+                   if not report.practical]
+        if staged is not None:
+            return NextAction(
+                f"{staged[1].number} is {staged[0].title}, the practical. "
+                f"Work it, then hand it in.",
+                'qual submit', 'practical')
         if not pending:
             return self._nothing_pending()
 
@@ -212,10 +222,17 @@ class GuidanceCommands(SessionState):
             return NextAction(
                 "Nothing on the board yet. The bureau will send something.",
                 'report', 'wait')
+        offered = self.career.offer_available()
+        if offered:
+            return NextAction(
+                f"Board clear. {offered[0].name} is ready for its "
+                f"practical.",
+                f"qual take {offered[0].key}", 'idle')
         ready = self._next_qualification()
         if ready is not None:
             return NextAction(
-                f"Board clear. You are {ready} from your next sign-off.",
+                f"Board clear. You are {ready} from being offered your "
+                f"next sign-off.",
                 'qual', 'idle')
         return NextAction(
             "Board clear. Worth reading something while it lasts.",
@@ -233,7 +250,7 @@ class GuidanceCommands(SessionState):
                       * difficulty.reports_per_qualification)
             short = needed - self.career.reports_correct
             if short <= 0:
-                return 'one correct closure'
+                continue
             return (f"{short} correct closure"
                     f"{'' if short == 1 else 's'}")
         return None
@@ -378,7 +395,8 @@ class GuidanceCommands(SessionState):
         because a player who has just moved on to a different problem is
         at the beginning of that one.
 
-        A minute of shift time and nothing else. There is no score
+        A minute of shift time and nothing else, and not even that while a
+        practical is on the board. There is no score
         penalty for asking: being stuck is already the penalty, and a hint
         system with a cost attached is a hint system nobody uses.
         """
@@ -388,9 +406,12 @@ class GuidanceCommands(SessionState):
             self._hint_situation = situation
             self._hint_level = 0
         self._hint_level += 1
-        self._pass_time(HINT_MINUTES)
+        # A practical is not the shift, and the minute is for the shift.
+        if situation != 'practical':
+            self._pass_time(HINT_MINUTES)
 
-        levels = HINTS[situation]
+        levels = (self._practical_hints() if situation == 'practical'
+                  else HINTS[situation])
         if self._hint_level > len(levels):
             return render_message(self.switchroom.advice(
                 self.clock.now(), 'ehalloran', list(EXHAUSTED),
@@ -416,6 +437,8 @@ class GuidanceCommands(SessionState):
         once. After that a first tour is stuck on the same things anybody
         else is stuck on, and gets the same three levels about them.
         """
+        if self._practical_open() is not None:
+            return 'practical'
         # 'board' is marked the first time report(1) runs, so this is
         # exactly "has not looked at the board yet".
         if self.first_tour() and 'board' not in self._tour_nudges:
@@ -557,7 +580,7 @@ class GuidanceCommands(SessionState):
                         f"Use 'help' to see available commands.")
             needed = self.career.qualification_for_command(command)
             note = ''
-            if needed and not self.career.is_qualified(needed):
+            if needed and not self._may_use(command):
                 note = (f"\n\nYou are not signed off on "
                         f"{QUALIFICATIONS_BY_KEY[needed].name}. "
                         f"Type 'qual'.")
@@ -630,7 +653,7 @@ class GuidanceCommands(SessionState):
         # each one are. Ending help(1) on sixteen things you may not do was
         # the last thing a new craftsperson read, and it read as a wall.
         locked = sum(1 for name in self._command_handlers
-                     if not self.career.may_use(name))
+                     if not self._may_use(name))
         if locked:
             lines.append(f"* marks a command you are not signed off on "
                          f"({locked} of them). Type 'qual'.")
@@ -641,7 +664,7 @@ class GuidanceCommands(SessionState):
         """Render command rows, marking anything not signed off."""
         rows = []
         for name, summary in entries:
-            mark = ' ' if self.career.may_use(name) else '*'
+            mark = ' ' if self._may_use(name) else '*'
             rows.append(f" {mark}{name:<12} {summary}")
         return rows
 

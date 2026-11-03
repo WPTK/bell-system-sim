@@ -141,7 +141,8 @@ set game.difficulty craft    I Hate Myself
 **Fun Simulation** is forgiving. Loop testing names the fault it reads for
 the first four sightings of each kind of trouble (`set assist.annotate on`
 keeps it doing so), you may close a report you never measured, a wrong call costs you little,
-commitments are not counted against you, and qualification comes quickly.
+commitments are not counted against you, and a sign-off is offered every 3
+correct closures.
 
 **I Hate Myself** is close to the job. Loop testing prints the numbers and
 nothing else, because reading them is the work. A report cannot be closed
@@ -171,8 +172,9 @@ Qualification is this simulation's own mechanic. A craft job did grow by
 being trusted with more of the plant, but no source consulted says how many
 reports earned which sign-off, or that a sign-off locked a command, so the
 ladder below is invented and so is the count. You start signed off on Loop
-and Station plus whatever your position carries, and earn the rest a
-correctly closed report at a time:
+and Station plus whatever your position carries. Correct closures offer you
+the rest, one sign-off at every 3 (Fun) or 12 (I Hate Myself), and a
+practical on your own board is what signs it (`qual take <name>`):
 
 ```
 Loop and Station              report, mlt, trouble, testboard, testline

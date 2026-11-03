@@ -20,7 +20,8 @@ from ..data.clli import (
 
 
 from ..data.trouble import FRAME_DEFECTS
-from ..reports import COST_FRAME_LOOKUP
+from ..reports import COST_FRAME_FIX, COST_FRAME_LOOKUP, COST_OFFICE_CLEAR
+from ..verbs import already_done, clear_office, fix_frame, open_report
 from .session import SessionState
 
 
@@ -176,6 +177,7 @@ Assessment:               {'WITHIN OBJECTIVE' if abs(frame['worst_deviation']) <
 Commands:
   cosmos assign <number>     Assign office equipment and a frame pair
   cosmos jumper <number>     Show the cross-connect for a line
+  cosmos fix <report>        Clear what the frame is wrong with, no truck
   cosmos balance             Load balance across line link groups
   cosmos pending             Frame work orders awaiting the frame
 
@@ -212,6 +214,11 @@ Load balance after assignment: {frame['balance_index'] + random.uniform(-0.004, 
         if action == 'jumper' and len(args) > 1:
             return self._cross_connect(args[1])
 
+        if action == 'fix':
+            if len(args) < 2:
+                return "cosmos: usage: cosmos fix <report>"
+            return self._frame_fix(args[1])
+
         if action == 'balance':
             frame = self.frame_state
             output = f"""COSMOS Load Balance
@@ -241,7 +248,8 @@ equipment at the next convenient frame visit."""
             return self._frame_orders()
 
         return (f"cosmos: Unknown option '{args[0]}'\n"
-                "Available commands: status, assign, jumper, balance, pending")
+                "Available commands: status, assign, jumper, fix, balance, "
+                "pending")
     def _initialize_frame_state(self) -> None:
         """
         Set up the main distributing frame this wire centre works.
@@ -352,6 +360,89 @@ equipment at the next convenient frame visit."""
         rows.append("customer temporarily without disturbing the "
                     "cross-connection.")
         return '\n'.join(rows)
+
+    def _frame_fix(self, token: str) -> str:
+        """
+        Go down to the frame and put right what is wrong with a line.
+
+        cosmos jumper tells you what the record says. This is the frame
+        technician's half of it, done by the craftsperson who read it: a
+        central office trouble that is only a jumper on the wrong horizontal
+        does not need a switching technician to roll, and does not need a
+        measurement either, once the record has said so.
+        """
+        report, why = open_report(self.desk, token)
+        if report is None:
+            return f"cosmos: {why}"
+        defect = fix_frame(report)
+        if defect is None:
+            return (f"cosmos: {report.number}: the cross-connect record is "
+                    f"in order, and so is the frame.\n"
+                    f"There is nothing to fix there. {COST_FRAME_LOOKUP} "
+                    f"minutes charged.")
+        record = report.record
+        rows = ["COSMOS Frame Work",
+                '=' * 55,
+                f"{report.number}  {record.telephone_number}  "
+                f"H {record.horizontal} / V {record.vertical}",
+                '',
+                f"{defect.name}.",
+                defect.remedy,
+                "Done, and the cross-connect record agrees with the plant.",
+                '',
+                "That was a central office trouble, and it is cleared "
+                "without a truck.",
+                f"{COST_FRAME_FIX} minutes charged. "
+                f"{report.age_label()} "
+                f"{'past' if report.overdue() else 'remaining'}.",
+                f"Close it out: report close {report.number} 5 CO_EQUIP"]
+        return '\n'.join(rows)
+
+    def _office_clear(self, args: List[str]) -> str:
+        """
+        Clear a false cross or ground from the switch side.
+
+        The trouble is in the line equipment and not on the loop, so the
+        line is busied out and moved to a spare appearance and nobody drives
+        anywhere. Only the office's own machine can do it, which is what the
+        sign-off is for. A line with nothing wrong in the office costs the
+        look at it.
+        """
+        if not args:
+            return "switch: usage: switch clear <report>"
+        if self.office_is_remote():
+            return ("switch: clear works the lines of the office you are "
+                    "sitting in.\nThe report is on this board; "
+                    "'connect home' comes back to it.")
+        report, why = open_report(self.desk, args[0])
+        if report is None:
+            return f"switch: {why}"
+        if already_done(report, 'office'):
+            return (f"switch: {report.number} has been cleared already; the "
+                    f"line is on its spare appearance.\n"
+                    f"Close it out: report close {report.number} 5 FCG")
+        record = report.record
+        if not clear_office(report):
+            return (f"switch: {report.number}: line equipment "
+                    f"{record.line_equipment} runs a diagnostic clean.\n"
+                    f"Nothing in the office to clear on this line. "
+                    f"{COST_FRAME_LOOKUP} minutes charged.")
+        return "\n".join([
+            f"{record.clli} {self.clock.timestamp()}",
+            '=' * 55,
+            f"{report.number}  {record.telephone_number}  "
+            f"LEN {record.line_equipment}",
+            '',
+            "Diagnostic: false cross or ground detected in the line "
+            "equipment.",
+            "Line busied out and moved to a spare appearance. Loop "
+            "untouched.",
+            "Diagnostic on the new appearance runs clean.",
+            '',
+            f"{COST_OFFICE_CLEAR} minutes charged. {report.age_label()} "
+            f"{'past' if report.overdue() else 'remaining'}.",
+            f"Close it out: report close {report.number} 5 FCG",
+        ])
 
     def _frame_orders(self) -> str:
         """

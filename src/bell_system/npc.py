@@ -856,6 +856,25 @@ class Switchroom:
             about=report_number,
         ))
 
+    def practical_offer(self, now: datetime, name: str,
+                        key: str) -> Message:
+        """
+        The wire chief saying a sign-off is there to be taken.
+
+        The count of correct closures is the floor. He will not sign on a
+        count, and says so once, with the one command that moves it along.
+        """
+        return self._deliver(Message(
+            channel=CHANNEL_MAIL, sender='ehalloran', received=now,
+            lines=[
+                f'You have the closures for {name}.',
+                'I do not sign on a count. I will set you up a line to work',
+                f"that wants what {name} is for. 'qual take {key}'.",
+            ],
+            kind='qualification', subject=f'Practical: {name}',
+            about=None,
+        ))
+
     def qualification_notice(self, now: datetime, name: str,
                              commands: Sequence[str],
                              held: int = 1, days_left: int = 48) -> Message:

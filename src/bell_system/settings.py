@@ -122,9 +122,10 @@ OPTIONS: List[Option] = [
         'game.difficulty', 'fun', ['fun', 'craft'],
         'How hard the work is',
         "fun is Fun Simulation: reports can be closed without measuring, "
-        "qualification comes quickly and a wrong call costs little. craft is "
-        "I Hate Myself: measure before you close, repeat reports come back on "
-        "your index, commitments are counted, and qualification is slow. "
+        "a sign-off is offered quickly and a wrong call costs little. craft "
+        "is I Hate Myself: measure before you close, repeat reports come "
+        "back on your index, commitments are counted, and a sign-off is "
+        "offered slowly. Either way the practical is what signs it. "
         "craft is the closer depiction of the job; it carries no accuracy "
         "marking here because difficulty governs how forgiving the "
         "simulation is, not how it renders 1983.",

@@ -41,7 +41,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from .cable import WetSection
-from .field import Assignment, CREWS
+from .data.practicals import PRACTICALS
+from .field import Assignment, CREWS, POOL_CREW
 from .filesystem import (
     PLAYER_LIMIT,
     Node,
@@ -50,7 +51,9 @@ from .filesystem import (
     player_changes,
 )
 from .jsonfile import read_json, write_text_atomically
-from .reports import STATUS_CLOSED, LineRecord, ReportDesk, TroubleReport
+from .reports import (
+    CONTROLS, STATUS_CLOSED, LineRecord, ReportDesk, TroubleReport,
+)
 
 # Bumped whenever the shape below changes in a way that makes an older file
 # wrong rather than merely incomplete. An unrecognised version is discarded,
@@ -130,6 +133,7 @@ def _report_out(report: TroubleReport) -> Dict[str, Any]:
     """Write one trouble report, everything on it included."""
     written = {field: getattr(report, field) for field in _REPORT_FIELDS}
     written['desk_booked'] = report.desk_booked
+    written['practical'] = report.practical
     written['sighting'] = report.sighting
     written['frame_looked_up'] = report.frame_looked_up
     written['record'] = _record_out(report.record)
@@ -159,6 +163,13 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     # Written since reports began ageing on the shift clock. A shift saved
     # before that has been aged by exactly the desk time it charged.
     report.desk_booked = stored.get('desk_booked', report.desk_minutes)
+    # Written since practicals; a report from before one is an ordinary one.
+    # A name this version has no practical for would be a report that can be
+    # neither closed (it is Halloran's) nor handed in (nobody knows it), so
+    # it is read as an ordinary report instead.
+    practical = stored.get('practical')
+    report.practical = (practical if isinstance(practical, str)
+                        and practical in PRACTICALS else None)
     # Written since the reading ramp counted sightings of a fault type.
     report.sighting = stored.get('sighting')
     # Written since help learned to send a clean reading to the frame.
@@ -213,6 +224,7 @@ def _force_out(desk: ReportDesk) -> Dict[str, Any]:
     """Write where every crew is standing and who is out on what."""
     return {
         'at': dict(desk.force.at),
+        'loaned': desk.force.loaned,
         'out': {key: {'report': job.report, 'travel': job.travel,
                       'work': job.work, 'left': job.left}
                 for key, job in desk.force.out.items()},
@@ -221,9 +233,13 @@ def _force_out(desk: ReportDesk) -> Dict[str, Any]:
 
 def _force_in(desk: ReportDesk, stored: Dict[str, Any]) -> None:
     """Read the field force back."""
-    crews = {crew.key: crew for crew in CREWS}
+    crews = {crew.key: crew for crew in (*CREWS, POOL_CREW)}
+    loaned = stored.get('loaned')
+    desk.force.loaned = loaned if isinstance(loaned, str) else None
     desk.force.at = {key: where for key, where in stored['at'].items()
                      if key in crews}
+    if desk.force.loaned:
+        desk.force.at.setdefault(POOL_CREW.key, 'FAR')
     out = {}
     for key, job in stored['out'].items():
         left = job['left']
@@ -269,6 +285,7 @@ def capture(terminal: Any) -> Dict[str, Any]:
             'sequence': desk._sequence,
             'closed_count': desk.closed_count,
             'repeat_count': desk.repeat_count,
+            'control': desk.control,
             'regulars': {key: _record_out(record)
                          for key, record in desk._regulars.items()},
         },
@@ -328,6 +345,12 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
                     for key, entry in board['regulars'].items()}
         tour = stored['tour']
         weather = stored['weather']
+        # Absent from a shift saved before there were controls, and not a
+        # control the desk knows is as good as none. Anything that is not a
+        # string is not one, and is not allowed to raise below.
+        control = board.get('control')
+        control = (control if isinstance(control, str)
+                   and control in CONTROLS else None)
         _plant_in(desk, stored['plant'])
         _force_in(desk, stored['force'])
     except (KeyError, TypeError, ValueError):
@@ -338,6 +361,7 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     desk._sequence = board['sequence']
     desk.closed_count = board['closed_count']
     desk.repeat_count = board['repeat_count']
+    desk.control = control
     desk._regulars = regulars
 
     desk.weather.regime = weather['regime']

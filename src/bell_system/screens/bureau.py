@@ -21,13 +21,12 @@ from ..data.trouble import (
     NSPMP_CATEGORIES,
     NSPMP_WEIGHTS,
 )
-from ..clock import career_progress, days_to_divestiture
+from ..clock import career_progress
 from ..console import article as _a, sentence_case as _lower, wrap
 from ..lmos import LmosConsole
 from ..loop_testing import STAGE_NUMBERS, post_mortem, reading_stage
 from ..npc import (
     Switchroom,
-    render as render_message,
 )
 from ..progression import (
     MISSED_COMMITMENT_WEIGHT,
@@ -216,7 +215,7 @@ class BureauCommands(SessionState):
         a missing binary.
         """
         needed = self.career.qualification_for_command(command)
-        if needed is None or self.career.is_qualified(needed):
+        if needed is None or self._may_use(command):
             return None
         qualification = QUALIFICATIONS_BY_KEY[needed]
         remaining = max(
@@ -225,29 +224,16 @@ class BureauCommands(SessionState):
             * self._difficulty().reports_per_qualification
             - self.career.reports_correct,
         )
+        ask = (f"Correct closures still needed: {remaining}" if remaining
+               else f"You have the closures. 'qual take {needed}' is the "
+                    f"practical.")
         return self.dead_end(
             f"{command}: you are not signed off on {qualification.name}.\n\n"
             f"{qualification.description}\n\n"
-            f"Correct closures still needed: {remaining}\n"
+            f"{ask}\n"
             f"Type 'qual' for your craft record."
         )
-    def _grant_qualifications(self) -> List[str]:
-        """
-        Award anything newly earned and return the notices.
 
-        The count of what is now held goes with each one, because the man
-        signing them notices how many he has signed for you, and so does
-        the calendar.
-        """
-        notices: List[str] = []
-        now = self.clock.now()
-        for qualification in self.career.grant_available():
-            message = self.switchroom.qualification_notice(
-                now, qualification.name, qualification.unlocks,
-                held=len(self.career.qualifications),
-                days_left=days_to_divestiture(now))
-            notices.append(render_message(message, self._stamp()))
-        return notices
     def cmd_report(self, args: Optional[List[str]] = None) -> str:
         """Work the repair service bureau's board of customer trouble reports."""
         args = args or []
@@ -585,6 +571,9 @@ class BureauCommands(SessionState):
             return f"report: no report matching '{token}'"
         if report.status == 'CLOSED':
             return f"{report.number} is already closed."
+        if report.practical:
+            return (f"{report.number} is a practical, not a customer's "
+                    f"report. 'qual submit' hands it in.")
         if not rest:
             return ("report: name a disposition code.\n"
                     "  5  trouble found - name the fault\n"
@@ -678,10 +667,10 @@ class BureauCommands(SessionState):
             f"{self.career.service_index():.1f} ({self.career.index_band()})."
         )
 
-        granted = self._grant_qualifications()
-        if granted:
+        offered = self._offer_qualifications()
+        if offered:
             lines.append('')
-            lines.extend(granted)
+            lines.extend(offered)
 
         parting = self.first_tour_nudge('closed')
         if parting:
@@ -755,6 +744,8 @@ class BureauCommands(SessionState):
         args = args or []
         if args and args[0].lower() == 'index':
             return self._show_service_index()
+        if args and args[0].lower() in ('take', 'submit'):
+            return self._qual_practical(args)
 
         career = self.career
         difficulty = career.difficulty
@@ -800,20 +791,31 @@ class BureauCommands(SessionState):
             lines.append(f"  [{mark}] {qualification.name}")
             lines.append(f"      {qualification.description}")
             lines.append(f"      Opens: {', '.join(qualification.unlocks)}")
+            if qualification.verb:
+                lines.append(f"      Adds:  {qualification.verb}")
+                lines.extend(f"             {chunk}" for chunk in
+                             wrap(qualification.verb_effect, 56))
             if not held:
                 needed = (qualification.requires_reports
                           * difficulty.reports_per_qualification
                           - career.reports_correct)
                 short = max(0, needed)
-                lines.append(f"      Needs {short} more correct closure"
-                             f"{'' if short == 1 else 's'}.")
+                if short:
+                    ask = (f"      Needs {short} more correct closure"
+                           f"{'' if short == 1 else 's'}.")
+                elif self._practical_key() == qualification.key:
+                    ask = "      Practical is on your board: qual submit"
+                else:
+                    ask = (f"      Count met. Practical: qual take "
+                           f"{qualification.key}")
+                lines.append(ask)
             lines.append('')
 
         # What help(1) used to end on. It belongs here, next to the
         # sign-offs that open each one, rather than as the last thing a new
         # craftsperson reads on the first screen they ever see.
         locked = sorted(name for name in self._command_handlers
-                        if not career.may_use(name))
+                        if not self._may_use(name))
         if locked:
             lines.extend(['NOT SIGNED OFF', '-' * 74])
             lines.append(f"  {', '.join(locked)}")
@@ -826,12 +828,15 @@ class BureauCommands(SessionState):
         else:
             short = career.reports_until_next()
             lines.append(f"Next: {nxt.name} in {short} correct closure"
-                         f"{'' if short == 1 else 's'}.")
+                         f"{'' if short == 1 else 's'}." if short else
+                         f"Next: {nxt.name}. 'qual take {nxt.key}'.")
         lines.extend([
             '',
             "Change difficulty with 'set game.difficulty fun' or "
             "'set game.difficulty craft'.",
             "'qual index' explains how the index is scored.",
+            "'qual take <sign-off>' is the practical for one you are ready "
+            "for.",
         ])
         return '\n'.join(lines)
     def _show_service_index(self) -> str:

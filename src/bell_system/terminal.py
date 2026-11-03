@@ -75,6 +75,7 @@ from .screens.editor import EditorCommands
 from .screens.filters import FilterCommands
 from .screens.jobs import JobCommands
 from .screens.plant import PlantCommands
+from .screens.practical import PracticalCommands
 from .screens.guidance import GuidanceCommands
 from .screens.position import PositionCommands
 from .screens.preferences import PreferenceCommands
@@ -156,6 +157,7 @@ class BellSystemTerminal(
     FilterCommands,
     JobCommands,
     PlantCommands,
+    PracticalCommands,
     GuidanceCommands,
     PreferenceCommands,
     PositionCommands,
@@ -245,6 +247,7 @@ class BellSystemTerminal(
         # over when it changes.
         self._hint_situation: str = ''
         self._hint_level: int = 0
+        self._practical_memory: Dict[str, Any] = {}
         self._tour_baseline: Tuple[int, int, int, int] = (
             self.career.reports_closed, self.career.reports_correct,
             self.career.missed_commitments, self.career.repeat_reports)

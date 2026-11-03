@@ -32,6 +32,7 @@ from ..npc import (
 )
 from ..progression import QUALIFICATIONS
 from ..reports import hours_minutes
+from ..verbs import control_standing
 from ..weather import Weather
 from .session import SessionState
 
@@ -133,7 +134,7 @@ class TurnoverCommands(SessionState):
     def cmd_handoff(self, args: List[str]) -> str:
         """Bell System shift handoff briefing and turnover record."""
         previous = self.shift_handoff["previous_shift"]
-        pending_reports = self.desk.pending()
+        pending_reports = self.desk.customers()
         overdue_reports = [r for r in pending_reports if r.overdue()]
         untested_reports = [r for r in pending_reports if not r.tested]
         open_now = [t for t in self.active_tickets if t['status'] != 'RESOLVED']
@@ -270,7 +271,7 @@ this shift and the next one starts on a fresh board."""
         The figures are the ones ``report closed`` ends on, and the open
         board is the one ``report`` shows, so the three agree.
         """
-        pending = self.desk.pending()
+        pending = self.desk.customers()
         career = self.career
         return audit(career.reports_closed, career.reports_wrong,
                      career.repeat_reports,
@@ -337,7 +338,7 @@ this shift and the next one starts on a fresh board."""
         index.
         """
         closed, correct, missed, repeats = self._tour_worked()
-        pending = self.desk.pending()
+        pending = self.desk.customers()
         return {
             'closed': closed, 'correct': correct, 'wrong': closed - correct,
             'missed': missed, 'repeats': repeats, 'carried': len(pending),
@@ -398,7 +399,7 @@ this shift and the next one starts on a fresh board."""
 
     def _nothing_to_hand_over(self) -> str:
         """Refuse a sign-off on a tour nobody has done anything in."""
-        pending = len(self.desk.pending())
+        pending = len(self.desk.customers())
         if pending:
             on_it = ('there is 1 report' if pending == 1
                      else f"there are {pending} reports")
@@ -424,6 +425,8 @@ this shift and the next one starts on a fresh board."""
         # nobody worked pass their commitments in the hours left, and the
         # index you bank is the one for the board you are handing over.
         left = max(0, SHIFT_LENGTH_MINUTES - self.shift_minutes)
+        # A practical is this tour's. It does not go on the board of the next.
+        self._abandon_practical()
         late = self.desk.new_tour(left, self.shift_minutes)
         if late:
             self.career.record_missed(len(late))
@@ -497,7 +500,7 @@ this shift and the next one starts on a fresh board."""
             f"  Shift events              {len(self.shift_events)} scheduled",
             '',
             f"Shift {self.career.shift} begins. "
-            f"{len(self.desk.pending())} pending. "
+            f"{len(self.desk.customers())} pending. "
             f"{self.clock.date()}.",
         ])
         if self.career.index_history:
@@ -506,10 +509,10 @@ this shift and the next one starts on a fresh board."""
                                for entry in self.career.index_history[-8:])
             lines.append(f"  Index history             {recent}"
                          + (f"  {trend}" if trend else ''))
-        granted = self._grant_qualifications()
-        if granted:
+        offered = self._offer_qualifications()
+        if offered:
             lines.append('')
-            lines.extend(granted)
+            lines.extend(offered)
         if self.clock.last_tour(self.career.shift):
             lines.append('')
             lines.extend(LAST_TOUR_NOTICE)
@@ -600,7 +603,7 @@ this shift and the next one starts on a fresh board."""
         and who is out. It fits on a screen.
         """
         del args
-        pending = self.desk.pending()
+        pending = self.desk.customers()
         overdue = [report for report in pending if report.overdue()]
         untested = [report for report in pending if not report.tested]
         with_field = [report for report in pending if report.dispatched_to]
@@ -644,6 +647,9 @@ this shift and the next one starts on a fresh board."""
                 rows.append(f"  {job.crew.name:<16}{job.report:<11}"
                             f"back in "
                             f"{hours_minutes(job.back_at() - self.shift_minutes)}")
+        standing = control_standing(self.desk)
+        if standing:
+            rows.extend(['', standing])
         rows.extend(['', "'handoff' is the full turnover record. "
                          "'handoff relieve' signs off."])
         return '\n'.join(rows)

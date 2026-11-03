@@ -80,6 +80,12 @@ CREWS: Tuple[Crew, ...] = (
 
 CREWS_BY_KEY: Dict[str, Crew] = {crew.key: crew for crew in CREWS}
 
+# The crew the switching control centre lends. Not on the wire centre's
+# roster: it answers a category only while it is on loan to this one.
+POOL_CREW = Crew('pool', 'Pool crew', 'Loaned from the control centre',
+                 'SCC pool',
+                 'Sent from wherever the control centre had a truck.')
+
 
 class Assignment(NamedTuple):
     """One crew, out on one job."""
@@ -114,14 +120,38 @@ class FieldForce:
             self.at[crew.key] = ('OFFICE' if crew.force == 'Central office'
                                  else self.rng.choice(('GARAGE', 'GARAGE',
                                                        'DISTRICT')))
+        self.at[POOL_CREW.key] = 'FAR'
         self.out: Dict[str, Assignment] = {}
         self.log: List[Assignment] = []
+        # The category the pool crew is answering this tour, if it is here.
+        self.loaned: Optional[str] = None
 
     # -- who is where ----------------------------------------------------
 
     def crews_for(self, force: str) -> List[Crew]:
         """Every crew that answers a dispatch category."""
-        return [crew for crew in CREWS if crew.force.lower() == force.lower()]
+        crews = [crew for crew in CREWS if crew.force.lower() == force.lower()]
+        if self.loaned and self.loaned.lower() == force.lower():
+            crews.append(POOL_CREW)
+        return crews
+
+    def roster(self) -> List[Crew]:
+        """Everybody here: the wire centre's own, and the pool if it is."""
+        return list(CREWS) + ([POOL_CREW] if self.loaned else [])
+
+    def borrow(self, force: str) -> bool:
+        """
+        Take the pool crew for a category. One a tour.
+
+        Returns False when it is already here, or still out from the last
+        tour's job: there is one truck in the pool and it cannot be two
+        places.
+        """
+        if self.loaned or POOL_CREW.key in self.out:
+            return False
+        self.loaned = force
+        self.at[POOL_CREW.key] = 'FAR'
+        return True
 
     def free(self, force: str, now: int) -> List[Crew]:
         """Crews for a category who are not out on something else."""
@@ -140,9 +170,14 @@ class FieldForce:
             if job.back_at() <= now:
                 del self.out[key]
                 # They come back to the garage unless they work inside.
-                self.at[key] = ('OFFICE'
-                                if job.crew.force == 'Central office'
-                                else 'GARAGE')
+                self.at[key] = self._home(job.crew)
+
+    @staticmethod
+    def _home(crew: Crew) -> str:
+        """Where a crew stands when it has nothing on."""
+        if crew.key == POOL_CREW.key:
+            return 'FAR'
+        return 'OFFICE' if crew.force == 'Central office' else 'GARAGE'
 
     # -- sending them ----------------------------------------------------
 
@@ -198,12 +233,14 @@ class FieldForce:
             if moved.back_at() > 0:
                 rebased[key] = moved
             else:
-                self.at[key] = ('OFFICE' if job.crew.force == 'Central office'
-                                else 'GARAGE')
+                self.at[key] = self._home(job.crew)
         self.out = rebased
+        # The loan is for the tour. A job it is still out on carries over,
+        # and it goes home when it is done.
+        self.loaned = None
 
     def soonest_free(self, force: str, now: int) -> Optional[Assignment]:
         """The job that has to finish before this category is free again."""
-        out = [job for job in self.busy(now)
-               if job.crew.force.lower() == force.lower()]
+        answering = {crew.key for crew in self.crews_for(force)}
+        out = [job for job in self.busy(now) if job.crew.key in answering]
         return out[0] if out else None

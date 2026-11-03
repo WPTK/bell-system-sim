@@ -289,6 +289,29 @@ def sweep(shifts: int) -> None:
         print(f"  {multiplier:<6}" + ''.join(f"{cell:>22}" for cell in cells))
 
 
+# How the bot works each practical: the commands that pass it. The count only
+# offers a sign-off now, so a bot that never took one would never be signed.
+PRACTICAL_SOLUTIONS = {
+    'frame': ('cosmos fix {n}',),
+    'office': ('switch clear {n}',),
+    'scc': ('connect pool outside plant', 'report dispatch {n} outside'),
+    'trunk': ('trunk trace {n}',),
+    'toll': ('toll control reroute',),
+}
+
+
+def take_practicals(terminal) -> None:
+    """Take every practical the bot's count has earned, and pass it."""
+    for offered in terminal.career.offer_available():
+        terminal.execute_command(f'qual take {offered.key}')
+        staged = terminal._practical_open()
+        if staged is None:
+            continue
+        for command in PRACTICAL_SOLUTIONS[offered.key]:
+            terminal.execute_command(command.format(n=staged[1].number))
+        terminal.execute_command('qual submit')
+
+
 def play_career(skill: float, difficulty: str, seed: int,
                 tours: int = 13) -> List[int]:
     """
@@ -350,7 +373,9 @@ def play_career(skill: float, difficulty: str, seed: int,
             else:
                 said = f'5 {rng.choice(REAL_FAULTS)}'
             terminal.execute_command(f'report close {number} {said}')
+            take_practicals(terminal)
         terminal.execute_command('handoff relieve')
+        take_practicals(terminal)
         held.append(len(terminal.career.qualifications))
     return held
 

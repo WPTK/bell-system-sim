@@ -45,7 +45,7 @@ SCHEMA = 2
 
 # Career attributes that are a list of names, in the order they happened.
 _LIST_FIELDS = ('commendations', 'finds', 'groups', 'beats_seen',
-                'practicals_passed', 'audit_open')
+                'practicals_passed', 'offered', 'audit_open')
 # Career attributes that are a count for each of a set of names.
 _COUNT_FIELDS = ('fault_sightings', 'rapport')
 # Every key save() writes. Anything else in the file is a later version's.
@@ -190,8 +190,8 @@ ASSISTS: List[Assist] = [
         'assist.pace', 'reports_per_qualification',
         {'quick': 3, 'slow': 12},
         'Correct closures for each step of qualification',
-        'quick signs you off every three correct closures a step, slow '
-        'every twelve.',
+        'quick offers a sign-off at every 3 correct closures a step, slow '
+        'at every 12. The practical is what signs it.',
     ),
     Assist(
         'assist.scoring', 'index_penalty',
@@ -266,6 +266,12 @@ class Qualification(NamedTuple):
     requires_reports: int
     # Commands this qualification opens.
     unlocks: tuple
+    # The one thing it lets you do to the board, as typed, and what it does.
+    # The rest of unlocks is screens to read; this is the reward for the
+    # sign-off. Nothing here is gated separately: the command it hangs from
+    # is in unlocks, so the wire chief refuses it until the sign-off is held.
+    verb: str = ''
+    verb_effect: str = ''
 
 
 # Qualification follows the work: your own frame first, then the office, then
@@ -284,6 +290,9 @@ QUALIFICATIONS: List[Qualification] = [
         'centre.',
         requires_reports=1,
         unlocks=('cosmos', 'lmos'),
+        verb='cosmos fix <report>',
+        verb_effect='Clear a jumper or protector fault at the frame, no '
+                    'truck.',
     ),
     Qualification(
         'office', 'Central Office Switching',
@@ -291,6 +300,9 @@ QUALIFICATIONS: List[Qualification] = [
         'diagnostics.',
         requires_reports=2,
         unlocks=('switch', 'alarm', 'crossbar', '3a'),
+        verb='switch clear <report>',
+        verb_effect='Busy out and move a line off bad line equipment: a '
+                    'false cross or ground, cleared from the switch.',
     ),
     Qualification(
         'scc', 'Switching Control Center',
@@ -301,6 +313,9 @@ QUALIFICATIONS: List[Qualification] = [
         # "remote administration of offices from the control centre" and
         # paid out in two commands that stay in your own building.
         unlocks=('sarts', 'orderwire', 'connect'),
+        verb='connect pool <force>',
+        verb_effect='Draw a crew from the control centre pool when '
+                    'yours are out. One a tour, and it starts far away.',
     ),
     Qualification(
         'trunk', 'Interoffice Trunks',
@@ -308,6 +323,10 @@ QUALIFICATIONS: List[Qualification] = [
         'offices.',
         requires_reports=6,
         unlocks=('trunk', 'routing', 'dialtone', 'testcall'),
+        verb='trunk trace <report>',
+        verb_effect='Test the trunks the customer calls take and find '
+                    'the bad one, which is what a no-trouble report on '
+                    'calls not completing usually is.',
     ),
     Qualification(
         'toll', 'Toll Network',
@@ -324,6 +343,10 @@ QUALIFICATIONS: List[Qualification] = [
         # ask for the quicker ladder without changing the scoring.
         requires_reports=10,
         unlocks=('toll', 'tnds', 'traffic'),
+        verb='toll control <block|reroute|off>',
+        verb_effect='Hold calls off a congested route to thin the board. '
+                    'It stays on, and what it costs you stays with it, '
+                    'until you take it off.',
     ),
 ]
 
@@ -386,6 +409,8 @@ class Career:
         self.beats_seen: List[str] = []
         # Qualifications whose practical has been passed.
         self.practicals_passed: List[str] = []
+        # Qualifications whose practical has been offered by mail, once.
+        self.offered: List[str] = []
         # Where the career was assigned at the end of it. Nothing sets it:
         # the plan's assignment form was dropped, and the epilogue reads the
         # office's own company instead.
@@ -460,14 +485,25 @@ class Career:
             and self.reports_correct >= qualification.requires_reports * threshold
         ]
 
-    def grant_available(self) -> List[Qualification]:
-        """Award every qualification whose requirement is met."""
-        granted = self.offer_available()
-        for qualification in granted:
-            self.qualifications.append(qualification.key)
-        if granted:
-            self.save()
-        return granted
+    def pass_practical(self, key: str) -> Optional[Qualification]:
+        """
+        Sign off a qualification whose practical has been passed.
+
+        The count only offers it, and 'qual take' will not stage a practical
+        before the count is met. Once it is up, passing it is what counts:
+        the count may have moved while it was (a pace or difficulty change
+        raises the bar), and a practical that was passed is not undone by
+        that. Returns None for a key that is not a sign-off, or is already
+        held, and changes nothing.
+        """
+        qualification = QUALIFICATIONS_BY_KEY.get(key)
+        if qualification is None or key in self.qualifications:
+            return None
+        if key not in self.practicals_passed:
+            self.practicals_passed.append(key)
+        self.qualifications.append(key)
+        self.save()
+        return qualification
 
     def next_qualification(self) -> Optional[Qualification]:
         """Return the next qualification to work toward."""

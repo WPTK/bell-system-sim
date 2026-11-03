@@ -10,6 +10,8 @@ from typing import (
 )
 
 
+from ..reports import COST_FRAME_LOOKUP, COST_TRUNK_TRACE
+from ..verbs import already_done, open_report, trace_trunk
 from .session import SessionState
 
 
@@ -77,7 +79,8 @@ Commands:
   trunk detail <TG-xxx>     Detailed analysis and diagnostics
   trunk test <TG-xxx>       Initiate testing sequence
   trunk traffic <TG-xxx>    Real-time traffic monitoring
-  trunk maintenance         Scheduled maintenance status"""
+  trunk maintenance         Scheduled maintenance status
+  trunk trace <report>      Test a customer's route, find the bad trunk"""
 
             return status_output
 
@@ -244,9 +247,54 @@ Next test due: {(self.clock.now() + timedelta(days=30)).strftime('%B %d, %Y')}""
         elif args[0] == "maintenance":
             return self._show_trunk_maintenance_schedule()
 
+        elif args[0] == "trace":
+            return self._trace_report(args[1:])
+
         else:
-            available_commands = ["status", "detail", "test", "traffic", "maintenance"]
+            available_commands = ["status", "detail", "test", "traffic", "maintenance", "trace"]
             return f"trunk: Unknown option '{args[0]}'\nAvailable commands: {', '.join(available_commands)}"
+    def _trace_report(self, args: List[str]) -> str:
+        """
+        Test the trunks behind a report that says calls do not complete.
+
+        After a call ends nobody can say which trunk was bad, so trunk
+        trouble is found by testing and not by complaint. This is the test,
+        run on the route one customer's calls take. A line that measures
+        good and still will not complete a call is, often enough, a line
+        that reached a trunk group with a bad member in it. Pull it from
+        service and the report has nothing left to find.
+        """
+        if not args:
+            return "trunk: usage: trunk trace <report>"
+        report, why = open_report(self.desk, args[0])
+        if report is None:
+            return f"trunk: {why}"
+        if already_done(report, 'trunk'):
+            return (f"trunk: {report.number} has been traced already. "
+                    f"Nothing more to find.\n"
+                    f"Close it out: report close {report.number} 8")
+        group = trace_trunk(report, self.trunk_groups)
+        if group is None:
+            return (f"trunk: {report.number}: every trunk on the route "
+                    f"tests good.\n"
+                    f"Whatever is wrong is not in the trunks. "
+                    f"{COST_FRAME_LOOKUP} minutes charged.")
+        return "\n".join([
+            f"Trunk Trace: {report.number}  {report.record.telephone_number}",
+            '=' * 55,
+            f"Test call over the route: reorder on the second leg, "
+            f"{group}.",
+            "One member fails supervision and answers neither seizure nor "
+            "release.",
+            f"Member tagged for the trunk maintenance crew and {group} "
+            f"tested and certified again.",
+            '',
+            "The customer's line was never the trouble.",
+            f"{COST_TRUNK_TRACE} minutes charged. {report.age_label()} "
+            f"{'past' if report.overdue() else 'remaining'}.",
+            f"Close it out: report close {report.number} 8",
+        ])
+
     def _update_trunk_states(self) -> None:
         """Update trunk group states based on time and network conditions."""
         import random

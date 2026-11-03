@@ -27,7 +27,10 @@ from datetime import timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..data.clli import STATE_CODES, parse as parse_clli
+from ..data.trouble import DISPATCH_FORCES
+from ..reports import COST_DISPATCH, valid_force
 from ..types import Alarm, SystemHealth
+from ..verbs import borrow_crew
 from ..data.companies import RBOCS, for_state
 from ..console import wrap
 from ..npc import render as render_message
@@ -88,6 +91,8 @@ class RemoteCommands(SessionState):
         wanted = args[0]
         if wanted.lower() in ('home', 'local', 'off'):
             return self._disconnect()
+        if wanted.lower() == 'pool':
+            return self._draw_pool(args[1:])
 
         office = self._find_office(wanted)
         if office is None:
@@ -129,6 +134,35 @@ class RemoteCommands(SessionState):
         rows.append("report stays in that building; what travels is the "
                     "machine above it.")
         return '\n'.join(rows)
+
+    def _draw_pool(self, args: List[str]) -> str:
+        """
+        Ask the control centre for the crew it keeps in a pool.
+
+        "On-site work dispatched from a central pool" is what an SCC was
+        for, and the wire centre's own five are the usual reason to ask:
+        when everybody who answers a category is out, a report dispatched
+        to it only waits. The pool has one crew. It goes where you name,
+        for the rest of the tour, and it starts the farthest away of
+        anybody, so it is the answer to a long wait and not to a short one.
+        """
+        force = valid_force(' '.join(args)) if args else None
+        if force is None:
+            return ("connect: usage: connect pool <force>\n"
+                    f"Forces: {', '.join(DISPATCH_FORCES)}")
+        if not borrow_crew(self.desk, force):
+            loaned = self.desk.force.loaned
+            if loaned:
+                return (f"connect: the pool's one crew is already loaned to "
+                        f"{loaned.lower()} until the tour ends.")
+            return ("connect: the pool's one crew is still out on its last "
+                    "job. It can be loaned again when that is done.")
+        self._pass_time(COST_DISPATCH)
+        return (f"{SCC_NAME}: the pool crew is yours for {force.lower()} "
+                f"until the tour ends.\n"
+                f"They are at the far end of the district. Dispatch to "
+                f"{force.lower()} as usual; 'force' shows where they are.\n"
+                f"{COST_DISPATCH} minutes charged.")
 
     def _disconnect(self) -> str:
         """Come back to the office you are actually sitting in."""
