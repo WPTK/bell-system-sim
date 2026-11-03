@@ -185,7 +185,7 @@ class GameCommands(SessionState):
                         f"{MOO_SCORES} if you want to look at it.")
             rows[held] = mine
             standing = f" Your {best} is off the board."
-        if self.write_file(MOO_SCORES, '\n'.join(rows) + '\n') is not None:
+        if self.put_file(MOO_SCORES, '\n'.join(rows) + '\n') is not None:
             return ''
         note = f"On the scoreboard.{standing} {MOO_SCORES}."
         if guesses < OKAFOR_ELEVEN:
@@ -210,6 +210,7 @@ class GameCommands(SessionState):
                 continue
             self.filesystem.setdefault(group, _dir(owner='uucp', group='uucp'))
             self.filesystem[path] = _file(self._news_text(item), owner='uucp')
+        self.deliver_fragments()
 
     @staticmethod
     def _news_text(item: NewsItem) -> str:
@@ -274,6 +275,7 @@ class GameCommands(SessionState):
             index = int(args[0]) - 1
             if not 0 <= index < len(articles):
                 return f"readnews: no article {args[0]}"
+            self._note_read(articles[index])
             return self._read(articles[index]) or ''
         elif args and args[0] == '-g':
             groups: Dict[str, int] = {}

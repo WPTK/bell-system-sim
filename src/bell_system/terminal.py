@@ -828,6 +828,7 @@ class BellSystemTerminal(
         # The mailbox is made out to whoever is at the position, and until
         # now nobody was.
         self.add_mailbox()
+        self.sync_groups()
 
         # The first moment the machine knows which desk it is. Everything
         # above ran while self.role was still None.
@@ -1199,6 +1200,12 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                     output = self.execute_command(command_line)
                     if output:
                         self.emit(output)
+                    # Said here, where the output reaches the screen, and
+                    # not in the output: a pipe, a file or head would
+                    # otherwise take it for part of the text.
+                    notice = self.take_find_notice()
+                    if notice:
+                        self.emit(notice)
                     # After every command, because the thing this is
                     # insuring against is the window being closed rather
                     # than the session being ended politely.

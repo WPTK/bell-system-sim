@@ -2537,26 +2537,51 @@ NAME
      grep - search a file for a pattern
 
 SYNOPSIS
-     grep [-cinv] pattern [file ...]
+     grep [-chilnv] pattern [file ...]
 
 DESCRIPTION
      Print the lines of each file that contain the pattern. With no file,
-     read standard input, which is how grep is most often used.
+     read standard input, which is how grep is most often used. The shell
+     expands * ? and [ in a file name, so a directory's worth of files is
+     one argument; given more than one file, grep puts each file's name in
+     front of its lines. A file it may not read costs a line of complaint,
+     not the whole search. It does not descend into directories.
 
 OPTIONS
      -i   Ignore case
      -n   Number the lines
      -v   Print the lines that do NOT match
      -c   Print a count instead of the lines
+     -l   Print only the names of files that match
+     -h   Leave the file names off
 
 EXAMPLES
      grep 1FR /usr/lmos/board            Residence lines on the board
      cat /usr/lmos/board | grep PEND     Reports not yet worked
      grep -c . /usr/lmos/board           How many lines that is
      who | grep -v carot                 Everybody who is a person
+     grep -l sysop /usr/adm/*            Which files in a directory say it
 
 SEE ALSO
      cat(1), wc(1), sort(1)
+""",
+    "finds": """
+NAME
+     finds - list what you have turned up
+
+SYNOPSIS
+     finds [number]
+
+DESCRIPTION
+     The machine keeps files that are not part of the work: other people's
+     notes, logs, things left behind. Reading one with cat(1) or turning
+     it up with grep(1) puts it on this list, under the same number it
+     always has. finds does not search; ls(1), cat(1) and grep(1) do.
+
+     finds followed by a number says where that find was made.
+
+SEE ALSO
+     ls(1), cat(1), grep(1)
 """,
     "wc": """
 NAME
