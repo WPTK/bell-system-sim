@@ -362,7 +362,8 @@ def capture(terminal: Any) -> Dict[str, Any]:
             'tour_desk_start': terminal._tour_desk_start,
             'board_reviewed': terminal._board_reviewed,
             'triage': terminal.triage_state(),
-            'sarts': terminal.special_services.state(),
+            'sarts': terminal.special_services.state(
+                terminal.career.shift, terminal.shift_minutes),
             'tickets': [_ticket_out(t) for t in terminal.active_tickets],
             'ticket_counter': terminal.ticket_counter,
         },

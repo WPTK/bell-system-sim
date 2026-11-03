@@ -1164,13 +1164,44 @@ class TestTheOutageCostsTheIndex:
         terminal = at_desk('sarts')
         circuit = failing_circuit(terminal, 'OFFICE')
         terminal.shift_minutes = OUTAGE_WINDOW + 5
-        missed = terminal.career.missed_commitments
+        before = terminal.career.open_overdue()
         output = terminal.execute_command(
             f'sarts repair {circuit.circuit_id} office')
         assert 'missed commitment' in output
-        assert terminal.career.missed_commitments == missed + 1
-        # Cleared, so it is no longer the unseen kind.
+        # Cleared, but the miss stays on the desk's figure and on the index
+        # (the same one the circuit was on while it stood out), and it is
+        # not a second charge on the career's own count.
+        assert terminal.outages_overdue() == 1
+        assert terminal.career.open_overdue() == before
+        assert terminal.special_services.late == {circuit.circuit_id}
+
+    def test_a_late_clear_is_counted_once_however_often_it_is_asked(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        terminal.shift_minutes += 200
+        for _ in range(3):
+            assert terminal.outages_overdue() == 1
+
+    def test_a_clear_in_time_is_not_on_the_late_list(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        assert terminal.special_services.late == set()
         assert terminal.outages_overdue() == 0
+
+    def test_a_new_tour_forgets_the_late_list(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        inventory = terminal.special_services
+        assert inventory.past_window(terminal.career.shift, 100) == 1
+        assert inventory.past_window(terminal.career.shift + 1, 0) == 0
+        inventory.accrue(terminal.career.shift + 1, 0)
+        assert inventory.late == set()
 
     def test_a_wrong_force_pushes_a_circuit_past_the_window(self, at_desk):
         terminal = at_desk('sarts')
@@ -1186,6 +1217,23 @@ class TestTheOutageCostsTheIndex:
         failing_circuit(terminal)
         terminal.clock._session_start -= timedelta(hours=9)
         assert terminal.outages_overdue() == 0
+
+    def test_a_handoff_before_the_tour_is_out_banks_the_circuits_held(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        failing_circuit(terminal)
+        terminal.shift_minutes = 14
+        assert terminal.outages_overdue() == 0
+        seen = []
+        real = terminal.career.service_index
+
+        def banked():
+            seen.append(terminal.outages_overdue())
+            return real()
+
+        terminal.career.service_index = banked
+        terminal._end_shift()
+        assert seen and seen[0] == 1
 
     def test_the_handoff_counts_what_ran_past(self, at_desk):
         terminal = at_desk('sarts')
@@ -1224,8 +1272,9 @@ class TestTheOutageClockAcrossAResume:
         fresh = BellSystemTerminal()
         fresh.career.shift = terminal.career.shift
         fresh.career.reports_closed = terminal.career.reports_closed
-        fresh.take_position('sarts')
         assert save.restore(fresh, captured)
+        with redirect_stdout(io.StringIO()):
+            fresh.take_position('sarts')
         return fresh
 
     def test_the_saved_circuits_come_back_with_their_minutes(self, at_desk):
@@ -1260,10 +1309,11 @@ class TestTheOutageClockAcrossAResume:
         del captured['tour']['sarts']
         fresh = BellSystemTerminal()
         fresh.career.shift = terminal.career.shift
-        fresh.take_position('sarts')
         dealt = failing_circuit(fresh)
         from bell_system import save
         assert save.restore(fresh, captured)
+        with redirect_stdout(io.StringIO()):
+            fresh.take_position('sarts')
         assert fresh.shift_minutes == 300
         assert out_now(fresh, dealt) == 0
         assert fresh.outages_overdue() == 0
@@ -1286,6 +1336,65 @@ class TestTheOutageClockAcrossAResume:
             fresh = self.resumed(terminal, captured)
             assert fresh.special_services.minutes_out(
                 fresh.career.shift, fresh.shift_minutes) == 0
+
+    def test_a_save_before_any_command_is_the_saved_tour_not_the_last(
+            self, at_desk):
+        """
+        Nothing has touched the inventory this tour, so it still carries the
+        last tour's number; the save is of this tour and must read as one.
+        """
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'FACILITY', read=False)
+        terminal.career.shift += 1
+        terminal.shift_minutes = 25
+        assert terminal.special_services._tour != terminal.career.shift
+        captured = self.capture(terminal)
+        assert captured['tour']['sarts']['tour'] == terminal.career.shift
+        fresh = self.resumed(terminal, captured)
+        back = fresh.special_services.circuits[circuit.circuit_id]
+        assert back.status == 'TRBL' and back.fault_place == 'FACILITY'
+        # Nothing was charged this tour yet, and what the last tour charged
+        # is not carried; the circuit has been out since the tour began.
+        assert back.out_minutes == 0
+        assert out_now(fresh, back) == out_now(terminal, circuit) == 25
+
+    def test_a_late_clear_survives_a_resume(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        assert terminal.outages_overdue() == 1
+        before = terminal.career.open_overdue()
+        fresh = self.resumed(terminal, self.capture(terminal))
+        assert fresh.special_services.late == {circuit.circuit_id}
+        assert fresh.outages_overdue() == 1
+        assert fresh.career.open_overdue() == before
+
+    def test_a_late_list_that_will_not_read_is_forgiven(self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        for junk in (None, 7, 'x', {'a': 1}, ['not-a-circuit']):
+            captured = self.capture(terminal)
+            captured['tour']['sarts']['late'] = junk
+            fresh = self.resumed(terminal, captured)
+            assert fresh.outages_overdue() == 0, junk
+        captured = self.capture(terminal)
+        del captured['tour']['sarts']['late']
+        assert self.resumed(terminal, captured).outages_overdue() == 0
+
+    def test_a_late_clear_from_another_tour_is_not_carried_over(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        circuit = failing_circuit(terminal, 'OFFICE')
+        terminal.shift_minutes = OUTAGE_WINDOW + 5
+        terminal.execute_command(f'sarts repair {circuit.circuit_id} office')
+        captured = self.capture(terminal)
+        captured['tour']['sarts']['tour'] = terminal.career.shift + 1
+        fresh = self.resumed(terminal, captured)
+        assert fresh.special_services.late == set()
+        assert fresh.outages_overdue() == 0
 
     def test_a_reading_from_the_saved_tour_survives_but_no_other(
             self, at_desk):

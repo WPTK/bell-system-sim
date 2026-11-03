@@ -209,6 +209,7 @@ class SartsInventory:
         self.rng = rng or random.Random()
         self.circuits: Dict[str, Circuit] = {}
         self._read: Set[str] = set()
+        self.late: Set[str] = set()
         self._build(count)
 
     def _circuit_id(self, category: str, serial: int) -> str:
@@ -276,6 +277,7 @@ class SartsInventory:
             self._tour = tour
             self._clocked_to = 0
             self._read.clear()
+            self.late.clear()
             for circuit in self.circuits.values():
                 circuit.out_minutes = 0
         span = now - self._clocked_to
@@ -307,9 +309,18 @@ class SartsInventory:
                    for c in self.circuits.values())
 
     def past_window(self, tour: int, now: int) -> int:
-        """Return how many circuits are held in trouble beyond the window."""
-        return sum(1 for c in self.in_trouble()
-                   if self.out_for(c, tour, now) > OUTAGE_WINDOW)
+        """
+        Return how many circuits this tour held in trouble beyond the window.
+
+        Those still out and past it, and those cleared after it: a circuit
+        that was left out past the window was a commitment missed, and
+        clearing it late ends the outage without taking the miss back.
+        """
+        standing = sum(1 for c in self.in_trouble()
+                       if c.circuit_id not in self.late
+                       and self.out_for(c, tour, now) > OUTAGE_WINDOW)
+        cleared = len(self.late) if tour == self._tour else 0
+        return standing + cleared
 
     # -- what has been read this tour -----------------------------------
 
@@ -323,18 +334,29 @@ class SartsInventory:
 
     # -- saving it -------------------------------------------------------
 
-    def state(self) -> Dict[str, Any]:
-        """Return the working state of the inventory, for the saved tour."""
+    def state(self, tour: int, now: int) -> Dict[str, Any]:
+        """
+        Return the working state of the inventory, for the saved tour.
+
+        Written for the tour being saved, not the one the inventory last
+        looked at: an inventory nothing has touched since the tour began
+        still carries the last tour's number, and a save of it would read as
+        another tour's and be thrown away on the way back. What has been
+        charged belongs to a tour only if it was charged in this one.
+        """
+        current = self._same_tour(tour, now)
         return {
-            'tour': self._tour,
-            'clocked_to': self._clocked_to,
-            'read': sorted(self._read),
+            'tour': tour,
+            'clocked_to': self._clocked_to if current else 0,
+            'read': sorted(self._read) if current else [],
+            'late': sorted(self.late) if current else [],
             'circuits': [{
                 'id': c.circuit_id, 'category': c.category,
                 'customer': c.customer, 'from': c.from_clli,
                 'to': c.to_clli, 'access': c.access, 'status': c.status,
                 'impaired': c.impaired, 'place': c.fault_place,
-                'out': c.out_minutes, 'last': c.last_result,
+                'out': c.out_minutes if current else 0,
+                'last': c.last_result,
             } for c in self.circuits.values()],
         }
 
@@ -349,6 +371,7 @@ class SartsInventory:
         """
         self.settle(tour, now)
         self._read = set()
+        self.late = set()
         if not isinstance(stored, dict):
             return
         try:
@@ -376,12 +399,18 @@ class SartsInventory:
                 circuits[circuit.circuit_id] = circuit
             read = {str(i) for i in stored['read'] if str(i) in circuits}
             clocked_to = int(stored['clocked_to'])
+            # A save from before the list was kept has none, and a damaged
+            # one is let go rather than guessed at.
+            kept = stored.get('late', [])
+            late = ({str(i) for i in kept if str(i) in circuits}
+                    if isinstance(kept, list) else set())
         except (KeyError, TypeError, ValueError):
             return
         if not circuits:
             return
         self.circuits = circuits
         self._read = read
+        self.late = late
         self._clocked_to = min(clocked_to, now)
 
     # -- access ----------------------------------------------------------
@@ -862,6 +891,7 @@ class SartsConsole:
             ])
         late = (self.out(circuit) > OUTAGE_WINDOW
                 and self.terminal.career.shift != 1)
+        inventory = self.inventory_state
         circuit.impaired = False
         circuit.fault_place = None
         circuit.status = STATUS_IN_SERVICE
@@ -875,9 +905,9 @@ class SartsConsole:
             f"Out {circuit.out_minutes} minutes this tour.",
         ]
         if late:
-            # The same cost a report past its commitment carries, through
-            # the same path; the handoff prints it.
-            self.terminal.career.record_missed(1)
+            # The miss stays on the index for the tour, where the circuit
+            # held out past the window already was; see past_window.
+            inventory.late.add(circuit.circuit_id)
             lines.append(f"That is past the {OUTAGE_WINDOW}-minute window, "
                          f"and counts as a missed commitment.")
         return '\n'.join(lines)
