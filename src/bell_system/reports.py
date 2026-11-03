@@ -219,6 +219,9 @@ class TroubleReport:
         # time the player read it or the field named it, so that measuring
         # twice does not count twice. None until then.
         self.sighting: Optional[int] = None
+        # Whether cosmos has shown this line's cross-connect record, which
+        # is what separates the conditions that read clean.
+        self.frame_looked_up = False
         # Who went, and how long it took them to get there.
         self.crew: Optional[str] = None
         self.travel_minutes = 0

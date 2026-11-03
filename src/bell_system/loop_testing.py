@@ -45,7 +45,8 @@ from .data.trouble import FAULTS
 CABLE_UF_PER_MILE = 0.083
 
 # What counts as reading clean: the least any insulation resistance is
-# allowed to read, and the most loop current a line with nobody on it draws.
+# allowed to read, and the most loop current a line with nobody on it draws,
+# with no foreign voltage.
 # The simulation's own; they sit under every clean condition's range in
 # data/trouble.py and over every condition that is not clean.
 CLEAN_MINIMUM_OHMS = 100_000

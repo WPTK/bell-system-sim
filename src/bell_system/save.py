@@ -131,6 +131,7 @@ def _report_out(report: TroubleReport) -> Dict[str, Any]:
     written = {field: getattr(report, field) for field in _REPORT_FIELDS}
     written['desk_booked'] = report.desk_booked
     written['sighting'] = report.sighting
+    written['frame_looked_up'] = report.frame_looked_up
     written['record'] = _record_out(report.record)
     written['received'] = _stamp(report.received)
     written['commitment'] = _stamp(report.commitment)
@@ -160,6 +161,8 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     report.desk_booked = stored.get('desk_booked', report.desk_minutes)
     # Written since the reading ramp counted sightings of a fault type.
     report.sighting = stored.get('sighting')
+    # Written since help learned to send a clean reading to the frame.
+    report.frame_looked_up = stored.get('frame_looked_up', False)
     # Nor were overdue reports flagged while they were open. Left alone,
     # the first age() after loading would find every one of them late at
     # once and answer with a burst of misses and escalations for lateness

@@ -169,8 +169,13 @@ class GuidanceCommands(SessionState):
         """
         Whether a measured report's readings cannot tell the office from
         nothing, so that a dispatch would be a guess.
+
+        Only at the numbers stage: before that mlt has named a crew class
+        for the report, and the prompt must not contradict it.
         """
         if not report.tested or report.dispatched_to:
+            return False
+        if self._reading_stage(report, count=False) != STAGE_NUMBERS:
             return False
         record = report.record
         return reading_is_clean(measure_loop(
@@ -189,22 +194,17 @@ class GuidanceCommands(SessionState):
         number = report.number
         if not self.career.may_use('cosmos'):
             return NextAction(
-                f"{number} reads clean on every measurement. That is the "
-                f"office or nothing.",
+                f"{number} reads clean on every measurement; sheet 660-003.",
                 f"report show {number}", 'dispatch')
-        record = report.record
-        asked = (record.telephone_number, record.local_number, number)
-        if any(entry.lower().startswith('cosmos jumper')
-               and any(token in entry for token in asked)
-               for entry in self.command_history):
+        if report.frame_looked_up:
             return NextAction(
                 f"{number} reads clean and its frame record has been read. "
-                f"What is left is your call.",
+                f"What is left is your call; sheet 660-003.",
                 f"report show {number}", 'dispatch')
         return NextAction(
-            f"{number} reads clean on every measurement, and mlt cannot "
-            f"tell the office from nothing. The frame record can.",
-            f"cosmos jumper {record.telephone_number}", 'frame')
+            f"{number} reads clean on every measurement; sheet 660-003. "
+            f"The frame record has more.",
+            f"cosmos jumper {report.record.telephone_number}", 'frame')
 
     def _nothing_pending(self) -> NextAction:
         """What is worth doing with a clear board."""

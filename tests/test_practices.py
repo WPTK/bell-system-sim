@@ -58,6 +58,34 @@ class TestTheBinder:
             'cat /usr/bsp/660-001')
 
 
+class TestTheSheetsTeachWhatTheSimulationScores:
+    def test_no_trouble_found_is_not_listed_as_a_condition_code(self):
+        codes = render('660-005').split('CONDITION CODES', 1)[1].split(
+            'HOW TO APPLY', 1)[0]
+        assert 'NONE' not in codes.replace('No trouble found', '')
+        assert 'code 8' in codes
+        for code in REAL_FAULTS + ['ROH']:
+            assert code in codes
+
+    def test_closing_eight_is_for_a_clean_loop_with_the_frame_in_order(self):
+        text = ' '.join(render('660-005').split())
+        assert 'reads clean and the frame record is in order' in text
+        assert 'finds clean' not in text
+
+    def test_a_column_is_wide_enough_for_its_longest_entry(self):
+        rows = render('620-001').splitlines()
+        row = next(line for line in rows if line.startswith('ROH'))
+        header = next(line for line in rows if line.startswith('CONDITION'))
+        assert row.index('5 - 30') == header.index('TYPICAL')
+
+    def test_every_claim_of_period_fact_has_a_basis_line(self):
+        text = ' '.join(render('660-004').split())
+        assert 'Busy and reorder' in text
+        figures = render('660-002').split('HOW TO APPLY')[0]
+        assert 'an open reads short' in ' '.join(figures.split()).lower()
+        assert 'Foreign voltage with no battery' in render('660-001')
+
+
 class TestHintsCiteTheBinder:
     def test_every_sheet_a_hint_names_exists(self):
         named = set()
@@ -99,7 +127,10 @@ def _clean_report(terminal, fault='CO_EQUIP'):
 
     Measuring spends minutes and the building keeps sending reports, so the
     board is cleared again afterwards: the test is about this one report.
+    The fault has been seen four times, so mlt has stopped naming it: the
+    frame prompt belongs to the numbers stage.
     """
+    terminal.career.fault_sightings[fault] = 4
     terminal.desk.reports.clear()
     terminal.desk.order.clear()
     report = terminal.desk.receive(terminal.clock.now(), fault=fault)
@@ -178,7 +209,60 @@ class TestAnAmbiguousReadingSendsThemToTheFrame:
         working.execute_command('cosmos jumper 555-9999')
         _only(working, report)
         assert report.record.telephone_number != '555-9999'
+        assert not report.frame_looked_up
         assert working.next_action().step == 'frame'
+
+    def test_a_lookup_by_the_line_number_alone_counts(self, working):
+        report = _clean_report(working)
+        working.execute_command(f'cosmos jumper {report.record.line}')
+        _only(working, report)
+        assert report.frame_looked_up
+        assert working.next_action().step != 'frame'
+
+    def test_a_lookup_of_a_different_report_does_not_count(self, working):
+        report = _clean_report(working)
+        other = working.desk.receive(working.clock.now(), fault='OPEN')
+        working.execute_command(f'cosmos jumper {other.record.line}')
+        _only(working, report)
+        assert not report.frame_looked_up
+
+    def test_the_lookup_survives_a_save(self, working):
+        from bell_system.save import _report_in, _report_out
+        report = _clean_report(working)
+        working.execute_command(
+            f'cosmos jumper {report.record.telephone_number}')
+        assert _report_in(_report_out(report)).frame_looked_up
+
+    def test_a_report_saved_before_the_flag_loads(self, working):
+        from bell_system.save import _report_in, _report_out
+        report = _clean_report(working)
+        stored = _report_out(report)
+        del stored['frame_looked_up']
+        assert not _report_in(stored).frame_looked_up
+
+    @pytest.mark.parametrize('sightings', [0, 1, 2, 3])
+    def test_while_mlt_names_a_crew_the_prompt_does_not_contradict_it(
+            self, working, sightings):
+        working.career.fault_sightings['CO_EQUIP'] = sightings
+        working.desk.reports.clear()
+        working.desk.order.clear()
+        report = working.desk.receive(working.clock.now(), fault='CO_EQUIP')
+        result = working.execute_command(f'mlt {report.number}')
+        _only(working, report)
+        action = working.next_action()
+        assert action.step == 'dispatch'
+        assert 'Dispatch to: Central office' in result
+        assert action.command == f'report dispatch {report.number} central office'
+
+    def test_the_reason_does_not_say_where_the_trouble_is_not(self, working):
+        _clean_report(working)
+        reason = working.next_action().reason.lower()
+        assert 'office or nothing' not in reason
+        assert 'cannot tell' not in reason
+        working.career.qualifications = [
+            q for q in working.career.qualifications if q != 'frame']
+        assert 'office or nothing' not in (
+            working.next_action().reason.lower())
 
     def test_the_lookup_does_not_name_the_condition(self, working):
         for code in ('FCG', 'CO_EQUIP', 'NONE'):

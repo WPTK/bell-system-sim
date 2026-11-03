@@ -77,7 +77,7 @@ def _readings() -> List[str]:
         "  1. Read tip-ring, tip-ground and ring-ground separately. Which one",
         "     is low says which table row to start from.",
         "  2. Foreign voltage with no battery on the pair is foreign EMF or a",
-        "     cross, whatever the resistances say.",
+        "     cross; then the resistances pick between them.",
         "  3. A loop that reads clean everywhere is not a loop fault: sheet",
         "     660-003.",
         "  4. Capacitance gives the distance to an open: sheet 660-002.",
@@ -138,11 +138,11 @@ def _clean() -> List[str]:
 
 
 def _who() -> List[str]:
-    rows = [f"{'CONDITION':<14}{'SEND':<18}{'TYPICAL REPAIR MINUTES'}", RULE]
+    rows = [f"{'CONDITION':<14}{'SEND':<26}{'TYPICAL REPAIR MINUTES'}", RULE]
     for code in REAL_FAULTS + ['ROH', 'NONE']:
         fault = FAULTS[code]
         low, high = fault.typical_minutes
-        rows.append(f"{code:<14}{fault.dispatch:<18}{low} - {high}")
+        rows.append(f"{code:<14}{fault.dispatch:<26}{low} - {high}")
     rows.extend([
         RULE,
         "",
@@ -170,7 +170,8 @@ def _customer_says() -> List[str]:
         RULE,
         "",
         "HOW TO APPLY",
-        "  A customer says what they noticed, and one complaint fits several",
+        "  The wording on a card is not always a row in this table. A",
+        "  customer says what they noticed, and one complaint fits several",
         "  conditions. Narrow it with 'report callback', which costs a few",
         "  minutes of the commitment, then measure. The pair has the last",
         "  word: close out the condition you found and not the one that was",
@@ -190,14 +191,15 @@ def _closing() -> List[str]:
             "",
             "CONDITION CODES",
             ]
-    for code in REAL_FAULTS + ['ROH', 'NONE']:
+    for code in REAL_FAULTS + ['ROH']:
         rows.append(f"  {code:<10}{FAULTS[code].name}")
     rows.extend([
+        "  No trouble found is code 8, not a condition code.",
         "",
         "HOW TO APPLY",
-        "  A faulty line closed 8 closes and then calls back: that repeat is",
-        "  what the performance plan counts. Close 8 only on a line you have",
-        "  measured and found clean.",
+        "  A faulty line closed 8 may call back: that repeat is what the",
+        "  simulation counts against you. Close 8 only when the loop reads",
+        "  clean and the frame record is in order.",
     ])
     return rows
 
@@ -209,6 +211,8 @@ SHEETS: Dict[str, Sheet] = {sheet.number: sheet for sheet in (
           _who),
     Sheet('660-001', 'Reading a mechanised loop test',
           [('Resistance ranges for each condition', OWN),
+           ('Foreign voltage with no battery on the pair read as foreign EMF '
+            'or a cross', OWN),
            ('1300 and 1500 ohm design limits and their length bands',
             SOURCED + ': Engineering and Operations in the Bell System'),
            ('Coin station current', SOURCED
@@ -216,7 +220,9 @@ SHEETS: Dict[str, Sheet] = {sheet.number: sheet for sheet in (
           _readings),
     Sheet('660-002', 'Distance to an open from capacitance',
           [('Cable capacitance per mile', SOURCED
-            + ': Telecommunications Transmission Engineering, Vol. 2')],
+            + ': Telecommunications Transmission Engineering, Vol. 2'),
+           ('That an open reads short, the reading stopping at the break',
+            OWN + ' model of the capacitance measurement')],
           _distance),
     Sheet('660-003', 'A loop that reads clean',
           [('Which conditions read clean', OWN),
@@ -224,12 +230,16 @@ SHEETS: Dict[str, Sheet] = {sheet.number: sheet for sheet in (
           _clean),
     Sheet('660-004', 'What the customer says, and what it may be',
           [('The complaint wording', OWN),
-           ('The pairing of wording and condition', OWN)],
+           ('The pairing of wording and condition', OWN),
+           ('Busy and reorder as the same two tones at different cadences',
+            OWN + ': 480 and 620 Hz, as docs/changelog.md has it; no '
+            'source was consulted')],
           _customer_says),
     Sheet('660-005', 'Closing out a report',
           [('Codes 5 and 8', SOURCED
             + ': Engineering and Operations in the Bell System, 16.4'),
-           ('Judging a close against the line\'s real condition', OWN)],
+           ('Judging a close against the line\'s real condition', OWN),
+           ('A repeat report counting against the closer', OWN)],
           _closing),
 )}
 
