@@ -75,8 +75,9 @@ qual [index]            Craft record, qualifications and service index
 DIFFICULTY AND SETTINGS
 -----------------------
 set                     Every setting, its value and its options
-set game.difficulty fun     Fun Simulation. Loop testing names the fault,
-                            a wrong call costs little
+set game.difficulty fun     Fun Simulation. Loop testing names the fault for
+                            the first four sightings of each kind, a wrong
+                            call costs little
 set game.difficulty craft   I Hate Myself. Measure before you close, repeat
                             reports come back on your index, commitments are
                             counted, and qualification is slow

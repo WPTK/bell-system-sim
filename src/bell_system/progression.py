@@ -79,13 +79,11 @@ class Difficulty(NamedTuple):
     interruption_rate: float
     # Minutes of slack added to every repair commitment.
     commitment_slack_minutes: int
-    # Does the mechanised test name the fault it suspects? A profile's way
-    # of coaching, kept apart from require_test_before_close so that asking
-    # for the one does not change the other.
-    names_fault: bool
     # How many sightings of one fault type still get a reading note from
-    # the mechanised test. Counted per fault type, 0 for none at all. Phase 2
-    # reads this; nothing does yet.
+    # the mechanised test and a naming from the field. Counted per fault
+    # type in Career.fault_sightings, 0 for none at all. A profile's way of
+    # coaching, kept apart from require_test_before_close so that asking
+    # for the one does not change the other.
     annotation_sightings: int
 
 
@@ -111,7 +109,6 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         missed_commitment_scale=0.25,
         interruption_rate=0.06,
         commitment_slack_minutes=90,
-        names_fault=True,
         annotation_sightings=4,
     ),
     'craft': Difficulty(
@@ -127,7 +124,6 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         missed_commitment_scale=1.0,
         interruption_rate=0.22,
         commitment_slack_minutes=0,
-        names_fault=False,
         annotation_sightings=0,
     ),
 }
@@ -156,6 +152,9 @@ class Assist(NamedTuple):
 
 
 PROFILE = 'profile'
+
+# annotation_sightings for a player who wants the notes to stay.
+ANNOTATE_ALWAYS = 1_000_000
 
 ASSISTS: List[Assist] = [
     Assist(
@@ -199,6 +198,14 @@ ASSISTS: List[Assist] = [
         {'gentle': 0.7, 'strict': 1.0},
         'How heavily a mistake tells against the index',
         'gentle scales every penalty by 0.7, strict by 1.0.',
+    ),
+    Assist(
+        'assist.annotate', 'annotation_sightings',
+        {'off': 0, 'fade': 4, 'on': ANNOTATE_ALWAYS},
+        'Whether the test and the crews keep naming the fault',
+        'off prints the numbers and nothing else from the first sighting; '
+        'fade names a fault type for its first four sightings and then '
+        'leaves the reading to you; on never stops.',
     ),
 ]
 
@@ -573,6 +580,21 @@ class Career:
         else:
             self.reports_wrong += 1
         self.save()
+
+    def sight_fault(self, fault_code: str) -> int:
+        """
+        Count one more sighting of a fault type and return which it was.
+
+        Args:
+            fault_code: The condition on the line the player has just read
+
+        Returns:
+            1 for the first time this career has seen the condition
+        """
+        seen = self.fault_sightings.get(fault_code, 0) + 1
+        self.fault_sightings[fault_code] = seen
+        self.save()
+        return seen
 
     def record_missed(self, count: int = 1) -> None:
         """Record reports that have gone past their commitment."""

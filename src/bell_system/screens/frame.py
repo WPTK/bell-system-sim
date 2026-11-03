@@ -308,6 +308,7 @@ equipment at the next convenient frame visit."""
         # measurement, which is the whole reason to think of it first.
         if report is not None:
             report.spend(COST_FRAME_LOOKUP)
+            report.frame_looked_up = True
 
         rows = ["COSMOS Cross-Connect Record",
                 '=' * 55,
