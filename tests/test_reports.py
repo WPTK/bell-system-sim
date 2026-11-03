@@ -696,7 +696,11 @@ class TestTestCalls:
         assert next(r for r in first.splitlines() if start in r) == \
             next(r for r in second.splitlines() if start in r)
 
-    def test_terminating_on_a_test_line_measures_the_connection(self, terminal):
+    def test_terminating_on_a_test_line_measures_the_connection(
+            self, terminal, monkeypatch):
+        """Final groups block one call in a hundred, so take the roll away."""
+        monkeypatch.setattr('bell_system.routing.FINAL_GROUP_BLOCKING', 0.0)
+        monkeypatch.setattr('bell_system.routing.HIGH_USAGE_BLOCKING', 0.0)
         result = terminal.execute_command('testcall EO-NYC-01 EO-BOS-01 105')
         assert 'MEASUREMENT' in result
         assert 'Loss at 1004 Hz' in result
