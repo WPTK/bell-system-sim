@@ -260,3 +260,46 @@ class TestTheIndexIsCalibrated:
             career.reports_wrong = 6
             career.repeat_reports = 2
             assert career.index_band() != 'EXCELLENT', key
+
+
+class TestStrangersGetDistinctNumbers:
+    """Two open reports never share a telephone number (issue 85)."""
+
+    class _RepeatingLine(random.Random):
+        """Deals the same four-digit line until told otherwise."""
+
+        # No constructor argument: on 3.9 and 3.10 `Random.__new__` seeds
+        # from whatever it is given, and a list is not hashable.
+        lines: list = []
+
+        @classmethod
+        def dealing(cls, lines):
+            rng = cls(0)
+            rng.lines = list(lines)
+            return rng
+
+        def randint(self, a, b):
+            if (a, b) == (0, 9999) and self.lines:
+                return self.lines.pop(0)
+            return super().randint(a, b)
+
+    def test_the_second_stranger_is_redealt_a_free_number(self, terminal):
+        desk = terminal.desk
+        desk.rng = self._RepeatingLine.dealing([1234, 1234, 1234, 4321])
+        first = desk.receive(terminal.clock.now(), fault='WET')
+        second = desk.receive(terminal.clock.now(), fault='WET')
+        assert first.record.line == '1234'
+        assert second.record.line == '4321'
+        assert desk.find(second.record.telephone_number) is second
+
+        terminal.execute_command(f'mlt {second.record.telephone_number}')
+        assert second.desk_minutes > 0
+        assert first.desk_minutes == 0
+
+    def test_a_number_freed_by_closing_may_be_dealt_again(self, terminal):
+        desk = terminal.desk
+        desk.rng = self._RepeatingLine.dealing([1234, 1234])
+        first = desk.receive(terminal.clock.now(), fault='WET')
+        first.status = 'CLOSED'
+        second = desk.receive(terminal.clock.now(), fault='WET')
+        assert second.record.line == '1234'

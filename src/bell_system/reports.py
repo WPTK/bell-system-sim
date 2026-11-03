@@ -330,7 +330,7 @@ class ReportDesk:
         self.npa = npa
         self.nxx = nxx
         self.clli = clli
-        self.rng = rng or random.Random()
+        self.rng = rng or random.Random(random.getrandbits(64))
         self.reports: Dict[str, TroubleReport] = {}
         self.order: List[str] = []
         # The numbers on the board as the player last saw it, so that a
@@ -465,7 +465,14 @@ class ReportDesk:
         a dry fault deliberately does not, so that several reports off one
         sheath mean what they look like they mean.
         """
+        # find() resolves a telephone number to the first report not yet
+        # closed, so a stranger must not be dealt a number one of those holds.
+        taken = {(report.record.nxx, report.record.line)
+                 for report in self.reports.values()
+                 if report.status != STATUS_CLOSED}
         line = f"{self.rng.randint(0, 9999):04d}"
+        while (self.nxx, line) in taken:
+            line = f"{self.rng.randint(0, 9999):04d}"
         surname = self.rng.choice(_SURNAMES)
         initial = self.rng.choice(_INITIALS)
         cable, pair = (self.plant.wet_pair(now)

@@ -113,7 +113,7 @@ class FieldForce:
     """
 
     def __init__(self, rng: Optional[random.Random] = None):
-        self.rng = rng or random.Random()
+        self.rng = rng or random.Random(random.getrandbits(64))
         # Where each crew is standing right now.
         self.at: Dict[str, str] = {}
         for crew in CREWS:
