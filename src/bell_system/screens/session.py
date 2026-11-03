@@ -131,6 +131,7 @@ class SessionState:
     network_metrics: Dict[str, Any]
     system_health: SystemHealth
     active_alarms: List[Alarm]
+    alarm_deck: List[Dict[str, Any]]
 
     # -- geography -------------------------------------------------------
     nanpa_data: Dict[str, Any]
@@ -364,6 +365,18 @@ class SessionState:
 
     def _pass_time(self, minutes: int) -> None:
         """Let shift minutes go by that nobody spent on a report."""
+        raise NotImplementedError
+
+    def _advance_shift(self) -> List[str]:
+        """Charge the shift for the work just done and fire what is due."""
+        raise NotImplementedError
+
+    def _end_shift(self) -> str:
+        """Sign off: bank the index and start the next tour."""
+        raise NotImplementedError
+
+    def tour_minute(self) -> int:
+        """The shift minute the desks count their windows against."""
         raise NotImplementedError
 
     def generate_shift_events(self) -> None:

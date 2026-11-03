@@ -66,6 +66,93 @@ class PositionCommands(SessionState):
         self.position = get_position(role_key)
         self.desk.fault_bias = dict(self.position.fault_bias)
         self.desk.depth_limit = self.board_depth()
+        if self.position.key == 'noc':
+            self._count_triage()
+        if self.position.key == 'custserv':
+            # The tour's book, before anybody is on the board: see
+            # RepairDeskCommands._opening_book.
+            console: Any = self
+            console.patience_book()
+        if self.position.key == 'sarts':
+            self._count_outages()
+        if self.position.key == 'switch':
+            self._count_lamps()
+            office: Any = self  # The office commands, mixed into the class.
+            office.deal_alarms()
+
+    _triage_counted = False
+
+    def _count_triage(self) -> None:
+        """
+        Open the NOC's windows with the tour, and put them on the index.
+
+        A ticket nobody is on past its window is the NOC's version of a
+        report left open past its commitment, and the service index already
+        counts those through career.open_overdue. Adding the tickets to
+        that count is what makes ignoring the queue cost something without
+        anyone looking, and the handoff already prints the result.
+
+        Every ticket whose window passed stays in the count, taken or not.
+        The index only sees a missed commitment next to a report closed or
+        one still open, so a late take that left the count would cost
+        nothing on a tour with no closes.
+        """
+        queue: Any = self  # The ticket commands, mixed into the same class.
+        queue.triage_book()
+        if self._triage_counted:
+            return
+        self._triage_counted = True
+        reports = self.career.open_overdue
+        self.career.open_overdue = (
+            lambda: reports() + queue.triage_lapsed())
+
+    _lamps_counted = False
+
+    def _count_lamps(self) -> None:
+        """
+        Put the office desk's alarms held at the top lamp on the index.
+
+        The same road the NOC's tickets and the SARTS circuits take: an
+        alarm nobody cleared in a whole span at the top lamp is a
+        commitment missed, whether or not anyone looks at the panel.
+        """
+        if self._lamps_counted:
+            return
+        self._lamps_counted = True
+        console: Any = self  # The office commands, mixed into the same class.
+        reports = self.career.open_overdue
+        self.career.open_overdue = (
+            lambda: reports() + console.alarms_overdue())
+
+    _outages_counted = False
+
+    def _count_outages(self) -> None:
+        """
+        Put the SARTS desk's circuits held past their window on the index.
+
+        The same road the NOC's tickets take: a circuit nobody has cleared
+        within the window is a commitment missed, whether or not anyone
+        looks at the board, and the handoff prints the index.
+        """
+        if self._outages_counted:
+            return
+        self._outages_counted = True
+        reports = self.career.open_overdue
+        self.career.open_overdue = (
+            lambda: reports() + self.outages_overdue())
+
+    def outages_overdue(self) -> int:
+        """
+        Return how many circuits are held in trouble beyond the window.
+
+        Read only. Nothing here is charged: the figure is worked out from
+        the shift clock each time it is asked for, and the whole first tour
+        is a grace.
+        """
+        if self.position.key != 'sarts' or self.career.shift == 1:
+            return 0
+        return self.special_services.past_window(
+            self.career.shift, self.tour_minute())
 
     def board_depth(self) -> int:
         """
@@ -245,6 +332,33 @@ def _tickets_worked(terminal: Any) -> Tuple[str, str]:
     return 'tickets assigned to you', str(len(terminal._assigned_tickets))
 
 
+def _tickets_past_window(terminal: Any) -> Tuple[str, str]:
+    """Tickets whose triage window closed with nobody on them."""
+    return ('tickets past their response window',
+            str(terminal.triage_lapsed()))
+
+
+def _customers_rang_back(terminal: Any) -> Tuple[str, str]:
+    """Rings customers made while their report was open."""
+    return 'customer ringbacks', str(terminal.rings_total())
+
+
+def _alarms_cleared(terminal: Any) -> Tuple[str, str]:
+    """Alarms cleared at the cause, not only acknowledged."""
+    return ('alarms cleared at the cause',
+            str(len(terminal.lamp_book()['cleared'])))
+
+
+def _alarms_lit(terminal: Any) -> Tuple[str, str]:
+    """Alarms whose lamp rose above their class while nobody worked them."""
+    return 'alarm lamps that rose', str(terminal.alarms_risen())
+
+
+def _alarms_held(terminal: Any) -> Tuple[str, str]:
+    """Alarms held at the top lamp for a whole span, which the index counts."""
+    return ('alarms held at the top lamp', str(terminal.alarms_overdue()))
+
+
 def _no_trouble_found(terminal: Any) -> Tuple[str, str]:
     """Reports closed code 8."""
     count = sum(1 for report in _closed(terminal) if report.disposition == 8)
@@ -293,6 +407,20 @@ def _circuits_in_trouble(terminal: Any) -> Tuple[str, str]:
             str(len(terminal.special_services.in_trouble())))
 
 
+def _circuit_minutes_out(terminal: Any) -> Tuple[str, str]:
+    """Shift minutes special services circuits spent held in trouble."""
+    inventory = terminal.special_services
+    return ('circuit-minutes out of service',
+            str(inventory.minutes_out(terminal.career.shift,
+                                      terminal.shift_minutes)))
+
+
+def _circuits_past_window(terminal: Any) -> Tuple[str, str]:
+    """Circuits held in trouble past the window, which the index counts."""
+    return ('circuits out past the window',
+            str(terminal.outages_overdue()))
+
+
 def _tests_run(terminal: Any) -> Tuple[str, str]:
     """Measurements and plant tests taken."""
     counts = terminal.command_counts
@@ -333,6 +461,11 @@ _COUNTERS: Dict[str, Any] = {
     'sheaths_cleared': _sheaths_cleared,
     'groups_over': _groups_over,
     'tickets_worked': _tickets_worked,
+    'tickets_past_window': _tickets_past_window,
+    'customers_rang_back': _customers_rang_back,
+    'alarms_cleared': _alarms_cleared,
+    'alarms_lit': _alarms_lit,
+    'alarms_held': _alarms_held,
     'no_trouble_found': _no_trouble_found,
     'off_hook_caught': _off_hook_caught,
     'commitments_met': _commitments_met,
@@ -340,6 +473,8 @@ _COUNTERS: Dict[str, Any] = {
     'found_in_records': _found_in_records,
     'orders_raised': _orders_raised,
     'circuits_in_trouble': _circuits_in_trouble,
+    'circuit_minutes_out': _circuit_minutes_out,
+    'circuits_past_window': _circuits_past_window,
     'tests_run': _tests_run,
     'documents_set': _documents_set,
     'files_written': _files_written,

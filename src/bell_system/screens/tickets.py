@@ -3,15 +3,16 @@ Trouble tickets: the dashboard, detail, assignment and escalation.
 """
 
 import random
+from ..data.positions import desk_only
 from ..types import TroubleTicket
 from typing import (
+    TYPE_CHECKING,
     List,
     Optional,
 )
 
 
 from .session import SessionState
-
 
 class TicketCommands(SessionState):
     """
@@ -20,6 +21,18 @@ class TicketCommands(SessionState):
     Mixed into :class:`~bell_system.terminal.BellSystemTerminal`,
     which owns the session state these read.
     """
+
+    if TYPE_CHECKING:
+        # The repair desk's verb is dispatched from here and lives with the
+        # other position code, and the NOC's queue lives in
+        # screens/triage.py; both are mixed into the same terminal and
+        # only declared here for the type checker.
+        def advise(self, args: List[str]) -> str: ...
+        def _triage(self, args: List[str]) -> str: ...
+        def triage_admit(self, ticket: TroubleTicket) -> None: ...
+        def triage_notice(self) -> None: ...
+        def triage_resolve_refusal(
+            self, ticket: TroubleTicket) -> Optional[str]: ...
 
     def cmd_ticket(self, args: List[str]) -> str:
         """Trouble ticket management system"""
@@ -124,6 +137,13 @@ Use 'ticket update {new_ticket}' to add information"""
         elif args[0] == "create":
             return self._create_manual_ticket(args[1:] if len(args) > 1 else [])
 
+        elif args[0] == "triage":
+            refusal = desk_only(self.position, 'noc', 'trouble triage')
+            return refusal or self._triage(args[1:])
+
+        elif args[0] == "advise":
+            return self.advise(args[1:])
+
         elif args[0] == "geographic":
             return self._show_geographic_trouble_overview()
 
@@ -132,6 +152,8 @@ Use 'ticket update {new_ticket}' to add information"""
 
         else:
             available_commands = ["list", "detail", "assign", "update", "escalate", "resolve", "create", "geographic", "priority"]
+            if self.position.key == 'noc':
+                available_commands.insert(0, "triage")
             return f"trouble: Unknown option '{args[0]}'\nAvailable commands: {', '.join(available_commands)}"
     def _show_trouble_ticket_dashboard(self) -> str:
         """Show comprehensive trouble ticket dashboard with real-time status."""
@@ -343,6 +365,8 @@ Commands:
         if not ticket:
             return f"trouble: Ticket {ticket_id} not found"
 
+        # A ticket given away after its window closed has lapsed.
+        self.triage_notice()
         old_team = ticket['assigned_team']
         ticket['assigned_team'] = team
         # The switching control centre hands out unassigned tickets as the
@@ -446,6 +470,9 @@ Escalation logged in Bell System Operations Database."""
         ticket = next((t for t in self.active_tickets if t['id'] == ticket_id), None)
         if not ticket:
             return f"trouble: Ticket {ticket_id} not found"
+        refusal = self.triage_resolve_refusal(ticket)
+        if refusal:
+            return refusal
 
         # Calculate resolution time
         resolution_time = self.clock.now()
@@ -552,7 +579,9 @@ Example:
             'business_impact': self._calculate_business_impact(priority, customer_impact),
             'resolution_steps': []
         }
-        self.active_tickets.append(ticket)
+        # Stamped at every desk, not only the NOC's: the book is kept
+        # wherever a ticket is entered, and only the NOC's verb reads it.
+        self.triage_admit(ticket)
 
         return f"""Trouble Ticket Created
 {'=' * 50}
