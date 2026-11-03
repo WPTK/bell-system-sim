@@ -131,6 +131,7 @@ class SessionState:
     network_metrics: Dict[str, Any]
     system_health: SystemHealth
     active_alarms: List[Alarm]
+    alarm_deck: List[Dict[str, Any]]
 
     # -- geography -------------------------------------------------------
     nanpa_data: Dict[str, Any]
@@ -234,7 +235,8 @@ class SessionState:
         """Return a file's text, or None if it is not a readable file."""
         raise NotImplementedError
 
-    def _gather(self, args: List[str], command: str) -> tuple:
+    def _gather(self, args: List[str], command: str,
+                note: bool = False) -> tuple:
         """Return (text, error) for a command reading files or stdin."""
         raise NotImplementedError
 
@@ -257,6 +259,11 @@ class SessionState:
     def write_file(self, path: str, text: str,
                    append: bool = False) -> Optional[str]:
         """Create or replace a file; returns an error string or None."""
+        raise NotImplementedError
+
+    def put_file(self, path: str, text: str,
+                 append: bool = False) -> Optional[str]:
+        """Write a file as the machine does, whoever owns it."""
         raise NotImplementedError
 
     def store_node(self, path: str, node: Node,
@@ -360,12 +367,40 @@ class SessionState:
         """Let shift minutes go by that nobody spent on a report."""
         raise NotImplementedError
 
+    def _advance_shift(self) -> List[str]:
+        """Charge the shift for the work just done and fire what is due."""
+        raise NotImplementedError
+
+    def _end_shift(self) -> str:
+        """Sign off: bank the index and start the next tour."""
+        raise NotImplementedError
+
+    def tour_minute(self) -> int:
+        """The shift minute the desks count their windows against."""
+        raise NotImplementedError
+
     def generate_shift_events(self) -> None:
         """Build the schedule of events this tour will bring due."""
         raise NotImplementedError
 
     def deliver_news(self) -> None:
         """File the articles the feed has brought in by this tour."""
+        raise NotImplementedError
+
+    def deliver_fragments(self) -> None:
+        """Put the files that have arrived by this tour on the machine."""
+        raise NotImplementedError
+
+    def sync_groups(self) -> None:
+        """Record the groups the held sign-offs give."""
+        raise NotImplementedError
+
+    def _note_read(self, path: str) -> None:
+        """Record that a file has been put in front of the player."""
+        raise NotImplementedError
+
+    def take_find_notice(self) -> str:
+        """Return the one-time note about finds, once, if it is due."""
         raise NotImplementedError
 
     def tour_script(self) -> Optional[Any]:

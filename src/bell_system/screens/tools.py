@@ -132,8 +132,14 @@ class ToolCommands(SessionState):
             return ("sed: usage: sed 's/old/new/[g]' [file]\n"
                     "This sed does substitution and deletion only.")
         script = scripts[0]
+        # A script that is refused prints nothing, so it reads nothing.
+        if script.startswith('s') and (
+                len(script) < 2 or len(script[2:].split(script[1])) < 2):
+            return "sed: bad substitution"
+        if script.startswith('/') and not script.endswith('d'):
+            return "sed: command not understood"
         rest = [a for a in args if a is not script and not a.startswith('-')]
-        text, error = self._gather(rest, 'sed')
+        text, error = self._gather(rest, 'sed', note=True)
         if error:
             return error
         lines = text.rstrip('\n').split('\n')
@@ -167,7 +173,7 @@ class ToolCommands(SessionState):
 
     def cmd_rev(self, args: Optional[List[str]] = None) -> str:
         """Reverse the characters of every line."""
-        text, error = self._gather(args or [], 'rev')
+        text, error = self._gather(args or [], 'rev', note=True)
         if error:
             return error
         return '\n'.join(line[::-1] for line in text.rstrip('\n').split('\n'))
@@ -253,7 +259,7 @@ class ToolCommands(SessionState):
         call a word wrong that a real V7 machine knew, and the dictionary is
         readable so you can see exactly which words it does know.
         """
-        text, error = self._gather(args or [], 'spell')
+        text, error = self._gather(args or [], 'spell', note=True)
         if error:
             return error
         dictionary = self._read('/usr/dict/words')

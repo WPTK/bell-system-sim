@@ -94,7 +94,19 @@ The 5 crossbar in aisle four has a marker that takes its time on the
 third trial. It has been like that for two years. It is not yours to
 fix and it is not worth a ticket.
 
-                                             - R. Alvarez, tour 2
+                                             - R. Alvarez, evening tour
+""",
+        # What was being written when the last holder stopped. mail(1)
+        # keeps an unsent message in dead.letter. The same hand wrote the
+        # note above; this is what it did not say.
+        'dead.letter': """To: ehalloran
+Subject: the board
+
+Halloran,
+
+The board is clear and has been since Friday night, and I would
+rather you heard how it got that way from me than from the first
+customer who rings back. The last week I
 """,
     },
 
@@ -115,8 +127,8 @@ AISLE 3     Originating registers. If dial tone is slow at nine in the
 AISLE 4     Markers. Number 2 is slow on the third trial. It has been
             slow on the third trial since 1981. Two people have looked
             at it and both wrote NTF, and they were both right: the
-            trouble is in the timing chain and the timing chain is
-            within limits. Leave it.
+            trouble is in the sequence relay and the timing chain it
+            feeds is within limits. Leave it.
 
 AISLE 5-6   Trunk link frames and the outgoing senders.
 

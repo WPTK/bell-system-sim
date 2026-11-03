@@ -31,7 +31,7 @@ from bell_system.reports import ReportDesk
 
 TOURS = range(1, TOURS_TO_DIVESTITURE + 1)
 
-# W15: after the opening card, a beat is paperwork and people. It names no
+# W16: after the opening card, a beat is paperwork and people. It names no
 # diagnosis, force or close code, and none of the symptoms or conditions a
 # report is drawn from (water, weather, the handset), because those would say
 # what the next report will be. Whole words and stems, so "ground" is caught

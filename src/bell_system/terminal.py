@@ -81,11 +81,13 @@ from .screens.position import PositionCommands
 from .screens.preferences import PreferenceCommands
 from .screens.remote import RemoteCommands
 from .screens.records import RecordsCommands
+from .screens.repairdesk import RepairDeskCommands
 from .screens.shift import ShiftCommands
 from .screens.shell import ShellCommands
 from .screens.switching import SwitchingCommands
 from .screens.testing import TestingCommands
 from .screens.tickets import TicketCommands
+from .screens.triage import TriageCommands
 from .screens.tnds import TndsCommands
 from .screens.toll import TollCommands
 from .screens.tools import ToolCommands
@@ -140,10 +142,12 @@ class BellSystemTerminal(
     TspsCommands,
     TrafficCommands,
     TicketCommands,
+    TriageCommands,
     TrunkCommands,
     TollCommands,
     TestingCommands,
     BureauCommands,
+    RepairDeskCommands,
     ShiftCommands,
     TurnoverCommands,
     DocumentCommands,
@@ -433,6 +437,10 @@ class BellSystemTerminal(
             {"id": "AL-4475", "type": "POWER_SUPPLY", "severity": "MINOR", "system": "PWR-NYC-002", "description": "Backup power supply voltage low"},
             {"id": "AL-4476", "type": "RADIO_FADE", "severity": "MAJOR", "system": "TH3-CHI-007", "description": "Microwave path experiencing excessive fade"}
         ]
+
+        # The office desk is dealt from this deck each tour, seeded from the
+        # tour (see RemoteCommands.deal_alarms), so a resume agrees.
+        self.alarm_deck: List[Dict[str, Any]] = possible_alarms
 
         # Randomly select active alarms based on time and conditions
         self.active_alarms: List[Alarm] = []
@@ -828,6 +836,7 @@ class BellSystemTerminal(
         # The mailbox is made out to whoever is at the position, and until
         # now nobody was.
         self.add_mailbox()
+        self.sync_groups()
 
         # The first moment the machine knows which desk it is. Everything
         # above ran while self.role was still None.
@@ -1199,6 +1208,12 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                     output = self.execute_command(command_line)
                     if output:
                         self.emit(output)
+                    # Said here, where the output reaches the screen, and
+                    # not in the output: a pipe, a file or head would
+                    # otherwise take it for part of the text.
+                    notice = self.take_find_notice()
+                    if notice:
+                        self.emit(notice)
                     # After every command, because the thing this is
                     # insuring against is the window being closed rather
                     # than the session being ended politely.

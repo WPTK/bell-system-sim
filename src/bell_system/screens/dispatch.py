@@ -277,6 +277,7 @@ class CommandDispatch:
         'head': self.cmd_head,
         'tail': self.cmd_tail,
         'grep': self.cmd_grep,
+        'finds': self.cmd_finds,
         'wc': self.cmd_wc,
         'sort': self.cmd_sort,
         'uniq': self.cmd_uniq,

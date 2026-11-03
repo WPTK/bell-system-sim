@@ -15,6 +15,17 @@ from bell_system.screens.shell import ADM_GROUP_QUALIFICATIONS
 
 SULOG = '/usr/adm/sulog'
 
+LMOSLOG = '/usr/adm/lmoslog'
+
+
+def signed_off(terminal, count):
+    """Put a position, as somebody other than the sysop, at this many sign-offs."""
+    terminal.username = 'switch'
+    terminal.career.groups = []
+    terminal.career.granted = {}
+    terminal.career.qualifications = ['q%d' % n for n in range(count)]
+    return terminal
+
 
 def win_moo(terminal, guesses):
     """Win a game of moo in a known number of guesses."""
@@ -67,7 +78,7 @@ class TestTheLockedFile:
             f'cat {SULOG}')
 
     def test_the_listing_says_why(self, raw_terminal):
-        assert '-rw-------' in raw_terminal.execute_command('ls -l /usr/adm')
+        assert '-rw-r-----' in raw_terminal.execute_command('ls -l /usr/adm')
 
     def test_the_wire_chief_opens_it(self, raw_terminal):
         raw_terminal.career.qualifications = (
@@ -105,12 +116,49 @@ class TestTheLockedFile:
     def test_nothing_else_on_the_machine_is_shut(self, raw_terminal):
         """
         A mode column that means something on one file is a puzzle. One
-        that means something on forty is an obstacle course.
+        that means something on forty is an obstacle course. The files
+        that are shut are the last holder's thread
+        (tests/test_finds_and_thread.py), one for each sign-off, and the
+        su log is the third of them.
         """
-        shut = [path for path, node in raw_terminal.filesystem.items()
+        shut = {path for path, node in raw_terminal.filesystem.items()
                 if not node.is_dir and not raw_terminal._may_read(path)
-                and not path.startswith('/dev/')]
-        assert shut == [SULOG]
+                and not path.startswith('/dev/')}
+        assert SULOG in shut
+        assert len(shut) <= 5
+
+
+class TestTheSulogIsExplained:
+    """03:47 is in the su log at the start, and it is explained at four."""
+
+    def test_the_entry_is_there_from_the_start(self, raw_terminal):
+        signed_off(raw_terminal, 3)
+        assert 'SU 11/14 03:47 - tty07 mreyes-root' in (
+            raw_terminal._read(SULOG) or '')
+
+    def test_the_teletype_message_agrees_with_the_log(self):
+        """The sysop's teletype said 07:52 on tty03 once; the log said this."""
+        from bell_system.npc import _POSITION_CHATTER
+        said = ' '.join(' '.join(item[2]) for item in _POSITION_CHATTER['sysop']
+                        if 'BADSU' in ' '.join(item[2]))
+        assert '11/14 03:47 - tty07 mreyes-root' in said
+
+    def test_the_journal_is_shut_before_four(self, raw_terminal):
+        signed_off(raw_terminal, 3)
+        assert 'permission denied' in raw_terminal.execute_command(
+            f'grep 03:47 {LMOSLOG}')
+
+    def test_the_journal_explains_it_at_four(self, raw_terminal):
+        signed_off(raw_terminal, 4)
+        said = raw_terminal.execute_command(f'grep 03:4 {LMOSLOG}')
+        assert 'SU' in said and 'mreyes' in said and 'refused' in said
+
+    def test_the_journal_agrees_with_the_log_on_the_time(self, raw_terminal):
+        signed_off(raw_terminal, 4)
+        for line in (raw_terminal._read(SULOG) or '').splitlines():
+            if 'mreyes-root' in line:
+                assert line.split()[2] == '03:47'
+        assert '03:47  SU      mreyes' in (raw_terminal._read(LMOSLOG) or '')
 
 
 class TestTheCadence:

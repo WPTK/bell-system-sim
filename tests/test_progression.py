@@ -455,7 +455,7 @@ class TestCareerSchema:
 
     NEW_LISTS = ('commendations', 'finds', 'groups', 'beats_seen',
                  'practicals_passed')
-    NEW_COUNTS = ('fault_sightings', 'rapport')
+    NEW_COUNTS = ('fault_sightings', 'rapport', 'granted')
 
     def test_a_record_from_before_the_bump_loads_with_defaults(self, tmp_path):
         """The file the current version writes, which has no schema key."""
@@ -486,6 +486,7 @@ class TestCareerSchema:
         career.finds = ['sulog', 'drawer']
         career.groups = ['craft', 'adm']
         career.rapport = {'mreyes': 2}
+        career.granted = {'adm': 600}
         career.beats_seen = ['t2-sandoval']
         career.practicals_passed = ['frame']
         career.assignment = 'somewhere'
@@ -497,6 +498,7 @@ class TestCareerSchema:
         assert again.finds == ['sulog', 'drawer']
         assert again.groups == ['craft', 'adm']
         assert again.rapport == {'mreyes': 2}
+        assert again.granted == {'adm': 600}
         assert again.beats_seen == ['t2-sandoval']
         assert again.practicals_passed == ['frame']
         assert again.assignment == 'somewhere'

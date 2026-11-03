@@ -10,7 +10,9 @@ import logging.handlers
 from typing import Any, List, Optional
 
 from ..console import clear_screen
+from ..data.finds import FRAGMENTS_BY_PATH
 from ..constants import BSP_CATEGORIES
+from ..data.man_pages import DESK_SECTIONS
 from ..filesystem import FILESYSTEM, Node
 from ..npc import CRAFT
 from .session import SessionState
@@ -151,7 +153,9 @@ class UnixCommands(SessionState):
 
         command = args[0].lower()
         if command in self.man_pages:
-            return self.man_pages[command]
+            # A section only this desk is shown comes after the page.
+            section = DESK_SECTIONS.get(command, {}).get(self.position.key, '')
+            return self.man_pages[command] + section
         else:
             return f"No manual entry for {command}"
     def _initialize_filesystem(self) -> None:
@@ -197,6 +201,8 @@ class UnixCommands(SessionState):
         self.filesystem['/usr/lmos/cable'] = _generated(
             lambda terminal: terminal._render_cable_file(),
             owner='sysop', group='craft')
+        self.filesystem['/etc/group'] = _generated(
+            lambda terminal: terminal._render_group())
         self.filesystem['/usr/spool/mail'] = Node(
             'dir', 'root', 'other', 'drwxrwxr-x', '')
         self.add_mailbox()
@@ -215,7 +221,8 @@ class UnixCommands(SessionState):
         Seventh Edition did.
         """
         for path in [path for path in self.filesystem
-                     if path.startswith(MAIL_DIR)]:
+                     if path.startswith(MAIL_DIR)
+                     and path not in FRAGMENTS_BY_PATH]:
             del self.filesystem[path]
         self.filesystem[MAIL_DIR + (self.username or 'sysop')] = _generated(
             lambda terminal: terminal._render_mailbox(),
