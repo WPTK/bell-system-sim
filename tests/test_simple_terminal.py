@@ -1,5 +1,5 @@
 """
-Tests for the simplified four-role terminal reached via ``--simple``.
+Tests for the plain Unix sandbox terminal reached via ``--simple``.
 
 Its ``date`` command raised NameError and its ``__main__`` block instantiated
 a class that did not exist.

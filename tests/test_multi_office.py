@@ -11,6 +11,7 @@ operating company that goes somewhere specific in forty-eight days.
 
 import pytest
 
+from bell_system.screens.remote import ALARM_CANDIDATES, ALARM_ID_BASE
 from bell_system.data.companies import (
     COMPANIES,
     COMPANIES_BY_STATE,
@@ -184,6 +185,39 @@ class TestEachOfficeHasItsOwnState:
             for alarm in terminal.office_alarms(office):
                 assert alarm['id'] not in seen, alarm['id']
                 seen.add(alarm['id'])
+
+    def test_alarm_identifiers_stay_clear_of_the_home_offices(self, terminal):
+        """The home office is dealt AL-4472 to AL-4476 and keeps them."""
+        for office in terminal.watched_offices():
+            if office['clli'] == terminal.home_office['clli']:
+                continue
+            for alarm in terminal.office_alarms(office):
+                assert not 4472 <= int(alarm['id'][3:]) <= 4476, alarm['id']
+
+    def test_each_office_numbers_inside_its_own_block(self, terminal):
+        """
+        Identifiers come from the office's place on the console, so the
+        blocks cannot overlap whatever the buildings are called.
+        """
+        width = len(ALARM_CANDIDATES)
+        for slot, office in enumerate(terminal.watched_offices()):
+            if office['clli'] == terminal.home_office['clli']:
+                continue
+            start = ALARM_ID_BASE + slot * width
+            for alarm in terminal.office_alarms(office):
+                assert start <= int(alarm['id'][3:]) < start + width
+
+    def test_other_offices_number_above_the_home_offices(self):
+        """The home office is dealt fixed AL-44xx identifiers at startup."""
+        import inspect
+        import re
+
+        from bell_system.terminal import BellSystemTerminal
+
+        source = inspect.getsource(BellSystemTerminal._initialize_alarm_state)
+        home = [int(number) for number in re.findall(r'AL-(\d+)', source)]
+        assert home
+        assert ALARM_ID_BASE > max(home)
 
     def test_the_alarm_screen_reads_the_connected_office(self, terminal):
         target = next(office for office in terminal.watched_offices()

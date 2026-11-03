@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Bell System UNIX V7 Terminal Simulation - Simplified Interface
-=============================================================
+Bell System UNIX V7 Terminal Simulation - Plain Unix Sandbox
+============================================================
 
-Authentic AT&T Internal Operations Workstation (1978-1983).
+A bare V7 shell on a small in-memory filesystem, for practising ``ls``,
+``cat``, ``cd``, ``grep``, ``find`` and the rest of the core command set.
 
-A compact four-role terminal offering genuine filesystem exploration
-(``cat``, ``cd``, ``grep``, ``find``) alongside the core V7 command set.
-Four roles: Systems Operator, Switching Technician, Field Liaison, NOC Analyst.
+It is a sandbox and not the game: there are no positions, no trouble board,
+no reports and none of the telephone-plant commands. It logs in as root and
+has one user. The simulation proper is ``BellSystemTerminal``.
 """
 
 
@@ -25,16 +26,7 @@ class SimpleTerminal:
         self.hostname = "mhuxco"
         self.shell = "/bin/sh"
         self.command_history = []
-        self.role = None
         self.shift_events = []
-
-        # Bell System specific environment
-        self.roles = {
-            "sysop": "UNIX Systems Operator",
-            "switch": "Switching Station Technician",
-            "field": "Field Support Liaison",
-            "noc": "National NOC Analyst"
-        }
 
         # Simulate authentic Bell System UNIX file system
         self.filesystem = {

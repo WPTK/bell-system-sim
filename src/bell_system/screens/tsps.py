@@ -48,7 +48,10 @@ Key Commands: tsps, operator, directory, collect, billing
         # Update TSPS state for realistic operational behavior
         self._update_tsps_state()
 
-        if not args:
+        # tsps(1) documents `tsps status` as the overview, and the position
+        # profile and the records screen both run it; the overview is what
+        # bare `tsps` prints, so the two are the same panel.
+        if not args or args[0] == "status":
             current_time = self.clock.now().strftime("%B %d, %Y %H:%M:%S EST")
 
             return f"""Traffic Service Position System (TSPS)
@@ -116,7 +119,7 @@ Commands:
                 return self._show_available_tsps_reports()
 
         else:
-            available_commands = ["position", "operators", "training", "queue", "reports"]
+            available_commands = ["status", "position", "operators", "training", "queue", "reports"]
             return f"tsps: Unknown option '{args[0] if args else 'missing'}'\nAvailable commands: {', '.join(available_commands)}"
     def _update_tsps_state(self) -> None:
         """Update TSPS operational state with realistic patterns."""

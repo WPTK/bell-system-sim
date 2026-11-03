@@ -152,7 +152,7 @@ bell-system-sim/
 │   ├── cli.py               # CLI entry point (bell-system)
 │   ├── __main__.py          # python -m bell_system
 │   ├── terminal.py          # Dispatch and session
-│   ├── simple_terminal.py   # 4-role simulation
+│   ├── simple_terminal.py   # plain Unix V7 sandbox
 │   ├── screens/             # One mixin per subsystem
 │   ├── data/                # Reference tables and manual pages
 │   ├── reports.py           # The repair bureau's board

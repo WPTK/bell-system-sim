@@ -26,28 +26,109 @@ own readings, the wet-cable cluster (S2 calls it the best mechanic), the
 
 ## 1. Pillars
 
-Five filters. An idea that fails one is cut. S3 Part 4 is the source;
-this is the short form.
+Five filters. An idea that fails one is cut. S3 Part 4 is the source; this
+is the short form, stress-tested on 2 November 2026 with the questions in
+the CD-PILLARS gate of Donchitos/Claude-Code-Game-Studios (MIT): could a real
+design decision fail this pillar, do the pillars pull against each other,
+and what separates the game from its nearest comparables. The numbering is
+unchanged, so the **Pil** column and the `pillar:` labels still hold.
+
+Each pillar now carries a **Test**: a check a reviewer can run on a PR or a
+scripted run, with an answer that can be no. A pillar with no such test is
+a mood and cannot settle an argument.
 
 1. **The desk is a system you learn.** The rules never change under you.
    The manual is part of the world. You show mastery by doing something
-   new, not by repeating something old. *Cut it if* a player can win
-   without knowing why it worked.
+   new, not by repeating something old. The board's *state* changes (that
+   is pillar 2); its *rules* do not. *Cut it if* a player can win without
+   knowing why it worked.
+   **Test:** a scripted bot that ignores every reading and guesses closes
+   scores below SATISFACTORY on both profiles, and no assist setting lets
+   it past the practicals (C11). Not yet measured; `tools/index_calibration.py`
+   is where it lands.
 2. **Every report is a person, and the board remembers.** Customers come
    back with a history. The craft remember how you treated them.
    Consequences are shown in someone's voice, without a lecture. *Cut it
    if* it leaves the person on the line vaguer.
+   **Test:** every consequence line names a person, a line or a time, in
+   that person's words. A consequence that prints only a number or a
+   category fails.
 3. **The Bell System is ending, and everyone in the building knows.** The
    13 tours are a countdown with a shape: build, crisis, relief, farewell.
    *Cut it if* it adds nothing to what January means.
+   **Test:** swap the briefings of any two tours. If a reader cannot tell
+   which is which, a tour is filler. Each of the 13 has a dated stake that
+   fits no other tour (A1).
 4. **The machine is the story.** Lore is found with `ls`, `cat` and
-   `grep`, and each sign-off opens the next layer. No cutscenes. *Cut it
-   if* a player could not find it that way.
+   `grep`, and each sign-off opens the next layer. *Cut it if* a player
+   could not find it that way.
+   **Test:** every lore item is reachable by a command that exists today,
+   with no scripted push; a push (a briefing line, the audit) may state the
+   date and the stake, never the explanation. The bible
+   (`narrative-bible.md`) names the file each item lives in.
 5. **Friction is chosen, and it is period.** Difficulty is a set of
    assists the player controls. The 300 baud and the printed manual stay
    because they are the setting. Nothing historical appears unless it is
    sourced or marked as the simulation's own. *Cut it if* the player
    cannot turn it down, or we cannot say where it came from.
+   **Test:** two checks, run separately. Every assist in `ASSISTS` can be
+   set on its own and shows in `set` when it departs from the profile. Every
+   dated or numeric claim in new text has a `SOURCES.md` row or a line
+   marking it as the simulation's own.
+
+### Where they pull
+
+- **1 against 5.** An assist can remove the reason to learn. The settled
+  answer is that assists change cost, never the need: the practicals gate
+  every sign-off on fun as well as craft (D3). A new assist that lets a
+  player skip a skill fails pillar 1.
+- **3 against 4.** A tour's dated stake is scheduled; lore is found. The
+  stake is pushed (the briefing), the explanation is pulled (the files).
+  Anything that explains in a push fails pillar 4.
+- **2 against 1.** Remembering changes the board, not the rules. A regular
+  who comes back with a worse line because of your last close is state; a
+  regular for whom a different test reads differently is a rule change.
+
+### Anti-pillars
+
+Things this game will never be. An idea that needs one of these is not
+cut for being weak; it is cut for being a different game.
+
+1. **No cutscenes.** Nothing is delivered outside the terminal, and
+   nothing the player cannot skip by typing the next command. Story
+   arrives as a write(1) message, a file or a printout.
+2. **No fail-state that ends the career early.** A failed audit changes
+   the words of the ending, not its length (D2). The player always gets
+   to tour 13.
+3. **Nothing that works as phreaking instructions.** No tones, dialable
+   codes or procedures that would do anything on a real network. Toll
+   fraud is detection and history only (D6, A11).
+4. **No real people, and no history presented as real unless sourced.**
+   Every person, customer and company line is invented and says so; every
+   real date has a `SOURCES.md` row (pillar 5).
+5. **No grind and no twitch.** No experience points, currency or loot:
+   qualification is trust, earned by correct closes and a practical. No
+   outcome turns on reaction speed: pressure is the shift clock, which
+   advances on what the player does.
+
+### Verdict: CONCERNS, sharpened in place
+
+Pillars 1, 3 and 4 were falsifiable and pull usefully against each other; 2 and 5 had tests that could not fail, and now have ones that can.
+The live risk is pillar 4 drifting toward a Her Story with a repair desk attached: keep the job, not the lore, as the main verb.
+
+### What sets it apart
+
+- **Papers, Please:** the same desk-as-system, but the truth is measured and
+  the dilemma is diagnosis, not a rule set against a person's need.
+- **Her Story:** lore found in a machine, but here it is secondary to a job
+  with a clock and a real end date.
+- **Zachtronics (TIS-100, SHENZHEN I/O):** the same in-world manual and
+  terminal, but the player diagnoses a fixed plant rather than building a
+  solution to a puzzle.
+
+What is left once those are taken away: a real document set as the
+rulebook (SOURCES.md), the last 48 days of a real institution as the
+clock, and a working UNIX V7 shell as the place the story lives.
 
 ## 2. The rows
 
@@ -408,7 +489,36 @@ Bill took the recommended answer on all six.
   starts after.
 - P3 rows: checklist in #43.
 
-## 10. The final step
+## 10. Review practice
+
+Two checks, adapted from the ND-CONSISTENCY and CD-PLAYTEST gates in
+Donchitos/Claude-Code-Game-Studios (MIT). Neither adds an agent, a hook or
+a workflow: they are items in the review a PR already gets.
+
+1. **Narrative consistency.** A PR that adds or changes narrative text (the
+   voices, lore, files, briefings and epilogue in phases 4, 6, 7, 8 and 10)
+   is checked against `narrative-bible.md` inside its normal single review.
+   The reviewer asks, in the bible's terms:
+   - Does each speaker match their voice profile (section 4), and does
+     every line fit 120 characters?
+   - Does the text contradict a world rule (section 3), an Established
+     item (section 7) or a true answer (section 5)?
+   - Is every period fact sourced or marked as the simulation's own?
+
+   The verdict is the one line the PR already gets: no problem, concerns
+   (each named), or a contradiction that breaks the foundation. The PR
+   that settles a mystery or adds a person edits the bible in the same
+   change and moves the item's canon level.
+2. **A playtest at the end of each wave.** When the last PR of a wave
+   (section 5, order at a glance) has merged, one scripted playtest is run
+   on `main` and filed with `playtest-template.md`, pillar check included.
+   One run, not one per PR, and no re-run unless the first was invalid. Its
+   findings are routed into the four buckets, and none blocks the next wave
+   unless the pillar check is REJECT.
+
+Everything else in a review stays as the review loop already has it.
+
+## 11. The final step
 
 All issues must be closed to bring this event to an end. This does not
 replace anything else that still needs to be worked; it is the last check
