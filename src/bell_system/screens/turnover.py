@@ -443,6 +443,7 @@ this shift and the next one starts on a fresh board."""
         summary = self.tour_summary(
             *self._tour_worked(),
             unmeasured=max(0, counts['closed'] - counts['measured']))
+        summary.extend(self.desk_lapse_lines())
         goals = self._goal_section(final=True)
         # Commendations are left for after the tour is banked, where the
         # whole tour's are printed once.
@@ -608,11 +609,31 @@ this shift and the next one starts on a fresh board."""
                 career.missed_commitments, career.repeat_reports)
 
     def _tour_worked(self) -> Tuple[int, int, int, int]:
-        """Return closed, correct, missed and repeats for this tour alone."""
+        """
+        Return closed, correct, missed and repeats for this tour alone.
+
+        Missed is commitments only, what ``record_missed`` counts and what
+        the career screens show. What the desk holds past its window is
+        ``desk_overdue()``, shown on its own line; the index charges both.
+        """
         now = self._career_counters()
         closed, correct, missed, repeats = (
             current - was for current, was in zip(now, self._tour_baseline))
         return closed, correct, missed, repeats
+
+    def desk_lapse_lines(self) -> List[str]:
+        """
+        The desk's lapses as a sentence of their own, if it has any.
+
+        A SARTS circuit cleared late, a NOC ticket nobody took in time, an
+        office alarm held at the top lamp: not report commitments, so not
+        in the missed count, but on the index all the same.
+        """
+        held = self.desk_overdue()
+        if not held:
+            return []
+        return [f"Desk lapses {held}: held past their window at this desk, "
+                f"counted on the index."]
 
     def cmd_shift(self, args: Optional[List[str]] = None) -> str:
         """
@@ -651,6 +672,8 @@ this shift and the next one starts on a fresh board."""
             f"  Closed this tour    {closed} "
             f"({correct} correct, {closed - correct} wrong)",
             f"  Missed commitments  {missed}",
+            *([f"  Desk lapses         {self.desk_overdue()}"]
+              if self.desk_overdue() else []),
             f"  Came back           {repeats}",
         ]
         soonest = pending[0] if pending else None

@@ -204,7 +204,7 @@ PERFORMANCE METRICS
      Answer Time:            95% within 20 seconds
      Average Handle Time:    45 seconds per call
      Positions Active:       Variable based on traffic load
-     Peak Traffic:           Mother's Day, Christmas Eve
+     Peak Traffic:           Mother's Day, Christmas Day
 
 EXAMPLES
      tsps status                     System operational overview
@@ -1384,7 +1384,8 @@ OPTIONS
      assign ID TEAM       Assign a ticket to a repair team
      update ID STATUS     Change ticket status
      escalate ID          Raise escalation level and notify management
-     resolve ID           Close a ticket and record resolution
+     resolve ID           Close a ticket and record resolution (the NOC
+                          refuses one nobody has taken)
      create CAT PRI DESC  Open a ticket from craft-reported trouble
      geographic           Ticket distribution by region
      priority             Priority breakdown and trend analysis

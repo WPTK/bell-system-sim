@@ -27,6 +27,7 @@ from ..filesystem import (
     is_player_path,
     normalise,
 )
+from ..npc import PLAYER_TTY
 from ..save import home_size
 from .finds import FindsCommands
 
@@ -820,7 +821,7 @@ class ShellCommands(FindsCommands):
 
     def cmd_tty(self, args: Optional[List[str]] = None) -> str:
         """Print the terminal name."""
-        return '/dev/tty01'
+        return f'/dev/tty{PLAYER_TTY}'
 
     def cmd_sync(self, args: Optional[List[str]] = None) -> str:
         """Flush the buffer cache. Prints nothing, as it should."""
