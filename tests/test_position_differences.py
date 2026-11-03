@@ -67,13 +67,29 @@ def skew_the_wall_clock(terminal, monkeypatch, hours=9):
 ROLE_KEYS = [key for key, _ in BELL_SYSTEM_ROLES.values()]
 
 
+# One seed for every desk test. The board and the SARTS inventory take it
+# through the terminal; what arrives, interrupts and rings during a command
+# comes from the module's own generator, so the module seeds that too (below).
+# A test that passes passes every time, and one that depends on luck is a
+# failing test to fix, not a flake to rerun.
+SEED = 1983
+
+
+@pytest.fixture(autouse=True)
+def _seeded_chance():
+    state = random.getstate()
+    random.seed(SEED)
+    yield
+    random.setstate(state)
+
+
 @pytest.fixture
 def at_desk(isolated_state):
     """Return a factory that puts a fully qualified terminal at a desk."""
     from bell_system.progression import QUALIFICATIONS
 
     def put(role_key):
-        instance = BellSystemTerminal()
+        instance = BellSystemTerminal(rng=random.Random(SEED))
         instance.settings.set('game.ambience', 'off')
         instance.settings.set('display.pacing', 'off')
         instance.settings.set('game.prompts', 'off')
@@ -551,7 +567,7 @@ def resume_onto_fresh(terminal, role=None, mutate=None, dealt=None):
     captured = json.loads(json.dumps(save.capture(terminal)))
     if mutate is not None:
         mutate(captured)
-    fresh = BellSystemTerminal()
+    fresh = BellSystemTerminal(rng=random.Random(SEED))
     fresh.career.shift = terminal.career.shift
     fresh.career.reports_closed = terminal.career.reports_closed
     if dealt is not None:
@@ -1728,7 +1744,7 @@ class TestTheOfficeAcrossAResume:
 
     def resumed(self, terminal, captured):
         from bell_system import save
-        fresh = BellSystemTerminal()
+        fresh = BellSystemTerminal(rng=random.Random(SEED))
         fresh.career.shift = terminal.career.shift
         fresh.career.reports_closed = terminal.career.reports_closed
         # The geography is not saved; it is the same console.
@@ -2164,7 +2180,7 @@ class TestTheRepairDeskAcrossAResume:
 
     def resumed(self, terminal, captured):
         from bell_system import save
-        fresh = BellSystemTerminal()
+        fresh = BellSystemTerminal(rng=random.Random(SEED))
         fresh.career.shift = terminal.career.shift
         fresh.career.reports_closed = terminal.career.reports_closed
         assert save.restore(fresh, captured)
@@ -2570,7 +2586,7 @@ class TestTheOutageClockAcrossAResume:
 
     def resumed(self, terminal, captured):
         from bell_system import save
-        fresh = BellSystemTerminal()
+        fresh = BellSystemTerminal(rng=random.Random(SEED))
         fresh.career.shift = terminal.career.shift
         fresh.career.reports_closed = terminal.career.reports_closed
         assert save.restore(fresh, captured)
@@ -2608,7 +2624,7 @@ class TestTheOutageClockAcrossAResume:
         terminal.shift_minutes = 300
         captured = self.capture(terminal)
         del captured['tour']['sarts']
-        fresh = BellSystemTerminal()
+        fresh = BellSystemTerminal(rng=random.Random(SEED))
         fresh.career.shift = terminal.career.shift
         dealt = failing_circuit(fresh)
         from bell_system import save
