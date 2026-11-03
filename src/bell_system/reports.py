@@ -34,6 +34,7 @@ from datetime import datetime, timedelta
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from .cases import Case, clear as clear_case
+from .plantjobs import PlantJob
 from .cable import (
     BINDERS_PER_UNIT,
     PAIRS_PER_BINDER,
@@ -446,6 +447,8 @@ class ReportDesk:
         self.control: Optional[str] = None
         # The causes standing behind more than one report this tour.
         self.cases: List[Case] = []
+        # What the plant has opened for itself (plantjobs.py).
+        self.jobs: List[PlantJob] = []
 
     # -- generation ------------------------------------------------------
 
@@ -979,6 +982,35 @@ class ReportDesk:
                 f"the commitment, and {crew.name} is now out on nothing.",
                 True)
 
+    def clear_sheath(self, section: WetSection,
+                     when: Optional[datetime] = None,
+                     skip: str = '') -> List[TroubleReport]:
+        """
+        Repair a sheath and say which open reports came back with it.
+
+        The other pairs in the group were repaired by the same trip and cost
+        nothing further; they still have to be closed out, which is the
+        craftsperson's job and not the splicer's.
+        """
+        cleared = self.plant.repair(section, when or datetime.now())
+        # A line that reports twice on one pair has two reports open and the
+        # section only remembers the later one. The sheath is dry for both.
+        cleared += [number for number, other in self.reports.items()
+                    if other.record.fault == 'WET'
+                    and other.record.cable == section.cable
+                    and other.record.pair in section.pairs
+                    and number not in cleared]
+        others = [self.reports[number] for number in cleared
+                  if number in self.reports
+                  and number != skip
+                  and self.reports[number].status != STATUS_CLOSED]
+        for other in others:
+            other.field_finding = 'WET'
+            other.sheath_repaired = True
+            if other.status == STATUS_PENDING:
+                other.status = STATUS_TESTED
+        return others
+
     def _repair_sheath(self, report: 'TroubleReport', force: str,
                        repair: int, name_fault: bool = True,
                        section: Optional[WetSection] = None) -> str:
@@ -999,27 +1031,7 @@ class ReportDesk:
             return (f"{force} reports {what} located and cleared. "
                     f"{repair} minutes charged.")
 
-        cleared = self.plant.repair(section, report.received)
-        # A line that reports twice on one pair has two reports open and the
-        # section only remembers the later one. The sheath is dry for both.
-        cleared += [number for number, other in self.reports.items()
-                    if other.record.fault == 'WET'
-                    and other.record.cable == section.cable
-                    and other.record.pair in section.pairs
-                    and number not in cleared]
-        others = [self.reports[number] for number in cleared
-                  if number in self.reports
-                  and number != report.number
-                  and self.reports[number].status != STATUS_CLOSED]
-        for other in others:
-            # The sheath is dry. The other pairs in it were repaired by the
-            # same trip and cost nothing further; they still have to be
-            # closed out, which is the craftsperson's job and not the
-            # splicer's.
-            other.field_finding = 'WET'
-            other.sheath_repaired = True
-            if other.status == STATUS_PENDING:
-                other.status = STATUS_TESTED
+        others = self.clear_sheath(section, report.received, report.number)
 
         found = 'water in' if name_fault else 'trouble in'
         lines = [f"{force} reports {found} cable {section.cable}, binder "

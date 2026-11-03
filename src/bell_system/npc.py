@@ -1315,8 +1315,8 @@ class Switchroom:
             about=report_number,
         ))
 
-    def pressure_alarm(self, now: datetime, cable: int, psi: float
-                       ) -> Message:
+    def pressure_alarm(self, now: datetime, cable: int, psi: float,
+                       job: str = '') -> Message:
         """
         The cable pressure contactor on the maintenance teletype.
 
@@ -1327,7 +1327,8 @@ class Switchroom:
         return self._deliver(Message(
             channel=CHANNEL_TELETYPE, sender='adm', received=now,
             lines=[f'PRESSURE ALARM  CABLE {cable:04d}  {psi:.1f} PSI',
-                   'CONTACTOR BELOW LIMIT'],
+                   'CONTACTOR BELOW LIMIT']
+            + ([f'PLANT JOB {job} OPENED'] if job else []),
             kind='alarm', subject=f'cable {cable:04d} pressure', about=None,
         ))
 

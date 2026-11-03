@@ -17,7 +17,8 @@ from ..cable import (
 )
 from ..cases import MARKER_LEDGER, arrivals, case_of, plan
 from ..npc import Message
-from ..reports import TroubleReport
+from ..plantjobs import find_job, work
+from ..reports import DISPATCH_FORCES, TroubleReport, valid_force
 from .session import SessionState
 
 # From this tour on a tour may open with a sheath already leaking, and the
@@ -89,6 +90,28 @@ class CaseCommands(SessionState):
                 "  report dispatch <number> cable <cable>/<binder>\n"
                 f"A binder group is {PAIRS_PER_BINDER} pairs, counted from "
                 "1. 'man cable' has the colour code.")
+
+    def _dispatch_job(self, token: str, force: str) -> str:
+        """
+        Send a crew to a plant job, naming the group where one is asked for.
+
+        The job is the alarm's own and has no customer: what the trip costs
+        moves the shift clock and touches no report.
+        """
+        job = find_job(self.desk, token)
+        if job is None:
+            return f"report: no job matching '{token}'"
+        force, section, refusal = self._named_section(force)
+        if refusal:
+            return refusal
+        canonical = valid_force(force)
+        if canonical is None:
+            return (f"report: '{force}' is not a repair force.\n"
+                    f"Forces: {', '.join(DISPATCH_FORCES)}")
+        found, _ = work(
+            self.desk, job, canonical, section, self.shift_minutes,
+            self._difficulty().section_required, True)
+        return found
 
     def cmd_cable(self, args: Optional[List[str]] = None) -> str:
         """

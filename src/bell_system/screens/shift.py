@@ -19,6 +19,7 @@ from ..field import CREWS
 from ..data import tours
 from ..data.consequences import Late
 from ..data.tours import Tour, watch_of
+from ..plantjobs import open_job
 from ..npc import (
     CRAFT,
     FAVOUR_MINUTES,
@@ -653,8 +654,8 @@ class ShiftCommands(SessionState):
             Rendered notices for events that came due, whether or not the
             caller will display them
         """
-        charged = sum(report.desk_minutes
-                      for report in self.reports_all())
+        charged = (sum(report.desk_minutes for report in self.reports_all())
+                   + sum(job.desk_minutes for job in self.desk.jobs))
         was = self.shift_minutes
         self.shift_minutes += 1 + max(0, charged - self._charged_total)
         self._charged_total = charged
@@ -740,9 +741,11 @@ class ShiftCommands(SessionState):
         for section in plant.open_sections():
             if section.alarming() and not section.alarmed:
                 section.alarmed = True
+                job = open_job(self.desk, section.cable, section.binder,
+                               self.clock.now())
                 pieces.append(render_message(self.switchroom.pressure_alarm(
-                    self.clock.now(), section.cable, section.psi),
-                    self._stamp()))
+                    self.clock.now(), section.cable, section.psi,
+                    job.number), self._stamp()))
         for section in spreading:
             if self.desk.full():
                 break

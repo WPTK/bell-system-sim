@@ -42,6 +42,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .cable import WetSection
 from .cases import Case
+from .plantjobs import PlantJob
 from .data.practicals import PRACTICALS
 from .field import Assignment, CREWS, POOL_CREW
 from .filesystem import (
@@ -383,6 +384,7 @@ def capture(terminal: Any) -> Dict[str, Any]:
             'repeat_count': desk.repeat_count,
             'control': desk.control,
             'cases': [case.out() for case in desk.cases],
+            'jobs': [job.out() for job in desk.jobs],
             'regulars': {key: _record_out(record)
                          for key, record in desk._regulars.items()},
         },
@@ -457,6 +459,7 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
                    and control in CONTROLS else None)
         # Absent from a shift saved before there were cases: none stood.
         cases = [Case.read(entry) for entry in board.get('cases', [])]
+        jobs = [PlantJob.read(entry) for entry in board.get('jobs', [])]
         _plant_in(desk, stored['plant'])
         _force_in(desk, stored['force'])
         pool = _pool_in(tour)
@@ -471,6 +474,7 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     desk.repeat_count = board['repeat_count']
     desk.control = control
     desk.cases = cases
+    desk.jobs = jobs
     desk._regulars = regulars
 
     desk.weather.regime = weather['regime']

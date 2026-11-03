@@ -21,6 +21,7 @@ from ..data.trouble import (
     NSPMP_WEIGHTS,
 )
 from ..cases import see_also
+from ..plantjobs import PREFIX as JOB_PREFIX, listing as job_listing
 from ..clock import career_progress
 from ..console import article as _a, sentence_case as _lower, wrap
 from ..lmos import LmosConsole
@@ -239,6 +240,11 @@ class BureauCommands(SessionState):
             return self._show_next_report()
         if action == 'closed':
             return self._show_closed_reports()
+        if action == 'jobs':
+            jobs = job_listing(self.desk)
+            return '\n'.join(
+                ["Plant jobs open", '=' * 40] + jobs if jobs else
+                ["No plant job is open."])
         if action == 'faults':
             return self._show_fault_reference()
         if action == 'forces':
@@ -253,6 +259,8 @@ class BureauCommands(SessionState):
                 return ("report: usage: report dispatch <number> <force>\n"
                         "  Cable repair also takes a cable/binder.\n"
                         "Forces: " + ', '.join(DISPATCH_FORCES))
+            if rest[0].upper().startswith(JOB_PREFIX):
+                return self._dispatch_job(rest[0], ' '.join(rest[1:]))
             return self._dispatch_report(rest[0], ' '.join(rest[1:]))
         if action == 'close':
             if not rest:
@@ -268,7 +276,7 @@ class BureauCommands(SessionState):
 
         return self.dead_end(
             f"report: unknown option '{args[0]}'\n"
-            "Options: board, next, show, dispatch, close, callback, closed, "
+            "Options: board, next, show, dispatch, close, callback, closed, jobs, "
             "faults, forces")
 
     def _show_next_report(self) -> str:

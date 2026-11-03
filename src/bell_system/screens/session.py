@@ -386,6 +386,10 @@ class SessionState:
         """Ring a customer back, with a question or without."""
         raise NotImplementedError
 
+    def _dispatch_job(self, token: str, force: str) -> str:
+        """Send a crew to a job the plant opened for itself."""
+        raise NotImplementedError
+
     def _fraud_block(self) -> str:
         """The toll holding-time exception, while there is one."""
         raise NotImplementedError
