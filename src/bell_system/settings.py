@@ -16,6 +16,8 @@ import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from .progression import ASSISTS, PROFILE
+
 SETTINGS_FILENAME = 'settings.json'
 
 # The simulated shift begins Monday 14 November 1983 at 08:00. The date is
@@ -165,6 +167,18 @@ OPTIONS: List[Option] = [
     ),
 ]
 
+# The assists are declared once, beside the difficulty profiles they override
+# (progression.ASSISTS), and become settings here. Each reads ``profile`` until
+# the player names a value, which leaves the profile's own value in force.
+OPTIONS.extend(
+    Option(
+        assist.key, PROFILE, [PROFILE] + list(assist.choices),
+        assist.summary,
+        'profile takes the value game.difficulty sets. ' + assist.detail,
+    )
+    for assist in ASSISTS
+)
+
 OPTIONS_BY_KEY: Dict[str, Option] = {option.key: option for option in OPTIONS}
 
 
@@ -234,6 +248,19 @@ class Settings:
             option.key for option in OPTIONS
             if option.accurate is not None and self._values[option.key] != option.accurate
         ]
+
+    def assist_departures(self) -> List[str]:
+        """Return the assists that override the difficulty profile."""
+        return [assist.key for assist in ASSISTS
+                if self._values[assist.key] != PROFILE]
+
+    def assist_overrides(self) -> Dict[str, Any]:
+        """Return each overridden Difficulty field with the value it takes."""
+        return {
+            assist.field: assist.choices[self._values[assist.key]]
+            for assist in ASSISTS
+            if self._values[assist.key] in assist.choices
+        }
 
     # -- persistence ----------------------------------------------------
 

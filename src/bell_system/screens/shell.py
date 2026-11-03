@@ -16,7 +16,15 @@ the next.
 
 from typing import FrozenSet, List, Optional
 
-from ..filesystem import Node, children, normalise
+from ..filesystem import (
+    PLAYER_LIMIT,
+    Node,
+    children,
+    is_player_path,
+    normalise,
+    player_bytes,
+    player_changes,
+)
 from .session import SessionState
 
 
@@ -399,7 +407,14 @@ class ShellCommands(SessionState):
         if append and existing is not None and isinstance(existing.content, str):
             text = existing.content + text
         owner = self.username or 'sysop'
-        self.filesystem[path] = Node('file', owner, 'craft', '-rw-r--r--', text)
+        node = Node('file', owner, 'craft', '-rw-r--r--', text)
+        if is_player_path(path):
+            kept = player_changes(self.filesystem)[0]
+            kept[path] = node
+            if player_bytes(kept) > PLAYER_LIMIT:
+                return (f"sh: {path}: no space left on device "
+                        f"(your files may hold {PLAYER_LIMIT // 1024} KB)")
+        self.filesystem[path] = node
         return None
 
     def cmd_mkdir(self, args: Optional[List[str]] = None) -> str:

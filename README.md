@@ -151,11 +151,26 @@ you four times as often.
 The difficulty governs **how forgiving the scoring is** and nothing else.
 How much is happening is a matter of how far into a career you are.
 
+Each part of a difficulty is also a setting of its own, an **assist**, for
+anyone who wants one without the rest. The profile applies until you name a
+value, and `set` marks every assist that is not on its profile:
+
+```
+set assist.commitments_count full   Count every missed commitment, even on fun
+set assist.pace quick               Sign-offs every three correct closures
+set assist.test_first off           Close a report without measuring it
+```
+
+`man set` lists them all.
+
 ### A career, and its last day
 
-What a craftsperson was allowed to work on was governed by qualification.
-You start signed off on Loop and Station plus whatever your position
-carries, and earn the rest a correctly closed report at a time:
+Qualification is this simulation's own mechanic. A craft job did grow by
+being trusted with more of the plant, but no source consulted says how many
+reports earned which sign-off, or that a sign-off locked a command, so the
+ladder below is invented and so is the count. You start signed off on Loop
+and Station plus whatever your position carries, and earn the rest a
+correctly closed report at a time:
 
 ```
 Loop and Station              report, mlt, trouble, testboard, testline
@@ -311,7 +326,8 @@ set game.ambience off        Stop the other craft interrupting you
 set reset                    Restore period-accurate defaults
 ```
 
-Settings persist between sessions. Pacing switches itself off when output
+Settings persist between sessions, and so do the files you write under
+`/usr/users` and the moo scoreboard, up to 64 KB of text. Pacing switches itself off when output
 is not going to a terminal, because a pipe has nobody watching it.
 
 Every historical value in the simulation is either verified against a

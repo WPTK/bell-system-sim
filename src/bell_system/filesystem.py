@@ -25,11 +25,14 @@ words for a thing that really was about to happen.
 
 from .clock import DIVESTITURE as _DIVESTITURE
 from .data.homes import HOMES
-from typing import Callable, Dict, List, NamedTuple, Optional, Union
+from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 # Divestiture took effect on 1 January 1984. The date itself lives in
 # clock.py, with the function that counts down to it, so there is one of it.
 DIVESTITURE = _DIVESTITURE.strftime('%Y-%m-%d')
+
+# Where the office keeps its bulls and cows scores.
+MOO_SCORES = '/usr/games/lib/moo.scores'
 
 Content = Union[str, Callable[..., str]]
 
@@ -1498,7 +1501,7 @@ FILESYSTEM: Dict[str, Node] = {
         "if it ever fails outright the trouble is in the sequence relay,\n"
         "not the marker. i have been saying this for two years.\n",
         owner='rjohnson', group='craft'),
-    '/usr/games/lib/moo.scores': _file(
+    MOO_SCORES: _file(
         "gvasquez  4\nrjohnson  5\nsysop     -\nmreyes    7\n"
         "lokafor  11  (says the terminal was slow)\n"),
 }
@@ -1520,6 +1523,47 @@ for _role, _files in HOMES.items():
     for _name, _text in _files.items():
         FILESYSTEM[f'/usr/users/{_role}/{_name}'] = _file(
             _text, owner=_role, group='craft')
+
+
+# What a player writes, and so what is kept between sessions: anything under
+# the users' home directories, and the moo scoreboard, which is the one file
+# outside them the games ask you to write to. Everything else on the machine
+# is rebuilt at construction, which is why the rest of the tree is not saved.
+PLAYER_PREFIX = '/usr/users/'
+# The most a player's saved files may add up to, in bytes of text. A cap is
+# what keeps a save file a thing a person can read, and makes echo in a loop
+# a refusal instead of a slowly growing state directory.
+PLAYER_LIMIT = 64 * 1024
+
+
+def is_player_path(path: str) -> bool:
+    """Return whether a file at this path is kept between sessions."""
+    return path == MOO_SCORES or path.startswith(PLAYER_PREFIX)
+
+
+def player_changes(tree: Dict[str, Node]) -> Tuple[Dict[str, Node], List[str]]:
+    """
+    Return what the player has done to the saved part of a tree.
+
+    Args:
+        tree: A session's working filesystem
+
+    Returns:
+        The nodes that are new or differ from the shipped tree, and the paths
+        the shipped tree has that are gone
+    """
+    changed = {path: node for path, node in tree.items()
+               if is_player_path(path) and FILESYSTEM.get(path) != node
+               and (node.is_dir or isinstance(node.content, str))}
+    removed = sorted(path for path in FILESYSTEM
+                     if is_player_path(path) and path not in tree)
+    return changed, removed
+
+
+def player_bytes(changed: Dict[str, Node]) -> int:
+    """Return how much text the player's changed files hold."""
+    return sum(len(str(node.content).encode('utf-8'))
+               for node in changed.values() if not node.is_dir)
 
 
 def normalise(path: str, cwd: str) -> str:

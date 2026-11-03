@@ -20,10 +20,16 @@ The rules it follows are the ones any save file wants and most do not get:
     worse than starting the tour again.
   * Loading never raises. The worst outcome is a fresh board.
 
-What is deliberately *not* saved: the filesystem, the mail, the news
-spool, and the message log. Those are either rebuilt identically at
-construction or they are chatter, and a save file that carried them would
-be ten times the size for nothing anybody would notice.
+What is deliberately *not* saved in the shift file: the filesystem, the
+mail, the news spool, and the message log. Those are either rebuilt
+identically at construction or they are chatter, and a save file that
+carried them would be ten times the size for nothing anybody would notice.
+
+The one part of the filesystem that is kept is what the player wrote, in a
+file of its own, ``home.json``. It is not the shift's: the shift file is
+thrown away at every handoff, and a note written on tour 2 is still there on
+tour 9. It holds only the difference from the shipped tree, under the home
+directories and the moo scoreboard, up to 64 KB of text.
 """
 
 import json
@@ -33,6 +39,13 @@ from typing import Any, Dict, List, Optional
 
 from .cable import WetSection
 from .field import Assignment, CREWS
+from .filesystem import (
+    PLAYER_LIMIT,
+    Node,
+    is_player_path,
+    player_bytes,
+    player_changes,
+)
 from .reports import STATUS_CLOSED, LineRecord, ReportDesk, TroubleReport
 
 # Bumped whenever the shape below changes in a way that makes an older file
@@ -42,6 +55,11 @@ from .reports import STATUS_CLOSED, LineRecord, ReportDesk, TroubleReport
 VERSION = 1
 
 SHIFT_FILENAME = 'shift.json'
+HOME_FILENAME = 'home.json'
+
+# Bumped, like VERSION, when an older home file would be wrong rather than
+# merely incomplete. An unrecognised version is ignored.
+HOME_VERSION = 1
 
 # How a datetime is written. Seconds are enough: the simulation charges in
 # minutes and nothing anywhere reads a microsecond.
@@ -51,6 +69,11 @@ STAMP = '%Y-%m-%dT%H:%M:%S'
 def shift_path(state_directory: str) -> str:
     """Return the saved-shift path inside a state directory."""
     return os.path.join(state_directory, SHIFT_FILENAME)
+
+
+def home_path(state_directory: str) -> str:
+    """Return the saved-files path inside a state directory."""
+    return os.path.join(state_directory, HOME_FILENAME)
 
 
 def _stamp(moment: Optional[datetime]) -> Optional[str]:
@@ -325,6 +348,91 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     terminal._tour_desk_start = tour.get('tour_desk_start', 0)
     terminal._board_reviewed = tour.get('board_reviewed', True)
     return True
+
+
+# -- what the player wrote ------------------------------------------------
+
+
+def capture_home(terminal: Any) -> Dict[str, Any]:
+    """Take the player's files: what differs from the shipped filesystem."""
+    changed, removed = player_changes(terminal.filesystem)
+    return {
+        'version': HOME_VERSION,
+        'nodes': {path: {'kind': node.kind, 'owner': node.owner,
+                         'group': node.group, 'mode': node.mode,
+                         'content': node.content if not node.is_dir else None}
+                  for path, node in sorted(changed.items())},
+        'removed': removed,
+    }
+
+
+def restore_home(terminal: Any, stored: Optional[Dict[str, Any]]) -> bool:
+    """
+    Put the player's files back onto a freshly built filesystem.
+
+    Everything is read before anything is applied, as restore does, and
+    anything that is not under the saved paths is refused however it got
+    into the file: a hand-edited home.json must not be a way to rewrite
+    /bin.
+
+    Returns:
+        Whether a record was applied
+    """
+    if not stored or stored.get('version') != HOME_VERSION:
+        return False
+    try:
+        removed = [path for path in stored['removed']
+                   if isinstance(path, str) and is_player_path(path)]
+        nodes = {}
+        for path, entry in stored['nodes'].items():
+            kind = entry['kind']
+            if (not isinstance(path, str) or not is_player_path(path)
+                    or kind not in ('dir', 'file')):
+                raise ValueError(path)
+            text = entry['content']
+            if kind == 'file' and not isinstance(text, str):
+                raise ValueError(path)
+            nodes[path] = Node(kind, str(entry['owner']), str(entry['group']),
+                               str(entry['mode']),
+                               text if kind == 'file' else None)
+    except (KeyError, TypeError, AttributeError, ValueError):
+        return False
+    if player_bytes(nodes) > PLAYER_LIMIT:
+        return False
+
+    tree = terminal.filesystem
+    for path in removed:
+        tree.pop(path, None)
+    # Shallowest first, so a directory is there before what is in it.
+    for path in sorted(nodes, key=lambda held: held.count('/')):
+        parent = path.rsplit('/', 1)[0] or '/'
+        if parent in tree:
+            tree[path] = nodes[path]
+    return True
+
+
+def write_home(path: str, terminal: Any) -> None:
+    """
+    Write the player's files if they have changed since they were last written.
+
+    Nothing is written for a player who has written nothing, and nothing is
+    written twice: this runs after every command.
+    """
+    if not path:
+        return
+    record = capture_home(terminal)
+    text = json.dumps(record, indent=1, sort_keys=True) + '\n'
+    if text == getattr(terminal, '_home_text', None):
+        return
+    if not (record['nodes'] or record['removed']) and not os.path.exists(path):
+        return
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as handle:
+            handle.write(text)
+    except OSError:
+        return
+    terminal._home_text = text
 
 
 def write(path: str, terminal: Any) -> None:

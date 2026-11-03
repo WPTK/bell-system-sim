@@ -24,14 +24,32 @@ those to mean anything:
 If every player scores 97 the index is not measuring anything. If a careful
 player can land in MARGINAL the penalties are too sharp for a single shift.
 
+A second question is whether the qualification ladder can be climbed. That
+one cannot be answered from a desk alone, because how many reports close in a
+tour depends on what every command costs the shift clock, so `ladder` plays
+whole careers through the real terminal and prints the tour each sign-off
+arrives on. WHAT A GOOD ANSWER LOOKS LIKE there:
+
+  - a bot that names the fault nine times in ten, on I Hate Myself, signs off
+    all six by tour 13 in nearly every career
+  - a bot that names it six times in ten does not reach Toll in nearly any
+
+The bot is a ceiling, not a person: it never reads a manual, never wanders
+into a game, and spends nothing on a command that does not move the board.
+The bars are therefore a proposal for a very efficient player, and a human
+is slower.
+
 Run it with:
 
     python3 tools/index_calibration.py [shifts]
+    python3 tools/index_calibration.py ladder [careers]
 """
 
+import os
 import random
 import statistics
 import sys
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -271,7 +289,96 @@ def sweep(shifts: int) -> None:
         print(f"  {multiplier:<6}" + ''.join(f"{cell:>22}" for cell in cells))
 
 
+def play_career(skill: float, difficulty: str, seed: int,
+                tours: int = 13) -> List[int]:
+    """
+    Work a whole career through the real terminal and return its sign-offs.
+
+    The bot takes the oldest report on the board, measures it, sends the crew
+    it needs and closes it, naming the fault right with probability ``skill``
+    and otherwise closing it wrongly, until the tour is spent. The terminal is
+    the real one, so every command costs the shift clock what it costs a
+    player.
+
+    Args:
+        skill: Chance, from 0 to 1, that a close names what the line had
+        difficulty: ``fun`` or ``craft``
+        seed: Seeds the board and the bot's mistakes
+        tours: How many tours to work
+
+    Returns:
+        For each tour, how many sign-offs were held at its handoff
+    """
+    from bell_system.constants import SHIFT_LENGTH_MINUTES
+    from bell_system.terminal import BellSystemTerminal
+
+    rng = random.Random(seed)
+    random.seed(seed)
+    os.environ['BELL_SYSTEM_HOME'] = tempfile.mkdtemp(prefix='ladder-')
+    terminal = BellSystemTerminal()
+    for key, value in (('game.ambience', 'off'), ('game.prompts', 'off'),
+                       ('display.pacing', 'off'),
+                       ('game.difficulty', difficulty)):
+        terminal.settings.set(key, value)
+    terminal.career.set_difficulty(difficulty)
+
+    held = []
+    for _ in range(tours):
+        terminal.execute_command('report')
+        for _step in range(400):
+            if terminal.shift_minutes >= SHIFT_LENGTH_MINUTES:
+                break
+            pending = terminal.desk.pending()
+            if not pending:
+                terminal.execute_command('sleep 30')
+                continue
+            report = pending[0]
+            number, truth = report.number, report.record.fault
+            terminal.execute_command(f'mlt {number}')
+            force = FAULTS[truth].dispatch
+            if force not in ('None', 'None - customer contact'):
+                for _wait in range(6):
+                    sent = terminal.execute_command(
+                        f'report dispatch {number} {force.split()[0].lower()}')
+                    if 'nobody' not in sent.lower():
+                        break
+                    terminal.execute_command('sleep 60')
+            if rng.random() < skill:
+                said = '8' if truth == 'NONE' else f'5 {truth}'
+            elif rng.random() < 0.5:
+                said = '8'
+            else:
+                said = f'5 {rng.choice(REAL_FAULTS)}'
+            terminal.execute_command(f'report close {number} {said}')
+        terminal.execute_command('handoff relieve')
+        held.append(len(terminal.career.qualifications))
+    return held
+
+
+def ladder(careers: int) -> None:
+    """Play careers at two skills and print when each sign-off arrives."""
+    from bell_system.progression import QUALIFICATIONS
+
+    print(f"Qualification ladder, {careers} careers per row, I Hate Myself")
+    print(f"  {'skill':<7}{'all six by 13':>15}{'median tour':>13}"
+          f"{'latest':>8}")
+    for skill in (0.9, 0.75, 0.6):
+        toll = []
+        for seed in range(careers):
+            held = play_career(skill, 'craft', seed)
+            reached = [tour for tour, count in enumerate(held, start=1)
+                       if count >= len(QUALIFICATIONS)]
+            toll.append(reached[0] if reached else None)
+        got = [tour for tour in toll if tour is not None]
+        print(f"  {skill:<7}{100 * len(got) // careers:>14}%"
+              f"{(statistics.median(got) if got else 0):>13.0f}"
+              f"{(max(got) if got else 0):>8}")
+
+
 if __name__ == '__main__':
+    if len(sys.argv) > 1 and sys.argv[1] == 'ladder':
+        ladder(int(sys.argv[2]) if len(sys.argv) > 2 else 20)
+        sys.exit(0)
     count = int(sys.argv[1]) if len(sys.argv) > 1 else 200
     report(count)
     sweep(count)

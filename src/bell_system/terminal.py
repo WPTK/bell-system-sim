@@ -52,14 +52,13 @@ from .npc import render as render_message
 from .data.man_pages import MAN_PAGES
 from .data.positions import get as neutral_position
 from .progression import (
-    DIFFICULTIES,
     QUALIFICATIONS_BY_KEY,
     ROLE_QUALIFICATIONS,
     Career,
     career_path,
 )
 from .routing import build_default_network
-from .save import shift_path
+from .save import home_path, shift_path
 from .screens.customer import CustomerCommands
 from .screens.frame import FrameCommands
 from .screens.games import GameCommands
@@ -77,6 +76,7 @@ from .screens.jobs import JobCommands
 from .screens.plant import PlantCommands
 from .screens.guidance import GuidanceCommands
 from .screens.position import PositionCommands
+from .screens.preferences import PreferenceCommands
 from .screens.remote import RemoteCommands
 from .screens.records import RecordsCommands
 from .screens.shift import ShiftCommands
@@ -92,8 +92,6 @@ from .screens.trunks import TrunkCommands
 from .screens.turnover import TurnoverCommands
 from .screens.tsps import TspsCommands
 from .settings import (
-    OPTIONS,
-    OPTIONS_BY_KEY,
     Settings,
     settings_path,
     state_dir,
@@ -158,6 +156,7 @@ class BellSystemTerminal(
     JobCommands,
     PlantCommands,
     GuidanceCommands,
+    PreferenceCommands,
     PositionCommands,
     RemoteCommands,
     RecordsCommands,
@@ -191,6 +190,7 @@ class BellSystemTerminal(
         self.shift_file = shift_path(state_dir())
         self.career = Career(career_path(state_dir()))
         self.career.set_difficulty(self.settings.get('game.difficulty'))
+        self.career.set_assists(self.settings.assist_overrides())
         # Which day of the run-up to divestiture this tour falls on. A
         # career walks the calendar from 14 November to the last working
         # day of the Bell System, so the countdown moves as it goes.
@@ -256,6 +256,9 @@ class BellSystemTerminal(
         self._initialize_project_numbers()
         self._initialize_rate_structures()
         self._initialize_filesystem()
+        # What the player wrote on an earlier run, if anything.
+        self.home_file = home_path(state_dir())
+        save.restore_home(self, save.read(self.home_file))
         # at(1) keeps a queue, uux(1) a job counter. Both live for the
         # session; the shift is one shift and nothing outlives it.
         self._at_jobs: List[Dict[str, Any]] = []
@@ -702,6 +705,7 @@ class BellSystemTerminal(
     def save_shift(self) -> None:
         """Write the shift down where the next session will find it."""
         save.write(self.shift_file, self)
+        save.write_home(self.home_file, self)
 
     def _divestiture_line(self) -> str:
         """
@@ -1045,146 +1049,6 @@ Current Priorities:
 
 Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
 """
-
-    def cmd_set(self, args: Optional[List[str]] = None) -> str:
-        """Display and change simulation settings."""
-        args = args or []
-
-        if not args:
-            return self._show_settings_screen()
-
-        if args[0].lower() == 'reset':
-            if len(args) > 1:
-                key = args[1].lower()
-                try:
-                    self.settings.reset(key)
-                except KeyError:
-                    return self._unknown_setting(key)
-                self._apply_setting(key)
-                return f"{key} reset to {self.settings.get(key)}"
-            self.settings.reset()
-            for option in OPTIONS:
-                self._apply_setting(option.key)
-            return "All settings reset to period-accurate defaults."
-
-        key = args[0].lower()
-        if key not in OPTIONS_BY_KEY:
-            return self._unknown_setting(key)
-
-        if len(args) == 1:
-            return self._describe_setting(key)
-
-        value = ' '.join(args[1:])
-        try:
-            stored = self.settings.set(key, value)
-        except ValueError as exc:
-            return f"set: {exc}"
-
-        self._apply_setting(key)
-        option = OPTIONS_BY_KEY[key]
-        result = f"{key} = {stored}"
-        if key == 'game.difficulty':
-            difficulty = DIFFICULTIES[stored]
-            result += f"\n\n{difficulty.name}: {difficulty.summary}"
-            if difficulty.require_test_before_close:
-                result += ("\n\nFrom here on, a report cannot be closed until "
-                           "the loop has been measured,\nand mechanised loop "
-                           "testing will no longer name the fault for you.")
-        if option.accurate is not None and stored != option.accurate:
-            result += (f"\n\nNote: the period-accurate value is "
-                       f"'{option.accurate}'. This setting now departs from "
-                       f"1978-1983 behaviour.")
-        return result
-
-    def _apply_setting(self, key: str) -> None:
-        """Take account of a setting whose change needs more than storage."""
-        if key == 'date.epoch':
-            self.clock.reset_session()
-        elif key == 'display.log_console':
-            self._setup_logging()
-        elif key == 'game.difficulty':
-            self.career.set_difficulty(self.settings.get('game.difficulty'))
-
-    def _unknown_setting(self, key: str) -> str:
-        """Report an unrecognised setting name."""
-        return (f"set: no such setting '{key}'\n"
-                f"Available settings: {', '.join(sorted(OPTIONS_BY_KEY))}\n"
-                f"Type 'set' with no arguments for the settings screen.")
-
-    def _describe_setting(self, key: str) -> str:
-        """Show one setting in detail."""
-        option = OPTIONS_BY_KEY[key]
-        current = self.settings.get(key)
-        choices = ', '.join(option.choices) if option.choices else '(free text)'
-        accurate = option.accurate or 'not applicable'
-        lines = [
-            f"{option.key}",
-            '=' * 50,
-            f"Current value:     {current}",
-            f"Default:           {option.default}",
-            f"Permitted:         {choices}",
-            f"Period-accurate:   {accurate}",
-            '',
-            option.summary + '.',
-        ]
-        if option.detail:
-            lines.append(option.detail)
-        lines.append('')
-        lines.append(f"Usage: set {option.key} <value>")
-        return '\n'.join(lines)
-
-    def _show_settings_screen(self) -> str:
-        """Render the full settings screen."""
-        deviations = self.settings.deviations()
-        width = max(len(option.key) for option in OPTIONS)
-
-        lines = [
-            "Bell System Terminal - Simulation Settings",
-            '=' * 60,
-            '',
-            "The simulation runs period-accurate by default. Each setting",
-            "below may be moved away from that where a modern terminal makes",
-            "the accurate behaviour less playable.",
-            '',
-            f"{'SETTING'.ljust(width)}  {'CURRENT'.ljust(12)}  OPTIONS",
-            '-' * 60,
-        ]
-
-        for option in OPTIONS:
-            current = self.settings.get(option.key)
-            choices = '/'.join(option.choices) if option.choices else 'YYYY-MM-DD'
-            marker = ' *' if option.key in deviations else '  '
-            lines.append(
-                f"{option.key.ljust(width)}  {current.ljust(12)}{marker}{choices}"
-            )
-
-        lines.extend([
-            '-' * 60,
-            '',
-        ])
-
-        if deviations:
-            lines.append(
-                f"* {len(deviations)} setting(s) depart from period-accurate "
-                f"behaviour: {', '.join(deviations)}"
-            )
-        else:
-            lines.append("All settings are period-accurate.")
-
-        lines.extend([
-            '',
-            "Current shift time: " + self.clock.timestamp(),
-            '',
-            "Commands:",
-            "  set <setting>            Explain one setting in detail",
-            "  set <setting> <value>    Change a setting",
-            "  set reset [<setting>]    Restore period-accurate defaults",
-            '',
-            "Settings persist between sessions.",
-        ])
-        return '\n'.join(lines)
-
-
 
     def emit(self, text: str = '', end: str = '\n') -> None:
         """

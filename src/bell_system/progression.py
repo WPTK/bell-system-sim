@@ -7,10 +7,13 @@ little. Craft is close to the job: you cannot close what you have not
 measured, closing a real fault as no trouble found brings the report back on
 your own index, commitments you miss are counted, and qualification is slow.
 
-Progression is qualification rather than experience points, because that is
-what actually governed what a craftsperson was allowed to touch. You start
-qualified on your own wire centre and earn the right to work the switching
-control centre, remote offices and the toll network.
+Progression is qualification rather than experience points, because a
+craft job was one of being trusted with more of the plant. The sign-off
+ladder below is the simulation's own mechanic: no source consulted sets how
+many reports earned a Bell System craftsperson which sign-off, or whether a
+sign-off gated a command at all, and SOURCES.md says so. You start qualified
+on your own wire centre and earn the right to work the switching control
+centre, remote offices and the toll network.
 
 Scoring is against the customer reports component of the network switching
 performance measurement plan. The plan's ten weights sum to 100 and customer
@@ -23,11 +26,26 @@ only twenty points, which would tell them nothing.
 
 import json
 import os
-from typing import Callable, Dict, List, NamedTuple, Optional
+from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
 from .data.trouble import NSPMP_WEIGHTS
 
 CAREER_FILENAME = 'career.json'
+
+# The shape of career.json. 1 is every file written before this field
+# existed. A file is read whatever its number says, because every field
+# below defaults when it is missing: the number records which fields the
+# writer knew about, so that a later change can tell an old file from a new
+# one without guessing from what is absent. Fields that later work wants
+# to keep across tours are all here already, so adding the next one is a
+# line in _LIST_FIELDS or _COUNT_FIELDS and not a change to load or save.
+SCHEMA = 2
+
+# Career attributes that are a list of names, in the order they happened.
+_LIST_FIELDS = ('commendations', 'finds', 'groups', 'beats_seen',
+                'practicals_passed')
+# Career attributes that are a count for each of a set of names.
+_COUNT_FIELDS = ('fault_sightings', 'rapport')
 
 
 class Difficulty(NamedTuple):
@@ -52,6 +70,9 @@ class Difficulty(NamedTuple):
     interruption_rate: float
     # Minutes of slack added to every repair commitment.
     commitment_slack_minutes: int
+    # How many sightings of one fault type still get a reading note from
+    # the mechanised test. Counted per fault type, 0 for none at all.
+    annotation_sightings: int
 
 
 DIFFICULTIES: Dict[str, Difficulty] = {
@@ -76,6 +97,7 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         missed_commitment_scale=0.25,
         interruption_rate=0.06,
         commitment_slack_minutes=90,
+        annotation_sightings=4,
     ),
     'craft': Difficulty(
         key='craft',
@@ -90,10 +112,91 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         missed_commitment_scale=1.0,
         interruption_rate=0.22,
         commitment_slack_minutes=0,
+        annotation_sightings=0,
     ),
 }
 
 DEFAULT_DIFFICULTY = 'fun'
+
+
+class Assist(NamedTuple):
+    """
+    One thing a player can turn up or down without changing profile.
+
+    A difficulty profile is a bundle, and a player who wants the craft
+    scoring with the fun pace has no way to say so. An assist names one
+    field of the profile, and what it may be set to in place of the
+    profile's own value. The setting ``key`` is the authority; the profile
+    is what applies while it reads ``profile``.
+    """
+
+    key: str
+    # The Difficulty field this overrides.
+    field: str
+    # What each choice sets the field to.
+    choices: Dict[str, Any]
+    summary: str
+    detail: str
+
+
+# Reading notes kept for every sighting, for anyone who wants them.
+ANNOTATE_ALWAYS = 999
+
+PROFILE = 'profile'
+
+ASSISTS: List[Assist] = [
+    Assist(
+        'assist.test_first', 'require_test_before_close',
+        {'on': True, 'off': False},
+        'Must a loop be measured before its report is closed',
+        'on refuses a close on a line nobody has measured; off allows it.',
+    ),
+    Assist(
+        'assist.commitments_count', 'missed_commitment_scale',
+        {'off': 0.0, 'soft': 0.25, 'full': 1.0},
+        'How much a missed commitment costs the index',
+        'full counts every miss at its whole weight, as the job does; soft '
+        'at a quarter of it; off not at all. A report still open past its '
+        'commitment is lost in full whatever this says.',
+    ),
+    Assist(
+        'assist.repeat_reports', 'repeat_report_chance',
+        {'off': 0.0, 'soft': 0.25, 'full': 0.85},
+        'How often a wrongly closed line calls back',
+        'The chance that a report closed no trouble found on a line that '
+        'was faulty comes back as a repeat: never, one time in four, or '
+        'most of the time.',
+    ),
+    Assist(
+        'assist.commitment_slack', 'commitment_slack_minutes',
+        {'on': 90, 'off': 0},
+        'Extra time on every repair commitment',
+        'on adds ninety minutes to each commitment; off holds them to the '
+        'interval the plan sets.',
+    ),
+    Assist(
+        'assist.pace', 'reports_per_qualification',
+        {'quick': 3, 'slow': 12},
+        'Correct closures for each step of qualification',
+        'quick signs you off every three correct closures a step, slow '
+        'every twelve.',
+    ),
+    Assist(
+        'assist.scoring', 'index_penalty',
+        {'gentle': 0.7, 'strict': 1.0},
+        'How heavily a mistake tells against the index',
+        'gentle scales every penalty by 0.7, strict by 1.0.',
+    ),
+    Assist(
+        'assist.annotate', 'annotation_sightings',
+        {'on': ANNOTATE_ALWAYS, 'off': 0},
+        'Reading notes on loop test output',
+        'on keeps a one-line note under the test readings for every fault, '
+        'however often you have seen it; off never prints one.',
+    ),
+]
+
+ASSISTS_BY_KEY: Dict[str, Assist] = {assist.key: assist for assist in ASSISTS}
 
 # How the customer reports score is lost, out of 100. A wrong disposition
 # weighs heaviest because it is the one that leaves a customer out of service
@@ -197,7 +300,16 @@ QUALIFICATIONS: List[Qualification] = [
         'toll', 'Toll Network',
         'The toll network, its measurement systems and the traffic that '
         'crosses regions.',
-        requires_reports=9,
+        # Nine, then ten. tools/index_calibration.py plays whole careers
+        # through the terminal now that the clocks agree. At nine (108
+        # correct closes on I Hate Myself) a bot that names the fault 60
+        # times in 100 reached Toll on the last tour in 2 careers of 12. At
+        # ten (120), in 40 careers each, it never does, and a bot at 90 in
+        # 100 signs off on all six in 97% of them, the median on tour 12.
+        # That bot is a ceiling and a person is slower, so on I Hate Myself
+        # Toll is for someone working very well. assist.pace is the way to
+        # ask for the quicker ladder without changing the scoring.
+        requires_reports=10,
         unlocks=('toll', 'tnds', 'traffic'),
     ),
 ]
@@ -243,6 +355,28 @@ class Career:
         # Set when the last tour has been signed off. There is nobody to
         # relieve you twice on the last day of the Bell System.
         self.finished = False
+        # How the assists in the settings bend the profile. Not part of the
+        # saved record: the setting is the authority, and whoever holds the
+        # settings supplies them, as with open_overdue above.
+        self._assists: Dict[str, Any] = {}
+        # How many times each fault type has been seen across the career.
+        self.fault_sightings: Dict[str, int] = {}
+        # Named, earned, never lost.
+        self.commendations: List[str] = []
+        # Fragments of the machine the player has read.
+        self.finds: List[str] = []
+        # Unix groups the player has been added to.
+        self.groups: List[str] = []
+        # Goodwill with the other craft, by login.
+        self.rapport: Dict[str, int] = {}
+        # Story beats that have already been played.
+        self.beats_seen: List[str] = []
+        # Qualifications whose practical has been passed.
+        self.practicals_passed: List[str] = []
+        # Where the career was assigned at the end of it. Nothing sets it:
+        # the plan's assignment form was dropped, and the epilogue reads the
+        # office's own company instead.
+        self.assignment: str = ''
         if path:
             self.load()
 
@@ -250,8 +384,22 @@ class Career:
 
     @property
     def difficulty(self) -> Difficulty:
-        """Return the active difficulty profile."""
-        return DIFFICULTIES.get(self.difficulty_key, DIFFICULTIES[DEFAULT_DIFFICULTY])
+        """Return the active difficulty profile, with the assists applied."""
+        profile = DIFFICULTIES.get(self.difficulty_key,
+                                   DIFFICULTIES[DEFAULT_DIFFICULTY])
+        return profile._replace(**self._assists) if self._assists else profile
+
+    def set_assists(self, overrides: Dict[str, Any]) -> None:
+        """
+        Replace the assists in force.
+
+        Args:
+            overrides: Difficulty field to the value that takes the place
+                of the profile's own, as Settings.assist_overrides gives it
+        """
+        known = set(Difficulty._fields)
+        self._assists = {field: value for field, value in overrides.items()
+                         if field in known}
 
     def set_difficulty(self, key: str) -> None:
         """Change difficulty and persist it."""
@@ -277,8 +425,8 @@ class Career:
         needed = self.qualification_for_command(command)
         return needed is None or needed in self.qualifications
 
-    def available_qualifications(self) -> List[Qualification]:
-        """Return qualifications earned but not yet taken up."""
+    def offer_available(self) -> List[Qualification]:
+        """Return qualifications whose count is met but are not yet held."""
         threshold = self.difficulty.reports_per_qualification
         return [
             qualification for qualification in QUALIFICATIONS
@@ -288,7 +436,7 @@ class Career:
 
     def grant_available(self) -> List[Qualification]:
         """Award every qualification whose requirement is met."""
-        granted = self.available_qualifications()
+        granted = self.offer_available()
         for qualification in granted:
             self.qualifications.append(qualification.key)
         if granted:
@@ -453,6 +601,15 @@ class Career:
 
         self.finished = bool(stored.get('finished', False))
 
+        for field in _LIST_FIELDS:
+            setattr(self, field, _names(stored.get(field)))
+        for field in _COUNT_FIELDS:
+            setattr(self, field, _counts(stored.get(field)))
+        self.practicals_passed = [key for key in self.practicals_passed
+                                  if key in QUALIFICATIONS_BY_KEY]
+        assignment = stored.get('assignment')
+        self.assignment = assignment if isinstance(assignment, str) else ''
+
         office = stored.get('office')
         if isinstance(office, dict):
             self.office = {str(key): str(value)
@@ -477,6 +634,7 @@ class Career:
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
             with open(self.path, 'w') as handle:
                 json.dump({
+                    'schema': SCHEMA,
                     'difficulty': self.difficulty_key,
                     'shift': self.shift,
                     'reports_closed': self.reports_closed,
@@ -488,10 +646,32 @@ class Career:
                     'index_history': self.index_history[-40:],
                     'office': self.office,
                     'finished': self.finished,
+                    'assignment': self.assignment,
+                    **{field: getattr(self, field)
+                       for field in _LIST_FIELDS + _COUNT_FIELDS},
                 }, handle, indent=2, sort_keys=True)
                 handle.write('\n')
         except OSError:
             return
+
+
+def _names(stored: Any) -> List[str]:
+    """Read a saved list of names: strings only, once each, in order."""
+    if not isinstance(stored, list):
+        return []
+    names: List[str] = []
+    for entry in stored:
+        if isinstance(entry, str) and entry not in names:
+            names.append(entry)
+    return names
+
+
+def _counts(stored: Any) -> Dict[str, int]:
+    """Read a saved count for each name: whole numbers, never below zero."""
+    if not isinstance(stored, dict):
+        return {}
+    return {str(name): max(0, value) for name, value in stored.items()
+            if isinstance(value, int) and not isinstance(value, bool)}
 
 
 def career_path(state_directory: str) -> str:
