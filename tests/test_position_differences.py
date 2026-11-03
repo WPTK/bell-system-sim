@@ -483,6 +483,8 @@ def put_tickets(terminal, *specs):
         ticket['escalation_level'] = 1
         made.append(ticket)
     terminal.shift_minutes = 0
+    for ticket in made:
+        terminal.triage_stamp(ticket, 0)
     return made
 
 
@@ -549,10 +551,10 @@ class TestTheNocQueue:
         terminal = at_desk('noc')
         (critical,) = put_tickets(terminal, ('CRITICAL', 900))
         terminal.shift_minutes = 15
-        terminal.triage_queue()
+        terminal.triage_sweep()
         assert critical['escalation_level'] == 1
         terminal.shift_minutes = 16
-        terminal.triage_queue()
+        terminal.triage_sweep()
         assert critical['escalation_level'] == 2
         assert 'nobody on it' in critical['resolution_steps'][-1]
 
@@ -561,24 +563,27 @@ class TestTheNocQueue:
         (major,) = put_tickets(terminal, ('MAJOR', 900))
         terminal.shift_minutes = 200
         for _ in range(3):
-            terminal.triage_queue()
+            terminal.triage_sweep()
         assert major['escalation_level'] == 2
 
     def test_taking_late_says_so_and_counts(self, at_desk):
         terminal = at_desk('noc')
         (minor,) = put_tickets(terminal, ('MINOR', 10))
         terminal.shift_minutes = 75
+        missed = terminal.career.missed_commitments
         output = terminal.execute_command('trouble triage ' + minor['id'])
         assert 'after the window closed' in output
         assert len(terminal.triage_book()['lapsed']) == 1
+        assert terminal.career.missed_commitments == missed + 1
 
     def test_the_first_tour_is_a_grace(self, at_desk):
         terminal = at_desk('noc')
         terminal.career.shift = 1
         (critical,) = put_tickets(terminal, ('CRITICAL', 900))
         terminal.shift_minutes = 400
-        terminal.triage_queue()
+        terminal.triage_sweep()
         assert critical['escalation_level'] == 1
+        assert terminal.triage_lapsed() == 0
 
     def test_the_clock_is_the_shift_clock_and_not_the_wall_clock(
             self, at_desk):
@@ -588,7 +593,7 @@ class TestTheNocQueue:
         (critical,) = put_tickets(terminal, ('CRITICAL', 900))
         due = terminal.triage_due(critical)
         terminal.clock._session_start -= timedelta(hours=9)
-        terminal.triage_queue()
+        terminal.triage_sweep()
         assert terminal.triage_due(critical) == due
         assert critical['escalation_level'] == 1
 
@@ -608,9 +613,218 @@ class TestTheNocQueue:
         assert rows['tickets past their response window'] == '1'
         assert 'WHAT THIS DESK DID' in terminal.execute_command('handoff')
 
+    def test_counting_changes_nothing(self, at_desk):
+        """The tally reads; only the queue and a take notice a window."""
+        terminal = at_desk('noc')
+        (critical,) = put_tickets(terminal, ('CRITICAL', 900))
+        terminal.shift_minutes = 90
+        for _ in range(2):
+            terminal.position_tally()
+            terminal.triage_lapsed()
+            terminal.triage_queue()
+        assert critical['escalation_level'] == 1
+        assert terminal.triage_book()['lapsed'] == {}
+        assert critical['resolution_steps'] == []
+
     def test_resolve_still_works_on_a_ticket_you_took(self, at_desk):
         terminal = at_desk('noc')
         (major,) = put_tickets(terminal, ('MAJOR', 40))
         terminal.execute_command('trouble triage ' + major['id'])
         output = terminal.execute_command('trouble resolve ' + major['id'])
         assert 'Trouble Ticket Resolved' in output
+
+
+class TestTheNocQueueIsHonest:
+    """What the review of the queue found, one test each."""
+
+    def test_a_ticket_somebody_has_is_not_waiting(self, at_desk):
+        terminal = at_desk('noc')
+        given, named, resolved, closed, free = put_tickets(
+            terminal, ('MAJOR', 1), ('MAJOR', 2), ('MAJOR', 3),
+            ('MAJOR', 4), ('MAJOR', 5))
+        terminal._assigned_tickets.add(given['id'])
+        terminal.execute_command(
+            f"trouble assign {named['id']} Outside Plant")
+        resolved['status'] = 'RESOLVED'
+        closed['status'] = 'CLOSED'
+        waiting = [t['id'] for t in terminal.triage_queue()]
+        assert waiting == [free['id']]
+        terminal.shift_minutes = 500
+        terminal.triage_sweep()
+        assert given['escalation_level'] == 1
+        assert named['escalation_level'] == 1
+
+    def test_the_whole_first_tour_is_a_grace_not_only_until_a_close(
+            self, at_desk):
+        terminal = at_desk('noc')
+        terminal.career.shift = 1
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.career.reports_closed = 1  # first_tour() has ended.
+        terminal.shift_minutes = 20
+        terminal.triage_sweep()
+        assert major['escalation_level'] == 1
+        terminal.shift_minutes = 500
+        assert terminal.triage_lapsed() == 0
+        output = terminal.execute_command('trouble triage ' + major['id'])
+        assert 'grace' in output
+
+    def test_escalating_does_not_shorten_the_window(self, at_desk):
+        terminal = at_desk('noc')
+        (minor,) = put_tickets(terminal, ('MINOR', 900))
+        due = terminal.triage_due(minor)
+        terminal.execute_command('trouble escalate ' + minor['id'])
+        assert minor['priority'] != 'MINOR'
+        assert terminal.triage_due(minor) == due == 60
+
+    def test_a_ticket_left_waiting_costs_the_index_unseen(self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('CRITICAL', 900), ('MAJOR', 5))
+        before = terminal.career.open_overdue()
+        terminal.shift_minutes = 20
+        assert terminal.career.open_overdue() == before + 1
+        terminal.shift_minutes = 40
+        assert terminal.career.open_overdue() == before + 2
+
+    def test_taking_a_ticket_in_time_costs_nothing(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 5))
+        missed = terminal.career.missed_commitments
+        terminal.shift_minutes = 29
+        terminal.execute_command('trouble triage ' + major['id'])
+        assert terminal.career.missed_commitments == missed
+
+    def test_the_cost_is_counted_once_however_often_the_desk_is_taken(
+            self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('CRITICAL', 900))
+        terminal.shift_minutes = 20
+        before = terminal.career.open_overdue()
+        terminal.take_position('noc')
+        assert terminal.career.open_overdue() == before
+
+    def test_a_resumed_shift_does_not_start_every_window_late(self, at_desk):
+        import json
+        from bell_system import save
+        terminal = at_desk('noc')
+        terminal.shift_minutes = 45
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        fresh.take_position('noc')
+        assert save.restore(fresh, captured)
+        assert fresh.shift_minutes == 45
+        assert fresh.triage_overdue() == []
+        fresh.execute_command('trouble triage')
+        assert all(t['escalation_level'] == 1 for t in fresh.active_tickets)
+
+    def test_the_book_itself_survives_a_resume(self, at_desk):
+        import json
+        from bell_system import save
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 5))
+        terminal.shift_minutes = 10
+        terminal.execute_command('trouble triage ' + major['id'])
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        assert captured['tour']['triage']['taken'][major['id']] == 10
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        assert save.restore(fresh, captured)
+        assert fresh.triage_book()['taken'] == {major['id']: 10}
+
+    def test_a_save_from_before_the_book_opens_every_window_from_now(
+            self, at_desk):
+        import json
+        from bell_system import save
+        terminal = at_desk('noc')
+        terminal.shift_minutes = 300
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        del captured['tour']['triage']
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        assert save.restore(fresh, captured)
+        assert fresh.triage_overdue() == []
+
+    def test_a_damaged_book_is_forgiven(self, at_desk):
+        terminal = at_desk('noc')
+        for junk in (None, 7, 'x', {'tour': 2, 'opened': 'no',
+                                    'klass': {'TKT': 'BOGUS'},
+                                    'taken': [1], 'lapsed': {'T': -4}}):
+            terminal.restore_triage(junk)
+            assert terminal.triage_overdue() == []
+
+    def test_help_names_the_desks_verb_and_pressure(self, at_desk):
+        for key in FOUR_DESKS:
+            terminal = at_desk(key)
+            terminal.role, terminal.role_name = key, POSITIONS[key].name
+            output = terminal.execute_command('help')
+            assert POSITIONS[key].verb in output, key
+            assert POSITIONS[key].pressure in output, key
+        radio = at_desk('radio')
+        radio.role, radio.role_name = 'radio', POSITIONS['radio'].name
+        assert 'Only this desk' not in radio.execute_command('help')
+
+
+# Frozen from before the four desks, so that "unchanged" means unchanged and
+# not "has no verb": commands, bias, share and tally of the other eight.
+FROZEN = {
+    'sysop': (('ps', 'df', 'who', 'uucp', 'uulog', 'at', 'date', 'ls'), {},
+              0.42, ('at_jobs', 'uucp_queue', 'commands_run')),
+    'field': (('trace', 'dialtone', 'emergency', 'ticket', 'provision',
+               'sarts'),
+              {'WET': 2.5, 'OPEN': 1.6, 'GROUND': 1.6, 'CROSS': 1.4}, 0.72,
+              ('dispatches', 'wasted_trips', 'sheaths_cleared')),
+    'tsps': (('tsps', 'operator', 'directory', 'collect', 'billing'),
+             {'ROH': 3.0, 'NONE': 1.4, 'SHORT': 1.3}, 0.62,
+             ('no_trouble_found', 'off_hook_caught', 'commitments_met')),
+    'dba': (('dbquery', 'custdb', 'billing', 'service'),
+            {'CO_EQUIP': 3.0, 'FCG': 1.5}, 0.42,
+            ('found_in_records', 'orders_raised', 'office_faults')),
+    'netplan': (('netplan', 'traffic', 'routing', 'capacity', 'billing',
+                 'tnds'), {}, 0.25,
+                ('groups_over', 'tickets_worked', 'commands_run')),
+    'radio': (('radio', 'microwave', 'satellite', 'alarm'), {}, 0.3,
+              ('alarms_open', 'weather_now', 'tickets_worked')),
+    'tnds': (('tnds', 'traffic', 'capacity', 'trace'), {}, 0.3,
+             ('groups_over', 'commands_run', 'tickets_worked')),
+    'docprep': (('nroff', 'troff', 'tbl', 'eqn', 'pic', 'refer', 'spell'),
+                {}, 0.35, ('documents_set', 'commands_run', 'files_written')),
+}
+
+
+def test_the_other_eight_match_a_frozen_snapshot():
+    for key, (commands, bias, share, tally) in FROZEN.items():
+        position = POSITIONS[key]
+        assert (position.commands, position.fault_bias,
+                position.board_share, position.tally) == (
+                    commands, bias, share, tally), key
+        assert key not in FOUR_DESKS
+
+
+class TestTheNocQueueAcrossAResume:
+    """A resumed pool reuses ticket numbers; the book must not be fooled."""
+
+    def test_a_saved_entry_for_a_different_ticket_is_retired(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 5))
+        terminal.shift_minutes = 5
+        terminal.execute_command('trouble triage ' + major['id'])
+        state = terminal.triage_state()
+        state['sig'][major['id']] = 'a ticket that was something else|1'
+        terminal.shift_minutes = 500
+        terminal.restore_triage(state)
+        assert major['id'] not in terminal.triage_book()['taken']
+        assert terminal.triage_book()['earlier']['taken'] == 1
+        assert terminal.triage_book()['opened'][major['id']] == 500
+        assert terminal.triage_overdue() == []
+
+    def test_a_saved_entry_for_the_same_ticket_is_kept(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 5))
+        terminal.shift_minutes = 5
+        terminal.execute_command('trouble triage ' + major['id'])
+        terminal.restore_triage(terminal.triage_state())
+        assert terminal.triage_book()['taken'] == {major['id']: 5}
+        assert terminal.triage_book()['earlier'] == {'taken': 0, 'lapsed': 0}
