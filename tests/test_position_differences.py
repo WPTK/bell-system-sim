@@ -3235,3 +3235,26 @@ class TestTheLeftoversFromPhaseNine:
         # The command's own minute on top of the call, and nothing for rings.
         assert spent <= terminal._advise_cost(0, known) + 1
         assert spent < terminal._advise_cost(3, known)
+
+    def test_a_save_missing_a_ticket_field_falls_back_to_the_dealt_pool(
+            self, at_desk):
+        from bell_system import save
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('MAJOR', 900))
+        assert 'business_impact' in save.TICKET_KEYS
+        for key in save.TICKET_KEYS:
+            def damage(captured, key=key):
+                del captured['tour']['tickets'][0][key]
+            fresh = resume_onto_fresh(terminal, 'noc', mutate=damage)
+            assert fresh.active_tickets
+            for ticket in fresh.active_tickets:
+                for needed in save.TICKET_KEYS:
+                    assert needed in ticket, (key, needed)
+
+    def test_the_check_is_every_key_a_ticket_is_made_with(self, at_desk):
+        from bell_system import save
+        terminal = at_desk('noc')
+        (made,) = put_tickets(terminal, ('MAJOR', 900))
+        assert set(save.TICKET_KEYS) <= set(made)
+        assert set(made) - set(save.TICKET_KEYS) <= {
+            'resolution_time', 'actual_duration'}
