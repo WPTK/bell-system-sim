@@ -11,6 +11,7 @@ operating company that goes somewhere specific in forty-eight days.
 
 import pytest
 
+from bell_system.screens.remote import ALARM_CANDIDATES, ALARM_ID_BASE
 from bell_system.data.companies import (
     COMPANIES,
     COMPANIES_BY_STATE,
@@ -184,6 +185,52 @@ class TestEachOfficeHasItsOwnState:
             for alarm in terminal.office_alarms(office):
                 assert alarm['id'] not in seen, alarm['id']
                 seen.add(alarm['id'])
+
+    def test_alarm_identifiers_stay_clear_of_the_home_offices(self, terminal):
+        """The home office is dealt AL-4472 to AL-4476 and keeps them."""
+        for office in terminal.watched_offices():
+            if office['clli'] == terminal.home_office['clli']:
+                continue
+            for alarm in terminal.office_alarms(office):
+                assert not 4472 <= int(alarm['id'][3:]) <= 4476, alarm['id']
+
+    def test_each_office_numbers_inside_its_own_block(self, terminal):
+        """
+        Identifiers come from the office's place on the console, so the
+        blocks cannot overlap whatever the buildings are called.
+        """
+        width = len(ALARM_CANDIDATES)
+        for slot, office in enumerate(terminal.watched_offices()):
+            if office['clli'] == terminal.home_office['clli']:
+                continue
+            start = ALARM_ID_BASE + slot * width
+            for alarm in terminal.office_alarms(office):
+                assert start <= int(alarm['id'][3:]) < start + width
+
+    @pytest.mark.parametrize('seed', ['0', '1', '2', '3'])
+    def test_alarm_identifiers_are_unique_under_any_hash_seed(
+            self, tmp_path, seed):
+        """
+        A str hash is salted per process, so identifiers built from hash()
+        collided in some runs and not in others. Run the whole console in
+        a fresh process under several seeds.
+        """
+        import os
+        import subprocess
+        import sys
+
+        script = '; '.join([
+            'from bell_system.terminal import BellSystemTerminal',
+            't = BellSystemTerminal()',
+            "ids = [a['id'] for o in t.watched_offices() "
+            "if o['clli'] != t.home_office['clli'] "
+            "for a in t.office_alarms(o)]",
+            'assert len(ids) == len(set(ids)), ids',
+        ])
+        src = os.path.join(os.path.dirname(__file__), '..', 'src')
+        env = dict(os.environ, PYTHONHASHSEED=seed, PYTHONPATH=src,
+                   BELL_SYSTEM_HOME=str(tmp_path / 'state'))
+        subprocess.run([sys.executable, '-c', script], env=env, check=True)
 
     def test_the_alarm_screen_reads_the_connected_office(self, terminal):
         target = next(office for office in terminal.watched_offices()

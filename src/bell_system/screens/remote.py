@@ -41,6 +41,10 @@ SCC_NAME = 'SCC BEDMINSTER'
 # The alarm conditions an office can be standing in. The same five the home
 # office is dealt from at startup; kept here so a remote office is dealt
 # from the same deck rather than a second invented one.
+# Where other offices' alarm identifiers start: above the home office's
+# fixed AL-4472..4476.
+ALARM_ID_BASE = 4500
+
 ALARM_CANDIDATES: Tuple[Dict[str, Any], ...] = (
     {'type': 'TRUNK_DEGRADED', 'severity': 'MINOR', 'system': 'TG-004',
      'description': 'Intermittent failures on trunk group'},
@@ -357,6 +361,15 @@ class RemoteCommands(SessionState):
             return self._office_alarms[clli]
 
         generator = random.Random(f"alarms:{clli}")
+        # Each building owns a block of identifiers as wide as the deck,
+        # numbered by its place on the console and starting clear of the
+        # home office's AL-4472..4476, so two buildings cannot share one.
+        # Not hash(): a str hash is salted per process, so the numbers
+        # changed from run to run and the blocks could overlap.
+        slot = next((place for place, watched in enumerate(
+            self.watched_offices()) if watched['clli'] == clli),
+            len(self.watched_offices()))
+        first_id = ALARM_ID_BASE + slot * len(ALARM_CANDIDATES)
         standing: List[Alarm] = []
         for index, candidate in enumerate(ALARM_CANDIDATES):
             if generator.random() >= 0.3:
@@ -364,7 +377,7 @@ class RemoteCommands(SessionState):
             alarm: Alarm = dict(candidate)  # type: ignore[assignment]
             # An identifier of its own, so acknowledging one office's alarm
             # does not look like acknowledging another's.
-            alarm['id'] = f"AL-{abs(hash(clli)) % 9000 + 1000 + index}"
+            alarm['id'] = f"AL-{first_id + index}"
             alarm['acknowledged'] = False
             alarm['timestamp'] = self.clock.now() - timedelta(
                 minutes=generator.randint(12, 400))
