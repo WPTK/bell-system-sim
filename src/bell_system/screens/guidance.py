@@ -28,13 +28,17 @@ prints, because it is the same function.
 
 from typing import Iterable, List, NamedTuple, Optional, Tuple
 
+from ..console import wrap
+from ..data.commendations import (
+    COMMENDATIONS, COMMENDATIONS_BY_KEY, MINIMUM_CLOSES)
 from ..data.positions import POSITION_COMMANDS
 from ..data.hints import EXHAUSTED, HINTS
 from ..data.trouble import FAULTS
 from ..loop_testing import (
     STAGE_NUMBERS, measure_loop, names_fault, reading_is_clean)
 from ..npc import render as render_message
-from ..progression import QUALIFICATIONS_BY_KEY
+from ..progression import QUALIFICATIONS_BY_KEY, Kpis
+from ..reports import hours_minutes
 from ..verbs import measured
 from .session import SessionState
 
@@ -54,6 +58,9 @@ class NextAction(NamedTuple):
 # the frame record, because that is what it is: a minute spent finding out
 # rather than working.
 HINT_MINUTES = 1
+
+# Cells in the board-cleared meter.
+METER_WIDTH = 20
 
 # Nothing pressing. Not a failure state: a clear board at the end of a tour
 # is the point of the job.
@@ -528,6 +535,103 @@ class GuidanceCommands(SessionState):
         step = (high - low) / (len(SPARK_LEVELS) - 1)
         return ''.join(SPARK_LEVELS[int(round((value - low) / step))]
                        for value in recent)
+
+    # -- the credit side ---------------------------------------------------
+
+    def kpi_rows(self, kpis: Kpis, heading: str) -> List[str]:
+        """
+        The five KPIs under a heading, with the label that says how far to
+        trust them.
+
+        None of the five is a Bell System figure: they are the simulation's
+        own measures, and they are measures, not part of the score. The
+        service index stays the only thing that takes marks off.
+        """
+        def percent(value: Optional[float]) -> str:
+            return 'none yet' if value is None else f"{value:.1f}%"
+
+        mttr = ('none yet' if kpis.mttr is None
+                else f"{hours_minutes(int(round(kpis.mttr)))}  "
+                     f"({kpis.mttr:.0f} min)")
+        age = ('none yet' if kpis.backlog_age is None
+               else f"{hours_minutes(int(round(kpis.backlog_age)))} on the "
+                    f"{len(self.desk.customers())} open")
+        repeats = ('none yet' if kpis.repeat_rate is None
+                   else f"{kpis.repeat_rate:.1f} per 100 closed")
+        return [
+            f"{heading}  {self.provisional_label(kpis.closed)}",
+            '-' * 74,
+            f"  Mean time to repair   {mttr}",
+            f"  Commitments met       {percent(kpis.commitments_met)}",
+            f"  Right first dispatch  {percent(kpis.first_time_right)}",
+            f"  Repeat rate           {repeats}",
+            f"  Backlog age           {age}",
+        ]
+
+    def provisional_label(self, closes: int) -> str:
+        """PROVISIONAL, and how far off, until there are enough closes."""
+        if closes >= MINIMUM_CLOSES:
+            return f"({closes} closed)"
+        return f"PROVISIONAL ({closes} of {MINIMUM_CLOSES} closes)"
+
+    def tour_index_row(self) -> str:
+        """This tour's own index, which the cumulative one cannot show."""
+        career = self.career
+        if not career.tour_scored():
+            return "  Tour index            none yet: nothing closed"
+        return (f"  Tour index            {career.tour_index():.1f} of 100  "
+                f"{self.provisional_label(career.tour_counts()['closed'])}")
+
+    def board_meter(self) -> str:
+        """
+        How much of this tour's board has been cleared.
+
+        Not a score. The index is a rate, so a perfect five-report tour and
+        a perfect thirty-two read the same on it; this is the one place the
+        difference shows.
+        """
+        closed = self.career.tour_counts()['closed']
+        total = closed + len(self.desk.customers())
+        if not total:
+            return "  Board cleared         nothing on the board"
+        filled = int(round(METER_WIDTH * closed / total))
+        return (f"  Board cleared         [{'#' * filled}"
+                f"{'.' * (METER_WIDTH - filled)}] {closed} of {total}")
+
+    def credit_rows(self) -> List[str]:
+        """The tour's index, its meter and its KPIs: what a handoff shows."""
+        kpis = self.kpi_rows(self.career.tour_kpis(), 'KPIs THIS TOUR')
+        # The heading carries the PROVISIONAL label, so it stays; the rule
+        # under it is for the qual screen.
+        return [self.tour_index_row(), self.board_meter(), '',
+                kpis[0], *kpis[2:]]
+
+    def commendation_lines(self, earned: List[str]) -> List[str]:
+        """The commendations earned this tour, named, or nothing."""
+        known = [COMMENDATIONS_BY_KEY[key] for key in earned
+                 if key in COMMENDATIONS_BY_KEY]
+        if not known:
+            return []
+        rows = ['COMMENDATIONS EARNED THIS TOUR', '-' * 66]
+        for commendation in known:
+            rows.append(f"  {commendation.name}")
+            rows.extend(f"    {line}" for line in
+                        wrap(commendation.description, 60))
+        return rows
+
+    def commendation_roll(self) -> List[str]:
+        """Every commendation there is, marked where it is held."""
+        held = self.career.commendations
+        rows = [f"COMMENDATIONS  {sum(c.key in held for c in COMMENDATIONS)}"
+                f" of {len(COMMENDATIONS)}", '-' * 74]
+        for commendation in COMMENDATIONS:
+            mark = 'x' if commendation.key in held else ' '
+            rows.append(f"  [{mark}] {commendation.name}")
+            rows.extend(f"      {line}" for line in
+                        wrap(commendation.description, 62))
+        rows.append("  Earned once and kept. The names and what earns them "
+                    "are the simulation's own.")
+        return rows
 
     # -- help(1) ----------------------------------------------------------
 

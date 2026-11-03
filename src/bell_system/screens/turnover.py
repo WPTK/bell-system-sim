@@ -192,6 +192,9 @@ Service Index:            {self.career.service_index():.1f} \
 Qualifications Held:      {len(self.career.qualifications)} of \
 {len(QUALIFICATIONS)}
 {self._tour_account()}
+
+{self._credit_section()}
+
 {self._goal_section(final=False)}"""
 
         if pending_reports:
@@ -438,6 +441,9 @@ this shift and the next one starts on a fresh board."""
         carried = self.desk.pending()
         summary = self.tour_summary(*self._tour_worked())
         goals = self._goal_section(final=True)
+        # Commendations are left for after the tour is banked, where the
+        # whole tour's are printed once.
+        credit = self._credit_section(earned=False)
         if self.clock.last_tour(self.career.shift):
             if self.career.finished:
                 return (
@@ -447,8 +453,8 @@ this shift and the next one starts on a fresh board."""
                     "The board is still there if you want it. "
                     "'qual' has the career record."
                     + self._audit_again())
-            return self._end_career(banked, worked, summary, goals)
-        self.career.end_shift()
+            return self._end_career(banked, worked, summary, goals, credit)
+        earned = self.career.end_shift()
         self.current_shift = self.career.shift
         # The tour that was saved is over. The next command writes the new
         # one; until then there is nothing on disk worth picking up.
@@ -495,6 +501,9 @@ this shift and the next one starts on a fresh board."""
             lines.append('')
         if goals:
             lines.extend([goals, ''])
+        lines.extend([credit, ''])
+        if earned:
+            lines.extend([*self.commendation_lines(earned), ''])
         lines.extend([
             f"  Service index banked      {self._banked_line(banked)}",
             f"  Reports closed to date    {self.career.reports_closed}",
@@ -528,7 +537,8 @@ this shift and the next one starts on a fresh board."""
         return f"{banked:.1f}  {self.career.index_band()}"
 
     def _end_career(self, banked: Optional[float], worked: str,
-                    summary: List[str], goals: str = '') -> str:
+                    summary: List[str], goals: str = '',
+                    credit: str = '') -> str:
         """
         The end of the last tour, which is the end of the Bell System.
 
@@ -541,6 +551,7 @@ this shift and the next one starts on a fresh board."""
         career = self.career
         if banked is not None:
             career.index_history.append(round(banked, 1))
+        earned = career.bank_tour()
         found = self.career_audit()
         career.audit_verdict = found.verdict
         career.audit_open = list(found.open_numbers)
@@ -558,6 +569,9 @@ this shift and the next one starts on a fresh board."""
             lines.extend(f"  {line}" for line in wrap(sentence, 64))
         if goals:
             lines.extend(['', goals])
+        lines.extend(['', credit])
+        if earned:
+            lines.extend(['', *self.commendation_lines(earned)])
         lines.extend([
             '',
             'THE CAREER',
@@ -671,6 +685,18 @@ this shift and the next one starts on a fresh board."""
                 'the same as one that closes thirty.']
         rows.extend(self.position_measure())
         return '\n'.join(indent + line for line in rows)
+
+    def _credit_section(self, earned: bool = True) -> str:
+        """
+        The tour's credit: its own index, how much of the board it cleared,
+        its KPIs and what it has earned so far. Measures, not scores - the
+        service index is still the only thing that takes marks off.
+        """
+        rows = ['TOUR CREDIT', '=' * 40, *self.credit_rows()]
+        if earned:
+            held = self.commendation_lines(self.career.earned_this_tour())
+            rows.extend(['', *held] if held else [])
+        return '\n'.join(rows)
 
     def _tour_account(self) -> str:
         """
