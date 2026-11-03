@@ -501,7 +501,10 @@ class BureauCommands(SessionState):
         name_fault = self._reading_stage(report, count=False) != STAGE_NUMBERS
         finding = self.desk.dispatch(report, canonical, self.shift_minutes,
                                      name_fault)
-        if report.field_finding:
+        # Only a crew that went reads the plant. A report another report's
+        # splice repaired carries a finding but nobody was sent, and one
+        # splice must not burn a sighting for every pair in the sheath.
+        if report.field_finding and report.dispatched_to is not None:
             self._reading_stage(report)
         if report.dispatched_to is None:
             # Nobody went: either the force is all out, or the sheath is

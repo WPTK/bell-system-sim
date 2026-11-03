@@ -19,6 +19,7 @@ from bell_system.loop_testing import (
     STAGE_NUMBERS,
     reading_stage,
 )
+from bell_system.cable import binder_of
 from bell_system.progression import Career
 
 
@@ -246,3 +247,102 @@ class TestHallorenSendsThemToTheCustomerFirst:
         terminal = self._first_tour(raw_terminal)
         terminal.execute_command('mlt 1')
         assert terminal.next_action().step != 'callback'
+
+
+def _alone(terminal, report):
+    """Drop whatever else the building has sent, so the board is this one."""
+    terminal.desk.reports = {report.number: report}
+    terminal.desk.order[:] = [report.number]
+
+
+def _dispatched(terminal, code, sightings):
+    """A report for a fault seen ``sightings`` times already, cleared."""
+    terminal.career.fault_sightings[code] = sightings
+    report = terminal.desk.receive(terminal.clock.now(), fault=code)
+    terminal.shift_minutes += 900
+    force = FAULTS[code].dispatch.lower()
+    terminal.execute_command(f'report dispatch {report.number} {force}')
+    _alone(terminal, report)
+    return report
+
+
+class TestNothingElseGivesTheFaultAway:
+    """Once mlt stops naming a fault, neither does the rest of the desk."""
+
+    def test_next_does_not_type_the_code_to_close_with(self, terminal):
+        report = _dispatched(terminal, 'GROUND', 4)
+        action = terminal.next_action()
+        assert action.step == 'close'
+        assert action.command == f'report close {report.number} 5 <fault>'
+
+    def test_next_types_the_code_while_the_fault_is_still_named(
+            self, terminal):
+        report = _dispatched(terminal, 'GROUND', 0)
+        assert terminal.next_action().command == (
+            f'report close {report.number} 5 GROUND')
+
+    def test_the_report_file_does_not_print_the_code(self, terminal):
+        report = _dispatched(terminal, 'GROUND', 4)
+        shown = terminal.execute_command(f'cat /usr/lmos/{report.number}')
+        assert 'field found' in shown
+        assert 'GROUND' not in shown
+
+    def test_the_report_file_prints_it_while_the_fault_is_named(
+            self, terminal):
+        report = _dispatched(terminal, 'GROUND', 0)
+        shown = terminal.execute_command(f'cat /usr/lmos/{report.number}')
+        assert 'field found GROUND' in shown
+
+    def _measured(self, terminal, sightings):
+        terminal.career.fault_sightings['GROUND'] = sightings
+        report = terminal.desk.receive(terminal.clock.now(), fault='GROUND')
+        terminal.execute_command(f'mlt {report.number}')
+        _alone(terminal, report)
+        return report
+
+    def test_next_does_not_pick_the_crew_at_the_numbers_stage(self, terminal):
+        report = self._measured(terminal, 4)
+        action = terminal.next_action()
+        assert action.step == 'dispatch'
+        assert action.command == f'report show {report.number}'
+
+    def test_next_still_picks_the_crew_while_mlt_names_it(self, terminal):
+        report = self._measured(terminal, 0)
+        assert terminal.next_action().command == (
+            f'report dispatch {report.number} outside plant')
+
+
+class TestOneSpliceIsOneSighting:
+    def test_pairs_repaired_by_another_reports_trip_are_not_sightings(
+            self, terminal):
+        terminal.desk.reports.clear()
+        terminal.desk.order.clear()
+        made = [terminal.desk.receive(terminal.clock.now(), fault='WET')
+                for _ in range(12)]
+        first = made[0]
+        group = [r for r in made
+                 if r.record.cable == first.record.cable
+                 and binder_of(r.record.pair) == binder_of(first.record.pair)]
+        assert len(group) >= 3
+        terminal.shift_minutes += 900
+        terminal.execute_command(
+            f'report dispatch {group[0].number} cable repair')
+        assert [r.sheath_repaired for r in group[1:]] == [True] * (
+            len(group) - 1)
+        # Sending a crew to a pair that is already dry sends nobody.
+        for other in group[1:]:
+            terminal.execute_command(
+                f'report dispatch {other.number} cable repair')
+        assert terminal.career.fault_sightings == {'WET': 1}
+
+
+class TestTheDifficultySentence:
+    def test_craft_says_mlt_stops_naming_the_fault(self, terminal):
+        result = terminal.execute_command('set game.difficulty craft')
+        assert 'no longer name the fault' in result
+
+    def test_craft_with_annotate_on_does_not_say_it(self, terminal):
+        terminal.execute_command('set assist.annotate on')
+        result = terminal.execute_command('set game.difficulty craft')
+        assert 'no longer name the fault' not in result
+        assert 'cannot be closed until the loop has been measured' in result

@@ -63,8 +63,10 @@ class PreferenceCommands(SessionState):
             result += f"\n\n{difficulty.name}: {difficulty.summary}"
             if difficulty.require_test_before_close:
                 result += ("\n\nFrom here on, a report cannot be closed until "
-                           "the loop has been measured,\nand mechanised loop "
-                           "testing will no longer name the fault for you.")
+                           "the loop has been measured.")
+            if not difficulty.annotation_sightings:
+                result += ("\n\nMechanised loop testing will no longer name "
+                           "the fault for you.")
         if key in ASSISTS_BY_KEY:
             name = self.career.difficulty.name
             if stored == PROFILE:
