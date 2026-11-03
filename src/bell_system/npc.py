@@ -22,6 +22,7 @@ the plant are drawn from the operations the bundled documents describe.
 """
 
 import random
+import zlib
 from datetime import datetime
 from typing import (
     Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple,
@@ -65,8 +66,8 @@ def watch_at(when: datetime) -> str:
     Which watch of the day an hour on the clock falls in.
 
     Only for a clock that is the real one (``date.source`` set to ``real``).
-    A simulated tour starts at 08:00 whichever watch it is worked on, so
-    there the tour says (``tours.watch_of``).
+    A simulated clock opens a tour on its watch's hour, so there the tour
+    says which watch it is (``tours.watch_of``).
     """
     if 8 <= when.hour < 16:
         return 'day'
@@ -170,6 +171,50 @@ CHANNEL_SENDERS: Dict[str, Sequence[str]] = {
 }
 
 
+# A line of chatter is not offered again until this many tours have gone by
+# since it was said. The simulation's own: a career is thirteen tours and a
+# desk's pool is about two dozen lines, so three keeps a line from being the
+# same noise every time. It can still run a busy desk dry inside four tours;
+# when it does, the line said longest ago is offered rather than silence
+# (``Switchroom.chatter``).
+CHATTER_REST_TOURS = 3
+
+# From this tour on, the wire chief says less in the ambient traffic, by this
+# much a tour up to a ceiling. His profile says he says less as the end
+# nears; it was never a number until a line of his came up three times in four
+# tours.
+HALLORAN_QUIET_FROM = 8
+HALLORAN_QUIET_STEP = 0.15
+HALLORAN_QUIET_MAX = 0.7
+
+
+def chatter_key(tour: int, lines: Sequence[str]) -> str:
+    """The career's note that these lines were said on this tour."""
+    return f"said:{tour}:{zlib.crc32(' '.join(lines).encode()):08x}"
+
+
+def rested(lines: Sequence[str], tour: int, seen: Sequence[str]) -> bool:
+    """Whether a line has not been said within the last few tours."""
+    tail = f":{zlib.crc32(' '.join(lines).encode()):08x}"
+    return not any(
+        entry.startswith('said:') and entry.endswith(tail)
+        and tour - int(entry.split(':')[1]) <= CHATTER_REST_TOURS
+        for entry in seen)
+
+
+def forget_rested(ledger: List[str], tour: int) -> None:
+    """Drop the notes of chatter old enough to be said again."""
+    ledger[:] = [entry for entry in ledger
+                 if not entry.startswith('said:')
+                 or tour - int(entry.split(':')[1]) <= CHATTER_REST_TOURS]
+
+
+def halloran_quiet(tour: int) -> float:
+    """The chance, on a tour, that the wire chief's chatter is held back."""
+    return min(HALLORAN_QUIET_MAX,
+               max(0, tour - HALLORAN_QUIET_FROM) * HALLORAN_QUIET_STEP)
+
+
 class Message(NamedTuple):
     """Something one of them sent you."""
 
@@ -241,7 +286,7 @@ _CHATTER: Sequence[tuple] = (
       'CIRCUIT REMOVED FROM SERVICE']),
     (CHANNEL_WRITE, 'mreyes',
      ['Board is filling up out here. If you can clear anything short, do it',
-      'now, because the afternoon batch has not landed yet.']),
+      'now, because the next batch has not landed yet.']),
     (CHANNEL_MAIL, 'ehalloran',
      ['Reminder to all craft: a report closed as no trouble found is still a',
       'report. The index does not care how quickly the board cleared.']),
@@ -286,7 +331,7 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
     'sysop': (
         (CHANNEL_TELETYPE, 'adm',
          ['/usr/spool is at 84 percent. uucp has 47 files queued for pwba',
-          'and pwba has not answered since 06:44.']),
+          'and pwba has not answered since the last run.']),
         (CHANNEL_WRITE, 'tnakamura',
          ['Somebody left a job running on the 11/70 over the weekend and it',
           'is still running. It is not mine. I have looked.']),
@@ -300,12 +345,12 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
 
     'switch': (
         (CHANNEL_WRITE, 'rjohnson',
-         ['Marker 2 took eleven seconds on a third trial this morning. Peg',
+         ['Marker 2 took eleven seconds on a third trial earlier. Peg',
           'count is up and nothing is out of limits, which is the whole',
           'problem with a marker.']),
         (CHANNEL_ORDERWIRE, 'dpetrak',
          ['SCC to office. Your dial tone speed is on the wrong side of the',
-          'objective for the second morning. Nothing is alarming. Somebody',
+          'objective for the second day running. Nothing is alarming. Somebody',
           'is going to ask.']),
         (CHANNEL_WRITE, 'ehalloran',
          ['If it is a false cross or ground the loop will measure clean to',
@@ -334,7 +379,7 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
 
     'noc': (
         (CHANNEL_TELETYPE, 'carot',
-         ['*** REGIONAL SUMMARY 08:00 - 4 GROUPS OVER OBJECTIVE',
+         ['*** REGIONAL SUMMARY - 4 GROUPS OVER OBJECTIVE',
           '*** ALL WITHIN P.01 - NO ACTION INDICATED']),
         (CHANNEL_ORDERWIRE, 'dpetrak',
          ['SCC to national. Bedminster is showing the same three groups you',
@@ -377,7 +422,7 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
           'the first of January. Anything wrong in it on the thirty-first',
           'is wrong in it forever.']),
         (CHANNEL_TELETYPE, 'adm',
-         ['cosmos: 3 pending frame orders unworked at 08:00',
+         ['cosmos: 3 pending frame orders unworked',
           'cosmos: load balance index 0.940 - within objective']),
         (CHANNEL_WRITE, 'rjohnson',
          ['If the cross-connect record and the frame disagree, the frame is',
@@ -404,7 +449,7 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
 
     'custserv': (
         (CHANNEL_WRITE, 'mreyes',
-         ['She has taken the morning off work twice for this. If we miss it',
+         ['She has taken time off work twice for this. If we miss it',
           'again I would rather ring her than have her ring us.']),
         (CHANNEL_WRITE, 'mreyes',
          ['The line tests fine from here about a third of the time and the',
@@ -425,11 +470,11 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
           'four dB and it is raining on it. That is weather, not a fault,',
           'and there is nothing on the ground to go and look at.']),
         (CHANNEL_WRITE, 'gvasquez',
-         ['A path that fades on a clear morning is a dish that has moved.',
+         ['A path that fades on a clear day is a dish that has moved.',
           'Winter does it. Nobody notices until spring.']),
         (CHANNEL_TELETYPE, 'carot',
-         ['*** TH-3 ROUTE 4 - DIVERSITY SWITCH TO PROTECTION 07:41',
-          '*** RESTORED 07:58 - NO ACTION INDICATED']),
+         ['*** TH-3 ROUTE 4 - DIVERSITY SWITCH TO PROTECTION',
+          '*** RESTORED AFTER 17 MIN - NO ACTION INDICATED']),
         (CHANNEL_ORDERWIRE, 'tnakamura',
          ['Transmission to radio. Somebody is going to ask you why we do',
           'not put it on satellite. Half a second, is why.']),
@@ -493,7 +538,7 @@ _SIGN_OFF_REMARKS: Dict[int, Tuple[str, ...]] = {
     3: ('Third. I have signed three for you now and I do not sign three',
         'for everybody. Whatever happens in January, that is a fact about',
         'you and not about the company.',
-        'You are in the adm group as of this morning. That opens the',
+        'You are in the adm group as of today. That opens the',
         'accounting records, /usr/adm/sulog included, which you will find',
         'has your name in it.'),
     4: ('Fourth. You are quicker on the board than I was at this point,',
@@ -566,7 +611,7 @@ ARC_BEATS: Tuple[ArcBeat, ...] = (
         'I said the trouble card for the line carries on. Is that right?',
     )),
     ArcBeat('alvarez.2', CHANNEL_WRITE, 'ehalloran', (10, 12), (
-        'Alvarez rang this morning to ask how the position was going.',
+        'Alvarez rang today to ask how the position was going.',
         'I said it was being worked. That was the whole call.',
     )),
     ArcBeat('sandoval.3', CHANNEL_ORDERWIRE, 'jsandoval', (12, 13), (
@@ -722,7 +767,8 @@ class Switchroom:
     # -- traffic ---------------------------------------------------------
 
     def chatter(self, now: datetime, position: Optional[str] = None,
-                tour: Optional[int] = None) -> Optional[Message]:
+                tour: Optional[int] = None,
+                seen: Sequence[str] = ()) -> Optional[Message]:
         """
         Return an ambient message, or None if the pool is used up.
 
@@ -731,6 +777,10 @@ class Switchroom:
         printing trunk exceptions, because the teletype does not care who
         is sitting there. A line tagged for part of the countdown is
         offered only on those tours; with no tour given, all of them are.
+
+        With a tour, nothing the career's ledger (``seen``) says was said
+        within the last few tours is offered again, and the wire chief's
+        thin out as the career runs down.
         """
         pool = tuple(_CHATTER) + tuple(_POSITION_CHATTER.get(position or '', ()))
         if tour is not None:
@@ -739,7 +789,14 @@ class Switchroom:
         # Only whoever is on the watch it is can say anything: the order
         # wire, the mail and the write(1) traffic all come from somebody.
         pool = tuple(item for item in pool if self.present(item[1], now))
-        picked = self._pick(pool, 'chatter')
+        if tour is not None:
+            if self.rng.random() < halloran_quiet(tour):
+                pool = tuple(item for item in pool if item[1] != 'ehalloran')
+            pool = (tuple(item for item in pool
+                          if rested(item[2], tour, seen))
+                    or self._longest_ago(pool, seen))
+        picked = self._pick(pool, 'chatter') or (
+            self.rng.choice(pool) if pool else None)
         if picked is None:
             return None
         channel, sender, lines = picked[:3]
@@ -747,6 +804,19 @@ class Switchroom:
             channel=channel, sender=sender, received=now, lines=list(lines),
             kind='chatter', subject=lines[0][:40], about=None,
         ))
+
+    @staticmethod
+    def _longest_ago(pool: Sequence[tuple], seen: Sequence[str]) -> tuple:
+        """The lines in a pool that were said longest ago, or never."""
+        def last(item: tuple) -> int:
+            tail = f":{zlib.crc32(' '.join(item[2]).encode()):08x}"
+            return max((int(entry.split(':')[1]) for entry in seen
+                        if entry.startswith('said:')
+                        and entry.endswith(tail)), default=-1)
+        if not pool:
+            return ()
+        oldest = min(last(item) for item in pool)
+        return tuple(item for item in pool if last(item) == oldest)
 
     def next_message(self, now: datetime, tour: int,
                      position: Optional[str] = None,
@@ -778,7 +848,7 @@ class Switchroom:
         board = self._board_driven(now, overdue, seen)
         if board is not None:
             return board
-        return self.chatter(now, position=position, tour=tour)
+        return self.chatter(now, position=position, tour=tour, seen=seen)
 
     def _arc_beat(self, now: datetime, tour: int, seen: Sequence[str],
                   recall: Optional[Late] = None) -> Optional[Message]:
@@ -1072,16 +1142,23 @@ class Switchroom:
 
     @staticmethod
     def _gone_lines(late: Late) -> List[str]:
-        """Reyes on a line out of service past its time: theirs, then hers."""
+        """
+        Reyes on a report past its time: the report, then the customer.
+
+        The customer's words are by class of service when the line is out. A
+        line that still works has nobody ringing from a neighbour's, so she
+        says only that they want a time, and nothing about the line: what it
+        is doing is for the readings to say.
+        """
         return [
             f'{late.number} on {late.telephone} was due {late.committed} '
             f'and has gone. What do I tell them?',
-            consequences.overdue(late.class_of_service),
+            consequences.overdue(late.class_of_service) if late.out_of_service
+            else 'They would like a time.',
         ]
 
     def overdue_notice(self, now: datetime, report_number: str,
-                       telephone_number: str,
-                       late: Optional[Late] = None) -> Message:
+                       late: Late) -> Message:
         """
         The attendant, once, on a report that has just passed its commitment.
 
@@ -1092,14 +1169,7 @@ class Switchroom:
         report alone, since she has already raised it.
         """
         self._chased.add(report_number)
-        if late is not None and late.out_of_service:
-            lines = self._gone_lines(late)
-        else:
-            lines = [
-                f'{report_number} is past its commitment.',
-                f'{telephone_number} is on the line asking when. I told',
-                'them a time and it has gone. What do I tell them now?',
-            ]
+        lines = self._gone_lines(late)
         return self._deliver(Message(
             channel=CHANNEL_WRITE, sender='mreyes', received=now,
             lines=lines,

@@ -97,13 +97,17 @@ class BureauCommands(SessionState):
     which owns the session state these read.
     """
 
-    def _initialize_repair_bureau(self) -> None:
+    def _initialize_repair_bureau(
+            self, rng: Optional[random.Random] = None) -> None:
         """
         Stand up the report board, the other craft, and the home wire centre.
 
         The wire centre is chosen from the geographic data already loaded so
         the reports the desk generates carry a numbering plan area and a
         COMMON LANGUAGE code that belong together.
+
+        Args:
+            rng: Source for the board; ``None`` draws a fresh one
         """
         home = None
         for office in self.central_offices.values():
@@ -146,7 +150,8 @@ class BureauCommands(SessionState):
 
         self.desk = ReportDesk(npa, nxx, self.home_office['clli'],
                                wet_bias=career_progress(
-                                   self.career.shift))
+                                   self.career.shift),
+                               rng=rng)
         # The career's index counts reports left open past commitment, and
         # the only place that is true is the board.
         self.career.open_overdue = lambda: sum(
@@ -157,7 +162,10 @@ class BureauCommands(SessionState):
             report.number for report in self.desk.customers()
             if report.overdue()]
         self.switchroom = Switchroom()
-        self.special_services = SartsInventory(self.home_office['clli'])
+        # Its own stream, so the inventory's draws do not shift the desk's.
+        self.special_services = SartsInventory(
+            self.home_office['clli'],
+            rng=None if rng is None else random.Random(rng.random()))
         self.lmos_console = LmosConsole(self)
         self.sarts_console = SartsConsole(self)
         self._queued_messages: deque = deque()
@@ -517,7 +525,8 @@ class BureauCommands(SessionState):
         if not went:
             # Nobody went: either the force is all out, or the sheath is
             # already repaired. Either way there is no field call coming.
-            if report.sheath_repaired:
+            if (report.sheath_repaired
+                    or not self.settings.is_on('game.prompts')):
                 return finding
             wait_note = self._while_you_wait(report, canonical)
             return finding + '\n\n' + wait_note

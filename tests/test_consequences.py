@@ -111,20 +111,23 @@ class TestTheOverdueChase:
     def test_the_notice_and_the_chase_never_say_it_twice(self):
         """Said when the commitment passed, so the board need not ask."""
         room = Switchroom(random.Random(1))
-        room.overdue_notice(NOW, LATE.number, LATE.telephone, LATE)
+        room.overdue_notice(NOW, LATE.number, LATE)
         assert room._board_driven(NOW, [LATE]) is None
 
     def test_a_notice_for_a_line_out_is_the_customers_by_class(self):
         notice = Switchroom(random.Random(1)).overdue_notice(
-            NOW, LATE.number, LATE.telephone, LATE)
+            NOW, LATE.number, LATE)
         assert notice.lines == Switchroom._gone_lines(LATE)
         assert notice.lines[1] == consequences.overdue('1FR')
 
     def test_a_notice_for_a_line_with_service_is_the_plain_one(self):
         notice = Switchroom(random.Random(1)).overdue_notice(
-            NOW, LATE.number, LATE.telephone,
+            NOW, LATE.number, LATE._replace(out_of_service=False))
+        assert notice.lines == Switchroom._gone_lines(
             LATE._replace(out_of_service=False))
-        assert 'past its commitment' in notice.lines[0]
+        assert 'was due' in notice.lines[0]
+        assert 'neighbour' not in ' '.join(notice.lines)
+        assert 'working' not in ' '.join(notice.lines)
 
     def test_a_chase_the_ledger_has_is_not_made_again(self):
         room = Switchroom(random.Random(1))

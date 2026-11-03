@@ -26,7 +26,9 @@ from ..npc import (
     Message,
     CRAFT_BY_NAME,
     adjust_rapport,
+    chatter_key,
     favour_due,
+    forget_rested,
     is_away,
     on_shift,
     rapport_with,
@@ -36,11 +38,6 @@ from ..npc import (
 from ..progression import (
     QUALIFICATIONS,
 )
-from ..settings import (
-    EPOCH_HOUR,
-)
-
-
 from .session import SessionState
 
 
@@ -129,6 +126,7 @@ class ShiftCommands(SessionState):
         self.emit(f"\n{'='*60}")
         self.emit(f"BELL SYSTEM SHIFT BRIEFING - {current_date}")
         self.emit(f"Shift Start Time: {current_time}")
+        self.emit(f"Watch: {self._get_shift_hours()}")
         # Find the role name for display
         role_name = "Unknown Role"
         for role_id, (role_key, name) in BELL_SYSTEM_ROLES.items():
@@ -234,11 +232,10 @@ class ShiftCommands(SessionState):
         """
         Which watch of the day this tour is worked on.
 
-        The tour says (``tours.watch_of``): the clock starts every tour at
-        08:00 and a tour is eight hours of work, so the hour on it never
-        gets as far as an evening or a night. With ``date.source`` set to
-        ``real`` the clock is the host's and its hour decides, since that is
-        the one place the hour on the clock is the hour.
+        The tour says (``tours.watch_of``), and the clock opens the tour on
+        that watch's hour. With ``date.source`` set to ``real`` the clock is
+        the host's and its hour decides, since that is the one place the
+        hour on the clock is the hour.
         """
         if self.settings.get('date.source') == 'real':
             return watch_at(self.clock.now())
@@ -395,6 +392,11 @@ class ShiftCommands(SessionState):
     def _stamp(self) -> str:
         """Return a timestamp in the form the messaging channels carried."""
         return self.clock.log_stamp()
+
+    def start_tour_clock(self) -> None:
+        """Put the clock on this tour's day and the hour of its watch."""
+        self.clock.set_tour(self.career.shift,
+                            tours.start_hour(self.career.shift))
     def _queue_message(self, message, after: int) -> None:
         """
         Hold a message back so it lands a few commands from now.
@@ -555,7 +557,12 @@ class ShiftCommands(SessionState):
                     ledger.append(f'about:{message.about}')
             elif message.kind == 'chase' and message.about:
                 ledger.append(f'chased:{message.about}')
-            if message.beat or message.kind == 'chase':
+            elif message.kind == 'chatter':
+                forget_rested(ledger, self.career.shift)
+                key = chatter_key(self.career.shift, message.lines)
+                if key not in ledger:
+                    ledger.append(key)
+            if message.beat or message.kind in ('chase', 'chatter'):
                 self.career.save()
         return message
 
@@ -685,13 +692,20 @@ class ShiftCommands(SessionState):
         self.career.record_missed(len(late))
         notices = []
         for report in late:
+            # Missed is counted either way; said is once. A shift file that
+            # was dealt again must not make her say it a second time.
+            if f'chased:{report.number}' in self.career.beats_seen:
+                continue
             self.career.beats_seen.append(f'chased:{report.number}')
             notices.append(self.switchroom.overdue_notice(
                 self.clock.now(), report.number,
-                report.record.telephone_number,
                 Late(report.number, report.record.telephone_number,
                      report.record.class_of_service, report.out_of_service,
                      report.commitment.strftime('%H:%M'))))
+        # The ledger is the only thing that remembers, across a quit, that
+        # she has said it: written now, not at the next beat, or a resume
+        # lets the board-driven chase ask the same again.
+        self.career.save()
         return notices
 
     def _weather_events(self, was: int) -> List[str]:
@@ -735,7 +749,8 @@ class ShiftCommands(SessionState):
         return f"{self.shift_minutes // 60}:{self.shift_minutes % 60:02d}"
     def _due_events(self) -> List[Dict[str, Any]]:
         """Return the events whose time the working shift has reached."""
-        reached = EPOCH_HOUR * 60 + self.shift_minutes
+        reached = (tours.start_hour(self.career.shift) * 60
+                   + self.shift_minutes)
         due_now = []
         for event in self.shift_events:
             if event['id'] in self._fired_events:
