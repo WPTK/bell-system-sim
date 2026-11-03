@@ -24,7 +24,7 @@ from ..data.trouble import (
 from ..clock import career_progress
 from ..console import article as _a, sentence_case as _lower, wrap
 from ..lmos import LmosConsole
-from ..loop_testing import STAGE_NUMBERS, post_mortem, reading_stage
+from ..loop_testing import names_fault, post_mortem, reading_stage
 from ..npc import (
     Switchroom,
 )
@@ -303,7 +303,7 @@ class BureauCommands(SessionState):
     def _show_report_board(self) -> str:
         """Render the pending list, nearest commitment first."""
         self._board_reviewed = True
-        pending = self.desk.pending()
+        pending = self.desk.listing()
         office = self.home_office
         header = (
             f"Repair Service Bureau - Pending Trouble Reports\n"
@@ -450,10 +450,13 @@ class BureauCommands(SessionState):
             '-' * 74,
         ]
         for fault in FAULTS.values():
-            lines.append(
-                f"{fault.code:<10} {fault.name:<26} {fault.where:<9} "
-                f"{fault.dispatch}"
-            )
+            row = (f"{fault.code:<10} {fault.name:<26} {fault.where:<9} "
+                   f"{fault.dispatch}")
+            if fault.dispatch.startswith('None') and fault.code != 'NONE':
+                # Nobody is sent, so it reads like nothing found; it is
+                # still a finding, and closes as one.
+                row += "\n" + f"{'':<10} close 5 {fault.code}, not 8"
+            lines.append(row)
         lines.extend([
             '-' * 74,
             '',
@@ -484,7 +487,7 @@ class BureauCommands(SessionState):
 
         # A crew that goes to the wrong place reads nothing, so only a
         # dispatch that finds something is a sighting.
-        name_fault = self._reading_stage(report, count=False) != STAGE_NUMBERS
+        name_fault = names_fault(self._reading_stage(report, count=False))
         finding = self.desk.dispatch(report, canonical, self.shift_minutes,
                                      name_fault)
         # Only a crew that went reads the plant. A report another report's

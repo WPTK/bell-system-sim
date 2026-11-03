@@ -327,6 +327,10 @@ class ReportDesk:
         self.rng = rng or random.Random()
         self.reports: Dict[str, TroubleReport] = {}
         self.order: List[str] = []
+        # The numbers on the board as the player last saw it, so that a
+        # position means the row they read and not wherever a report that
+        # has arrived since has pushed it. Empty until the board is listed.
+        self.listed: List[str] = []
         self._sequence = self.rng.randint(1200, 8600)
         self.closed_count = 0
         self.repeat_count = 0
@@ -588,6 +592,18 @@ class ReportDesk:
         ]
         return sorted(open_reports, key=lambda report: report.due_in())
 
+    def listing(self) -> List[TroubleReport]:
+        """
+        Return the pending reports for the board and pin their positions.
+
+        A position is a row on the listing the player last saw. The board
+        re-sorts whenever a report arrives, so the pin holds until the next
+        listing.
+        """
+        pending = self.pending()
+        self.listed = [report.number for report in pending]
+        return pending
+
     def customers(self) -> List[TroubleReport]:
         """
         Open reports that are a customer's, nearest commitment first.
@@ -629,6 +645,12 @@ class ReportDesk:
 
         if token.isdigit():
             position = int(token)
+            if self.listed:
+                if 1 <= position <= len(self.listed):
+                    pinned = self.reports.get(self.listed[position - 1])
+                    if pinned is not None and pinned.status != STATUS_CLOSED:
+                        return pinned
+                return None
             pending = self.pending()
             if 1 <= position <= len(pending):
                 return pending[position - 1]
@@ -674,17 +696,21 @@ class ReportDesk:
                     f"opened. The pair came back with the rest of the "
                     f"group.\nNobody needs to go. Close it out: {close}.")
 
-        report.dispatched_to = force
-
+        # A dispatch that nobody answers changes nothing about the report
+        # but the call it cost, so its status is only set once a crew has
+        # been found. dispatched_to is how the screen tells that nobody went.
+        report.dispatched_to = None
         if force.lower() != wanted.lower():
             crew, travel, came_from = self.force.send(
                 force, report.number, COST_WRONG_DISPATCH, now)
+            if crew is None:
+                report.spend(COST_DISPATCH, desk=COST_DISPATCH)
+                return (f"Nobody free on {force.lower()}, which is just as "
+                        f"well: the trouble is not theirs.")
+            report.dispatched_to = force
             report.spend(COST_WRONG_DISPATCH + COST_DISPATCH + travel,
                          desk=COST_DISPATCH + COST_WRONG_DISPATCH_DESK)
             report.status = STATUS_DISPATCHED
-            if crew is None:
-                return (f"Nobody free on {force.lower()}, which is just as "
-                        f"well: the trouble is not theirs.")
             report.crew = crew.name
             report.travel_minutes = travel
             return (f"{crew.name} rolled from {came_from}, {travel} minutes, "
@@ -701,8 +727,6 @@ class ReportDesk:
             # does not vanish; it waits, and the wait is on the commitment.
             waiting = self.force.soonest_free(force, now)
             report.spend(COST_DISPATCH, desk=COST_DISPATCH)
-            report.status = STATUS_PENDING
-            report.dispatched_to = None
             if waiting is None:  # pragma: no cover - no crew for the category
                 return f"Nobody answers {force} from this position."
             wait = max(0, waiting.back_at() - now)
@@ -712,6 +736,7 @@ class ReportDesk:
                     f"{hours_minutes(waiting.back_at())} into the tour.\n"
                     f"{report.number} stays on the board.")
 
+        report.dispatched_to = force
         report.crew = crew.name
         report.travel_minutes = travel
         # The repair and the drive are the field force's time, not yours,

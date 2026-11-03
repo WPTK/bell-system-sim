@@ -209,7 +209,7 @@ SHEETS: Dict[str, Sheet] = {sheet.number: sheet for sheet in (
           [('Which crew clears which condition', OWN),
            ('Typical repair minutes', OWN)],
           _who),
-    Sheet('660-001', 'Reading a mechanised loop test',
+    Sheet('660-001', 'Reading a mechanised loop test (mlt)',
           [('Resistance ranges for each condition', OWN),
            ('Foreign voltage with no battery on the pair read as foreign EMF '
             'or a cross', OWN),
@@ -270,6 +270,27 @@ def render(number: str) -> str:
     lines.extend(['', '=' * 72])
     lines.extend(sheet.body())
     return '\n'.join(line.rstrip() for line in lines) + '\n'
+
+
+def search(topic: str) -> List[Sheet]:
+    """
+    Find the sheets that are about a topic.
+
+    Args:
+        topic: Words to look for; a sheet matches when every one of them is
+            in its number, its title or its text
+
+    Returns:
+        The matching sheets, in binder order
+    """
+    words = topic.lower().split()
+    found = []
+    for number in sorted(SHEETS):
+        sheet = SHEETS[number]
+        text = f"{number} {sheet.title} {render(number)}".lower()
+        if all(word in text for word in words):
+            found.append(sheet)
+    return found
 
 
 def index() -> str:

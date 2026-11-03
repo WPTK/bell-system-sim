@@ -19,6 +19,7 @@ from ..data.practicals import PRACTICALS, Practical, Scene
 from ..npc import render as render_message
 from ..progression import QUALIFICATIONS_BY_KEY
 from ..reports import TroubleReport
+from ..verbs import measured
 from .session import SessionState
 
 # A staged report is never late. Nothing about it is the customer's.
@@ -148,6 +149,8 @@ class PracticalCommands(SessionState):
             '',
             f"{report.number} is on your board. You have the tools of the "
             f"sign-off for as long as it is there.",
+            f"Measure it first (mlt {report.number}): I sign the reading "
+            f"as well as the fix.",
             "'hint' is free while it is. 'qual submit' when you are done.",
         ])
         if again:
@@ -162,7 +165,13 @@ class PracticalCommands(SessionState):
                     "'qual take <sign-off>' sets one up.")
         practical, report = staged
         scene = self._scene(report)
-        missed = practical.check(scene)
+        # The sign-off certifies a reading as well as a fix: a line moved
+        # without being measured is a guess that happened to land.
+        missed = [] if measured(report) else [
+            f"You never measured {report.number}. I sign for the reading "
+            f"that told you where to look, not only for the fix: mlt "
+            f"{report.number} first."]
+        missed += practical.check(scene)
         self._end_practical(practical, report)
         if missed:
             lines = [f"Practical: {practical.title} - not signed.", '']

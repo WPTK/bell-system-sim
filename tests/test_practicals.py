@@ -46,7 +46,10 @@ def staged(terminal):
     return practical, report
 
 
-def work(terminal, key, number):
+def work(terminal, key, number, measure=True):
+    """Work a practical as a player would: read the line, then fix it."""
+    if measure:
+        terminal.execute_command(f'mlt {number}')
     for command in SOLUTIONS[key]:
         terminal.execute_command(command.format(n=number))
 
@@ -196,6 +199,27 @@ def test_handing_in_nothing_says_what_was_missed(terminal, key):
     assert terminal._practical_open() is None
     assert 'You are signed off on' not in reply
     assert f"'qual take {key}'" in reply
+
+
+@pytest.mark.parametrize('key', KEYS)
+def test_fixing_it_without_measuring_it_is_not_signed(terminal, key):
+    ready(terminal, key)
+    terminal.execute_command(f'qual take {key}')
+    _, report = staged(terminal)
+    work(terminal, key, report.number, measure=False)
+    reply = terminal.execute_command('qual submit')
+    assert 'not signed' in reply and 'never measured' in reply
+    assert f'mlt {report.number}' in ' '.join(reply.split())
+    assert not terminal.career.is_qualified(key)
+    assert key not in terminal.career.practicals_passed
+
+
+def test_the_office_repro_clears_the_line_and_still_fails_unmeasured(terminal):
+    ready(terminal, 'office')
+    terminal.execute_command('qual take office')
+    _, report = staged(terminal)
+    terminal.execute_command(f'switch clear {report.number}')
+    assert 'not signed' in terminal.execute_command('qual submit')
 
 
 @pytest.mark.parametrize('key', KEYS)

@@ -307,6 +307,8 @@ def take_practicals(terminal) -> None:
         staged = terminal._practical_open()
         if staged is None:
             continue
+        # He signs the reading as well as the fix, so measure first.
+        terminal.execute_command(f'mlt {staged[1].number}')
         for command in PRACTICAL_SOLUTIONS[offered.key]:
             terminal.execute_command(command.format(n=staged[1].number))
         terminal.execute_command('qual submit')

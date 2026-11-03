@@ -51,7 +51,7 @@ from .filesystem import Node, normalise
 from .npc import render as render_message
 from .data.man_pages import MAN_PAGES
 from .data.positions import get as neutral_position
-from .loop_testing import STAGE_NUMBERS
+from .loop_testing import names_fault
 from .progression import (
     QUALIFICATIONS_BY_KEY,
     ROLE_QUALIFICATIONS,
@@ -1494,8 +1494,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
             rows.append(f"dispatched  {report.dispatched_to}"
                         + (f" ({report.crew})" if report.crew else ''))
         if report.field_finding:
-            named = (self._reading_stage(report, count=False)
-                     != STAGE_NUMBERS)
+            named = names_fault(self._reading_stage(report, count=False))
             rows.append("field found "
                         + (report.field_finding if named else 'cleared'))
         if report.sheath_repaired:

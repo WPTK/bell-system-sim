@@ -69,28 +69,28 @@ shift's weather regime is drizzle or worse, from `weather.py` `REGIMES` and
 `WET_LEAN` leaned by `career_progress`; the weather then drifts hourly, so
 this is the lean, not the day.
 
-| Tour | Date | Days left | Board (neutral desk) | Wet regime | Rain or heavy | Shape (**guess**) |
+| Tour | Date | Days left | Board (neutral desk) | Wet regime | Rain or heavy | Shape (`kind`: theme, from `data/tours.py`) |
 | ---: | --- | ---: | ---: | ---: | ---: | --- |
-| 1 | 14 Nov | 48 | 9 (the player is held to 1 report, `FIRST_TOUR`) | 36% | 16% | Build |
-| 2 | 18 Nov | 44 | 9 | 37% | 17% | Build |
-| 3 | 22 Nov | 40 | 9 | 39% | 18% | Build |
-| 4 | 26 Nov | 36 | 10 | 40% | 19% | Build; first tour after Thanksgiving |
-| 5 | 30 Nov | 32 | 10 | 41% | 20% | Rise |
-| 6 | 4 Dec | 28 | 10 | 43% | 21% | Rise |
-| 7 | 8 Dec | 24 | 10 | 44% | 22% | Rise |
-| 8 | 12 Dec | 20 | 10 | 45% | 23% | Rise |
-| 9 | 16 Dec | 16 | 10 | 46% | 23% | Crisis: Marker 2 may fail (A7) |
-| 10 | 20 Dec | 12 | 10 | 47% | 24% | Crisis |
-| 11 | 24 Dec | 8 | 11 | 47% | 25% | Relief: Christmas Eve |
-| 12 | 28 Dec | 4 | 11 | 48% | 26% | Relief: after Christmas Day |
-| 13 | 31 Dec | 1 | 11 | 49% | 26% | Farewell: the audit (A2) |
+| 1 | 14 Nov | 48 | 9 (the player is held to 1 report, `FIRST_TOUR`) | 36% | 16% | Build: A new board |
+| 2 | 18 Nov | 44 | 9 | 37% | 17% | Build: Records stay |
+| 3 | 22 Nov | 40 | 9 | 39% | 18% | Build: Before the holiday |
+| 4 | 26 Nov | 36 | 10 | 40% | 19% | Crisis: After the holiday (first tour after Thanksgiving) |
+| 5 | 30 Nov | 32 | 10 | 41% | 20% | Build: Deferred work |
+| 6 | 4 Dec | 28 | 10 | 43% | 21% | Relief: Weekend coverage |
+| 7 | 8 Dec | 24 | 10 | 44% | 22% | Crisis: Pressure watch |
+| 8 | 12 Dec | 20 | 10 | 45% | 23% | Build: Inventory for transfer |
+| 9 | 16 Dec | 16 | 10 | 46% | 23% | Build: Close honestly |
+| 10 | 20 Dec | 12 | 10 | 47% | 24% | Relief: The new owners |
+| 11 | 24 Dec | 8 | 11 | 47% | 25% | Crisis: Christmas Eve |
+| 12 | 28 Dec | 4 | 11 | 48% | 26% | Relief: The controls come off |
+| 13 | 31 Dec | 1 | 11 | 49% | 26% | Farewell: The last day (the audit, A2) |
 
 The board and weather numbers rise by about two reports and ten points of
 rain probability across a career. That is gentle on purpose: the load that
 makes tour 13 different from tour 1 should come from the calendar's beats
 (`tours.py`, A1) and from what the player is by then expected to know, not
-from a bigger board. The shape column is a **guess** for `tours.py` to confirm
-or replace.
+from a bigger board. The shape column is each tour's `kind` and `theme` in
+`data/tours.py`; Marker 2 (A7, tour 9 or 10 in section 8) is not a tour kind.
 
 ### Fun against craft
 
@@ -256,7 +256,7 @@ Mark an item done only with the run recorded.
 - [ ] No single axis (knowledge, time, resource) is the stated cause of most complaints.
 
 ### Tours 10 to 12 (late)
-- [ ] The relief tours (11 and 12) are felt as lower pressure by a majority of testers.
+- [ ] The relief tours (6, 10 and 12) are felt as lower pressure by a majority of testers.
 - [ ] Every regular has been met at least twice and resolved or abandoned by tour 13 (C16).
 
 ### Tour 13 (finale)
@@ -278,4 +278,3 @@ Mark an item done only with the run recorded.
 | Real minutes for the first report at 300 baud | C28 |
 | Whether Fun's ladder, finished by tour 3 to 6, leaves tours 7 to 13 enough to pull on | Playtest, then A1's set pieces |
 | Whether interruption rate should be an assist | New; not planned |
-| The shape column in section 4 | A1 (`tours.py`) |
