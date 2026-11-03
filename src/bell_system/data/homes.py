@@ -188,9 +188,9 @@ fortnight. The numbers are boring and then one day they are not, and
 you will only know which day that is because you know what boring
 looks like.
 
-Mother's Day is one of the heaviest calling days of the year and it
-comes round every year. It is not a surprise and it is not an outage.
-Do not raise anything.
+Long-haul calling jams the intertoll trunks on Mother's Day and on
+Christmas Day, and both come round every year. It is not a surprise and
+it is not an outage. Do not raise anything.
 
                                              - D. Petrak
 """,

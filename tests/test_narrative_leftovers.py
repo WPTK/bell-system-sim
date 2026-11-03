@@ -194,6 +194,7 @@ class TestI13I14PeriodClaimsAreSourcedOrGone:
         noc = HOMES['noc']['watch.notes']
         tsps = HOMES['tsps']['position.notes']
         assert 'forty years' not in noc and 'busiest' not in noc
+        assert 'heaviest' not in noc
         assert 'thirty seconds' not in tsps and 'hundred' not in tsps
         assert 'class 4' not in DIVESTITURE_MEMO
         assert 'class 4' not in NEWS_GENERAL_203
@@ -202,9 +203,9 @@ class TestI13I14PeriodClaimsAreSourcedOrGone:
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         with open(os.path.join(root, 'SOURCES.md'), encoding='utf-8') as handle:
             sources = handle.read()
-        for needle in ("Mother's Day is among the heaviest",
+        for needle in ("Long-haul calling jams the intertoll trunks on Mother's Day",
                        'about 250 milliseconds one way',
-                       'interexchange facilities and service between LATAs',
+                       'service between LATAs is offered by AT&T and other interexchange carriers',
                        'UNIX Version 7'):
             assert needle in sources, needle
 

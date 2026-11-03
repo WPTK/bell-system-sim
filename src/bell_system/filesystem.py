@@ -158,8 +158,9 @@ companies are divested from AT&T on that date.
 WHAT THIS MEANS FOR THIS OFFICE
 
   This wire centre, its outside plant and its records pass to the
-  operating company. Interexchange facilities and inter-LATA service
-  remain with AT&T.
+  operating company. Interexchange facilities pass to AT&T, and
+  inter-LATA service is offered by AT&T and the other interexchange
+  carriers.
 
   Your employment continues. Your craft qualifications transfer.
   Service index history transfers.
@@ -1195,7 +1196,8 @@ NEWS_GENERAL_203 = _article(
     """Nobody in my building can give a straight answer, so let me try here.
 
 The operating company gets the wire centres, the loops and the local
-switching. AT&T keeps long distance and the facilities for it. Fine.
+switching. AT&T gets the facilities for long distance, and long distance is AT&T's
+and the other carriers'. Fine.
 Understood. What I cannot get anybody to tell me is which one of those
 this computer belongs to, and I have twelve years of trouble history on
 it.
