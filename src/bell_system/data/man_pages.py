@@ -2029,6 +2029,42 @@ SEE ALSO
      help(1), report(1), qual(1), man(1)
 """,
 
+    "career": """
+NAME
+     career - the craft record, and starting the next career
+
+SYNOPSIS
+     career
+     career new
+     career new confirm
+
+DESCRIPTION
+     With nothing after it, career is qual: the craft record, the
+     qualifications and the service index.
+
+     'career new' is for a career that has been signed off at the last
+     tour. It says what it will do and does nothing. 'career new confirm'
+     does it: the record is moved into an archive directory beside the
+     other save files (nothing is deleted), the session ends, and the
+     next time the game is run it begins at tour 1.
+
+     The next career is not alone. The files you wrote under /usr/users/
+     are left under /usr/users/prior/ for whoever has the desk, with a
+     short note of totals. They are read only, and nobody is named in
+     them. They say how a career ended and never anything about a report.
+
+FILES
+     career.json, shift.json, home.json
+                    the career, the working tour and the player's files;
+                    moved to archive/career-N/ by 'career new confirm'
+     legacy.json    what is handed on, at most 64 KB
+     /usr/users/prior/
+                    the earlier holder's files, in the next career
+
+SEE ALSO
+     qual(1), handoff(1), man(1)
+""",
+
     "qual": """
 NAME
      qual - craft record, qualifications and service index

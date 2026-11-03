@@ -561,6 +561,11 @@ class Career:
                                    DIFFICULTIES[DEFAULT_DIFFICULTY])
         return profile._replace(**self._assists) if self._assists else profile
 
+    @property
+    def assisted(self) -> bool:
+        """Whether any assist is in force, which departs from the profile."""
+        return bool(self._assists)
+
     def set_assists(self, overrides: Dict[str, Any]) -> None:
         """
         Replace the assists in force.

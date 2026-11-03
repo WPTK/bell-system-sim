@@ -71,6 +71,7 @@ shift                   Where you are in the tour
 handoff                 The full turnover record
 handoff relieve         Sign off. The index banks, the day moves on
 qual [index]            Craft record, qualifications and service index
+career new [confirm]    After the last tour: file the career, start the next
 
 DIFFICULTY AND SETTINGS
 -----------------------
@@ -138,7 +139,7 @@ set  help  man  status  test  history  errors  verbosity  clear  quit
 COMMAND ALIASES
 ---------------
 h, ?      = help          q, exit, logout = quit      st, stat = status
-board, reports, rsb = report      loop = mlt          career, index = qual
+board, reports, rsb = report      loop = mlt          index = qual
 tl = testline     tc, call = testcall     ow = orderwire
 settings, options, config = set   ll, la, dir = ls    w, users = who
 

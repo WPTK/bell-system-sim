@@ -42,7 +42,7 @@ from .constants import (
     BELL_SYSTEM_ROLES,
     SHIFT_LENGTH_MINUTES,
 )
-from . import save
+from . import legacy, save
 from .clock import SimClock, days_to_divestiture
 from .console import render
 from .data import geography
@@ -59,6 +59,7 @@ from .progression import (
     career_path,
 )
 from .routing import build_default_network
+from .legacy import legacy_path
 from .save import home_path, shift_path
 from .screens.customer import CustomerCommands
 from .screens.fraud import FraudThread
@@ -71,6 +72,7 @@ from .screens.bureau import BureauCommands
 from .screens.callback import CallbackCommands
 from .screens.cases import CaseCommands
 from .screens.carrier import CarrierCommands
+from .screens.careers import CareerCommands
 from .screens.dispatch import CommandDispatch
 from .screens.docprep import DocumentCommands as DocPrepCommands
 from .screens.documents import DocumentCommands
@@ -140,6 +142,7 @@ RESERVED_LMOS_NAMES = frozenset({'board', 'closed', 'cable'})
 class BellSystemTerminal(
     CommandDispatch,
     CarrierCommands,
+    CareerCommands,
     SwitchingCommands,
     TndsCommands,
     TspsCommands,
@@ -280,6 +283,8 @@ class BellSystemTerminal(
         # What the player wrote on an earlier run, if anything.
         self.home_file = home_path(state_dir())
         self.home_notice = save.load_home(self.home_file, self)
+        # What an earlier career left, if one did: files in /usr/users/prior.
+        legacy.seed(self.filesystem, legacy.load(legacy_path(state_dir())))
         # at(1) keeps a queue, uux(1) a job counter. Both live for the
         # session; the shift is one shift and nothing outlives it.
         self._at_jobs: List[Dict[str, Any]] = []
@@ -1224,6 +1229,11 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                     # insuring against is the window being closed rather
                     # than the session being ended politely.
                     self.save_shift()
+                    # 'career new confirm' has filed the career: this
+                    # session has nothing left to write to.
+                    if self._career_filed:
+                        self.emit("Session terminated.")
+                        break
 
                 except KeyboardInterrupt:
                     self.emit("\n^C")

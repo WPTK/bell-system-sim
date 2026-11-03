@@ -43,6 +43,12 @@ Run it with:
 
     python3 tools/index_calibration.py [shifts]
     python3 tools/index_calibration.py ladder [careers]
+    python3 tools/index_calibration.py peers [careers]
+
+`peers` plays careers at several skills and paces, collects each tour's
+repair time and share of closes that matched the line, and writes the
+deciles to src/bell_system/data/peers.py for the tour ledger. Run it after
+any change to the balance: it is only true of the board it was played on.
 """
 
 import os
@@ -52,7 +58,7 @@ import sys
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'src'))
 
@@ -315,7 +321,8 @@ def take_practicals(terminal) -> None:
 
 
 def play_career(skill: float, difficulty: str, seed: int,
-                tours: int = 13) -> List[int]:
+                tours: int = 13, dawdle: int = 0,
+                tour_log: Optional[list] = None) -> List[int]:
     """
     Work a whole career through the real terminal and return its sign-offs.
 
@@ -330,6 +337,10 @@ def play_career(skill: float, difficulty: str, seed: int,
         difficulty: ``fun`` or ``craft``
         seed: Seeds the board, from its own stream, and the bot's mistakes
         tours: How many tours to work
+        dawdle: Minutes spent on the clock after every close, for a peer who
+            is not the ceiling the bot otherwise is
+        tour_log: If given, each tour's (repair minutes, percent matched,
+            closes) is appended before the handoff
 
     Returns:
         For each tour, how many sign-offs were held at its handoff
@@ -377,11 +388,112 @@ def play_career(skill: float, difficulty: str, seed: int,
             else:
                 said = f'5 {rng.choice(REAL_FAULTS)}'
             terminal.execute_command(f'report close {number} {said}')
+            if dawdle:
+                terminal.execute_command(f'sleep {dawdle}')
             take_practicals(terminal)
+        if tour_log is not None:
+            tour_log.append(tour_figures(terminal.career))
         terminal.execute_command('handoff relieve')
         take_practicals(terminal)
         held.append(len(terminal.career.qualifications))
     return held
+
+
+def tour_figures(career) -> Tuple[Optional[float], Optional[float], int]:
+    """The ledger's two figures for the tour as it stands, and its closes."""
+    from bell_system.ledger import accuracy_of
+    counts = career.tour_counts()
+    return career.tour_kpis().mttr, accuracy_of(counts), counts['closed']
+
+
+def deciles(values: List[float]) -> Tuple[float, ...]:
+    """The middle of each tenth of a sorted sample: ten peers."""
+    ordered = sorted(values)
+    last = len(ordered) - 1
+    picks = []
+    for tenth in range(10):
+        place = (tenth + 0.5) / 10 * last
+        low = int(place)
+        high = min(last, low + 1)
+        picks.append(round(ordered[low]
+                           + (ordered[high] - ordered[low]) * (place - low), 1))
+    return tuple(picks)
+
+
+# Who the peers are: how often a close names the line, and how long the
+# peer sits on the clock after each one. Between them they run from the bot
+# at its best to somebody who is accurate and slow, or quick and careless.
+PEER_SKILLS = (0.55, 0.7, 0.85, 0.95)
+PEER_DAWDLES = (0, 20, 45)
+
+
+PEERS_TEMPLATE = '''"""
+The simulated peers the tour ledger places a tour against.
+
+No source consulted publishes a distribution of repair times or of
+dispositions that matched the line for craftspeople, so none is claimed.
+These are the simulation's own: careers played by the bot in
+``tools/index_calibration.py`` at several skills and paces, one value per
+decile. The ledger says so wherever it prints them.
+
+Written by ``python3 tools/index_calibration.py peers``, not by hand, and
+run again whenever the balance changes: a peer who is quicker than a player
+on the old board says nothing about the new one.
+
+Each tuple is ten values in ascending order, the middle of each tenth of
+the tours played. ``mttr`` is minutes, received to close, averaged over the
+tour's repairs; ``accuracy`` is the percent of the tour's closes that
+matched the line. The ledger counts how many of the ten the player beats.
+Only aggregates are kept: nothing here is about any report, and the tuples
+carry no way back to a board.
+"""
+
+from typing import Dict, Tuple
+
+# False while the numbers are placeholders, and the ledger prints nothing
+# then. The run that writes real numbers sets it True.
+GENERATED = True
+
+PEERS: Dict[str, Dict[str, Tuple[float, ...]]] = {{
+{body}
+}}
+'''
+
+
+def peers(careers: int) -> None:
+    """Play the peer population and write data/peers.py whole."""
+    from bell_system.data.commendations import MINIMUM_CLOSES
+    found = {}
+    for difficulty in DIFFICULTIES:
+        times: List[float] = []
+        matched: List[float] = []
+        seed = 0
+        for skill in PEER_SKILLS:
+            for dawdle in PEER_DAWDLES:
+                for _ in range(careers):
+                    seed += 1
+                    log: List[tuple] = []
+                    play_career(skill, difficulty, seed, dawdle=dawdle,
+                                tour_log=log)
+                    for mttr, accuracy, closed in log:
+                        if (closed >= MINIMUM_CLOSES and mttr is not None
+                                and accuracy is not None):
+                            times.append(mttr)
+                            matched.append(accuracy)
+        print(f"{difficulty}: {len(times)} tours")
+        found[difficulty] = {'mttr': deciles(times),
+                             'accuracy': deciles(matched)}
+    body = []
+    for difficulty, table in found.items():
+        body.append(f"    '{difficulty}': {{")
+        for name, values in table.items():
+            body.append(f"        '{name}': {values!r},")
+        body.append('    },')
+    path = (Path(__file__).resolve().parent.parent / 'src' / 'bell_system'
+            / 'data' / 'peers.py')
+    path.write_text(PEERS_TEMPLATE.format(body='\n'.join(body)),
+                    encoding='utf-8')
+    print(f"wrote {path}")
 
 
 def ladder(careers: int) -> None:
@@ -405,6 +517,9 @@ def ladder(careers: int) -> None:
 
 
 if __name__ == '__main__':
+    if len(sys.argv) > 1 and sys.argv[1] == 'peers':
+        peers(int(sys.argv[2]) if len(sys.argv) > 2 else 3)
+        sys.exit(0)
     if len(sys.argv) > 1 and sys.argv[1] == 'ladder':
         ladder(int(sys.argv[2]) if len(sys.argv) > 2 else 20)
         sys.exit(0)

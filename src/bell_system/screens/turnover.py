@@ -20,7 +20,7 @@ machine did not stop on the first of January either.
 
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
-from .. import save
+from .. import ledger, save
 from ..clock import career_progress, days_to_divestiture
 from ..console import wrap
 from ..constants import SHIFT_LENGTH_MINUTES
@@ -447,7 +447,7 @@ this shift and the next one starts on a fresh board."""
         goals = self._goal_section(final=True)
         # Commendations are left for after the tour is banked, where the
         # whole tour's are printed once.
-        credit = self._credit_section(earned=False)
+        credit = self._credit_section(earned=False, spent=True)
         if self.clock.last_tour(self.career.shift):
             if self.career.finished:
                 return (
@@ -455,7 +455,8 @@ this shift and the next one starts on a fresh board."""
                     "you twice on the last\nday of the Bell System, and "
                     "there is no shift after this one to open.\n\n"
                     "The board is still there if you want it. "
-                    "'qual' has the career record."
+                    "'qual' has the career record, and 'career new' "
+                    "files it and starts the next."
                     + self._audit_again())
             return self._end_career(banked, worked, summary, goals, credit)
         earned = self.career.end_shift()
@@ -600,6 +601,7 @@ this shift and the next one starts on a fresh board."""
             len(career.qualifications), found.verdict), self._stamp())])
         lines.append("The board is still on the machine. Nobody is coming "
                      "to take it off you tonight.")
+        lines.append("'career new' files this career and starts the next.")
         return '\n'.join(lines)
 
     def _career_counters(self) -> Tuple[int, int, int, int]:
@@ -713,13 +715,21 @@ this shift and the next one starts on a fresh board."""
         rows.extend(self.position_measure())
         return '\n'.join(indent + line for line in rows)
 
-    def _credit_section(self, earned: bool = True) -> str:
+    def _credit_section(self, earned: bool = True,
+                        spent: bool = False) -> str:
         """
         The tour's credit: its own index, how much of the board it cleared,
         its KPIs and what it has earned so far. Measures, not scores - the
         service index is still the only thing that takes marks off.
+
+        Args:
+            earned: Include the commendations earned so far
+            spent: The tour is over, so it is placed against the peers
+                (the ledger); part way through, it is not
         """
         rows = ['TOUR CREDIT', '=' * 40, *self.credit_rows()]
+        placed = ledger.lines(self.career) if spent else []
+        rows.extend(['', *placed] if placed else [])
         if earned:
             held = self.commendation_lines(self.career.earned_this_tour())
             rows.extend(['', *held] if held else [])

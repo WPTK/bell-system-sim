@@ -508,7 +508,7 @@ class TestAClearedLineIsJudgedAsOne:
 
 
 class TestQuestionsTogetherDoNotNameTheForce:
-    """C22: W19, over the combinations and not over any one answer."""
+    """C22: W20, over the combinations and not over any one answer."""
 
     @staticmethod
     def _fits(first, second, fault):
