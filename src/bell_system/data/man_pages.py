@@ -4382,3 +4382,24 @@ PRACTICALS
      while one is on the board. The report is not a customer's and cannot
      be closed with report close.
 """
+
+
+# The command only the National NOC Analyst's desk has. Appended with the
+# verbs above, so that what a desk's own command does is read in one place.
+MAN_PAGES["trouble"] += """
+TRIAGE
+     trouble triage
+     trouble triage ID
+
+     The National NOC Analyst desk only. Lists every open ticket nobody
+     is on, soonest response window first, with how long the call out to
+     the district will cost the shift. Naming a ticket takes it: status
+     goes to IN_PROGRESS and the shift loses the call's minutes.
+
+     Windows run on the shift clock, which moves with what you type and
+     what you run, and not with a stopwatch. They open with the tour:
+     CRITICAL 15 minutes, MAJOR 30, MINOR 60. A ticket nobody is on when
+     its window closes goes up a level of escalation. The calls cost 6,
+     4 and 2 minutes. These figures are the simulation's own. Reading a
+     ticket costs a minute too, so the order you read in is part of it.
+"""

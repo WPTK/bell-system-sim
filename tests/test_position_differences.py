@@ -444,3 +444,173 @@ class TestNothingChangedForASessionWithNoPosition:
             terminal.take_position('custserv')
         after = [report.number for report in terminal.desk.pending()]
         assert after == before
+
+
+# The desks that play differently. The other eight are unchanged, and
+# TestTheFourDesks holds that. Each desk gets a PR; the set grows with them.
+FOUR_DESKS = ('noc',)
+
+
+class TestTheFourDesks:
+    """One command only the desk has, and one pressure only it feels."""
+
+    def test_only_these_desks_have_a_verb_or_a_pressure(self):
+        for key, position in POSITIONS.items():
+            has = bool(position.verb or position.pressure)
+            assert has == (key in FOUR_DESKS), key
+
+    def test_a_verb_and_a_pressure_come_together(self):
+        for key in FOUR_DESKS:
+            assert POSITIONS[key].verb and POSITIONS[key].pressure, key
+
+    def test_a_desk_outside_the_four_is_otherwise_untouched(self):
+        """No relabel and no new bias: it keeps what it had."""
+        for key, position in POSITIONS.items():
+            if key not in FOUR_DESKS:
+                assert position.verb == '' and position.pressure == ''
+
+
+def put_tickets(terminal, *specs):
+    """Replace the ticket pool with tickets of a given class and size."""
+    random.seed(11)
+    terminal.active_tickets.clear()
+    made = []
+    for priority, customers in specs:
+        ticket = terminal._create_realistic_ticket()
+        ticket['priority'] = priority
+        ticket['customer_impact'] = customers
+        ticket['status'] = 'OPEN'
+        ticket['escalation_level'] = 1
+        made.append(ticket)
+    terminal.shift_minutes = 0
+    return made
+
+
+class TestTheNocQueue:
+    """
+    The triage verb and the clock behind it.
+
+    The pressure is the shift clock and nothing else: it moves on what is
+    typed and what is run, never on how fast anybody types.
+    """
+
+    def test_the_verb_is_the_nocs_alone(self, at_desk):
+        for role in ROLE_KEYS:
+            if role == 'noc':
+                continue
+            output = at_desk(role).execute_command('trouble triage')
+            assert 'not at this position' in output, role
+            assert 'National NOC Analyst' in output, role
+
+    def test_a_session_with_no_desk_is_refused_too(self, at_desk):
+        assert 'not at this position' in at_desk(None).execute_command(
+            'trouble triage')
+
+    def test_a_refused_verb_changes_nothing(self, at_desk):
+        terminal = at_desk('field')
+        made = put_tickets(terminal, ('CRITICAL', 900))
+        terminal.execute_command('trouble triage ' + made[0]['id'])
+        assert made[0]['status'] == 'OPEN'
+        assert made[0]['id'] not in terminal._assigned_tickets
+
+    def test_the_queue_leads_with_the_soonest_window(self, at_desk):
+        terminal = at_desk('noc')
+        minor, critical, major = put_tickets(
+            terminal, ('MINOR', 50), ('CRITICAL', 10), ('MAJOR', 700))
+        queue = [t['id'] for t in terminal.triage_queue()]
+        assert queue == [critical['id'], major['id'], minor['id']]
+
+    def test_the_same_window_goes_to_the_bigger_outage_first(self, at_desk):
+        terminal = at_desk('noc')
+        small, big = put_tickets(terminal, ('MAJOR', 40), ('MAJOR', 4000))
+        assert [t['id'] for t in terminal.triage_queue()] == [
+            big['id'], small['id']]
+
+    def test_the_queue_prints_its_rule_and_says_it_is_the_sims_own(
+            self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('MAJOR', 40))
+        output = terminal.execute_command('trouble triage')
+        assert 'CRITICAL 15' in output and "simulation's own" in output
+        assert max(len(line) for line in output.split('\n')) <= 78
+
+    def test_taking_a_ticket_costs_the_shift_its_call(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 40))
+        before = terminal.shift_minutes
+        output = terminal.execute_command('trouble triage ' + major['id'])
+        assert terminal.shift_minutes - before >= 4
+        assert major['status'] == 'IN_PROGRESS'
+        assert 'in time' in output
+        assert major['id'] in terminal._assigned_tickets
+        assert major['id'] not in [t['id'] for t in terminal.triage_queue()]
+
+    def test_a_window_closes_on_the_shift_clock(self, at_desk):
+        terminal = at_desk('noc')
+        (critical,) = put_tickets(terminal, ('CRITICAL', 900))
+        terminal.shift_minutes = 15
+        terminal.triage_queue()
+        assert critical['escalation_level'] == 1
+        terminal.shift_minutes = 16
+        terminal.triage_queue()
+        assert critical['escalation_level'] == 2
+        assert 'nobody on it' in critical['resolution_steps'][-1]
+
+    def test_a_missed_window_escalates_once(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 900))
+        terminal.shift_minutes = 200
+        for _ in range(3):
+            terminal.triage_queue()
+        assert major['escalation_level'] == 2
+
+    def test_taking_late_says_so_and_counts(self, at_desk):
+        terminal = at_desk('noc')
+        (minor,) = put_tickets(terminal, ('MINOR', 10))
+        terminal.shift_minutes = 75
+        output = terminal.execute_command('trouble triage ' + minor['id'])
+        assert 'after the window closed' in output
+        assert len(terminal.triage_book()['lapsed']) == 1
+
+    def test_the_first_tour_is_a_grace(self, at_desk):
+        terminal = at_desk('noc')
+        terminal.career.shift = 1
+        (critical,) = put_tickets(terminal, ('CRITICAL', 900))
+        terminal.shift_minutes = 400
+        terminal.triage_queue()
+        assert critical['escalation_level'] == 1
+
+    def test_the_clock_is_the_shift_clock_and_not_the_wall_clock(
+            self, at_desk):
+        """Anti-pillar: no outcome turns on how fast anybody types."""
+        from datetime import timedelta
+        terminal = at_desk('noc')
+        (critical,) = put_tickets(terminal, ('CRITICAL', 900))
+        due = terminal.triage_due(critical)
+        terminal.clock._session_start -= timedelta(hours=9)
+        terminal.triage_queue()
+        assert terminal.triage_due(critical) == due
+        assert critical['escalation_level'] == 1
+
+    def test_a_ticket_entered_mid_tour_gets_a_full_window(self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal)
+        terminal.shift_minutes = 100
+        terminal.execute_command('trouble create MAINTENANCE CRITICAL Test')
+        (entered,) = terminal.active_tickets
+        assert terminal.triage_due(entered) == 115
+
+    def test_the_tally_counts_what_ran_past(self, at_desk):
+        terminal = at_desk('noc')
+        put_tickets(terminal, ('CRITICAL', 900), ('MINOR', 5))
+        terminal.shift_minutes = 20
+        rows = dict(terminal.position_tally())
+        assert rows['tickets past their response window'] == '1'
+        assert 'WHAT THIS DESK DID' in terminal.execute_command('handoff')
+
+    def test_resolve_still_works_on_a_ticket_you_took(self, at_desk):
+        terminal = at_desk('noc')
+        (major,) = put_tickets(terminal, ('MAJOR', 40))
+        terminal.execute_command('trouble triage ' + major['id'])
+        output = terminal.execute_command('trouble resolve ' + major['id'])
+        assert 'Trouble Ticket Resolved' in output

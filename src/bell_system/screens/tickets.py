@@ -3,14 +3,25 @@ Trouble tickets: the dashboard, detail, assignment and escalation.
 """
 
 import random
+from ..data.positions import POSITIONS, desk_only
 from ..types import TroubleTicket
 from typing import (
+    Any,
+    Dict,
     List,
     Optional,
 )
 
 
 from .session import SessionState
+
+# The NOC's triage clock, in shift minutes. A ticket's window opens when the
+# tour does (or when the ticket is entered) and the class sets how long it
+# may wait for somebody to be on it. The 15, 30 and 60 are the response
+# targets `trouble detail` already prints; a call out to the district costs
+# the shift 6, 4 or 2 minutes. All of these figures are the simulation's own.
+TRIAGE_WINDOW = {'CRITICAL': 15, 'MAJOR': 30, 'MINOR': 60}
+TRIAGE_CALL = {'CRITICAL': 6, 'MAJOR': 4, 'MINOR': 2}
 
 
 class TicketCommands(SessionState):
@@ -124,6 +135,10 @@ Use 'ticket update {new_ticket}' to add information"""
         elif args[0] == "create":
             return self._create_manual_ticket(args[1:] if len(args) > 1 else [])
 
+        elif args[0] == "triage":
+            refusal = desk_only(self.position, 'noc', 'trouble triage')
+            return refusal or self._triage(args[1:])
+
         elif args[0] == "geographic":
             return self._show_geographic_trouble_overview()
 
@@ -132,6 +147,8 @@ Use 'ticket update {new_ticket}' to add information"""
 
         else:
             available_commands = ["list", "detail", "assign", "update", "escalate", "resolve", "create", "geographic", "priority"]
+            if self.position.key == 'noc':
+                available_commands.insert(0, "triage")
             return f"trouble: Unknown option '{args[0]}'\nAvailable commands: {', '.join(available_commands)}"
     def _show_trouble_ticket_dashboard(self) -> str:
         """Show comprehensive trouble ticket dashboard with real-time status."""
@@ -553,6 +570,7 @@ Example:
             'resolution_steps': []
         }
         self.active_tickets.append(ticket)
+        self.triage_book()['opened'][ticket_id] = self.shift_minutes
 
         return f"""Trouble Ticket Created
 {'=' * 50}
@@ -750,3 +768,128 @@ RECOMMENDATIONS
             analysis += "\n• Focus on preventive maintenance"
 
         return analysis
+
+
+    # -- the NOC's triage queue ---------------------------------------------
+
+    _triage_book: Optional[Dict[str, Any]] = None
+
+    def triage_book(self) -> Dict[str, Any]:
+        """
+        The queue's own record for this tour.
+
+        When each ticket was entered, which have been taken and when, and
+        which ran past their window. Kept per tour because the shift clock
+        starts again at zero with each one; an open ticket carries over,
+        and its window starts again with the tour.
+        """
+        book = self._triage_book
+        if book is None or book['tour'] != self.career.shift:
+            book = {'tour': self.career.shift, 'opened': {}, 'taken': {},
+                    'lapsed': {}}
+            self._triage_book = book
+        return book
+
+    def triage_due(self, ticket: TroubleTicket) -> int:
+        """The shift minute by which somebody has to be on this ticket."""
+        opened = self.triage_book()['opened'].get(ticket['id'], 0)
+        return opened + TRIAGE_WINDOW[ticket['priority']]
+
+    def triage_queue(self) -> List[TroubleTicket]:
+        """
+        Open tickets nobody has taken, soonest window first.
+
+        Looking is also when a window that has passed is noticed: the
+        ticket goes up a level of escalation, once, with a line in its
+        record. Computed from the shift clock and nothing else, so the
+        same minute always reads the same. A first tour is a grace, as
+        the first tour is everywhere.
+        """
+        book = self.triage_book()
+        now = self.shift_minutes
+        queue = []
+        for ticket in self.active_tickets:
+            ticket_id = ticket['id']
+            if ticket['status'] == 'RESOLVED' or ticket_id in book['taken']:
+                continue
+            queue.append(ticket)
+            if (now > self.triage_due(ticket) and not self.first_tour()
+                    and ticket_id not in book['lapsed']):
+                book['lapsed'][ticket_id] = now
+                ticket['escalation_level'] = min(
+                    ticket['escalation_level'] + 1, 4)
+                ticket['resolution_steps'].append(
+                    f"[{self.shift_time()}] Response window passed with "
+                    f"nobody on it; escalation level "
+                    f"{ticket['escalation_level']}")
+        queue.sort(key=lambda t: (self.triage_due(t), -t['customer_impact'],
+                                  t['id']))
+        return queue
+
+    def _triage(self, args: List[str]) -> str:
+        """trouble triage [ID]: show the queue, or take a ticket from it."""
+        if args:
+            return self._triage_take(args[0].upper())
+        queue = self.triage_queue()
+        book = self.triage_book()
+        now = self.shift_minutes
+        lines = [f"NOC TRIAGE QUEUE   {POSITIONS['noc'].name}",
+                 f"Shift time {self.shift_time()}", '=' * 66,
+                 f"{'ID':<9}{'CLASS':<9}{'WINDOW':<11}{'CALL':<6}"
+                 f"{'CUSTOMERS':>10}  OFFICE", '-' * 66]
+        for ticket in queue:
+            left = self.triage_due(ticket) - now
+            window = f"{left}m left" if left >= 0 else f"LATE {-left}m"
+            lines.append(
+                f"{ticket['id']:<9}{ticket['priority']:<9}{window:<11}"
+                f"{TRIAGE_CALL[ticket['priority']]:>2}m   "
+                f"{ticket['customer_impact']:>10,}  "
+                f"{self._office_label(ticket['affected_office'])[:24]}")
+        if not queue:
+            lines.append("Nothing waiting. Every open ticket has somebody "
+                         "on it.")
+        lines.append('-' * 66)
+        lines += [
+            f"{len(queue)} waiting, {len(book['taken'])} taken this tour, "
+            f"{len(book['lapsed'])} past their window.",
+            "",
+            "  trouble triage <ID>   Take one; the call costs the CALL "
+            "minutes",
+            "  trouble detail <ID>   Read it first (that costs a minute)",
+            "",
+            "Windows run on the shift clock from the start of the tour:",
+            "CRITICAL 15, MAJOR 30, MINOR 60. A ticket nobody is on when "
+            "its",
+            "window closes goes up a level. These figures are the "
+            "simulation's own.",
+        ]
+        return '\n'.join(lines)
+
+    def _triage_take(self, ticket_id: str) -> str:
+        """Put this position on a ticket, and say whether it was in time."""
+        queue = self.triage_queue()
+        ticket = next((t for t in queue if t['id'] == ticket_id), None)
+        book = self.triage_book()
+        if ticket is None:
+            if ticket_id in book['taken']:
+                return f"trouble triage: {ticket_id} is already on you."
+            return (f"trouble triage: {ticket_id} is not in the queue.\n"
+                    f"'trouble triage' lists what is waiting.")
+        now = self.shift_minutes
+        due = self.triage_due(ticket)
+        cost = TRIAGE_CALL[ticket['priority']]
+        book['taken'][ticket_id] = now
+        if ticket['status'] == 'OPEN':
+            ticket['status'] = 'IN_PROGRESS'
+        ticket['assigned_team'] = f"{self.username} (this position)"
+        self._assigned_tickets.add(ticket_id)
+        verdict = (f"in time, with {due - now} minutes of the window left"
+                   if now <= due else
+                   f"{now - due} minutes after the window closed")
+        ticket['resolution_steps'].append(
+            f"[{self.shift_time()}] Taken by {self.username}, {verdict}")
+        self._pass_time(cost)
+        return (f"{ticket_id} {ticket['priority']} taken {verdict}.\n"
+                f"The call out to the district took {cost} minutes of the "
+                f"shift.\n"
+                f"'trouble resolve {ticket_id}' closes it when it is done.")

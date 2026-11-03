@@ -245,6 +245,13 @@ def _tickets_worked(terminal: Any) -> Tuple[str, str]:
     return 'tickets assigned to you', str(len(terminal._assigned_tickets))
 
 
+def _tickets_past_window(terminal: Any) -> Tuple[str, str]:
+    """Tickets whose triage window closed with nobody on them."""
+    terminal.triage_queue()  # Looking is when a passed window is noticed.
+    return ('tickets past their response window',
+            str(len(terminal.triage_book()['lapsed'])))
+
+
 def _no_trouble_found(terminal: Any) -> Tuple[str, str]:
     """Reports closed code 8."""
     count = sum(1 for report in _closed(terminal) if report.disposition == 8)
@@ -333,6 +340,7 @@ _COUNTERS: Dict[str, Any] = {
     'sheaths_cleared': _sheaths_cleared,
     'groups_over': _groups_over,
     'tickets_worked': _tickets_worked,
+    'tickets_past_window': _tickets_past_window,
     'no_trouble_found': _no_trouble_found,
     'off_hook_caught': _off_hook_caught,
     'commitments_met': _commitments_met,

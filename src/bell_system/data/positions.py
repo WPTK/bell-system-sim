@@ -77,6 +77,13 @@ class Position(NamedTuple):
     # resolved in screens/position.py. Not a score - a tally.
     tally: Tuple[str, ...]
 
+    # The one command only this desk can use, as typed, and the one pressure
+    # only this desk feels, in a line. Empty for the eight desks that have
+    # neither: they are unchanged, and a test holds that. Both are the
+    # simulation's own design; nothing here claims a 1983 desk worked so.
+    verb: str = ''
+    pressure: str = ''
+
 
 # Today's behaviour, and what an unknown or unselected position gets. Every
 # default here is chosen so that role=None is byte for byte what the
@@ -129,14 +136,18 @@ POSITIONS: Dict[str, Position] = {
 
     'noc': Position(
         key='noc', name='National NOC Analyst',
-        commands=('trunk', 'emergency', 'switch', 'ticket', 'traffic',
-                  'tnds', 'satellite'),
+        commands=('trunk', 'emergency', 'switch', 'ticket', 'trouble',
+                  'traffic', 'tnds', 'satellite'),
         fault_bias={},
         board_share=0.28,
         ticket_categories=('NETWORK_OUTAGE', 'TRAFFIC_ANOMALY'),
         voices=('dpetrak', 'carot'),
         nspmp=None,
-        tally=('groups_over', 'alarms_open', 'tickets_worked'),
+        tally=('groups_over', 'alarms_open', 'tickets_worked',
+               'tickets_past_window'),
+        verb='trouble triage',
+        pressure='A triage queue: every open ticket has a response '
+                 'window that runs on the shift clock.',
     ),
 
     'tsps': Position(
@@ -240,6 +251,21 @@ POSITIONS: Dict[str, Position] = {
 POSITION_COMMANDS: Dict[str, list] = {
     key: list(position.commands) for key, position in POSITIONS.items()
 }
+
+
+def desk_only(current: Position, key: str, verb: str) -> Optional[str]:
+    """
+    Return the refusal when a desk's own verb is typed at another desk.
+
+    None means the verb is yours. The refusal names the desk it belongs to,
+    so that a player who typed it by name knows where it lives rather than
+    being told it does not exist.
+    """
+    if current.key == key:
+        return None
+    owner = POSITIONS[key].name
+    return (f"{verb}: not at this position. It is the {owner} desk's.\n"
+            f"help lists the commands this desk has.")
 
 
 def get(key: Optional[str]) -> Position:
