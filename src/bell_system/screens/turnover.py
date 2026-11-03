@@ -321,12 +321,17 @@ this shift and the next one starts on a fresh board."""
         counts = self.goal_counts()
         rows = []
         for goal in entry.goals:
-            met = goal.met(counts)
             if final:
+                met = goal.met(counts)
                 verdict = 'met' if met else 'missed'
             else:
+                # Unworked time ages the board before the tour is struck, so
+                # nothing is ticked until it is.
+                met = False
                 verdict = f"so far {counts[goal.metric]}"
             rows.append(f"  [{'x' if met else ' '}] {goal.text:<46}{verdict}")
+        if not final:
+            rows.append("  Unworked time will still age the board at handoff.")
         return rows
 
     def _goal_section(self, final: bool) -> str:
@@ -560,13 +565,14 @@ this shift and the next one starts on a fresh board."""
         now = self.clock.now()
         left = max(0, SHIFT_LENGTH_MINUTES - self.shift_minutes)
         closed, correct, missed, repeats = self._tour_worked()
+        brief = self.tour_brief(self.goal_counts())
 
         rows = [
             f"Tour {self.career.shift}   {self.clock.date(now)}   "
             f"{days_to_divestiture(now)} days to divestiture",
             '=' * 62,
-            *self.tour_brief(self.goal_counts()),
-            '',
+            *brief,
+            *([''] if brief else []),
             f"  Worked              {self.shift_time()} of "
             f"{SHIFT_LENGTH_MINUTES // 60}:00",
             f"  Left                {left // 60}:{left % 60:02d}",

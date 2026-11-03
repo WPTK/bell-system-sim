@@ -7,6 +7,8 @@ from collections import (
     deque,
 )
 from typing import (
+    Any,
+    Dict,
     List,
     Mapping,
     Optional,
@@ -82,6 +84,9 @@ class ShiftCommands(SessionState):
         for goal in entry.goals:
             progress = f"  (so far {counts[goal.metric]})" if counts else ''
             lines.append(f"    - {goal.text}{progress}")
+        if counts:
+            lines.append("  Unworked time will still age the board at "
+                         "handoff.")
         return lines
 
     def generate_shift_events(self) -> None:
@@ -255,8 +260,10 @@ class ShiftCommands(SessionState):
             output.append(f"Priority:    {found_event['priority']}")
             output.append(f"Status:      {found_event['status']}")
             output.append(f"Title:       {found_event['title']}")
-            output.append(f"Origin:      {found_event['origin'].title()}"
-                          f" - {found_event['source']}")
+            origin = found_event['origin']
+            output.append("Origin:      " + (
+                found_event['source'] if origin == tours.OWN
+                else f"{origin.title()} - {found_event['source']}"))
             output.append("")
             output.append("Description:")
             output.append(f"  {found_event['description']}")
@@ -579,6 +586,40 @@ class ShiftCommands(SessionState):
     def shift_time(self) -> str:
         """Return how far into the shift the work has got, as hours:minutes."""
         return f"{self.shift_minutes // 60}:{self.shift_minutes % 60:02d}"
+    def _due_events(self) -> List[Dict[str, Any]]:
+        """Return the events whose time the working shift has reached."""
+        reached = EPOCH_HOUR * 60 + self.shift_minutes
+        due_now = []
+        for event in self.shift_events:
+            if event['id'] in self._fired_events:
+                continue
+            try:
+                hour, minute = event['time'].split(':')
+                due = int(hour) * 60 + int(minute)
+            except (ValueError, KeyError):
+                continue
+            if due <= reached:
+                due_now.append(event)
+        return due_now
+
+    def settle_fired_events(self) -> None:
+        """
+        Make a resumed shift's fired events agree with the board it rebuilt.
+
+        A save written before the tour script kept the old event numbers.
+        Left alone, every event already due on the new board would fire at
+        once as a burst, and the old numbers would sit in the set for
+        nothing. Numbers that are not on the board are dropped, and what is
+        already due is taken to have fired: the player has been through it.
+        """
+        on_board = {event['id'] for event in self.shift_events}
+        self._fired_events = {fired for fired in self._fired_events
+                              if fired in on_board or fired == 'SHIFT-END'}
+        for event in self._due_events():
+            self._fired_events.add(event['id'])
+            if event.get('status') == 'PENDING':
+                event['status'] = 'ACTIVE'
+
     def _fire_due_events(self) -> List[str]:
         """
         Bring shift events due as the working shift reaches their time.
@@ -588,19 +629,8 @@ class ShiftCommands(SessionState):
         against the real-time clock, which would leave every afternoon event
         unreachable in a session anybody would actually sit through.
         """
-        reached = EPOCH_HOUR * 60 + self.shift_minutes
         notices: List[str] = []
-        for event in self.shift_events:
-            if event['id'] in self._fired_events:
-                continue
-            try:
-                hour, minute = event['time'].split(':')
-                due = int(hour) * 60 + int(minute)
-            except (ValueError, KeyError):
-                continue
-            if due > reached:
-                continue
-
+        for event in self._due_events():
             self._fired_events.add(event['id'])
             if event.get('status') == 'PENDING':
                 event['status'] = 'ACTIVE'

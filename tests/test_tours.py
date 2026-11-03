@@ -14,6 +14,7 @@ import pytest
 
 from bell_system.data import tours
 from bell_system.progression import QUALIFICATIONS
+from bell_system.terminal import BellSystemTerminal
 
 WEEKDAYS = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday',
             'Saturday', 'Sunday')
@@ -389,3 +390,94 @@ class TestNetnews:
         terminal.settings.set('date.epoch', '1984-06-01')
         go_to(terminal, 13)
         assert len(terminal._news_articles()) == 14
+
+
+class TestReviewOfTheFirstPass:
+    """Things the review of the first pass found."""
+
+    def test_no_tour_is_met_by_working_nothing(self):
+        """A goal list of upper bounds alone is met by a desk nobody sat at."""
+        idle = {metric: 0 for metric in tours.METRICS}
+        for entry in tours.TOURS:
+            assert not all(goal.met(idle) for goal in entry.goals),                 entry.number
+
+    def test_a_preview_ticks_nothing_whatever_the_board_looks_like(
+            self, terminal):
+        """Unworked time ages the board before the tour is struck."""
+        go_to(terminal, 12)
+        assert terminal.goal_lines(final=False)
+        for row in terminal.goal_lines(final=False):
+            assert '[x]' not in row
+
+    def test_the_preview_says_unworked_time_will_age_the_board(
+            self, terminal):
+        go_to(terminal, 12)
+        assert 'Unworked time' in terminal.execute_command('handoff')
+        assert 'Unworked time' in terminal.execute_command('shift')
+
+    def test_the_final_strike_still_ticks_what_was_met(self, terminal):
+        go_to(terminal, 2)
+        assert any('[x]' in row for row in terminal.goal_lines(final=True))
+
+    def test_the_shift_screen_has_no_stray_blank_line_without_a_brief(
+            self, terminal):
+        go_to(terminal, 2)
+        terminal.settings.set('date.source', 'real')
+        terminal.generate_shift_events()
+        assert terminal.tour_brief(terminal.goal_counts()) == []
+        shown = terminal.execute_command('shift')
+        assert '=' * 62 + '\n\n' not in shown
+
+    def test_an_own_beat_prints_only_its_source(self, terminal):
+        go_to(terminal, 3)
+        beat = next(e for e in terminal.shift_events
+                    if e['origin'] == tours.OWN)
+        detail = terminal.execute_command(f"events detail {beat['id']}")
+        assert f"Origin:      {beat['source']}" in detail
+        assert 'Own -' not in detail
+
+
+class TestAnOldSaveMeetsTheNewIds:
+    """A mid-tour save from before the tour script keeps the old numbers."""
+
+    def old_save(self, terminal, minutes):
+        go_to(terminal, 2)
+        terminal.settings.set('game.prompts', 'off')
+        terminal.execute_command('report')
+        terminal.shift_minutes = minutes
+        terminal._fired_events = {'EV-8001', 'EV-8002', 'EV-8003'}
+        terminal.save_shift()
+        fresh = BellSystemTerminal()
+        fresh.career.qualifications = list(terminal.career.qualifications)
+        return fresh
+
+    def test_the_old_numbers_are_dropped(self, terminal):
+        fresh = self.old_save(terminal, 200)
+        assert fresh.resumed
+        on_board = {e['id'] for e in fresh.shift_events}
+        assert fresh._fired_events <= on_board | {'SHIFT-END'}
+
+    def test_what_was_already_due_does_not_fire_as_a_burst(self, terminal):
+        fresh = self.old_save(terminal, 200)
+        assert fresh._fire_due_events() == []
+
+    def test_what_is_not_yet_due_still_fires_in_its_time(self, terminal):
+        fresh = self.old_save(terminal, 30)
+        later = [e for e in fresh.shift_events
+                 if e['id'] not in fresh._fired_events]
+        assert later
+        fresh.shift_minutes = 479
+        assert fresh._fire_due_events()
+
+    def test_a_current_save_is_left_exactly_as_it_was(self, terminal):
+        go_to(terminal, 2)
+        terminal.settings.set('game.prompts', 'off')
+        terminal.execute_command('report')
+        terminal.shift_minutes = 200
+        terminal._fire_due_events()
+        before = set(terminal._fired_events)
+        terminal.save_shift()
+        fresh = BellSystemTerminal()
+        fresh.career.qualifications = list(terminal.career.qualifications)
+        assert fresh.resumed
+        assert fresh._fired_events == before
