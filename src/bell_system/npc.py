@@ -162,6 +162,14 @@ CRAFT: Dict[str, Craft] = {
         'Not a person. Tests trunks all night and prints what it finds.'),
 }
 
+# The roster's logins that are machines and not people. They print to you; no
+# one sits at their line, so /etc/ttys has it disabled.
+MACHINES: Tuple[str, ...] = ('adm', 'carot')
+
+# The player's own terminal, which the roster does not use: the banner, tty(1),
+# the su log, wall(1) and /etc/ttys all read it from here. The simulation's own.
+PLAYER_TTY = '14'
+
 # Who reaches you on which channel.
 CHANNEL_SENDERS: Dict[str, Sequence[str]] = {
     CHANNEL_WRITE: ('rjohnson', 'gvasquez', 'mreyes', 'ehalloran'),

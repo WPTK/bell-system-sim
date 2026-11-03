@@ -17,7 +17,7 @@ from bell_system.filesystem import (
     DIVESTITURE_MEMO, FILESYSTEM, GROUP, NEWS_GENERAL_203, NEWS_MISC_88,
     PASSWD, TESTLOG_C,
 )
-from bell_system.npc import CRAFT, Switchroom
+from bell_system.npc import CRAFT, MACHINES, PLAYER_TTY, Switchroom
 from bell_system.progression import QUALIFICATIONS
 from bell_system.terminal import BellSystemTerminal
 
@@ -118,16 +118,41 @@ class TestI8OneTerminalEach:
         ttys = [person.tty for person in CRAFT.values()]
         assert len(ttys) == len(set(ttys)), ttys
 
-    def test_etc_ttys_lists_every_terminal_in_the_roster(self, terminal):
+    def test_the_player_has_a_terminal_of_their_own(self):
+        assert PLAYER_TTY not in [person.tty for person in CRAFT.values()]
+
+    def test_etc_ttys_lists_the_roster_and_the_players_terminal(self, terminal):
         listed = terminal.execute_command('cat /etc/ttys').split()
         assert listed[0] == '14console'
         assert sorted(line[2:] for line in listed[1:]) == sorted(
-            f'tty{person.tty}' for person in CRAFT.values())
+            [f'tty{person.tty}' for person in CRAFT.values()]
+            + [f'tty{PLAYER_TTY}'])
 
-    def test_every_terminal_in_the_roster_is_a_device(self, terminal):
-        listing = terminal.execute_command('ls /dev').split()
+    def test_a_machines_line_is_disabled_and_a_persons_is_not(self, terminal):
+        flags = {line[2:]: line[0] for line in
+                 terminal.execute_command('cat /etc/ttys').split()[1:]}
         for person in CRAFT.values():
-            assert f'tty{person.tty}' in listing, person.login
+            expected = '0' if person.login in MACHINES else '1'
+            assert flags[f'tty{person.tty}'] == expected, person.login
+        assert flags[f'tty{PLAYER_TTY}'] == '1'
+
+    def test_every_terminal_is_a_device(self, terminal):
+        listing = terminal.execute_command('ls /dev').split()
+        for number in [p.tty for p in CRAFT.values()] + [PLAYER_TTY]:
+            assert f'tty{number}' in listing, number
+
+    def test_the_banner_tty_wall_and_the_sulog_use_the_players_terminal(
+            self, terminal):
+        assert terminal.execute_command('tty').strip() == (
+            f'/dev/tty{PLAYER_TTY}')
+        said = terminal.execute_command('wall hello')
+        assert f'from {terminal.username} tty{PLAYER_TTY}' in said
+        sender = re.search(r'^Message from (\w+) tty(\d+)', said, re.M)
+        assert sender and CRAFT[sender.group(1)].tty == sender.group(2)
+        terminal.execute_command('su root')
+        sulog = terminal.filesystem['/usr/adm/sulog'].content
+        assert f'- tty{PLAYER_TTY} {terminal.username or "sysop"}-root' in sulog
+        assert 'tty01 sysop' not in sulog
 
 
 class TestI11MessageIdsRunInDateOrder:

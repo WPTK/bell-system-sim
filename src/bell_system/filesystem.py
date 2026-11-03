@@ -27,7 +27,7 @@ from .clock import DIVESTITURE as _DIVESTITURE
 from .data.finds import FRAGMENTS, Fragment
 from .data.homes import HOMES
 from .data.practices import SHEETS, index as _binder_index, render as _sheet
-from .npc import CRAFT
+from .npc import CRAFT, MACHINES, PLAYER_TTY
 from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 # Divestiture took effect on 1 January 1984. The date itself lives in
@@ -1508,13 +1508,17 @@ FILESYSTEM: Dict[str, Node] = {
 }
 
 # The terminals. The roster (npc.CRAFT) says which terminal each of the
-# others is on, so /etc/ttys and /dev are written from it and cannot list
-# fewer, or more, than the building has, and no two of the others share one.
+# others is on, and npc.PLAYER_TTY which is the player's, so /etc/ttys and
+# /dev are written from them and cannot list fewer, or more, than the
+# building has, and no two people share one. A machine's line (npc.MACHINES)
+# is listed with the enable flag at 0, as a line nobody logs in on is.
+_TTYS = {person.tty: ('0' if person.login in MACHINES else '1')
+         for person in CRAFT.values()}
+_TTYS[PLAYER_TTY] = '1'
 FILESYSTEM['/etc/ttys'] = _file('14console\n' + ''.join(
-    f'12tty{person.tty}\n'
-    for person in sorted(CRAFT.values(), key=lambda person: person.tty)))
-for _person in CRAFT.values():
-    FILESYSTEM[f'/dev/tty{_person.tty}'] = _file('', mode='crw--w--w-')
+    f'{_TTYS[number]}2tty{number}\n' for number in sorted(_TTYS)))
+for _number in _TTYS:
+    FILESYSTEM[f'/dev/tty{_number}'] = _file('', mode='crw--w--w-')
 
 # The Practices binder: one file to a sheet, built from the data the
 # simulation runs on (data/practices.py).
