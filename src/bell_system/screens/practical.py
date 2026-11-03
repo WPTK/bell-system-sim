@@ -48,10 +48,22 @@ class PracticalCommands(SessionState):
         staged = self._practical_open()
         return staged[0].key if staged else None
 
+    def _may_use(self, command: str) -> bool:
+        """
+        Whether a command is open to the operator right now.
+
+        Signed off, or the tool of a sign-off whose practical is on the
+        board: Halloran lends it for as long as the report is there.
+        """
+        if self.career.may_use(command):
+            return True
+        needed = self.career.qualification_for_command(command)
+        return needed is not None and needed == self._practical_key()
+
     def _scene(self, report: TroubleReport) -> Scene:
         """What a practical looks at and moves."""
         return Scene(self.desk, report, self.trunk_groups,
-                     self.shift_minutes)
+                     self.shift_minutes, self._practical_memory)
 
     def _fill(self, lines: Tuple[str, ...], report: TroubleReport,
               extra: str = '') -> List[str]:
@@ -98,20 +110,33 @@ class PracticalCommands(SessionState):
                     f"{short} more correct closure"
                     f"{'' if short == 1 else 's'}.")
         if staged is not None and staged[0].key == key:
-            return self._brief(*staged, again=True)
+            said = self._practical_memory.get(self._said(staged[1]), '')
+            return self._brief(*staged, extra=said, again=True)
         if staged is not None:
             return (f"qual: you have {staged[0].title} on the board "
                     f"({staged[1].number}). Hand it in with 'qual submit' "
                     f"first.")
         practical = PRACTICALS[key]
+        refusal = practical.blocked(self.trunk_groups)
+        if refusal:
+            return f"Practical: {practical.title}\n\n{refusal}"
         report = self.desk.receive(self.clock.now(), fault=practical.fault)
         report.practical = key
         report.commitment = report.received + NEVER_DUE
         if practical.symptom:
             report.symptom = practical.symptom
         extra = practical.stage(self._scene(report))
+        self._practical_memory[self._said(report)] = extra
+        # The hints are about this report now, from the top.
+        self._hint_situation = ''
+        self._hint_level = 0
         self._sync_report_files()
         return self._brief(practical, report, extra=extra)
+
+    @staticmethod
+    def _said(report: TroubleReport) -> str:
+        """Where the sentence the stage added to the brief is kept."""
+        return f"said {report.number}"
 
     def _brief(self, practical: Practical, report: TroubleReport,
                extra: str = '', again: bool = False) -> str:
@@ -147,20 +172,26 @@ class PracticalCommands(SessionState):
                               f"again. 'hint' is free."])
             return '\n'.join(lines)
         qualification = self.career.pass_practical(practical.key)
-        lines = [f"Practical: {practical.title} - passed."]
-        if qualification is not None:
-            message = self.switchroom.qualification_notice(
-                self.clock.now(), qualification.name, qualification.unlocks,
-                held=len(self.career.qualifications),
-                days_left=days_to_divestiture(self.clock.now()))
-            lines.extend(['', render_message(message, self._stamp())])
-        return '\n'.join(lines)
+        if qualification is None:
+            # Worked, and already signed (a role the game was started with
+            # carries sign-offs). Nothing to grant, so nothing to announce.
+            return (f"Practical: {practical.title}\n\n"
+                    f"Worked, but you are already signed off on it.")
+        message = self.switchroom.qualification_notice(
+            self.clock.now(), qualification.name, qualification.unlocks,
+            held=len(self.career.qualifications),
+            days_left=days_to_divestiture(self.clock.now()))
+        return '\n'.join([f"Practical: {practical.title} - passed.", '',
+                          render_message(message, self._stamp())])
 
     def _end_practical(self, practical: Practical,
                        report: TroubleReport) -> None:
         """Take the staged report off the board and put the board back."""
         practical.strike(self._scene(report))
+        self._practical_memory.pop(self._said(report), None)
         self.desk.discard(report)
+        self._hint_situation = ''
+        self._hint_level = 0
         self._sync_report_files()
 
     def _abandon_practical(self) -> None:
@@ -175,13 +206,15 @@ class PracticalCommands(SessionState):
 
         The count is the floor and not the sign-off. The notice goes out when
         the count is first met, from the man who signs, and says what the
-        next step is.
+        next step is. Once is once for the career: the record carries it, so
+        a new session does not send it again.
         """
         notices: List[str] = []
         for qualification in self.career.offer_available():
-            if qualification.key in self._offered:
+            if qualification.key in self.career.offered:
                 continue
-            self._offered.add(qualification.key)
+            self.career.offered.append(qualification.key)
+            self.career.save()
             message = self.switchroom.practical_offer(
                 self.clock.now(), qualification.name, qualification.key)
             notices.append(render_message(message, self._stamp()))

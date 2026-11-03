@@ -194,9 +194,7 @@ class BureauCommands(SessionState):
         a missing binary.
         """
         needed = self.career.qualification_for_command(command)
-        if needed is None or self.career.is_qualified(needed):
-            return None
-        if self._practical_key() == needed:
+        if needed is None or self._may_use(command):
             return None
         qualification = QUALIFICATIONS_BY_KEY[needed]
         remaining = max(
@@ -765,18 +763,22 @@ class BureauCommands(SessionState):
                           * difficulty.reports_per_qualification
                           - career.reports_correct)
                 short = max(0, needed)
-                lines.append(
-                    f"      Needs {short} more correct closure"
-                    f"{'' if short == 1 else 's'}." if short else
-                    f"      Count met. Practical: qual take "
-                    f"{qualification.key}")
+                if short:
+                    ask = (f"      Needs {short} more correct closure"
+                           f"{'' if short == 1 else 's'}.")
+                elif self._practical_key() == qualification.key:
+                    ask = "      Practical is on your board: qual submit"
+                else:
+                    ask = (f"      Count met. Practical: qual take "
+                           f"{qualification.key}")
+                lines.append(ask)
             lines.append('')
 
         # What help(1) used to end on. It belongs here, next to the
         # sign-offs that open each one, rather than as the last thing a new
         # craftsperson reads on the first screen they ever see.
         locked = sorted(name for name in self._command_handlers
-                        if not career.may_use(name))
+                        if not self._may_use(name))
         if locked:
             lines.extend(['NOT SIGNED OFF', '-' * 74])
             lines.append(f"  {', '.join(locked)}")

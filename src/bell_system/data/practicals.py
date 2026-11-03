@@ -10,11 +10,14 @@ A practical is data: the report it stages, what he says about it, what he looks
 at when you hand it in, and what he says if it is not there. The terminal
 that runs one is screens/practical.py; the verbs it asks for are verbs.py.
 
-Nothing here is saved. What a stage changes on the board is either on the
-report (which the shift save carries) or put back when the practical ends.
+What a stage changes on the board is either on the report (which the shift
+save carries) or put back when the practical ends. The trunk groups are the
+exception: they are not saved mid-practical, so a game saved and loaded with
+one open comes back with the groups the sim drew, and the strike has nothing
+of the stage left to take off them.
 """
 
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Tuple
 
 from ..field import POOL_CREW, Assignment
 
@@ -30,6 +33,15 @@ class Scene(NamedTuple):
     groups: Dict[str, Any]
     # Minutes into the tour, on the clock the crews run on.
     now: int
+    # What a stage put there that its strike has to put back, by report
+    # number. Belongs to the terminal and lasts as long as it does.
+    memory: Dict[str, Any]
+
+
+def _clear(groups: Dict[str, Any]) -> str:
+    """A stage that can always be set up."""
+    del groups
+    return ''
 
 
 class Practical(NamedTuple):
@@ -51,6 +63,8 @@ class Practical(NamedTuple):
     strike: Callable[[Scene], None]
     # The nudges 'hint' gives during it, smallest first.
     hints: Tuple[Tuple[str, ...], ...]
+    # Why it cannot be set up on this board, in his voice, or ''.
+    blocked: Callable[[Dict[str, Any]], str] = _clear
 
 
 def _nothing(scene: Scene) -> str:
@@ -64,10 +78,15 @@ def _put_back(scene: Scene) -> None:
     del scene
 
 
+def _in_service(groups: Dict[str, Any]) -> List[str]:
+    """The trunk groups in service, by name."""
+    return [name for name, group in groups.items()
+            if group['status'] == 'ACTIVE']
+
+
 def _active(scene: Scene) -> List[str]:
     """The trunk groups in service, by name."""
-    return [name for name, group in scene.groups.items()
-            if group['status'] == 'ACTIVE']
+    return _in_service(scene.groups)
 
 
 def _sent_a_truck(scene: Scene) -> List[str]:
@@ -109,15 +128,30 @@ def _check_office(scene: Scene) -> List[str]:
 
 
 def _stage_pool(scene: Scene) -> str:
-    """Send every local outside plant crew out on something long."""
+    """
+    Send every local outside plant crew that is free out on something long.
+
+    A crew already out on a real job stays on it: the stage does not replace
+    what the board was doing.
+    """
     force = scene.desk.force
     # One loan a tour. A tour that has spent it on something else would
     # have no way to pass this, so the practical gives the pool crew back.
     if POOL_CREW.key not in force.out:
         force.loaned = None
     for crew in force.crews_for('Outside plant'):
+        if crew.key == POOL_CREW.key or crew.key in force.out:
+            continue
         force.out[crew.key] = Assignment(crew, _TIED_UP, 40, 180, scene.now)
-    return ("Both outside plant crews are tied up on " + _TIED_UP + ".")
+    return "Outside plant is tied up on " + _TIED_UP + "."
+
+
+def _strike_pool(scene: Scene) -> None:
+    """Send the crews home that the stage held, and only those."""
+    force = scene.desk.force
+    for key, job in list(force.out.items()):
+        if job.report == _TIED_UP:
+            del force.out[key]
 
 
 def _check_pool(scene: Scene) -> List[str]:
@@ -163,6 +197,14 @@ def _check_trunk(scene: Scene) -> List[str]:
     return missed + _sent_a_truck(scene)
 
 
+def _blocked_trunk(groups: Dict[str, Any]) -> str:
+    """The trunk practical needs a group to put the member in."""
+    if _in_service(groups):
+        return ''
+    return ("I have no trunk group in service to put it in. Come back "
+            "when there is one.")
+
+
 def _strike_trunk(scene: Scene) -> None:
     """Bring the group back to what a repaired trunk measures."""
     names = _active(scene)
@@ -176,27 +218,38 @@ def _strike_trunk(scene: Scene) -> None:
 
 _BUSY = 96
 _SPARE = 38
-_NORMAL = (72, 55)
-
-
-def _loaded(scene: Scene) -> Tuple[Optional[str], Optional[str]]:
-    """The busiest group and the next one, which is its alternate."""
-    names = sorted(_active(scene),
-                   key=lambda name: scene.groups[name]['utilization'],
-                   reverse=True)
-    return (names[0] if names else None,
-            names[1] if len(names) > 1 else None)
 
 
 def _stage_toll(scene: Scene) -> str:
-    """Load one route to the point where calls give up, with room beside it."""
-    busy, spare = _loaded(scene)
-    if busy is None or spare is None:
+    """
+    Load one route to the point where calls give up, with room beside it.
+
+    The busiest group is the one that fills up; the least loaded of the rest
+    is the one with room. What both were is kept for the strike, by report.
+    """
+    names = _active(scene)
+    if len(names) < 2:
         return ''
-    scene.groups[busy]['utilization'] = _BUSY
-    scene.groups[spare]['utilization'] = _SPARE
+    groups = scene.groups
+    busy = max(names, key=lambda name: groups[name]['utilization'])
+    spare = min((name for name in names if name != busy),
+                key=lambda name: groups[name]['utilization'])
+    scene.memory[scene.report.number] = {
+        busy: groups[busy]['utilization'],
+        spare: groups[spare]['utilization']}
+    groups[busy]['utilization'] = _BUSY
+    groups[spare]['utilization'] = _SPARE
     return (f"{busy} is at {_BUSY}% and {spare}, which can carry what "
             f"overflows it, is at {_SPARE}%.")
+
+
+def _blocked_toll(groups: Dict[str, Any]) -> str:
+    """The toll practical needs one route to fill and one to spill to."""
+    if len(_in_service(groups)) >= 2:
+        return ''
+    return ("I need two trunk groups in service, one to fill and one "
+            "to spill into, and you have fewer. Come back when they are "
+            "up.")
 
 
 def _check_toll(scene: Scene) -> List[str]:
@@ -215,12 +268,12 @@ def _check_toll(scene: Scene) -> List[str]:
 
 
 def _strike_toll(scene: Scene) -> None:
-    """Take the practical's control off and let the routes settle."""
+    """Take the practical's control off and put the two routes back."""
     scene.desk.control = None
-    busy, spare = _loaded(scene)
-    if busy is not None and spare is not None:
-        scene.groups[busy]['utilization'] = _NORMAL[0]
-        scene.groups[spare]['utilization'] = _NORMAL[1]
+    kept = scene.memory.pop(scene.report.number, {})
+    for name, utilization in kept.items():
+        if name in scene.groups:
+            scene.groups[name]['utilization'] = utilization
 
 
 PRACTICALS: Dict[str, Practical] = {practical.key: practical for practical in (
@@ -266,7 +319,7 @@ PRACTICALS: Dict[str, Practical] = {practical.key: practical for practical in (
             "it needs. {extra}",
             "Get somebody there. Waiting for your own crews is the long way.",
         ),
-        stage=_stage_pool, check=_check_pool, strike=_put_back,
+        stage=_stage_pool, check=_check_pool, strike=_strike_pool,
         hints=(
             ("Dispatch will only put it on the list while your own crews "
              "are out. 'force' shows where they are.",),
@@ -284,6 +337,7 @@ PRACTICALS: Dict[str, Practical] = {practical.key: practical for practical in (
             "is not releasing. Find it and take it out of service.",
         ),
         stage=_stage_trunk, check=_check_trunk, strike=_strike_trunk,
+        blocked=_blocked_trunk,
         hints=(
             ("Nothing is wrong with the line. The calls are going "
              "somewhere that is.",),
@@ -301,6 +355,7 @@ PRACTICALS: Dict[str, Practical] = {practical.key: practical for practical in (
             "Put a control on that does the customers some good.",
         ),
         stage=_stage_toll, check=_check_toll, strike=_strike_toll,
+        blocked=_blocked_toll,
         hints=(
             ("A route that is full gives you reports that test good. "
              "'traffic routes' shows which.",),

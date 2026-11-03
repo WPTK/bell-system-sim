@@ -108,8 +108,8 @@ class SessionState:
     # resets when the situation changes.
     _hint_situation: str
     _hint_level: int
-    # Sign-offs already announced as ready for a practical, this session.
-    _offered: Set[str]
+    # What a practical's stage moved or said, for its strike and its re-brief.
+    _practical_memory: Dict[str, Any]
     shift_minutes: int
     shift_events: List[Dict[str, Any]]
     shift_handoff: Dict[str, Any]
@@ -407,6 +407,10 @@ class SessionState:
 
     def _practical_key(self) -> Optional[str]:
         """The sign-off whose practical is on the board, if one is."""
+        raise NotImplementedError
+
+    def _may_use(self, command: str) -> bool:
+        """Whether a command is open to the operator, a practical included."""
         raise NotImplementedError
 
     def _practical_hints(self) -> List[Tuple[str, List[str]]]:

@@ -41,6 +41,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from .cable import WetSection
+from .data.practicals import PRACTICALS
 from .field import Assignment, CREWS, POOL_CREW
 from .filesystem import (
     PLAYER_LIMIT,
@@ -161,8 +162,12 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     # before that has been aged by exactly the desk time it charged.
     report.desk_booked = stored.get('desk_booked', report.desk_minutes)
     # Written since practicals; a report from before one is an ordinary one.
+    # A name this version has no practical for would be a report that can be
+    # neither closed (it is Halloran's) nor handed in (nobody knows it), so
+    # it is read as an ordinary report instead.
     practical = stored.get('practical')
-    report.practical = practical if isinstance(practical, str) else None
+    report.practical = (practical if isinstance(practical, str)
+                        and practical in PRACTICALS else None)
     # Nor were overdue reports flagged while they were open. Left alone,
     # the first age() after loading would find every one of them late at
     # once and answer with a burst of misses and escalations for lateness

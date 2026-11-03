@@ -129,10 +129,12 @@ def test_take_stages_one_report_with_the_brief(terminal):
 def test_take_again_shows_the_brief_and_stages_nothing_new(terminal):
     ready(terminal, 'frame')
     terminal.execute_command('qual take frame')
-    before = len(terminal.desk.pending())
     reply = terminal.execute_command('qual take frame')
     assert reply.startswith('Still on your board')
-    assert len(terminal.desk.pending()) == before
+    # The bureau may send a customer's report meanwhile; it is the staged
+    # ones that must not multiply.
+    assert [report.practical for report in terminal.desk.pending()
+            ].count('frame') == 1
 
 
 def test_one_practical_at_a_time(terminal):
@@ -375,3 +377,261 @@ def test_a_practical_passed_is_saved_on_the_career(terminal, tmp_path):
 def test_the_qual_man_page_describes_the_practical(terminal):
     page = terminal.execute_command('man qual')
     assert 'qual take' in page and 'qual submit' in page
+
+
+# -- the staging, put back exactly -------------------------------------------
+
+
+def _really_out(terminal, key, report='TR-REAL', left=0):
+    """Put a crew out on a job the player did not stage."""
+    from bell_system.field import CREWS_BY_KEY, POOL_CREW, Assignment
+
+    crew = POOL_CREW if key == 'pool' else CREWS_BY_KEY[key]
+    job = Assignment(crew, report, 10, 600, left)
+    terminal.desk.force.out[key] = job
+    return job
+
+
+def _tied_up(terminal):
+    from bell_system.data.practicals import _TIED_UP
+
+    return [job for job in terminal.desk.force.out.values()
+            if job.report == _TIED_UP]
+
+
+def test_the_scc_stage_does_not_take_over_a_crew_really_out(terminal):
+    ready(terminal, 'scc')
+    job = _really_out(terminal, 'bright')
+    terminal.execute_command('qual take scc')
+    assert terminal.desk.force.out['bright'] == job
+    assert _tied_up(terminal) == []
+    terminal.execute_command('qual submit')
+    assert terminal.desk.force.out['bright'] == job
+
+
+def test_the_scc_stage_is_taken_off_when_it_is_handed_in(terminal):
+    ready(terminal, 'scc')
+    terminal.execute_command('qual take scc')
+    assert len(_tied_up(terminal)) >= 1
+    terminal.execute_command('qual submit')
+    assert _tied_up(terminal) == []
+    assert terminal.desk.force.free('Outside plant', terminal.shift_minutes)
+
+
+def test_the_scc_stage_is_taken_off_when_it_is_passed(terminal):
+    ready(terminal, 'scc')
+    terminal.execute_command('qual take scc')
+    _, report = staged(terminal)
+    work(terminal, 'scc', report.number)
+    assert 'passed' in terminal.execute_command('qual submit')
+    assert _tied_up(terminal) == []
+
+
+def test_the_scc_stage_does_not_outlast_a_handoff(terminal):
+    ready(terminal, 'scc')
+    terminal.execute_command('qual take scc')
+    terminal._abandon_practical()
+    terminal.desk.force.new_tour(elapsed=terminal.shift_minutes)
+    assert _tied_up(terminal) == []
+    assert terminal.desk.force.free('Outside plant', 0)
+
+
+def test_the_scc_stage_leaves_the_pool_crew_out_if_it_is_really_out(terminal):
+    ready(terminal, 'scc')
+    terminal.desk.force.loaned = 'Outside plant'
+    job = _really_out(terminal, 'pool')
+    terminal.execute_command('qual take scc')
+    assert terminal.desk.force.out['pool'] == job
+
+
+def _three_routes(terminal, loads=(70, 20, 50)):
+    groups = terminal.trunk_groups
+    names = list(groups)[:3]
+    for name in groups:
+        groups[name]['status'] = 'ACTIVE'
+    for name, load in zip(names, loads):
+        groups[name]['utilization'] = load
+    return names
+
+
+def test_the_toll_stage_loads_the_busiest_beside_the_least_loaded(terminal):
+    ready(terminal, 'toll')
+    busy, spare, other = _three_routes(terminal)
+    groups = terminal.trunk_groups
+    for name in list(groups)[3:]:
+        groups[name]['utilization'] = 60
+    reply = terminal.execute_command('qual take toll')
+    assert groups[busy]['utilization'] == 96
+    assert groups[spare]['utilization'] == 38
+    assert groups[other]['utilization'] == 50
+    assert f"{spare}, which can carry" in reply
+
+
+@pytest.mark.parametrize('how', ['submit', 'abandon'])
+def test_the_toll_strike_puts_back_exactly_the_two_it_moved(terminal, how):
+    ready(terminal, 'toll')
+    _three_routes(terminal)
+    groups = terminal.trunk_groups
+    before = {name: group['utilization'] for name, group in groups.items()}
+    terminal.execute_command('qual take toll')
+    assert {name: group['utilization']
+            for name, group in groups.items()} != before
+    if how == 'abandon':
+        terminal._abandon_practical()
+    else:
+        terminal.execute_command('toll control reroute')
+        terminal.execute_command('qual submit')
+    assert {name: group['utilization']
+            for name, group in groups.items()} == before
+    assert terminal.desk.control is None
+
+
+def test_the_toll_practical_is_not_staged_with_one_route_in_service(terminal):
+    ready(terminal, 'toll')
+    groups = terminal.trunk_groups
+    for index, name in enumerate(groups):
+        groups[name]['status'] = 'ACTIVE' if index == 0 else 'BUSY'
+    reply = terminal.execute_command('qual take toll')
+    assert 'two trunk groups in service' in reply
+    assert terminal._practical_open() is None
+
+
+def test_the_trunk_practical_is_not_staged_with_no_route_in_service(terminal):
+    ready(terminal, 'trunk')
+    for group in terminal.trunk_groups.values():
+        group['status'] = 'BUSY'
+    reply = terminal.execute_command('qual take trunk')
+    assert 'no trunk group in service' in reply
+    assert terminal._practical_open() is None
+
+
+# -- the screens --------------------------------------------------------------
+
+
+@pytest.mark.parametrize('key', ['scc', 'toll'])
+def test_take_again_keeps_the_sentence_the_stage_added(terminal, key):
+    ready(terminal, key)
+    first = terminal.execute_command(f'qual take {key}')
+    again = terminal.execute_command(f'qual take {key}')
+    sentence = {'scc': 'tied up on', 'toll': '% and'}[key]
+    assert sentence in first and sentence in again
+
+
+def test_a_pass_is_never_announced_without_a_grant(terminal):
+    ready(terminal, 'frame')
+    terminal.execute_command('qual take frame')
+    _, report = staged(terminal)
+    work(terminal, 'frame', report.number)
+    terminal.career.set_difficulty('craft')
+    assert terminal.career.offer_available() == []
+    reply = terminal.execute_command('qual submit')
+    assert 'passed' in reply
+    assert terminal.career.is_qualified('frame')
+    assert 'frame' in terminal.career.practicals_passed
+
+
+def test_a_pass_for_a_sign_off_already_held_does_not_say_passed(terminal):
+    ready(terminal, 'frame')
+    terminal.execute_command('qual take frame')
+    _, report = staged(terminal)
+    work(terminal, 'frame', report.number)
+    terminal.career.qualifications.append('frame')
+    reply = terminal.execute_command('qual submit')
+    assert 'passed' not in reply and 'already signed off' in reply
+
+
+def test_the_hint_starts_over_for_each_practical(terminal):
+    ready(terminal, 'frame')
+    terminal.execute_command('qual take frame')
+    terminal.execute_command('hint')
+    terminal.execute_command('hint')
+    assert terminal._hint_level == 2
+    terminal.execute_command('qual submit')
+    assert terminal._hint_level == 0 and terminal._hint_situation == ''
+    terminal.execute_command('qual take frame')
+    terminal.execute_command('hint')
+    assert terminal._hint_level == 1
+
+
+# -- what the prompts and status screens say ----------------------------------
+
+
+def test_a_clear_board_with_the_count_met_points_at_the_practical(terminal):
+    ready(terminal, 'frame')
+    for report in list(terminal.desk.pending()):
+        terminal.desk.discard(report)
+    action = terminal.next_action()
+    assert action.command == 'qual take frame'
+    assert 'one correct closure from your next sign-off' not in action.reason
+
+
+def test_next_action_does_not_suggest_closing_the_staged_report(terminal):
+    ready(terminal, 'frame')
+    terminal.execute_command('qual take frame')
+    _, report = staged(terminal)
+    action = terminal.next_action()
+    assert action.command == 'qual submit'
+    assert 'report close' not in action.command
+    assert report.number in action.reason
+
+
+def test_next_action_works_the_real_board_past_a_staged_report(terminal):
+    ready(terminal, 'frame')
+    terminal.execute_command('qual take frame')
+    real = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
+    # With a practical up, handing it in is the one thing worth doing; once
+    # it is in, the customer's report is what the board wants.
+    assert terminal.next_action().command == 'qual submit'
+    terminal.execute_command('qual submit')
+    assert real.number in terminal.next_action().reason
+
+
+def test_training_names_the_practical(terminal):
+    ready(terminal, 'frame')
+    shown = terminal.execute_command('training')
+    assert 'close one more and it is yours' not in shown
+    assert 'qual take frame' in shown
+    assert 'passing the practical is the sign-off' in shown
+
+
+def test_the_tools_are_not_starred_while_their_practical_is_up(terminal):
+    ready(terminal, 'frame')
+    assert 'You are not signed off' in terminal.execute_command('help cosmos')
+    starred = terminal.execute_command('help').split('(')[-1].split(' ')[0]
+    terminal.execute_command('qual take frame')
+    after = terminal.execute_command('help').split('(')[-1].split(' ')[0]
+    assert int(after) < int(starred)
+    assert 'not signed off' not in terminal.execute_command('help cosmos')
+    shown = terminal.execute_command('qual')
+    assert 'Practical is on your board: qual submit' in shown
+    assert 'cosmos' not in shown.split('NOT SIGNED OFF')[-1].split('Next')[0]
+
+
+# -- the offer ---------------------------------------------------------------
+
+
+def test_the_offer_is_said_once_for_the_career_not_the_session(terminal):
+    from bell_system.progression import Career
+
+    ready(terminal, 'frame')
+    assert len(terminal._offer_qualifications()) == 1
+    assert Career(terminal.career.path).offered == ['frame']
+    # A new session reads the record and has nothing to say.
+    terminal.career.offered = Career(terminal.career.path).offered
+    assert terminal._offer_qualifications() == []
+
+
+# -- saves ---------------------------------------------------------------------
+
+
+def test_a_saved_practical_nobody_knows_is_an_ordinary_report(terminal):
+    ready(terminal, 'frame')
+    terminal.execute_command('qual take frame')
+    _, report = staged(terminal)
+    stored = save.capture(terminal)
+    for entry in stored['board']['reports']:
+        if entry['number'] == report.number:
+            entry['practical'] = 'nonesuch'
+    assert save.restore(terminal, stored)
+    assert terminal.desk.reports[report.number].practical is None
+    assert terminal._practical_open() is None

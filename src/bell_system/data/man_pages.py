@@ -1534,7 +1534,7 @@ ASSISTS
      assist.commitment_slack    profile | on | off
                          on adds ninety minutes to every commitment.
      assist.pace                profile | quick | slow
-                         Correct closures for each sign-off: three or twelve.
+                         A sign-off is offered at every 3 or 12 correct closures.
      assist.scoring             profile | gentle | strict
                          Scales every penalty on the index by 0.7 or 1.0.
 

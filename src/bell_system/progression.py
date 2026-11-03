@@ -45,7 +45,7 @@ SCHEMA = 2
 
 # Career attributes that are a list of names, in the order they happened.
 _LIST_FIELDS = ('commendations', 'finds', 'groups', 'beats_seen',
-                'practicals_passed')
+                'practicals_passed', 'offered')
 # Career attributes that are a count for each of a set of names.
 _COUNT_FIELDS = ('fault_sightings', 'rapport')
 # Every key save() writes. Anything else in the file is a later version's.
@@ -190,8 +190,8 @@ ASSISTS: List[Assist] = [
         'assist.pace', 'reports_per_qualification',
         {'quick': 3, 'slow': 12},
         'Correct closures for each step of qualification',
-        'quick signs you off every three correct closures a step, slow '
-        'every twelve.',
+        'quick offers a sign-off at every 3 correct closures a step, slow '
+        'at every 12. The practical is what signs it.',
     ),
     Assist(
         'assist.scoring', 'index_penalty',
@@ -401,6 +401,8 @@ class Career:
         self.beats_seen: List[str] = []
         # Qualifications whose practical has been passed.
         self.practicals_passed: List[str] = []
+        # Qualifications whose practical has been offered by mail, once.
+        self.offered: List[str] = []
         # Where the career was assigned at the end of it. Nothing sets it:
         # the plan's assignment form was dropped, and the epilogue reads the
         # office's own company instead.
@@ -472,13 +474,15 @@ class Career:
         """
         Sign off a qualification whose practical has been passed.
 
-        The count only offers it. Returns None for a key that is not on
-        offer, so a practical passed for a sign-off already held, or not yet
-        reached, changes nothing.
+        The count only offers it, and 'qual take' will not stage a practical
+        before the count is met. Once it is up, passing it is what counts:
+        the count may have moved while it was (a pace or difficulty change
+        raises the bar), and a practical that was passed is not undone by
+        that. Returns None for a key that is not a sign-off, or is already
+        held, and changes nothing.
         """
-        offered = {q.key: q for q in self.offer_available()}
-        qualification = offered.get(key)
-        if qualification is None:
+        qualification = QUALIFICATIONS_BY_KEY.get(key)
+        if qualification is None or key in self.qualifications:
             return None
         if key not in self.practicals_passed:
             self.practicals_passed.append(key)

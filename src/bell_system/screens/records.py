@@ -321,13 +321,16 @@ find out why.
                 '=' * 62, '',
                 f"  Reports closed correctly this tour   {closed}",
                 '']
+        offered = self.career.offer_available()
         for qualification in QUALIFICATIONS:
             if qualification.key in held:
                 state = 'signed off'
-            elif closed >= qualification.requires_reports:
-                state = 'ready - close one more and it is yours'
+            elif qualification in offered:
+                state = f"ready - qual take {qualification.key}"
             else:
-                short = qualification.requires_reports - closed
+                short = (qualification.requires_reports
+                         * self._difficulty().reports_per_qualification
+                         - self.career.reports_correct)
                 state = f"wants {short} more report{'' if short == 1 else 's'}"
             rows.append(f"  {qualification.key:<8}{qualification.name:<28}"
                         f"{state}")
@@ -338,8 +341,9 @@ find out why.
                      '',
                      "Nothing here is a course you sit. The reports on your "
                      "board are the",
-                     "course, and closing them correctly is how it is "
-                     "passed."])
+                     "course. Closing enough of them correctly gets you a "
+                     "practical;",
+                     "passing the practical is the sign-off."])
         return '\n'.join(rows)
 
     def _unix_primer(self) -> str:

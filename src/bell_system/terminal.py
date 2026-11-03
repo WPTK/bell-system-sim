@@ -36,7 +36,7 @@ import warnings
 import time
 from collections import defaultdict, deque
 from datetime import timedelta
-from typing import Dict, List, Optional, Any, Set, Tuple
+from typing import Dict, List, Optional, Any, Tuple
 
 from .constants import (
     BELL_SYSTEM_ROLES,
@@ -246,7 +246,7 @@ class BellSystemTerminal(
         # over when it changes.
         self._hint_situation: str = ''
         self._hint_level: int = 0
-        self._offered: Set[str] = set()
+        self._practical_memory: Dict[str, Any] = {}
         self._tour_baseline: Tuple[int, int, int, int] = (
             self.career.reports_closed, self.career.reports_correct,
             self.career.missed_commitments, self.career.repeat_reports)
