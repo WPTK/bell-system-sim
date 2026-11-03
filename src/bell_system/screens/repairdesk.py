@@ -133,10 +133,11 @@ class RepairDeskCommands(SessionState):
         Their wait is the report's own elapsed time, which is the shift
         clock: it moves with what is typed and run, and the board ages while
         it does. The first tour is a grace, because the wire chief is still
-        talking. Read only.
+        talking. It is the whole tour, not the stretch before the first
+        report is closed (which is all ``first_tour`` covers). Read only.
         """
         window = PATIENCE[report.out_of_service]
-        if self.first_tour():
+        if self.career.shift == 1:
             return 0, window
         wait = max(0, report.minutes_spent
                    - self.patience_book()['told'].get(report.number, 0))
@@ -155,27 +156,36 @@ class RepairDeskCommands(SessionState):
         return sorted(queue, key=lambda row: (-row[1], row[2]))
 
     def rings_total(self) -> int:
-        """Rings customers have made this tour, whether or not anyone saw."""
+        """
+        Rings customers have made this tour, whether or not anyone saw.
+
+        A customer stops at the third, however many times they are advised
+        and wait again: after that they are writing in, not ringing.
+        """
         book = self.patience_book()
-        total = sum(book['rings'].values())
+        counts = dict(book['rings'])
         for report in self.desk.customers():
+            number = report.number
             rings, _ = self.patience(report)
-            total += max(0, rings - book['seen'].get(report.number, 0))
-        return total
+            pending = max(0, rings - book['seen'].get(number, 0))
+            counts[number] = min(MAX_RINGS, counts.get(number, 0) + pending)
+        return sum(counts.values())
 
     def ring_sweep(self) -> List[Message]:
         """
         Notice the customers who have rung since the clock last moved.
 
         Counts each ring once, says so in the attendant's words, and charges
-        the third to the index as a missed commitment. A report is charged
+        the third to the index as a missed commitment. A customer who has
+        given up has nothing more to say, so a report is rung on three times
+        in the tour and no more, whatever it is told in between. A report is charged
         once whichever comes first, the customer giving up or the commitment
         passing: both set the report's ``missed_commitment`` flag, which the
         commitment's own count (and the close) look at before they charge.
         Only the repair desk has customers to ring, and the first tour is a
         grace, so anywhere else this does nothing.
         """
-        if self.position.key != 'custserv' or self.first_tour():
+        if self.position.key != 'custserv' or self.career.shift == 1:
             return []
         book = self.patience_book()
         notices: List[Message] = []
@@ -190,9 +200,13 @@ class RepairDeskCommands(SessionState):
             if rings == seen:
                 continue
             book['seen'][number] = rings
-            book['rings'][number] = book['rings'].get(number, 0) + rings - seen
-            notice = self._ring_notice(report, rings)
-            if rings >= MAX_RINGS and not report.missed_commitment:
+            given = book['rings'].get(number, 0)
+            if given >= MAX_RINGS:
+                continue
+            total = min(MAX_RINGS, given + rings - seen)
+            book['rings'][number] = total
+            notice = self._ring_notice(report, total)
+            if total >= MAX_RINGS and not report.missed_commitment:
                 # The same cost a report that passes its commitment carries,
                 # through the same path; the handoff prints it. The flag is
                 # what keeps the commitment from charging it again.

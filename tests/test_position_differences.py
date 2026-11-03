@@ -1096,6 +1096,19 @@ class TestTheRepairDeskHolds:
         assert terminal.ring_sweep() == []
         assert terminal.career.missed_commitments == 0
 
+    def test_the_grace_is_the_whole_first_tour_not_only_until_a_close(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 500))
+        terminal.career.shift = 1
+        terminal.career.reports_closed = 1  # first_tour() has ended.
+        assert not terminal.first_tour()
+        assert terminal.patience(down)[0] == 0
+        assert terminal.ring_sweep() == []
+        assert terminal.career.missed_commitments == 0
+        terminal.career.shift = 2
+        assert terminal.patience(down)[0] == 3
+
     def test_the_tally_keeps_a_ring_when_the_report_closes(self, at_desk):
         terminal = at_desk('custserv')
         (down,) = hold(terminal, (True, 45))
@@ -1201,6 +1214,61 @@ class TestTheRepairDeskCostsTheIndex:
         assert terminal.ring_sweep() == []
         assert ring_messages(terminal) == []
         assert terminal.career.missed_commitments == before
+
+    def test_the_giving_up_is_said_and_charged_once_per_report(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        down.field_finding = 'OPEN'
+        before = terminal.career.missed_commitments
+        terminal._pass_time(65)
+        terminal.ring_sweep()
+        assert terminal.patience_book()['rings'][down.number] == 3
+        # Told something, they wait again, and are past the third again.
+        terminal.execute_command(f'trouble advise {down.number}')
+        for _ in range(3):
+            terminal._pass_time(65)
+            terminal.ring_sweep()
+        mine = [m for m in ring_messages(terminal) if m.about == down.number]
+        assert len(mine) == 1
+        assert 'writing in' in ' '.join(mine[0].lines)
+        assert down.missed_commitment
+        assert terminal.patience_book()['rings'][down.number] == 3
+        assert terminal.career.missed_commitments >= before + 1
+
+    def test_rings_stop_at_three_a_report_whatever_it_is_told(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        down.field_finding = 'OPEN'
+        terminal._pass_time(25)
+        terminal.ring_sweep()
+        terminal.execute_command(f'trouble advise {down.number}')
+        for _ in range(6):
+            terminal._pass_time(25)
+            terminal.ring_sweep()
+            book = terminal.patience_book()
+            assert book['rings'][down.number] <= 3
+            assert max(book['rings'].values()) <= 3
+            # Everything counted is what the book holds: nothing pending.
+            assert terminal.rings_total() == sum(book['rings'].values())
+        assert terminal.patience_book()['rings'][down.number] == 3
+        mine = [m for m in ring_messages(terminal) if m.about == down.number]
+        assert len(mine) == 3
+
+    def test_the_first_tour_is_never_charged_close_or_no_close(
+            self, at_desk):
+        for closed in (0, 1):
+            terminal = at_desk('custserv')
+            (down,) = hold(terminal, (True, 0))
+            terminal.career.shift = 1
+            terminal.career.reports_closed = closed
+            terminal._pass_time(600)
+            late = terminal.career.missed_commitments
+            flagged = down.missed_commitment
+            terminal.ring_sweep()
+            assert terminal.career.missed_commitments == late, closed
+            assert down.missed_commitment == flagged
+            assert ring_messages(terminal) == []
 
     def test_the_first_tour_is_never_charged(self, at_desk):
         terminal = at_desk('custserv')
@@ -1379,8 +1447,9 @@ class TestTheRepairDeskAcrossAResume:
         fresh = BellSystemTerminal()
         fresh.career.shift = terminal.career.shift
         fresh.career.reports_closed = terminal.career.reports_closed
-        fresh.take_position('custserv')
         assert save.restore(fresh, captured)
+        with redirect_stdout(io.StringIO()):
+            fresh.take_position('custserv')
         return fresh
 
     def test_a_call_made_before_the_save_still_counts(self, at_desk):
