@@ -329,8 +329,9 @@ class ReportDesk:
         self.order: List[str] = []
         # The numbers on the board as the player last saw it, so that a
         # position means the row they read and not wherever a report that
-        # has arrived since has pushed it. Empty until the board is listed.
-        self.listed: List[str] = []
+        # has arrived since has pushed it. None until the board is listed,
+        # and again once a new tour is dealt.
+        self.listed: Optional[List[str]] = None
         self._sequence = self.rng.randint(1200, 8600)
         self.closed_count = 0
         self.repeat_count = 0
@@ -567,6 +568,7 @@ class ReportDesk:
                 customer's words and the pair disagreeing
         """
         count = self.rng.randint(*OPENING_BACKLOG) if count is None else count
+        self.listed = None
         opened = []
         for index in range(count):
             received = now - timedelta(minutes=self.rng.randint(20, 240))
@@ -645,7 +647,7 @@ class ReportDesk:
 
         if token.isdigit():
             position = int(token)
-            if self.listed:
+            if self.listed is not None:
                 if 1 <= position <= len(self.listed):
                     pinned = self.reports.get(self.listed[position - 1])
                     if pinned is not None and pinned.status != STATUS_CLOSED:
@@ -655,6 +657,26 @@ class ReportDesk:
             if 1 <= position <= len(pending):
                 return pending[position - 1]
         return None
+
+    def stale_position(self, token: str) -> str:
+        """
+        Say why a position found nothing, when it is the pin that is stale.
+
+        Returns:
+            What to tell the player, or '' when the token is not a position
+            on a listing (so the caller says its own "no report")
+        """
+        token = token.strip()
+        if self.listed is None or not token.isdigit():
+            return ''
+        if f"TR-{token}" in self.reports:
+            return ''
+        position = int(token)
+        if 1 <= position <= len(self.listed):
+            return (f"{self.listed[position - 1]} is closed; 'report' "
+                    f"relists the board.")
+        return (f"There is no row {position} on the board as it was last "
+                f"listed; 'report' relists it.")
 
     # -- working ---------------------------------------------------------
 
@@ -669,8 +691,14 @@ class ReportDesk:
 
     def dispatch(self, report: TroubleReport, force: str,
                  now: int = 0, name_fault: bool = True) -> str:
+        """Send a repair force and return what the field reports back."""
+        return self.send_crew(report, force, now, name_fault)[0]
+
+    def send_crew(self, report: TroubleReport, force: str,
+                  now: int = 0, name_fault: bool = True) -> Tuple[str, bool]:
         """
-        Send a repair force and return what the field reports back.
+        Send a repair force, and say what the field reports and whether
+        anybody went.
 
         ``now`` is minutes into the tour on the shift clock, the same clock
         the commitments and the crews' return times run on. ``name_fault``
@@ -680,6 +708,11 @@ class ReportDesk:
 
         Dispatching to the wrong place is the expensive mistake it was: the
         trip is charged against the commitment and the trouble is still there.
+        Nothing about the report but the call it cost is touched until a
+        crew has been found, so a refusal leaves it as it was.
+
+        Returns:
+            The field's answer, and whether a crew went
         """
         fault = FAULTS[report.record.fault]
         wanted = fault.dispatch
@@ -689,24 +722,20 @@ class ReportDesk:
             # else's report and the pair came back with it. Sending a
             # second crew to a sheath that is dry is the exact waste the
             # cable model exists to teach against, so it does not happen.
-            report.dispatched_to = None
             close = ('code 5, found WET' if name_fault
                      else 'trouble found, and say what')
             return (f"{report.number} is on a sheath a splicer has already "
                     f"opened. The pair came back with the rest of the "
-                    f"group.\nNobody needs to go. Close it out: {close}.")
+                    f"group.\nNobody needs to go. Close it out: {close}.",
+                    False)
 
-        # A dispatch that nobody answers changes nothing about the report
-        # but the call it cost, so its status is only set once a crew has
-        # been found. dispatched_to is how the screen tells that nobody went.
-        report.dispatched_to = None
         if force.lower() != wanted.lower():
             crew, travel, came_from = self.force.send(
                 force, report.number, COST_WRONG_DISPATCH, now)
             if crew is None:
                 report.spend(COST_DISPATCH, desk=COST_DISPATCH)
                 return (f"Nobody free on {force.lower()}, which is just as "
-                        f"well: the trouble is not theirs.")
+                        f"well: the trouble is not theirs.", False)
             report.dispatched_to = force
             report.spend(COST_WRONG_DISPATCH + COST_DISPATCH + travel,
                          desk=COST_DISPATCH + COST_WRONG_DISPATCH_DESK)
@@ -716,7 +745,8 @@ class ReportDesk:
             return (f"{crew.name} rolled from {came_from}, {travel} minutes, "
                     f"and found nothing at their end.\n"
                     f"{COST_WRONG_DISPATCH + travel} minutes charged against "
-                    f"the commitment, and {crew.name} is now out on nothing.")
+                    f"the commitment, and {crew.name} is now out on nothing.",
+                    True)
 
         low, high = fault.typical_minutes
         repair = self.rng.randint(low, high)
@@ -728,13 +758,13 @@ class ReportDesk:
             waiting = self.force.soonest_free(force, now)
             report.spend(COST_DISPATCH, desk=COST_DISPATCH)
             if waiting is None:  # pragma: no cover - no crew for the category
-                return f"Nobody answers {force} from this position."
+                return f"Nobody answers {force} from this position.", False
             wait = max(0, waiting.back_at() - now)
             return (f"Nobody free on {force.lower()}. "
                     f"{waiting.crew.name} is on {waiting.report} and is "
                     f"back in {hours_minutes(wait)}, "
                     f"{hours_minutes(waiting.back_at())} into the tour.\n"
-                    f"{report.number} stays on the board.")
+                    f"{report.number} stays on the board.", False)
 
         report.dispatched_to = force
         report.crew = crew.name
@@ -748,13 +778,13 @@ class ReportDesk:
                 f"{came_from}, {travel} minutes.")
         if fault.code == 'NONE':
             return (f"{went}\n{crew.name} reports the line tests good at "
-                    f"the station. {repair} minutes on the job.")
+                    f"the station. {repair} minutes on the job.", True)
         if fault.code == 'WET':
-            return f"{went}\n" + self._repair_sheath(
-                report, crew.name, repair, name_fault)
+            return (f"{went}\n" + self._repair_sheath(
+                report, crew.name, repair, name_fault), True)
         cleared = fault.name.lower() if name_fault else 'the trouble'
         return (f"{went}\n{crew.name} reports {cleared} located "
-                f"and cleared. {repair} minutes on the job.")
+                f"and cleared. {repair} minutes on the job.", True)
 
     def _repair_sheath(self, report: 'TroubleReport', force: str,
                        repair: int, name_fault: bool = True) -> str:

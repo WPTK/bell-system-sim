@@ -35,6 +35,7 @@ from ..loop_testing import (
     STAGE_NUMBERS, measure_loop, names_fault, reading_is_clean)
 from ..npc import render as render_message
 from ..progression import QUALIFICATIONS_BY_KEY
+from ..verbs import measured
 from .session import SessionState
 
 
@@ -85,6 +86,12 @@ class GuidanceCommands(SessionState):
         pending = [report for report in self.desk.pending()
                    if not report.practical]
         if staged is not None:
+            if not measured(staged[1]):
+                return NextAction(
+                    f"{staged[1].number} is {staged[0].title}, the "
+                    f"practical. He signs the reading as well as the fix: "
+                    f"measure it first.",
+                    f"mlt {staged[1].number}", 'measure')
             return NextAction(
                 f"{staged[1].number} is {staged[0].title}, the practical. "
                 f"Work it, then hand it in.",

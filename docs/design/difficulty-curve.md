@@ -146,7 +146,7 @@ unlocked, not by merge order.
 | ---: | --- | --- | --- | --- |
 | 0 | Reports age on shift minutes; crews return on the shift clock; zero work is not EXCELLENT | Tour 1 on, silently | The briefing's countdown and `shift` | Low |
 | 1 | Assists, the saved home, a reachable ladder | At first `set`; ladder from tour 1 | `set`, the `qual` command | None |
-| 2 | Fun stops naming the fault after a fault's 4th sighting; the Practices binder `/usr/bsp` | Tour 2 to 3 (fun); tour 1 (craft, no naming) | A reading note that fades; a hint that cites a sheet | Low: a hint costs nothing |
+| 2 | Fun names a fault for its first 2 sightings, the crew class only for the next 2, then numbers; the Practices binder `/usr/bsp` | Tour 2 to 3 (fun); tour 1 (craft, no naming) | A reading note that fades; a hint that cites a sheet | Low: a hint costs nothing |
 | 3 | Each sign-off adds a verb that changes the board; `qual take` practical | First sign-off, tour 1 to 3 | Halloran's message; `qual` | Moderate: the practical can be failed and retaken |
 | 4 | Thirteen briefings; tour goals; a dated news item per tour; the audit at tour 13 | Tour 2 on; the audit at 13 | The briefing and handoff | Low until tour 13 |
 | 5 | KPIs, per-tour index, commendations | End of the first handoff | `qual`, handoff | Low: credit, never penalty |

@@ -1548,8 +1548,9 @@ ASSISTS
                          Scales every penalty on the index by 0.7 or 1.0.
      assist.annotate            profile | off | fade | on
                          Whether mlt and the crews keep naming the fault:
-                         never, for the first four sightings of each kind
-                         of trouble, or always.
+                         never; for the first two sightings of each kind of
+                         trouble, then the crew class for two more; or
+                         always.
 
 SEE ALSO
      date(1), status(1), verbosity(1)

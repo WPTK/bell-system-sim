@@ -205,8 +205,12 @@ class TestTheCrewFadesWhenMltDoes:
         told = terminal.execute_command(
             f'report dispatch {measured.number} {force}').lower()
         crew_names_it = (FAULTS[code].name.lower() in told
-                         or 'water' in told)
+                         or 'water in' in told)
         assert crew_names_it == mlt_names_it == (seen < 2)
+        if seen >= 2:
+            # Craft's wording, not merely the absence of the name.
+            assert ('the trouble located and cleared' in told
+                    or 'trouble in cable' in told)
 
 
 class TestTheFirstReportTeaches:

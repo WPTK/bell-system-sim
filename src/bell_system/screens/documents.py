@@ -12,7 +12,7 @@ from typing import (
 )
 
 
-from ..data.practices import search as search_sheets
+from ..data.practices import TOPIC_MIN, about, search as search_sheets
 from .session import SessionState
 
 # The library's procedures, which a search can list. The sheets under
@@ -47,10 +47,11 @@ implementations, which is exactly what happened once.
     @staticmethod
     def _bsp_search(topic: str) -> str:
         """List the procedures and /usr/bsp sheets that are about a topic."""
-        words = topic.split()
+        if len(topic.strip()) < TOPIC_MIN:
+            return (f"bsp: give a topic of at least {TOPIC_MIN} characters, "
+                    f"as in 'bsp search loop'.")
         procedures = [(number, title) for number, title in BSP_PROCEDURES
-                      if all(word in f"{number} {title}".lower()
-                             for word in words)]
+                      if about(topic, f"{number} {title}")]
         sheets = search_sheets(topic)
         lines = [f'BSP Search Results: "{topic}"', '']
         if not procedures and not sheets:

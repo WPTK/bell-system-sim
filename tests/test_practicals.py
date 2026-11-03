@@ -246,6 +246,28 @@ def test_a_staged_report_leaves_the_career_counts_alone(terminal):
     assert terminal.desk.closed_count == 0
 
 
+@pytest.mark.parametrize('key', KEYS)
+def test_a_passed_practical_leaves_the_sighting_counts_alone(terminal, key):
+    ready(terminal, key)
+    before = dict(terminal.career.fault_sightings)
+    terminal.execute_command(f'qual take {key}')
+    _, report = staged(terminal)
+    work(terminal, key, report.number)
+    assert 'passed' in terminal.execute_command('qual submit')
+    assert terminal.career.fault_sightings == before
+    assert report.sighting is None
+
+
+@pytest.mark.parametrize('key', KEYS)
+def test_next_says_measure_until_the_practical_is_measured(terminal, key):
+    ready(terminal, key)
+    terminal.execute_command(f'qual take {key}')
+    _, report = staged(terminal)
+    assert terminal.next_action().command == f'mlt {report.number}'
+    terminal.execute_command(f'mlt {report.number}')
+    assert terminal.next_action().command == 'qual submit'
+
+
 def test_submit_with_nothing_on_the_board(terminal):
     assert 'no practical on your board' in terminal.execute_command(
         'qual submit')
@@ -593,6 +615,7 @@ def test_next_action_does_not_suggest_closing_the_staged_report(terminal):
     ready(terminal, 'frame')
     terminal.execute_command('qual take frame')
     _, report = staged(terminal)
+    terminal.execute_command(f'mlt {report.number}')
     action = terminal.next_action()
     assert action.command == 'qual submit'
     assert 'report close' not in action.command
@@ -603,6 +626,7 @@ def test_next_action_works_the_real_board_past_a_staged_report(terminal):
     ready(terminal, 'frame')
     terminal.execute_command('qual take frame')
     _, practical = staged(terminal)
+    terminal.execute_command(f'mlt {practical.number}')
     terminal.desk.receive(terminal.clock.now(), fault='OPEN')
     # With a practical up, handing it in is the one thing worth doing; once
     # it is in, a customer's report is what the board wants. Which one is

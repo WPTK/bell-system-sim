@@ -46,6 +46,16 @@ class TestBspSearch:
         assert 'No procedures match' in found
         assert 'BSP 200-455-100' not in found
 
+    def test_only_whole_words_match(self, terminal):
+        assert 'No procedures match' in terminal.execute_command(
+            'bsp search resist')
+        assert '660-001' in terminal.execute_command(
+            'bsp search resistance')
+
+    def test_a_topic_needs_three_characters(self, terminal):
+        for short in ('bsp search lo', 'bsp search a'):
+            assert 'at least 3' in terminal.execute_command(short)
+
     def test_a_procedure_is_still_found_by_its_number(self, terminal):
         found = terminal.execute_command('bsp search 400-200')
         assert 'Traffic Analysis Procedures' in found
@@ -97,7 +107,9 @@ class TestPositionsHoldUntilTheNextListing:
         for _ in range(count):
             terminal.desk.receive(terminal.clock.now())
         terminal.execute_command('report')
-        return [report.number for report in terminal.desk.pending()]
+        # What the listing pinned, not the board after it: a report can
+        # arrive while the command runs.
+        return list(terminal.desk.listed)
 
     def test_a_position_is_the_row_that_was_listed(self, terminal):
         listed = self._board(terminal)
@@ -133,10 +145,68 @@ class TestPositionsHoldUntilTheNextListing:
         terminal.desk.receive(terminal.clock.now())
         assert terminal.desk.find(str(len(listed) + 1)) is None
 
+    def test_a_row_that_has_closed_says_so(self, terminal):
+        listed = self._board(terminal)
+        terminal.desk.find('1').status = 'CLOSED'
+        for command in ('report show 1', 'report dispatch 1 outside',
+                        'report close 1 8', 'mlt 1'):
+            said = terminal.execute_command(command)
+            assert f"{listed[0]} is closed; 'report' relists" in said, command
+
+    def test_a_board_listed_empty_does_not_fall_back_to_live_order(
+            self, terminal):
+        for report in list(terminal.desk.pending()):
+            report.status = 'CLOSED'
+        terminal.execute_command('report')
+        terminal.desk.receive(terminal.clock.now())
+        said = terminal.execute_command('report show 1')
+        assert "'report' relists" in said
+
+    def test_a_new_tour_clears_the_pin(self, terminal):
+        self._board(terminal)
+        assert terminal.desk.listed
+        terminal.execute_command('handoff relieve')
+        assert terminal.desk.listed is None
+        assert terminal.desk.find('2') is terminal.desk.pending()[1]
+        assert 'MECHANISED LOOP TEST' in terminal.execute_command('mlt 2')
+
     def test_before_any_listing_a_position_is_the_board_as_it_stands(self):
         desk = ReportDesk('201', '555', 'NWRKNJ02', random.Random(3))
         first = desk.receive(datetime(1983, 11, 14), fault='OPEN')
         assert desk.find('1') is first
+
+
+class TestARefusedRedispatchKeepsTheFirstOne:
+    def test_the_report_stays_dispatched(self):
+        desk = ReportDesk('201', '555', 'NWRKNJ02', random.Random(7))
+        report = desk.receive(datetime(1983, 11, 14), fault='WET')
+        first, went = desk.send_crew(report, 'Cable repair', 0)
+        assert went
+        # Whoever else answers cable repair is out as well.
+        for number in ('TR-00001', 'TR-00002'):
+            desk.force.send('Cable repair', number, 600, 0)
+        kept = (report.status, report.dispatched_to, report.crew,
+                report.field_finding, report.travel_minutes)
+        said, went = desk.send_crew(report, 'Cable repair', 0)
+        assert not went and said.startswith('Nobody free')
+        assert (report.status, report.dispatched_to, report.crew,
+                report.field_finding, report.travel_minutes) == kept
+        assert report.dispatched_to == 'Cable repair'
+
+    def test_the_screen_calls_in_nothing_for_a_refusal(self, terminal):
+        report = terminal.desk.receive(terminal.clock.now(), fault='WET')
+        terminal.execute_command(f'mlt {report.number}')
+        terminal.execute_command(f'report dispatch {report.number} cable')
+        assert report.dispatched_to == 'Cable repair'
+        for number in ('TR-00001', 'TR-00002'):
+            terminal.desk.force.send('Cable repair', number, 600,
+                                     terminal.shift_minutes)
+        queued = len(terminal._queued_messages)
+        said = terminal.execute_command(
+            f'report dispatch {report.number} cable')
+        assert 'Nobody free' in said
+        assert len(terminal._queued_messages) == queued
+        assert report.dispatched_to == 'Cable repair' and report.crew
 
 
 class TestThePreviewDoesNotLookMissed:

@@ -5,6 +5,23 @@ All notable changes to the Bell System UNIX V7 Terminal Simulation project will 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed - Playtest wave 1
+
+- **The crew fades with `mlt`.** On the forgiving difficulty the field crew
+  says "the trouble" from the sighting `mlt` stops naming the fault, not two
+  sightings later.
+- **A practical certifies the reading.** `qual submit` fails a practical whose
+  report was never measured with `mlt`, and says so. The practical's own
+  `mlt` does not count as a sighting.
+- **Positions hold until the next listing.** `report dispatch 5` means the
+  fifth row of the board as last listed, however many reports have arrived
+  since.
+- A refused dispatch no longer changes the report; `bsp search` filters by
+  topic and lists the `/usr/bsp` sheets; the handoff preview marks goals as
+  judged at sign-off.
+
 ## [4.0.0] - 2026-09-01
 
 This release ships everything listed under the `[Unreleased]` sections below,

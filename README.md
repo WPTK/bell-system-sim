@@ -141,9 +141,9 @@ set game.difficulty craft    I Hate Myself
 **Fun Simulation** is forgiving. Loop testing names the fault it reads for
 the first two sightings of each kind of trouble and the crew class for the
 next two, and the field crew stops naming what it cleared at the same point
-(`set assist.annotate on` keeps the notes), you may close a report you never measured, a wrong call costs you little,
-commitments are not counted against you, and a sign-off is offered every 3
-correct closures.
+(`set assist.annotate on` keeps the notes). You may close a report you never
+measured, a wrong call costs you little, commitments are not counted against
+you, and a sign-off is offered every 3 correct closures.
 
 **I Hate Myself** is close to the job. Loop testing prints the numbers and
 nothing else, because reading them is the work. A report cannot be closed

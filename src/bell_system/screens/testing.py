@@ -236,6 +236,9 @@ All switching functions normal.
 
         report = self.desk.find(args[0])
         if report is None:
+            stale = self.desk.stale_position(args[0])
+            if stale:
+                return stale
             return (f"mlt: no line record for '{args[0]}'.\n"
                     "Mechanised loop testing works from the loop assignment "
                     "record; a\nnumber with no record on this board cannot be "
