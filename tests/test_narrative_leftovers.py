@@ -5,6 +5,7 @@ Each class is one item of the bible's section 8. The state directory is a
 temporary one for every test (``isolated_state`` in conftest).
 """
 
+import os
 import re
 from datetime import datetime
 
@@ -12,7 +13,10 @@ from bell_system import save
 from bell_system.data.homes import HOMES
 from bell_system.data.tours import TOURS
 from bell_system.field import CREWS
-from bell_system.filesystem import FILESYSTEM, GROUP, NEWS_MISC_88, PASSWD
+from bell_system.filesystem import (
+    DIVESTITURE_MEMO, FILESYSTEM, GROUP, NEWS_GENERAL_203, NEWS_MISC_88,
+    PASSWD,
+)
 from bell_system.npc import CRAFT, Switchroom
 from bell_system.progression import QUALIFICATIONS
 from bell_system.terminal import BellSystemTerminal
@@ -127,6 +131,28 @@ class TestI11MessageIdsRunInDateOrder:
         text = FILESYSTEM['/usr/spool/news/net.sources/44'].content
         assert 'References: <44@mhuxco.UUCP>' in text
         assert 'Message-ID: <45@mhuxco.UUCP>' in text
+
+
+class TestI13I14PeriodClaimsAreSourcedOrGone:
+    """A figure that no document here gives is not in the game's text."""
+
+    def test_the_unsourced_figures_are_not_in_the_notes_or_the_memo(self):
+        noc = HOMES['noc']['watch.notes']
+        tsps = HOMES['tsps']['position.notes']
+        assert 'forty years' not in noc and 'busiest' not in noc
+        assert 'thirty seconds' not in tsps and 'hundred' not in tsps
+        assert 'class 4' not in DIVESTITURE_MEMO
+        assert 'class 4' not in NEWS_GENERAL_203
+
+    def test_each_claim_that_stayed_has_a_row_in_sources(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, 'SOURCES.md'), encoding='utf-8') as handle:
+            sources = handle.read()
+        for needle in ("Mother's Day is among the heaviest",
+                       'about 250 milliseconds one way',
+                       'interexchange facilities and service between LATAs',
+                       'UNIX Version 7'):
+            assert needle in sources, needle
 
 
 class TestI9SandovalsOldAccount:

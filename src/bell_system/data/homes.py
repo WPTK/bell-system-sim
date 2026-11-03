@@ -188,9 +188,9 @@ fortnight. The numbers are boring and then one day they are not, and
 you will only know which day that is because you know what boring
 looks like.
 
-Mother's Day is the busiest calling day of the year and everybody has
-known that for forty years. It is not a surprise and it is not an
-outage. Do not raise anything.
+Mother's Day is one of the heaviest calling days of the year and it
+comes round every year. It is not a surprise and it is not an outage.
+Do not raise anything.
 
                                              - D. Petrak
 """,
@@ -219,10 +219,10 @@ Coin overtime comes up before the money does, so you have a few seconds
 where you know the call is about to be cut off and they do not. Use
 them.
 
-The average call at this position is under thirty seconds and there are
-several hundred of them in a tour. It is not hard work. It is the same
-work, at speed, all day, and the mistake people make is treating the
-four hundredth one differently from the first.
+The calls at this position are short and there are a great many of them
+in a tour. It is not hard work. It is the same work, at speed, all day,
+and the mistake people make is treating the last one differently from
+the first.
 
                                              - J. Haverty
 """,

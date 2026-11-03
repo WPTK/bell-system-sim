@@ -261,7 +261,7 @@ text is that it contradicts none of these.
 
 **True answer (Provisional):** every number in it is true. Employment does continue and qualifications do transfer. The audit is real: the operating company's auditors check dispositions against what a test would have read, which is why the game's wrong-close debrief quotes the player's own readings. Halloran wrote "A NOTE" himself and sent it up to the vice president, who signed it. That is why it sounds like a person and why Halloran never refers to it.
 **Pays off:** phase 4, row A2 (the audit); phase 10, C23 (the epilogue may say who wrote it).
-**Period facts:** the date of divestiture and the quoted E&O sentence [sourced, `clock.py`, E&O]; "toll network above class 4 remains with AT&T" [own wording of the divestiture split, no row yet: Under Review]; the 1 November date, the memo and the VP [own].
+**Period facts:** the date of divestiture and the quoted E&O sentence [sourced, `clock.py`, E&O]; "interexchange facilities and inter-LATA service remain with AT&T" [sourced, `SOURCES.md`, E&O 1.3; the memo's earlier "toll network above class 4" was not in the book and is gone]; the 1 November date, the memo and the VP [own].
 
 ### T5. The locked file
 
@@ -292,7 +292,7 @@ PR can see what it must not contradict. All **Established**.
 | --- | --- | --- |
 | 14 Nov 1983 is the start; 31 Dec is the last tour | `clock.py` | [sourced] E&O; stride [own] |
 | The host is `mhuxco`; the office city and CLLI come from loaded data | `terminal.py`, `screens/bureau.py` | [own] |
-| MOTD, "UNIX Version 7", copyright 1979 | `filesystem.py` | [own wording]; Version 7 as the machine: no `SOURCES.md` row (Under Review) |
+| MOTD, "UNIX Version 7", copyright 1979 | `filesystem.py` | [own wording]; the release and its 1979 date are [sourced] `SOURCES.md`; Version 7 as the 1983 machine is [own], and the row says so |
 | Operations Bulletin 83-114, 14 Nov 1983 | `filesystem.py` | [own] |
 | Divestiture memo, 1 Nov 1983, VP-OPS | `filesystem.py` | [own]; see T4 |
 | Group `craft` (rjohnson, lokafor, gvasquez, mreyes, wfinch, jsandoval, abright), group `mgmt` (ehalloran, dpetrak, tnakamura, jhaverty) | `filesystem.py` | [own] |
@@ -303,9 +303,10 @@ PR can see what it must not contradict. All **Established**.
 | 1956 and 1982 decrees, why System V arrived | `net.unix-wizards/121`, `why.unix` | [sourced] `SOURCES.md` |
 | RFC 850 netnews headers | `filesystem.py` | [sourced] `SOURCES.md` |
 | Local cable 0.083 microfarad a mile; 1004 Hz objectives; CAROT, ROTL, PCI | `npc.py`, `data/testlines.py` | [sourced] `SOURCES.md` (Transmission Engineering, BSTJ) |
-| Mother's Day the busiest calling day, "for forty years" | `data/homes.py` noc notes | No `SOURCES.md` row: Under Review |
-| "Half a second" by satellite | `npc.py` radio chatter | Physics, not a dated fact; the figure is a round trip. Under Review for the wording |
-| Average TSPS call "under thirty seconds", "several hundred" a tour | `data/homes.py` tsps notes | [own]; no row: Under Review |
+| Mother's Day one of the heaviest calling days of the year | `data/homes.py` noc notes | [sourced] `SOURCES.md` (E&O 5.6). "The busiest day" and "for forty years" were not in the book and are gone |
+| "Half a second" by satellite | `npc.py` radio chatter | [sourced] `SOURCES.md`: E&O gives 250 ms one way; the half second is the round trip |
+| TSPS calls are short and there are a great many in a tour | `data/homes.py` tsps notes | [own]. "Under thirty seconds" and "several hundred" had no source and are gone; no row, because no figure is claimed |
+| Interexchange facilities and inter-LATA service stay with AT&T | `filesystem.py` memo, `net.general/203` | [sourced] `SOURCES.md` (E&O 1.3). The memo's own wording; "the toll network above class 4" is gone |
 | Fade margin, diversity switch, the Chester hop, TH-3 | `npc.py`, `data/homes.py` | Equipment years [sourced] `SOURCES.md` (TH-3); the hop is [own] |
 | The finds: the numbered files in `data/finds.py` `FRAGMENTS` that `finds` lists once read. New in A4, all the simulation's own and Provisional: `/usr/adm/testlog` (Alvarez), `/tmp/.f` (tour 2), `/usr/users/rjohnson/.trial` (tour 5, Johnson's third-trial times, which rise by a second or so a season), `/usr/adm/.retain` (tour 8, the chief's retention list), `/usr/lib/.xfer` (tour 10, accounts for transfer) | `data/finds.py` | [own]; log formats follow the Seventh Edition where it had them. None says what is true about T1 or T2 |
 | The thread of the last holder, one file to a sign-off: `~sysop/dead.letter`, the sent handover (`/usr/spool/mail/ehalloran`), `/usr/adm/sulog`, `/usr/adm/lmoslog`, `~ehalloran/reopened` | `data/finds.py`, `data/homes.py` | [own]; the su log format follows the Seventh Edition. Shut by group, W15 |
@@ -331,5 +332,5 @@ claim. Where the plan already tracks it, the row is named.
 | I10 | C | "Tour 2" in Alvarez's notes reads as the game's tour 2; in the fiction it is the second shift of a day | `data/homes.py`; `filesystem.py` `TESTLOG_C` | **Resolved in 7b:** signed "evening tour". |
 | I11 | C | Message ids run <44>, <45> for 14 Nov and <46> for 9 Nov, so the spool is not in order of id | `filesystem.py` | **Resolved (#60):** the 9 Nov net.games post is <42>, between <41> (9 Nov) and <44>. One more of the same kind, found by the test: cbosgd's <1140> was dated 8 Nov and is now <1107>, below <1121> (12 Nov). A test holds every site's ids to date order, across the spool and the tours' nightly articles. |
 | I12 | C | The regulars' addresses are Jersey City street names; the office city is the first of the loaded NANPA offices in 201, 212 or 203 and can be another | `data/regulars.py`; `screens/bureau.py` | Plan R4 handles the same problem in shift events. Decided in 7a: the card carries no city, so the street names stand wherever the office is. |
-| I13 | C | Four period claims have no `SOURCES.md` row: Mother's Day "forty years"; the satellite "half a second"; the TSPS average call; and the toll-network-above-class-4 line in the memo | section 7 | Needs a row or an [own] marker. |
-| I14 | C | `SOURCES.md` has no row for "UNIX Version 7" as the 1983 machine | `filesystem.py` MOTD | |
+| I13 | C | Four period claims have no `SOURCES.md` row: Mother's Day "forty years"; the satellite "half a second"; the TSPS average call; and the toll-network-above-class-4 line in the memo | section 7 | **Resolved (#60), by a row where the book supports the claim and by changing the text where it does not.** Satellite: a `SOURCES.md` row (E&O: 250 ms one way, so half a second there and back). Mother's Day: a row for what the book says (a peak day), and "busiest" and "forty years" taken out of the noc note. TSPS average call: the figures taken out of the tsps note, no row. Toll network above class 4: the memo and the net.general post now say what the book says, interexchange facilities and inter-LATA service, with a row. |
+| I14 | C | `SOURCES.md` has no row for "UNIX Version 7" as the 1983 machine | `filesystem.py` MOTD | **Resolved (#60):** a row. The release and its 1979 date are sourced (`reader_djvu.txt`, `03 UNIX for Beginners`); that a repair bureau still ran it in 1983 is marked as the simulation's own choice. No source says otherwise, and none says it did. |

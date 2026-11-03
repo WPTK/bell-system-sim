@@ -158,8 +158,8 @@ companies are divested from AT&T on that date.
 WHAT THIS MEANS FOR THIS OFFICE
 
   This wire centre, its outside plant and its records pass to the
-  operating company. Interexchange facilities and the toll network
-  above class 4 remain with AT&T.
+  operating company. Interexchange facilities and inter-LATA service
+  remain with AT&T.
 
   Your employment continues. Your craft qualifications transfer.
   Service index history transfers.
@@ -1195,7 +1195,7 @@ NEWS_GENERAL_203 = _article(
     """Nobody in my building can give a straight answer, so let me try here.
 
 The operating company gets the wire centres, the loops and the local
-switching. AT&T keeps long lines and everything above class 4. Fine.
+switching. AT&T keeps long distance and the facilities for it. Fine.
 Understood. What I cannot get anybody to tell me is which one of those
 this computer belongs to, and I have twelve years of trouble history on
 it.
