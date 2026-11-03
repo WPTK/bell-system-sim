@@ -211,7 +211,7 @@ class ArcBeat(NamedTuple):
 _CHATTER: Sequence[tuple] = (
     (CHANNEL_WRITE, 'rjohnson',
      ['Frame is warm again in aisle four. If you get a batch of reports off',
-      'one cable tonight, look at the horizontals before you send anybody',
+      'one cable this shift, look at the horizontals before you send anybody',
       'out.']),
     (CHANNEL_WRITE, 'gvasquez',
      ['Board is quiet. If you want a pair measured before you commit to it,',
@@ -835,14 +835,19 @@ class Switchroom:
             subject=f'Hint {level}', about=None,
         ))
 
-    def moo_beaten(self, now: datetime, guesses: int) -> Message:
+    def moo_beaten(self, now: datetime,
+                   guesses: int) -> Optional[Message]:
         """
         Okafor, on somebody taking her eleven off the board.
 
         Her position on that eleven is a matter of record - she maintains
         the terminal was dropping characters and that she has witnesses -
-        so the scoreboard was never going to change quietly.
+        so the scoreboard was never going to change quietly. Unless she is
+        not there to say so: nobody else has her line, so while she is away
+        (``AWAY``) the scoreboard changes quietly after all.
         """
+        if not self.present('lokafor', now):
+            return None
         return self._deliver(Message(
             channel=CHANNEL_WRITE, sender='lokafor', received=now,
             lines=[
@@ -1057,8 +1062,7 @@ class Switchroom:
             sender = 'ehalloran'
             lines = [
                 f'{late.number} is past commitment.',
-                'I would like it cleared or dispatched before the index run '
-                'tonight.',
+                'I would like it cleared or dispatched before the index run.',
             ]
         return self._deliver(Message(
             channel=CHANNEL_WRITE, sender=sender, received=now, lines=lines,
@@ -1211,8 +1215,7 @@ class Switchroom:
             # out (``field_call`` is made for a crew that was sent, and its
             # name wins below). Only the voice does, so with no crew named
             # it is a splicer who rings in, out in it at any hour.
-            sender = next((login for login in ('lokafor', 'jsandoval')
-                           if self.present(login, now)), 'jsandoval')
+            sender = 'lokafor' if self.present('lokafor', now) else 'jsandoval'
         if crew:
             for login, person in CRAFT.items():
                 if person.name == crew:

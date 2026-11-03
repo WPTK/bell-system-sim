@@ -2,7 +2,6 @@
 The working shift: its clock, its events, and the other craft on the wire.
 """
 from ..constants import BELL_SYSTEM_ROLES, SHIFT_LENGTH_MINUTES
-from ..field import CREWS
 import random
 from datetime import timedelta
 from collections import (
@@ -16,6 +15,7 @@ from typing import (
     Optional,
     Set,
 )
+from ..field import CREWS
 from ..data import tours
 from ..data.consequences import Late
 from ..data.tours import Tour, watch_of
@@ -857,7 +857,7 @@ class ShiftCommands(SessionState):
             ],
             'dpetrak': [
                 "SCC has you. Nothing outstanding from here.",
-                "Keep the order wire clear, we are routining trunks tonight.",
+                "Keep the order wire clear, we are routining trunks this shift.",
             ],
             'lokafor': [
                 "I am up a pole. Make it quick.",

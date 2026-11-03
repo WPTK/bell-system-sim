@@ -19,7 +19,8 @@ from bell_system import npc
 from bell_system.data.tours import TOURS, WATCHES, watch_of
 from bell_system.field import CREWS
 from bell_system.npc import (
-    _POSITION_CHATTER, ARC_BEATS, AWAY, CRAFT, FAVOUR_AT, WATCH_LABELS,
+    _CHATTER, _POSITION_CHATTER, ARC_BEATS, AWAY, CRAFT, CRAFT_BY_NAME,
+    FAVOUR_AT, WATCH_LABELS,
     ArcBeat, Switchroom, favour_due, is_away, on_shift, watch_at,
 )
 
@@ -324,6 +325,53 @@ class TestAnAbsence:
         message = terminal.switchroom.field_call(
             terminal.clock.now(), 'TR-1', 'open', force='Outside plant')
         assert message.sender == 'jsandoval'
+
+
+    def test_nobody_answers_for_her_on_the_scoreboard_while_she_is_out(
+            self, terminal):
+        """Her eleven is hers to defend, and nobody else has the line."""
+        on_tour(terminal, 12)
+        assert terminal.switchroom.moo_beaten(terminal.clock.now(), 6) is None
+
+    def test_and_before_that_she_does(self, terminal):
+        on_tour(terminal, 11)
+        message = terminal.switchroom.moo_beaten(terminal.clock.now(), 6)
+        assert message.sender == 'lokafor'
+
+    def test_every_field_crew_is_somebody_on_the_roster(self):
+        for crew in CREWS:
+            assert crew.name in CRAFT_BY_NAME, crew.name
+            assert CRAFT_BY_NAME[crew.name] in CRAFT
+
+    def test_a_station_call_when_nobody_is_in_to_make_it_is_sandovals(
+            self, terminal):
+        """Finch is off at night and Okafor is away: the other splicer."""
+        on_tour(terminal, 12)
+        message = terminal.switchroom.field_call(
+            terminal.clock.now(), 'TR-1', 'drop open', force='Station')
+        assert message.sender == 'jsandoval'
+
+
+class TestNoTonightOnADayTour:
+    """A tour may be worked by day, so nobody says it is tonight."""
+
+    def test_no_chatter_says_it(self):
+        for item in list(_CHATTER) + [
+                i for lines in _POSITION_CHATTER.values() for i in lines]:
+            assert 'tonight' not in ' '.join(item[2]), item[2][0]
+
+    def test_the_wire_chiefs_chase_does_not(self):
+        late = npc.Late('TR-1', '201-555-0100', '1FR', False, '08:30')
+        message = Switchroom(random.Random(1)).chase(datetime(1983, 11, 14),
+                                                      late)
+        assert 'tonight' not in ' '.join(message.lines)
+
+    def test_nor_do_the_replies_to_write(self, terminal):
+        on_tour(terminal, DAY_TOUR)
+        for login in CRAFT:
+            for _ in range(4):
+                assert 'tonight' not in terminal.cmd_write(
+                    [login, 'hello']).lower()
 
 
 class TestFieldCalls:

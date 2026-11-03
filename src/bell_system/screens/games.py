@@ -189,8 +189,9 @@ class GameCommands(SessionState):
             return ''
         note = f"On the scoreboard.{standing} {MOO_SCORES}."
         if guesses < OKAFOR_ELEVEN:
-            note += '\n' + render_message(self.switchroom.moo_beaten(
-                self.clock.now(), guesses), self._stamp())
+            beaten = self.switchroom.moo_beaten(self.clock.now(), guesses)
+            if beaten is not None:
+                note += '\n' + render_message(beaten, self._stamp())
         return note
 
     def deliver_news(self) -> None:
