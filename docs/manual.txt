@@ -198,6 +198,9 @@ QUALIFICATION AND THE SERVICE INDEX
 
      qual          The craft record
      qual index    The measurement weights the index is scored against
+     career new    After the last tour: says what it will do; 'career new
+                   confirm' files the career and the next one starts at
+                   tour 1, with your files left under /usr/users/prior
 
      The service index is scored against the weights published in the
      network switching performance measurement plan for No. 1 and No. 1A

@@ -454,7 +454,8 @@ this shift and the next one starts on a fresh board."""
                     "you twice on the last\nday of the Bell System, and "
                     "there is no shift after this one to open.\n\n"
                     "The board is still there if you want it. "
-                    "'qual' has the career record."
+                    "'qual' has the career record, and 'career new' "
+                    "files it and starts the next."
                     + self._audit_again())
             return self._end_career(banked, worked, summary, goals, credit)
         earned = self.career.end_shift()
@@ -598,6 +599,7 @@ this shift and the next one starts on a fresh board."""
             len(career.qualifications), found.verdict), self._stamp())])
         lines.append("The board is still on the machine. Nobody is coming "
                      "to take it off you tonight.")
+        lines.append("'career new' files this career and starts the next.")
         return '\n'.join(lines)
 
     def _career_counters(self) -> Tuple[int, int, int, int]:
