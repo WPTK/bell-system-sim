@@ -9,14 +9,14 @@
 │                  bell_system/cli.py  ->  main()                 │
 └─────────────────────┬───────────────────────────────────────────┘
                       │
-      ┌───────────────┼───────────────────┐
-      │               │                   │
-      │ (default)     │ --simple          │ --tutorial
-      │               │                   │
-┌─────▼───────────────▼───────────────────▼───────────────────────┐
+      ┌───────────────┴───────────────┐
+      │                               │
+      │ (default)                     │ --simple
+      │                               │
+┌─────▼───────────────────────────────▼───────────────────────────┐
 │                           Core Modules                          │
-│       terminal.py      simple_terminal.py      tutorial.py      │
-│        (12 roles)          (4 roles)             (Learn)        │
+│            terminal.py              simple_terminal.py          │
+│            (12 positions)               (4 roles)               │
 └─────────────────────┬───────────────────────────────────────────┘
                       │
       ┌───────────────┴───────────────────┐
@@ -32,20 +32,25 @@
 
 ### Command Line Interface (`src/bell_system/cli.py`)
 - **Single Entry Point**: Builds the argument parser and dispatches to one of the
-  three interfaces below
-- **Flags**: `--tutorial`, `--role N` (1-12), `--simple`, `--version`
+  two interfaces below
+- **Flags**: `--role N` (1-12), `--simple`, `--version`
 - **Installed As**: The `bell-system` console script; `src/bell_system/__main__.py`
   makes `python -m bell_system` equivalent
 
-### Core Simulation Engine (`src/bell_system/terminal.py`)
-- **Primary Interface**: Main Bell System terminal simulation (`BellSystemTerminal`)
-- **12 Operational Roles**: Full authentic Bell System positions
-- **50+ Commands**: Complete command system with historical accuracy
-- **Role-Specific Command Sets**: `help` and the shift briefing are tailored to the
-  active role (the command set is presentational - execution is not gated)
-- **Session Management**: Command history, rotating logs, and readline support
-- **Command Suggestions**: Near-miss and typo suggestions on unknown commands
-- **Static Data**: Manual page text lives in `src/bell_system/data/`
+### Terminal and Screens (`src/bell_system/terminal.py`, `screens/`)
+- **Terminal**: `BellSystemTerminal` is dispatch and session only. Every screen
+  lives in `screens/`, one module per subsystem, mixed into the terminal.
+  `screens/dispatch.py` holds the command table and the aliases;
+  `screens/session.py` declares every attribute and cross-mixin method the
+  mixins share
+- **12 positions**: Each works the same board but gets different work on it
+- **Commands**: About 160 in the dispatch table, from the repair bureau to the
+  Seventh Edition shell and text tools
+- **Qualification gates commands**: A command you are not signed off on is
+  refused by the wire chief. `help` marks them and `qual` shows how to earn them
+- **Session**: Command history, rotating logs, readline support, and near-miss
+  suggestions on unknown commands
+- **Static data**: Reference tables and manual page text live in `data/`
 
 ### Repair Service Bureau (`src/bell_system/reports.py`)
 
@@ -83,10 +88,11 @@ it entirely.
 - **Core Commands**: Essential UNIX and Bell System operations
 - **Educational Focus**: Streamlined for learning purposes
 
-### Tutorial System (`src/bell_system/tutorial.py`)
-- **Interactive Learning**: Guided Bell System operations training (`BellSystemTutorial`)
-- **Step-by-step Instruction**: Historical context and procedures
-- **Practice Environment**: Safe learning without system impact
+### Teaching
+There is no tutorial mode. The first tour opens with one report on the board
+and the wire chief walks the player through the loop over `write(1)`. After that
+`help` opens on what to do now, `hint` asks somebody, and `training unix` is the
+annual refresher on the machine.
 
 ## Data Flow
 
@@ -110,8 +116,7 @@ User Input → CLI Parser → Role Selection → Command Processing → Output
 ### Command Pattern
 Each Bell System command is implemented as a discrete method, registered in a
 dispatch table built at session start, with:
-- Historical accuracy validation
-- Comprehensive help and manual page documentation
+- A manual page for every command
 - Error handling with period-appropriate messages and command suggestions
 
 ### Role Definitions
@@ -120,7 +125,7 @@ BELL_SYSTEM_ROLES = {
     1: ("sysop", "UNIX Systems Operator"),
     2: ("switch", "Switching Station Technician"),
     # ... 12 total roles
-}
+}  # constants.py
 ```
 
 ### Historical Authenticity
@@ -132,7 +137,8 @@ BELL_SYSTEM_ROLES = {
 ## Configuration
 
 ### Environment Variables
-- `BELL_SYSTEM_HOME`: Overrides the directory used for logs and command history
+- `BELL_SYSTEM_HOME`: Overrides the directory used for logs, command history,
+  settings, the career record and the saved tour
 - `XDG_STATE_HOME`: Consulted when `BELL_SYSTEM_HOME` is unset; the simulation
   uses `$XDG_STATE_HOME/bell-system`, falling back to `~/.local/state/bell-system`
 
@@ -145,10 +151,15 @@ bell-system-sim/
 ├── src/bell_system/         # The installable package
 │   ├── cli.py               # CLI entry point (bell-system)
 │   ├── __main__.py          # python -m bell_system
-│   ├── terminal.py          # 12-role simulation
+│   ├── terminal.py          # Dispatch and session
 │   ├── simple_terminal.py   # 4-role simulation
-│   ├── tutorial.py          # Guided tutorial
-│   └── data/                # Manual page text and static data
+│   ├── screens/             # One mixin per subsystem
+│   ├── data/                # Reference tables and manual pages
+│   ├── reports.py           # The repair bureau's board
+│   ├── loop_testing.py      # Faults turned into readings
+│   ├── progression.py       # Difficulty, qualification, career
+│   ├── npc.py               # The other craft
+│   └── save.py              # The saved tour
 ├── tests/                   # pytest suite
 ├── docs/                    # Documentation
 ├── attached_assets/         # Historical documentation
