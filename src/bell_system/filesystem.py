@@ -27,6 +27,7 @@ from .clock import DIVESTITURE as _DIVESTITURE
 from .data.finds import FRAGMENTS, Fragment
 from .data.homes import HOMES
 from .data.practices import SHEETS, index as _binder_index, render as _sheet
+from datetime import datetime
 from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 # Divestiture took effect on 1 January 1984. The date itself lives in
@@ -47,6 +48,11 @@ class Node(NamedTuple):
     group: str
     mode: str
     content: Optional[Content] = None
+    # When it was last written, on the shift clock. Nothing for what the
+    # machine shipped with, which is as old as the epoch (``ls`` says so),
+    # and for a file the simulation renders afresh each time it is read,
+    # which is as new as the clock.
+    mtime: Optional[datetime] = None
 
     @property
     def is_dir(self) -> bool:

@@ -477,7 +477,8 @@ def home_record(tree: Dict[str, Node]) -> Dict[str, Any]:
         'version': HOME_VERSION,
         'nodes': {path: {'kind': node.kind, 'owner': node.owner,
                          'group': node.group, 'mode': node.mode,
-                         'content': node.content if not node.is_dir else None}
+                         'content': node.content if not node.is_dir else None,
+                         'mtime': _stamp(node.mtime)}
                   for path, node in sorted(changed.items())},
         'removed': removed,
     }
@@ -514,7 +515,8 @@ def _home_node(path: Any, entry: Any) -> Optional[Node]:
     if not (isinstance(owner, str) and isinstance(group, str)
             and isinstance(mode, str)):
         return None
-    return Node(kind, owner, group, mode, text if kind == 'file' else None)
+    return Node(kind, owner, group, mode, text if kind == 'file' else None,
+                _moment(entry.get('mtime')))
 
 
 def restore_home(terminal: Any, stored: Any) -> Optional[int]:

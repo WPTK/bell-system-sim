@@ -158,6 +158,7 @@ class ShellCommands(FindsCommands):
                       if row[3:14] > stamp), len(lines))
         lines.insert(place, line)
         self.filesystem[SULOG] = node._replace(
+            mtime=self.clock.now(),
             content='\n'.join(lines) + '\n')
 
     def _render_group(self) -> str:
@@ -298,13 +299,29 @@ class ShellCommands(FindsCommands):
                 size = (len(child.content) if isinstance(child.content, str)
                         else 512 if child.is_dir else 0)
                 rows.append(f"{child.mode} 1 {child.owner:<9} {child.group:<7} "
-                            f"{size:>6} Nov 14 08:00 {name}")
+                            f"{size:>6} {self._written(child)} {name}")
             blocks.append('\n'.join(rows))
 
         header = len(targets) > 1
         if not header:
             return '\n'.join(b for b in blocks if b is not None)
         return '\n\n'.join(f"{t}:\n{b}" for t, b in zip(targets, blocks))
+
+    def _written(self, node: Node) -> str:
+        """
+        When a file was last written, as ls -l spells it, on the shift clock.
+
+        A file the machine renders each time it is read is as new as the
+        clock; one that shipped with it is as old as the epoch; the rest
+        carry the minute they were written.
+        """
+        if node.mtime is not None:
+            when = node.mtime
+        elif callable(node.content):
+            when = self.clock.now()
+        else:
+            when = self.settings.epoch()
+        return f"{when:%b} {when.day:>2} {when:%H:%M}"
 
     # -- reading ---------------------------------------------------------
 
@@ -581,7 +598,7 @@ class ShellCommands(FindsCommands):
             node = Node('file', self.username or 'sysop', 'craft',
                         '-rw-r--r--', text)
         else:
-            node = existing._replace(content=text)
+            node = existing._replace(content=text, mtime=self.clock.now())
         return self.store_node(path, node, 'sh')
 
     def store_node(self, path: str, node: Node,
@@ -597,6 +614,8 @@ class ShellCommands(FindsCommands):
             An error string if the node was refused, else None
         """
         held = self.filesystem.get(path)
+        if node.mtime is None:
+            node = node._replace(mtime=self.clock.now())
         self.filesystem[path] = node
         if is_player_path(path) and home_size(self.filesystem) > PLAYER_LIMIT:
             if held is None:

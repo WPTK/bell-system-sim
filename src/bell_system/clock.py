@@ -3,8 +3,11 @@ The simulation clock.
 
 Every timestamp the simulation emits comes from here rather than from
 ``datetime.now()`` directly. In its default configuration the clock reports the
-1983 shift the simulation depicts; real elapsed time advances it, so a session
-that runs for twenty minutes sees twenty minutes pass on the shift.
+1983 shift the simulation depicts, and the shift is the only thing that moves
+it: the epoch, the tour's day and watch, and the minutes the work has charged
+(see :meth:`SimClock.follow`). The host's clock is not read, so a message, a
+header, ``date`` and the time on a file all say the same thing, and a player
+who leaves the terminal for lunch comes back to the same minute.
 
 Formatting also lives here, because how a timestamp reads is a user setting:
 period-accurate UNIX ``date(1)`` order by default, with ISO and US layouts and
@@ -12,7 +15,7 @@ a 12-hour clock available for readability.
 """
 
 from datetime import date as Day, datetime, timedelta
-from typing import Optional
+from typing import Callable, Optional
 
 from .settings import EPOCH_HOUR, Settings
 
@@ -69,16 +72,27 @@ class SimClock:
 
     Args:
         settings: The settings that decide the source, epoch and layout
-        started_at: Real time the session began; defaults to now
     """
 
-    def __init__(self, settings: Settings, started_at: Optional[datetime] = None):
+    def __init__(self, settings: Settings):
         self._settings = settings
-        self._session_start = started_at or datetime.now()
         # Days on from the epoch, set by which tour of the career this is.
         self._day_offset = 0
         # Hours the tour's watch starts from the epoch's 08:00.
         self._hour_offset = 0
+        # Minutes into the tour. A clock nobody has bound stands still.
+        self._shift_minutes: Callable[[], int] = lambda: 0
+
+    def follow(self, shift_minutes: Callable[[], int]) -> None:
+        """
+        Read the minutes into the tour from the shift, which owns them.
+
+        The shift clock is a count of minutes the work has charged, kept on
+        the terminal. The simulated time is that count laid on the tour's
+        start, asked for each time it is wanted, so there is one clock and
+        nothing to keep in step with it.
+        """
+        self._shift_minutes = shift_minutes
 
     def set_tour(self, tour: int, start_hour: int = EPOCH_HOUR) -> None:
         """
@@ -127,23 +141,15 @@ class SimClock:
         """
         Return the current simulated time.
 
-        With ``date.source`` set to ``real`` this is the host clock. Otherwise
-        it is the configured epoch advanced by however long the session has
-        been running.
+        With ``date.source`` set to ``real`` this is the host clock, which
+        the player asked for. Otherwise it is the tour's start (the epoch,
+        the tour's day and the hour of its watch) plus the shift minutes.
         """
         if self._settings.get('date.source') == 'real':
             return datetime.now()
-        elapsed = datetime.now() - self._session_start
-        return (self._settings.epoch() + elapsed
-                + timedelta(days=self._day_offset, hours=self._hour_offset))
-
-    def elapsed(self) -> timedelta:
-        """Return how long the session has been running."""
-        return datetime.now() - self._session_start
-
-    def reset_session(self) -> None:
-        """Restart the shift from the epoch, used when the epoch changes."""
-        self._session_start = datetime.now()
+        return (self._settings.epoch()
+                + timedelta(days=self._day_offset, hours=self._hour_offset,
+                            minutes=self._shift_minutes()))
 
     # -- formatting -----------------------------------------------------
 

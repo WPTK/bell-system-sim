@@ -127,7 +127,7 @@ class TestTheWatchIsNamedAndStamped:
 
     def test_the_clock_opens_on_the_watch(self):
         settings = Settings()
-        clock = SimClock(settings, started_at=datetime.now())
+        clock = SimClock(settings)
         for tour, hour in ((1, 8), (3, 16), (4, 0)):
             clock.set_tour(tour, tours.start_hour(tour))
             assert clock.now().hour == hour

@@ -84,7 +84,7 @@ OPTIONS: List[Option] = [
     Option(
         'date.epoch', DEFAULT_EPOCH, None,
         'Date the simulated shift begins',
-        'YYYY-MM-DD. The shift starts at 08:00 and runs forward in real time.',
+        'YYYY-MM-DD. The shift starts at 08:00 and runs forward with the work.',
     ),
     Option(
         'date.format', 'v7', ['v7', 'iso', 'us'],

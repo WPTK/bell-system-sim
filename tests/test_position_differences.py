@@ -50,18 +50,25 @@ SHIFT_START = datetime(1983, 11, 14, 8, 0)
 
 def skew_the_wall_clock(terminal, monkeypatch, hours=9):
     """
-    Make the session clock run hours ahead, as a long lunch would.
+    Make the host's clock run hours ahead, as a long lunch would.
 
-    Moves the session's start back, so that now() and elapsed() both read
-    the later time, and checks that it took: a skew that moved nothing
-    would let every test that uses it pass without looking at anything.
+    The desks count the shift clock and nothing else, so nothing may move.
+    Checks that the skew is real for anything that does read the host (the
+    clock module's own datetime), and that the shift's time stood still.
     """
+    from bell_system import clock as clock_module
+
     before = terminal.clock.now()
-    monkeypatch.setattr(terminal.clock, '_session_start',
-                        terminal.clock._session_start
-                        - timedelta(hours=hours))
-    assert terminal.clock.now() - before >= timedelta(hours=hours - 1)
-    assert terminal.clock.elapsed() >= timedelta(hours=hours - 1)
+
+    class Later(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.now() + timedelta(hours=hours)
+
+    monkeypatch.setattr(clock_module, 'datetime', Later)
+    assert clock_module.datetime.now() - datetime.now() >= timedelta(
+        hours=hours - 1)
+    assert terminal.clock.now() == before
 
 
 ROLE_KEYS = [key for key, _ in BELL_SYSTEM_ROLES.values()]

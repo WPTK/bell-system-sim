@@ -271,7 +271,7 @@ class JobCommands(SessionState):
             return
         existing = node.content if isinstance(node.content, str) else ''
         self.filesystem['/usr/adm/sulog'] = node._replace(
-            content=existing + line + '\n')
+            content=existing + line + '\n', mtime=self.clock.now())
 
     def cmd_logname(self, args: Optional[List[str]] = None) -> str:
         """Print the name you logged in under."""

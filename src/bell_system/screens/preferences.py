@@ -82,9 +82,7 @@ class PreferenceCommands(SessionState):
 
     def _apply_setting(self, key: str) -> None:
         """Take account of a setting whose change needs more than storage."""
-        if key == 'date.epoch':
-            self.clock.reset_session()
-        elif key == 'display.log_console':
+        if key == 'display.log_console':
             self._setup_logging()
         elif key == 'game.difficulty':
             self.career.set_difficulty(self.settings.get('game.difficulty'))

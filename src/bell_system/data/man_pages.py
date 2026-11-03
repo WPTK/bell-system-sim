@@ -1480,9 +1480,10 @@ DESCRIPTION
 
 SETTINGS
      date.source         simulated | real
-                         simulated runs the 1983 shift clock, which advances
-                         in real time from the configured epoch. real reports
-                         the host system clock.
+                         simulated runs the 1983 shift clock, which is the
+                         minutes the work has charged laid on the tour's
+                         start. Every stamp reads it. real reports the host
+                         system clock.
 
      date.epoch          YYYY-MM-DD
                          Date on which the simulated shift begins. The shift

@@ -43,7 +43,6 @@ class TestTheCountdown:
 
     def test_the_banner_follows_the_epoch(self, raw_terminal):
         raw_terminal.settings.set('date.epoch', '1983-12-30')
-        raw_terminal.clock.reset_session()
         raw_terminal.clock.set_tour(1)
         assert '2 days to divestiture' in '\n'.join(
             raw_terminal._getty_banner())
@@ -56,7 +55,6 @@ class TestTheCountdown:
     def test_the_banner_says_the_right_thing_at_the_end(
             self, raw_terminal, epoch, expected):
         raw_terminal.settings.set('date.epoch', epoch)
-        raw_terminal.clock.reset_session()
         raw_terminal.clock.set_tour(1)
         assert expected in raw_terminal._divestiture_line()
 

@@ -197,6 +197,8 @@ class BellSystemTerminal(
         # every piece of state initialised below stamps itself with the time.
         self.settings = Settings(settings_path(state_dir()))
         self.clock = SimClock(self.settings)
+        # The one clock: stamps read the shift's minutes, not the host's.
+        self.clock.follow(lambda: getattr(self, 'shift_minutes', 0))
 
         # What the craftsperson carries between shifts, and how hard the
         # shift is. The setting is the authority: the career record stores a
@@ -216,7 +218,6 @@ class BellSystemTerminal(
 
         # Performance monitoring
         self._performance_log: Dict[str, Any] = {}
-        self.session_start_time = time.time()
         self.session_id = f"BELL-{int(time.time())}-{os.getpid()}"
         self.failed_command_attempts = 0
         # What the previous stage of a pipeline produced.

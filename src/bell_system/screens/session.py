@@ -61,7 +61,6 @@ class SessionState:
     clock: SimClock
     logger: logging.Logger
     session_id: str
-    session_start_time: float
     username: str
     hostname: str
     shell: str
