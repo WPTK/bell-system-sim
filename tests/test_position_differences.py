@@ -453,7 +453,7 @@ class TestNothingChangedForASessionWithNoPosition:
 
 # The desks that play differently. The other eight are unchanged, and
 # TestTheFourDesks holds that. Each desk gets a PR; the set grows with them.
-FOUR_DESKS = ('noc', 'sarts')
+FOUR_DESKS = ('noc', 'sarts', 'custserv')
 
 
 class TestTheFourDesks:
@@ -842,4 +842,152 @@ class TestTheOutageClock:
         terminal = at_desk('sarts')
         failing_circuit(terminal)
         output = terminal.execute_command('sarts trouble')
+        assert max(len(line) for line in output.split('\n')) <= 74
+
+
+def hold(terminal, *waits):
+    """
+    Put customers on hold with known waits, and return their reports.
+
+    Each wait is (out of service, shift minutes already waited). The
+    reports are the board's own; only their fault and elapsed time are set.
+    """
+    while len(terminal.desk.customers()) < len(waits):
+        terminal.desk.receive(terminal.clock.now())
+    reports = terminal.desk.customers()
+    for report in terminal.desk.pending():
+        if report not in reports[:len(waits)]:
+            report.status = 'CLOSED'
+    chosen = reports[:len(waits)]
+    for report, (out, waited) in zip(chosen, waits):
+        report.record.fault = 'OPEN' if out else 'NONE'
+        report.minutes_spent = waited
+        report.tested = False
+        report.dispatched_to = None
+        report.test_notes = []
+    terminal.patience_book()['told'].clear()
+    return chosen
+
+
+class TestTheRepairDeskHolds:
+    """
+    The repair desk's customers ring again, and advise is the answer.
+
+    Reading pays: a report that has been tested gives the desk something
+    to say, and a call with nothing to say costs more and settles less.
+    """
+
+    def test_the_verb_is_the_repair_desks_alone(self, at_desk):
+        for role in ROLE_KEYS:
+            if role == 'custserv':
+                continue
+            output = at_desk(role).execute_command('trouble advise')
+            assert 'not at this position' in output, role
+            assert 'Customer Service Interface' in output, role
+
+    def test_the_other_trouble_verbs_are_not_taken_from_anyone(self, at_desk):
+        output = at_desk('noc').execute_command('trouble list')
+        assert 'not at this position' not in output
+
+    def test_a_line_out_of_service_rings_sooner(self, at_desk):
+        terminal = at_desk('custserv')
+        down, noisy = hold(terminal, (True, 20), (False, 20))
+        assert terminal.patience(down)[0] == 1
+        assert terminal.patience(noisy)[0] == 0
+        noisy.minutes_spent = 45
+        assert terminal.patience(noisy)[0] == 1
+
+    def test_rings_are_counted_from_the_last_call_and_stop_at_three(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 10_000))
+        assert terminal.patience(down)[0] == 3
+        terminal.patience_book()['told'][down.number] = 10_000 - 20
+        assert terminal.patience(down)[0] == 1
+
+    def test_the_queue_is_most_rings_first(self, at_desk):
+        terminal = at_desk('custserv')
+        calm, angry, middling = hold(
+            terminal, (False, 5), (True, 70), (True, 25))
+        order = [row[0] for row in terminal.patience_queue()]
+        assert order == [angry, middling, calm]
+
+    def test_a_call_with_something_to_tell_costs_the_base_and_the_rings(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 45))  # Two rings.
+        down.tested = True
+        down.test_notes = ['loop reads open at the pair']
+        before = terminal.shift_minutes
+        output = terminal.execute_command(f'trouble advise {down.number}')
+        assert 'loop reads open at the pair' in output
+        spent = terminal.shift_minutes - before
+        assert spent >= 3 + 2 * 2
+        assert terminal.patience(down)[0] == 0
+
+    def test_a_call_with_nothing_to_tell_costs_more_and_settles_half(
+            self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 30))
+        before = terminal.shift_minutes
+        output = terminal.execute_command(f'trouble advise {down.number}')
+        assert 'nothing to tell' in output
+        assert f'report test {down.number}' in output
+        assert terminal.shift_minutes - before >= 3 + 2 * 1 + 3
+        # Thirty minutes and the eight-minute call: half of 38 is still owed.
+        assert terminal.patience_book()['told'][down.number] == 38 - 19
+
+    def test_a_crew_on_the_job_is_something_to_tell(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 20))
+        down.dispatched_to = 'splicer'
+        down.crew = 'Wheeler'
+        output = terminal.execute_command(f'trouble advise {down.number}')
+        assert 'Wheeler is on it' in output
+        # One ring, so the call was 3 + 2 minutes, and they are told from
+        # the end of it.
+        assert terminal.patience_book()['told'][down.number] == 20 + 5
+
+    def test_a_number_that_is_not_holding_costs_nothing(self, at_desk):
+        terminal = at_desk('custserv')
+        hold(terminal, (True, 20))
+        before = terminal.shift_minutes
+        output = terminal.execute_command('trouble advise TR-99999')
+        assert 'no customer holding' in output
+        assert terminal.shift_minutes - before <= 1
+
+    def test_it_is_the_shift_clock_and_not_the_wall_clock(self, at_desk):
+        from datetime import timedelta
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 5))
+        terminal.clock._session_start -= timedelta(hours=9)
+        assert terminal.patience(down)[0] == 0
+
+    def test_a_passing_shift_is_what_brings_the_ring(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 0))
+        assert terminal.patience(down)[0] == 0
+        terminal._pass_time(25)
+        assert terminal.patience(down)[0] == 1
+
+    def test_the_first_tour_is_a_grace(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 500))
+        terminal.career.shift = 1
+        terminal.career.reports_closed = 0
+        assert terminal.patience(down)[0] == 0
+
+    def test_the_tally_keeps_a_ring_when_the_report_closes(self, at_desk):
+        terminal = at_desk('custserv')
+        (down,) = hold(terminal, (True, 45))
+        rows = dict(terminal.position_tally())
+        assert rows['customer ringbacks'] == '2'
+        down.status = 'CLOSED'
+        rows = dict(terminal.position_tally())
+        assert rows['customer ringbacks'] == '2'
+
+    def test_the_board_fits_the_terminal(self, at_desk):
+        terminal = at_desk('custserv')
+        hold(terminal, (True, 45), (False, 10))
+        output = terminal.execute_command('trouble advise')
         assert max(len(line) for line in output.split('\n')) <= 74

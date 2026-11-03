@@ -22,8 +22,8 @@ behaves as it always has.
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..clock import career_progress
-from ..data.positions import get as get_position
-from ..reports import MAX_PENDING
+from ..data.positions import desk_only, get as get_position
+from ..reports import MAX_PENDING, TroubleReport
 from .session import SessionState
 
 # How far the board share can move the two arrival rates. A desk with a low
@@ -44,6 +44,22 @@ NEUTRAL_SHARE = 0.5
 # and arrival falls as depth rises. Depth is pressure, not volume, and that
 # is the right thing for it to be.
 CAREER_DEPTH = 2
+
+# How long a customer waits, in shift minutes, before ringing the repair
+# desk again. A line that is out of service rings sooner than one that is
+# only noisy. The simulation's own figures: nothing sourced says how long a
+# 1983 customer held on.
+PATIENCE = {True: 20, False: 45}
+
+# Most rings a customer makes before they stop ringing and start writing.
+MAX_RINGS = 3
+
+# What an advise call costs in shift minutes: the call itself, each ring the
+# customer has already made on the report (they are not calm), and the
+# extra it takes to tell somebody you have nothing to tell them.
+ADVISE_CALL = 3
+ADVISE_RING = 2
+ADVISE_EMPTY = 3
 
 
 class PositionCommands(SessionState):
@@ -172,6 +188,152 @@ class PositionCommands(SessionState):
 # Each reads state the simulation already keeps. Nothing here adds a
 # persisted number, and nothing here is scored.
 
+    # -- the repair desk's customers ------------------------------------
+
+    _patience_book: Optional[Dict[str, Any]] = None
+
+    def patience_book(self) -> Dict[str, Any]:
+        """
+        What the repair desk has told its customers, and who has rung.
+
+        ``told`` is the report's elapsed time when the customer was last
+        advised; ``rung`` the most rings the sweep has seen on a report,
+        so that closing it does not take the count away. Tied to the board
+        it describes: a new board is a new book.
+        """
+        book = self._patience_book
+        if book is None or book['desk'] != id(self.desk):
+            book = {'desk': id(self.desk), 'told': {}, 'rung': {}}
+            self._patience_book = book
+        return book
+
+    def patience(self, report: TroubleReport) -> Tuple[int, int]:
+        """
+        Return the rings a customer has made on a report and the minutes
+        until the next.
+
+        Their wait is the report's own elapsed time, which is the shift
+        clock: it moves with what is typed and run, and the board ages while
+        it does. The first tour is a grace, because the wire chief is still
+        talking.
+        """
+        window = PATIENCE[report.out_of_service]
+        if self.first_tour():
+            return 0, window
+        wait = report.minutes_spent - self.patience_book()['told'].get(
+            report.number, 0)
+        return min(MAX_RINGS, wait // window), window - wait % window
+
+    def patience_queue(self) -> List[Tuple[TroubleReport, int, int]]:
+        """
+        The customers holding, most rings first, then soonest to ring.
+
+        Looking is when a ring is noticed, and what it noticed is kept.
+        """
+        rung = self.patience_book()['rung']
+        queue = []
+        for report in self.desk.customers():
+            rings, left = self.patience(report)
+            rung[report.number] = max(rung.get(report.number, 0), rings)
+            queue.append((report, rings, left))
+        return sorted(queue, key=lambda row: (-row[1], row[2]))
+
+    def advise(self, args: List[str]) -> str:
+        """
+        trouble advise [REPORT]: the repair desk's call back to a customer.
+
+        With no argument, the customers holding. With a report, ring that
+        customer and tell them where it stands. The call costs shift
+        minutes, more for each time they have already rung, and more again
+        when there is nothing yet to tell them - so the report is worth
+        testing before the customer is, and a customer on the third ring is
+        worth reaching before one on the first.
+        """
+        refusal = desk_only(self.position, 'custserv', 'trouble advise')
+        if refusal:
+            return refusal
+        if args:
+            return self._advise_call(args[0])
+        queue = self.patience_queue()
+        lines = [f"CUSTOMERS HOLDING   {self.position.name}",
+                 f"Shift time {self.shift_time()}", '=' * 66,
+                 f"{'REPORT':<10}{'LINE':<14}{'RINGS':<7}{'NEXT RING':<11}"
+                 f"{'CALL':<6}TOLD", '-' * 66]
+        for report, rings, left in queue:
+            known = bool(report.tested or report.dispatched_to)
+            lines.append(
+                f"{report.number:<10}{report.record.telephone_number:<14}"
+                f"{rings:<7}{str(left) + 'm':<11}"
+                f"{self._advise_cost(rings, known):>2}m   "
+                f"{'status' if known else 'nothing yet'}")
+        if not queue:
+            lines.append("Nobody is holding.")
+        lines += [
+            '-' * 66,
+            f"{len(queue)} customer(s) with a report open.",
+            "",
+            "  trouble advise <REPORT>   Ring them back and say where it",
+            "                            stands (CALL minutes)",
+            "  report test <REPORT>      Find something to tell them first",
+            "",
+            "A customer rings again after 20 shift minutes out of service,",
+            "45 otherwise, counted from the last call. These figures are",
+            "the simulation's own.",
+        ]
+        return '\n'.join(lines)
+
+    @staticmethod
+    def _advise_cost(rings: int, known: bool) -> int:
+        """Shift minutes an advise call costs."""
+        return (ADVISE_CALL + ADVISE_RING * rings
+                + (0 if known else ADVISE_EMPTY))
+
+    def _advise_call(self, token: str) -> str:
+        """Ring one customer back, and say what there is to say."""
+        wanted = token.upper()
+        report = next((r for r in self.desk.customers()
+                       if r.number == wanted
+                       or r.number.split('-')[-1].lstrip('0') == wanted
+                       .lstrip('0')), None)
+        if report is None:
+            return (f"trouble advise: no customer holding on '{token}'.\n"
+                    f"'trouble advise' lists them.")
+        rings, _ = self.patience(report)
+        book = self.patience_book()
+        book['rung'][report.number] = max(
+            book['rung'].get(report.number, 0), rings)
+        known = bool(report.tested or report.dispatched_to)
+        cost = self._advise_cost(rings, known)
+        self._pass_time(cost)
+        if known:
+            book['told'][report.number] = report.minutes_spent
+            if report.dispatched_to:
+                said = (f"{report.crew or report.dispatched_to} is on it"
+                        f" ({report.dispatched_to}).")
+            else:
+                said = (report.test_notes[-1] if report.test_notes
+                        else "it has been tested.")
+            tone = (f"They had rung {rings} time(s) already." if rings
+                    else "They had not rung yet.")
+            return '\n'.join([
+                f"{report.number}: rang {report.record.telephone_number}. "
+                f"{tone}",
+                f"Told them: {said}",
+                f"That was {cost} minutes of the shift; they will not ring "
+                f"for {PATIENCE[report.out_of_service]} more.",
+            ])
+        # Nothing to tell: half the wait is forgiven, no more.
+        wait = report.minutes_spent - book['told'].get(report.number, 0)
+        book['told'][report.number] = report.minutes_spent - wait // 2
+        return '\n'.join([
+            f"{report.number}: rang {report.record.telephone_number} with "
+            f"nothing to tell them.",
+            f"That was {cost} minutes of the shift, and half of what they "
+            f"had waited",
+            f"is still owed. Test the line first: report test "
+            f"{report.number}",
+        ])
+
 
 def _closed(terminal: Any) -> List[Any]:
     """Reports closed this tour."""
@@ -250,6 +412,13 @@ def _tickets_past_window(terminal: Any) -> Tuple[str, str]:
     terminal.triage_queue()  # Looking is when a passed window is noticed.
     return ('tickets past their response window',
             str(len(terminal.triage_book()['lapsed'])))
+
+
+def _customers_rang_back(terminal: Any) -> Tuple[str, str]:
+    """Rings customers made while their report was open."""
+    terminal.patience_queue()  # Looking is when a ring is noticed.
+    return ('customer ringbacks',
+            str(sum(terminal.patience_book()['rung'].values())))
 
 
 def _no_trouble_found(terminal: Any) -> Tuple[str, str]:
@@ -348,6 +517,7 @@ _COUNTERS: Dict[str, Any] = {
     'groups_over': _groups_over,
     'tickets_worked': _tickets_worked,
     'tickets_past_window': _tickets_past_window,
+    'customers_rang_back': _customers_rang_back,
     'no_trouble_found': _no_trouble_found,
     'off_hook_caught': _off_hook_caught,
     'commitments_met': _commitments_met,

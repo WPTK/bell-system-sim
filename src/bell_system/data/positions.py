@@ -191,13 +191,18 @@ POSITIONS: Dict[str, Position] = {
     'custserv': Position(
         key='custserv', name='Customer Service Interface Technician',
         # The desk that talks to customers gets the no-trouble-founds.
-        commands=('service', 'provision', 'billing', 'custdb', 'directory'),
+        commands=('service', 'provision', 'billing', 'custdb', 'directory',
+                  'trouble'),
         fault_bias={'NONE': 1.6, 'ROH': 1.4},
         board_share=0.78,
         ticket_categories=('SERVICE_INTERRUPTION',),
         voices=('mreyes', 'jhaverty'),
         nspmp='customer_reports',
-        tally=('commitments_met', 'no_trouble_found', 'repeats'),
+        tally=('commitments_met', 'no_trouble_found', 'repeats',
+               'customers_rang_back'),
+        verb='trouble advise',
+        pressure='Customers holding: each one rings again after a wait '
+                 'that runs on the shift clock.',
     ),
 
     'radio': Position(

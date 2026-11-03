@@ -4429,3 +4429,26 @@ REPAIR
      simulation's own. Engineering and Operations notes only that
      special services troubles may be traced to interoffice facilities.
 """
+
+
+# The command only the Customer Service Interface Technician's desk has.
+MAN_PAGES["trouble"] += """
+ADVISE
+     trouble advise
+     trouble advise REPORT
+
+     The Customer Service Interface Technician desk only. With no
+     argument, lists the customers holding: each report that is a
+     customer's, how many times they have rung, how long until the next
+     ring and what the call back would cost. Naming a report rings them
+     and tells them where it stands.
+
+     A customer rings again after 20 shift minutes out of service, 45
+     otherwise, counted from the last call, and stops at three. The clock
+     is the shift clock: it moves with what you type and run, and not
+     with a stopwatch. A call costs 3 minutes, 2 more for each ring they
+     have already made, and 3 more if you have nothing to tell them. A
+     report that has been tested or has a crew out gives you something to
+     say, and the call settles them for a full wait; with nothing to say
+     it forgives only half. These figures are the simulation's own.
+"""

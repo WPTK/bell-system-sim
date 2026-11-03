@@ -6,6 +6,7 @@ import random
 from ..data.positions import POSITIONS, desk_only
 from ..types import TroubleTicket
 from typing import (
+    TYPE_CHECKING,
     Any,
     Dict,
     List,
@@ -31,6 +32,11 @@ class TicketCommands(SessionState):
     Mixed into :class:`~bell_system.terminal.BellSystemTerminal`,
     which owns the session state these read.
     """
+
+    if TYPE_CHECKING:
+        # The repair desk's verb is dispatched from here and lives with the
+        # other position code; it is only declared for the type checker.
+        def advise(self, args: List[str]) -> str: ...
 
     def cmd_ticket(self, args: List[str]) -> str:
         """Trouble ticket management system"""
@@ -138,6 +144,9 @@ Use 'ticket update {new_ticket}' to add information"""
         elif args[0] == "triage":
             refusal = desk_only(self.position, 'noc', 'trouble triage')
             return refusal or self._triage(args[1:])
+
+        elif args[0] == "advise":
+            return self.advise(args[1:])
 
         elif args[0] == "geographic":
             return self._show_geographic_trouble_overview()
