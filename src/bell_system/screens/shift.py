@@ -232,11 +232,10 @@ class ShiftCommands(SessionState):
         """
         Which watch of the day this tour is worked on.
 
-        The tour says (``tours.watch_of``): the clock starts every tour at
-        08:00 and a tour is eight hours of work, so the hour on it never
-        gets as far as an evening or a night. With ``date.source`` set to
-        ``real`` the clock is the host's and its hour decides, since that is
-        the one place the hour on the clock is the hour.
+        The tour says (``tours.watch_of``), and the clock opens the tour on
+        that watch's hour. With ``date.source`` set to ``real`` the clock is
+        the host's and its hour decides, since that is the one place the
+        hour on the clock is the hour.
         """
         if self.settings.get('date.source') == 'real':
             return watch_at(self.clock.now())
@@ -560,7 +559,9 @@ class ShiftCommands(SessionState):
                 ledger.append(f'chased:{message.about}')
             elif message.kind == 'chatter':
                 forget_rested(ledger, self.career.shift)
-                ledger.append(chatter_key(self.career.shift, message.lines))
+                key = chatter_key(self.career.shift, message.lines)
+                if key not in ledger:
+                    ledger.append(key)
             if message.beat or message.kind in ('chase', 'chatter'):
                 self.career.save()
         return message
@@ -691,10 +692,13 @@ class ShiftCommands(SessionState):
         self.career.record_missed(len(late))
         notices = []
         for report in late:
+            # Missed is counted either way; said is once. A shift file that
+            # was dealt again must not make her say it a second time.
+            if f'chased:{report.number}' in self.career.beats_seen:
+                continue
             self.career.beats_seen.append(f'chased:{report.number}')
             notices.append(self.switchroom.overdue_notice(
                 self.clock.now(), report.number,
-                report.record.telephone_number,
                 Late(report.number, report.record.telephone_number,
                      report.record.class_of_service, report.out_of_service,
                      report.commitment.strftime('%H:%M'))))

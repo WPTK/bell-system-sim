@@ -120,8 +120,8 @@ class Tour(NamedTuple):
     theme: str
     kind: str
     # Which watch of the day the tour is worked on (``WATCHES``): the
-    # simulation's own, chosen to suit the theme. The clock starts every tour
-    # at 08:00, so the hour on it cannot say who is in the building.
+    # simulation's own, chosen to suit the theme. The clock opens the tour on
+    # this watch's hour (``WATCH_START_HOUR``).
     watch: str
     briefing: Tuple[str, ...]
     beats: Tuple[Beat, ...]

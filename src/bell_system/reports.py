@@ -755,6 +755,9 @@ class ReportDesk:
                     False)
 
         if force.lower() != wanted.lower():
+            # The right force draws its repair time here; so does this one,
+            # so that what is drawn after does not tell the two apart.
+            self.rng.randint(*fault.typical_minutes)
             crew, travel, came_from = self.force.send(
                 force, report.number, COST_WRONG_DISPATCH, now)
             if crew is None:

@@ -66,8 +66,8 @@ def watch_at(when: datetime) -> str:
     Which watch of the day an hour on the clock falls in.
 
     Only for a clock that is the real one (``date.source`` set to ``real``).
-    A simulated tour starts at 08:00 whichever watch it is worked on, so
-    there the tour says (``tours.watch_of``).
+    A simulated clock opens a tour on its watch's hour, so there the tour
+    says which watch it is (``tours.watch_of``).
     """
     if 8 <= when.hour < 16:
         return 'day'
@@ -172,9 +172,11 @@ CHANNEL_SENDERS: Dict[str, Sequence[str]] = {
 
 
 # A line of chatter is not offered again until this many tours have gone by
-# since it was said. The simulation's own: a career is thirteen tours and the
-# pool of lines for a desk is a dozen or so, so three keeps a line from being
-# the same noise every time without running a desk out of things to say.
+# since it was said. The simulation's own: a career is thirteen tours and a
+# desk's pool is about two dozen lines, so three keeps a line from being the
+# same noise every time. It can still run a busy desk dry inside four tours;
+# when it does, the line said longest ago is offered rather than silence
+# (``Switchroom.chatter``).
 CHATTER_REST_TOURS = 3
 
 # From this tour on, the wire chief says less in the ambient traffic, by this
@@ -788,10 +790,13 @@ class Switchroom:
         # wire, the mail and the write(1) traffic all come from somebody.
         pool = tuple(item for item in pool if self.present(item[1], now))
         if tour is not None:
-            pool = tuple(item for item in pool if rested(item[2], tour, seen))
             if self.rng.random() < halloran_quiet(tour):
                 pool = tuple(item for item in pool if item[1] != 'ehalloran')
-        picked = self._pick(pool, 'chatter')
+            pool = (tuple(item for item in pool
+                          if rested(item[2], tour, seen))
+                    or self._longest_ago(pool, seen))
+        picked = self._pick(pool, 'chatter') or (
+            self.rng.choice(pool) if pool else None)
         if picked is None:
             return None
         channel, sender, lines = picked[:3]
@@ -799,6 +804,19 @@ class Switchroom:
             channel=channel, sender=sender, received=now, lines=list(lines),
             kind='chatter', subject=lines[0][:40], about=None,
         ))
+
+    @staticmethod
+    def _longest_ago(pool: Sequence[tuple], seen: Sequence[str]) -> tuple:
+        """The lines in a pool that were said longest ago, or never."""
+        def last(item: tuple) -> int:
+            tail = f":{zlib.crc32(' '.join(item[2]).encode()):08x}"
+            return max((int(entry.split(':')[1]) for entry in seen
+                        if entry.startswith('said:')
+                        and entry.endswith(tail)), default=-1)
+        if not pool:
+            return ()
+        oldest = min(last(item) for item in pool)
+        return tuple(item for item in pool if last(item) == oldest)
 
     def next_message(self, now: datetime, tour: int,
                      position: Optional[str] = None,
@@ -1129,17 +1147,18 @@ class Switchroom:
 
         The customer's words are by class of service when the line is out. A
         line that still works has nobody ringing from a neighbour's, so she
-        says only that they want a time.
+        says only that they want a time, and nothing about the line: what it
+        is doing is for the readings to say.
         """
         return [
             f'{late.number} on {late.telephone} was due {late.committed} '
             f'and has gone. What do I tell them?',
             consequences.overdue(late.class_of_service) if late.out_of_service
-            else 'The line is working. They would like a time.',
+            else 'They would like a time.',
         ]
 
     def overdue_notice(self, now: datetime, report_number: str,
-                       telephone_number: str, late: Late) -> Message:
+                       late: Late) -> Message:
         """
         The attendant, once, on a report that has just passed its commitment.
 

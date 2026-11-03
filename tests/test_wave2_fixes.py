@@ -10,6 +10,7 @@ import random
 import re
 from datetime import datetime
 
+from bell_system import npc
 from bell_system.clock import SimClock
 from bell_system.data import tours
 from bell_system.npc import (
@@ -100,24 +101,22 @@ class TestTheOverdueNoticeIsSaid:
         second.settings.set('game.prompts', 'off')
         second.select_role(1)
         second.emit = lambda *a, **k: None
-        ledger = second.career.beats_seen
         for number in late:
-            assert f'chased:{number}' in ledger
-        # The board-driven chase is what would have said it again.
-        room = second.switchroom
-        from bell_system.data.consequences import Late
-        owed = [Late(r.number, r.record.telephone_number,
-                     r.record.class_of_service, r.out_of_service, '08:00')
-                for r in second.desk.pending() if r.overdue()]
-        assert room._board_driven(NOW, owed, ledger) is None
+            assert f'chased:{number}' in second.career.beats_seen
+        # The board is dealt again and its reports flag as late once more;
+        # missed is counted again but she does not say it again.
+        board = [r for r in second.desk.pending() if r.number in late]
+        assert board
+        missed = second.career.missed_commitments
+        assert second._report_late(board) == []
+        assert second.career.missed_commitments == missed + len(board)
 
     def test_there_is_one_way_of_saying_it(self):
         room = Switchroom(random.Random(1))
         from bell_system.data.consequences import Late
         for out in (True, False):
             late = Late('TR-00001', '201-555-0100', '1FR', out, '08:30')
-            lines = room.overdue_notice(NOW, 'TR-00001', '201-555-0100',
-                                        late).lines
+            lines = room.overdue_notice(NOW, 'TR-00001', late).lines
             assert len(lines) == 2
             assert 'was due 08:30 and has gone' in lines[0]
             assert not any('past its commitment' in line for line in lines)
@@ -170,7 +169,6 @@ class TestTheWatchIsNamedAndStamped:
                 assert low <= hour < low + 8, (tour, event['time'])
 
     def test_no_chatter_names_a_time_of_day_it_cannot_know(self):
-        from bell_system import npc
         pools = list(npc._CHATTER)
         for position in npc._POSITION_CHATTER.values():
             pools.extend(position)
@@ -195,9 +193,8 @@ class TestChatterDoesNotComeRoundAgain:
     def test_the_room_offers_nothing_the_ledger_says_was_said(self):
         room = Switchroom(random.Random(3))
         ledger = []
-        said = set()
         for tour in (5, 6, 7, 8):
-            for _ in range(30):
+            for _ in range(3):
                 message = room.chatter(NOW, position='sysop', tour=tour,
                                        seen=ledger)
                 if message is None:
@@ -214,7 +211,29 @@ class TestChatterDoesNotComeRoundAgain:
                            and 0 < tour - int(e.split(':')[1])
                            <= CHATTER_REST_TOURS]
                 assert not earlier, key
-        assert said == set()
+
+    def test_a_busy_desk_is_never_silent_while_it_has_lines(self):
+        """Craft hears more; across four tours the rest must not run it dry."""
+        room = Switchroom(random.Random(5))
+        ledger = []
+        for tour in (5, 6, 7, 8):
+            for _ in range(60):
+                room._recent.clear()
+                message = room.chatter(NOW, position='sysop', tour=tour,
+                                       seen=ledger)
+                assert message is not None, tour
+                ledger.append(chatter_key(tour, message.lines))
+
+    def test_the_line_said_longest_ago_is_the_one_that_comes_back(self):
+        room = Switchroom(random.Random(5))
+        pool = [item for item in npc._CHATTER if len(item) < 4
+                and item[1] in ('rjohnson', 'gvasquez', 'lokafor', 'dpetrak',
+                                'tnakamura', 'carot', 'mreyes')]
+        ledger = [chatter_key(5 + (i % 2), item[2])
+                  for i, item in enumerate(pool)]
+        oldest = tuple(item for i, item in enumerate(pool) if i % 2 == 0)
+        found = room._longest_ago(tuple(pool), ledger)
+        assert [item[2] for item in found] == [item[2] for item in oldest]
 
     def test_the_ledger_is_in_the_career_save(self, terminal):
         terminal.career.shift = 5
