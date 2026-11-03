@@ -10,8 +10,8 @@ canon levels, voice profiles, written world rules and true answers for every
 mystery. Its rule on localisation is not adopted: the English here is
 period English and is the product.
 
-This file records. It fixes nothing. Every contradiction found while writing
-it is listed in section 8, and no code or text was changed.
+This file records the canon. Every contradiction found while writing it is
+listed in section 8, which says how each was closed.
 
 ## 1. How to use it
 
@@ -233,7 +233,7 @@ text is that it contradicts none of these.
 
 ### T1. Marker 2
 
-**Shown now (Established):** a slow third trial on the number 5 crossbar's marker 2 in aisle 4, "since 81"; Johnson says do not raise a ticket because it will be closed no trouble found; two homes name the cause differently (section 8, I4). `filesystem.py` `marker.notes`, `data/homes.py` (sysop, switch), `npc.py`.
+**Shown now (Established):** a slow third trial on the number 5 crossbar's marker 2 in aisle 4, "since 81"; Johnson says do not raise a ticket because it will be closed no trouble found; both homes name the sequence relay (section 8, I4, resolved in 7b). `filesystem.py` `marker.notes`, `data/homes.py` (sysop, switch), `npc.py`.
 
 **True answer (Provisional):** the sequence relay in marker 2 is wearing out. It lengthens the third trial slightly each month, which is why the timing chain is "within limits" and the peg count is up. Johnson is right and has been right for two years. The relay fails outright on tour 9 or tour 10, takes the marker out, and produces a run of reports on lines with no cable in common. A player who has read `marker.notes` and the peg count sees it coming; one who has not sees three or four unrelated troubles and learns the pattern from Johnson.
 **Pays off:** phase 8, row A7 (8b). **Check first:** A21. The sequence relay detail is [own] until `SD_26030-01` is read against it.
@@ -314,9 +314,12 @@ PR can see what it must not contradict. All **Established**.
 
 ## 8. Inconsistencies found
 
-Listed and not fixed. **A** needs a decision about the truth; **B** is a
-mismatch of fact with an obvious reading; **C** is a gap or an unsourced
-claim. Where the plan already tracks it, the row is named.
+All fourteen are resolved (issue #60). **A** needed a decision about the
+truth; **B** was a mismatch of fact with an obvious reading; **C** was a gap
+or an unsourced claim. The Note column says how each was closed, and a test
+holds it (`tests/test_narrative_leftovers.py`, `test_thread.py`,
+`test_things_to_find.py`). A new inconsistency goes in this table before it
+is fixed.
 
 | # | Sev | What | Where | Note |
 | ---: | :-: | --- | --- | --- |
@@ -324,7 +327,7 @@ claim. Where the plan already tracks it, the row is named.
 | I2 | A | Halloran says the sulog "has your name in it" at the third sign-off; no line in it carries the player's login | `npc.py` `_SIGN_OFF_REMARKS`; `filesystem.py` `SULOG` | **Resolved in 7b** by `sync_groups`: one line for the player at the sign-off. |
 | I3 | B | The sulog's mode `-rw-------` does not show the group read that the `adm` group is given | `screens/shell.py` `_may_read`; `filesystem.py` | **Resolved in 7b:** the mode is `-rw-r-----` and `_may_read` reads the group bit. |
 | I4 | A | The cause of Marker 2 is "the sequence relay" in Johnson's notes and "the timing chain" in the switch notes | `filesystem.py` `marker.notes`; `data/homes.py` switch | **Resolved in 7b:** the switch notes now say the trouble is in the sequence relay and the timing chain it feeds is within limits. T1 stands. |
-| I5 | B | Position notes are signed by people who would not have written them: the records desk by Okafor, special services by Johnson, radio by Vasquez, switching by Nakamura | `data/homes.py` | Already tracked as plan row C30. |
+| I5 | B | Position notes are signed by people who would not have written them: the records desk by Okafor, special services by Johnson, radio by Vasquez, switching by Nakamura | `data/homes.py` | **Resolved by plan row C30 (#53):** every note is signed by someone whose job would have given them the knowledge, and the module docstring states the four places the roster has no fit. |
 | I6 | B | The field notes speak of "Vasquez's crew"; there is no such crew, and Vasquez is a testboard technician | `data/homes.py` field notes; `field.py` `CREWS` | **Resolved (#60):** the sentence is Finch's, who is on the crew list. A test holds every "X's crew" in a note to a real crew. |
 | I7 | B | Nakamura is a transmission engineer in the roster and a switching equipment technician in the crew list; Johnson holds that title in the roster. The central-office field call is mapped to Johnson but matches Nakamura by name | `npc.py` `CRAFT`, `FORCE_SENDERS`; `field.py` | **Resolved (#60):** `field.CREWS` builds each crew from `npc.CRAFT` (`_crew`), so name and title are written once. The central-office crew is Johnson, the switching equipment technician, as `FORCE_SENDERS` already had it; Nakamura is not a crew. The crew key `nakamura` became `johnson`, and `FieldForce.where` places a crew a saved shift does not know at its home. |
 | I8 | B | Two roster entries share tty 11 (CAROT and Sandoval); `/etc/ttys` lists four terminals and the roster has twelve | `npc.py`; `filesystem.py` | **Resolved (#60):** CAROT is on tty13, so each of the thirteen roster entries has its own terminal. `/etc/ttys` and the `/dev/ttyNN` nodes are written from `npc.CRAFT` in `filesystem.py`, so they cannot disagree with `who`. Not touched: the player's own terminal still reads `tty01`, which is also Halloran's (login banner, `tty`, the su log, `wall`). |

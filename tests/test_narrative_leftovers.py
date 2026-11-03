@@ -15,11 +15,40 @@ from bell_system.data.tours import TOURS
 from bell_system.field import CREWS
 from bell_system.filesystem import (
     DIVESTITURE_MEMO, FILESYSTEM, GROUP, NEWS_GENERAL_203, NEWS_MISC_88,
-    PASSWD,
+    PASSWD, TESTLOG_C,
 )
 from bell_system.npc import CRAFT, Switchroom
 from bell_system.progression import QUALIFICATIONS
 from bell_system.terminal import BellSystemTerminal
+
+
+class TestTheItemsPhases7And7bFixedStayFixed:
+    """I1, I4, I10 and I12 had no test of their own."""
+
+    def test_i1_the_teletype_line_is_the_sulog_line(self):
+        from bell_system import npc
+        with open(npc.__file__, encoding='utf-8') as handle:
+            source = handle.read()
+        assert 'BADSU 11/14 03:47 - tty07 mreyes-root' in source
+        assert '07:52' not in source
+        assert 'SU 11/14 03:47 - tty07 mreyes-root' in FILESYSTEM[
+            '/usr/adm/sulog'].content
+
+    def test_i4_both_homes_name_the_sequence_relay(self):
+        marker = FILESYSTEM['/usr/users/rjohnson/marker.notes'].content
+        assert 'sequence relay' in marker
+        assert 'sequence relay' in HOMES['switch']['aisle.notes']
+
+    def test_i10_alvarez_signs_the_evening_tour(self):
+        assert 'R. Alvarez, evening tour' in HOMES['sysop']['notes']
+        assert 'R. Alvarez, evening tour' in TESTLOG_C
+        assert 'tour 2' not in TESTLOG_C
+
+    def test_i12_a_regular_has_a_street_and_no_city(self):
+        from bell_system.data.regulars import REGULARS
+        for regular in REGULARS.values():
+            assert ',' not in regular.address, regular.address
+            assert 'Jersey' not in regular.address
 
 
 class TestI6TheFieldNotesNameOnlyRealCrews:
