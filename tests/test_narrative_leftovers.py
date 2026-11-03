@@ -91,27 +91,62 @@ class TestI7OneTitlePerPerson:
     def test_the_transmission_engineer_is_not_a_crew(self):
         assert 'Nakamura, T.' not in {crew.name for crew in CREWS}
 
+    @staticmethod
+    def fresh():
+        terminal = BellSystemTerminal()
+        terminal.career.qualifications = [q.key for q in QUALIFICATIONS]
+        terminal.career.shift = 2
+        terminal.clock.set_tour(2)
+        return terminal
+
     def test_a_shift_saved_with_the_old_crew_key_still_dispatches(
             self, isolated_state):
         """The crew list used to hold Nakamura where Johnson now is."""
-        def fresh():
-            terminal = BellSystemTerminal()
-            terminal.career.qualifications = [q.key for q in QUALIFICATIONS]
-            terminal.career.shift = 2
-            terminal.clock.set_tour(2)
-            return terminal
-
-        stored = save.capture(fresh())
+        stored = save.capture(self.fresh())
         at = stored['force']['at']
         at['nakamura'] = at.pop('johnson')
-        terminal = fresh()
+        terminal = self.fresh()
         assert save.restore(terminal, stored)
         force = terminal.desk.force
-        assert 'johnson' not in force.at
+        assert 'nakamura' not in force.at
+        assert force.at['johnson'] == 'OFFICE'
         crew, travel, came_from = force.send('Central office', 'TR-00001',
                                              30, 0)
         assert crew is not None and crew.name == 'Johnson, R.'
         assert came_from == 'upstairs'
+
+    def test_the_old_key_is_read_as_the_new_one_where_the_crew_was_put(
+            self, isolated_state):
+        stored = save.capture(self.fresh())
+        at = stored['force']['at']
+        at['nakamura'] = at.pop('johnson')
+        at['nakamura'] = 'DISTRICT'
+        terminal = self.fresh()
+        assert save.restore(terminal, stored)
+        assert terminal.desk.force.at['johnson'] == 'DISTRICT'
+
+    def test_a_crew_the_save_does_not_know_stays_where_it_was_dealt(
+            self, isolated_state):
+        stored = save.capture(self.fresh())
+        del stored['force']['at']['johnson']
+        terminal = self.fresh()
+        assert save.restore(terminal, stored)
+        assert terminal.desk.force.at['johnson'] == 'OFFICE'
+
+    def test_the_old_key_out_on_a_job_is_the_new_crew_out_on_it(
+            self, isolated_state):
+        stored = save.capture(self.fresh())
+        stored['force']['out'] = {
+            'nakamura': {'report': 'TR-00007', 'travel': 2, 'work': 30,
+                         'left': 5}}
+        terminal = self.fresh()
+        assert save.restore(terminal, stored)
+        force = terminal.desk.force
+        assert list(force.out) == ['johnson']
+        assert force.out['johnson'].crew.name == 'Johnson, R.'
+        assert force.out['johnson'].report == 'TR-00007'
+        crew, _, _ = force.send('Central office', 'TR-00008', 30, 6)
+        assert crew is None
 
 
 class TestI8OneTerminalEach:

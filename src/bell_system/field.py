@@ -203,21 +203,11 @@ class FieldForce:
             return 'FAR'
         return 'OFFICE' if crew.force == 'Central office' else 'GARAGE'
 
-    def where(self, crew: Crew) -> str:
-        """
-        Where a crew is standing: the place it was last put, else its home.
-
-        A shift saved by an older build knows the crews that build had and no
-        others, and ``save`` reads ``at`` back as it was written, so a crew
-        added or renamed since is not in it. It has not moved, so it is home.
-        """
-        return self.at.get(crew.key) or self._home(crew)
-
     # -- sending them ----------------------------------------------------
 
     def travel_minutes(self, crew: Crew) -> int:
         """How long this crew takes to reach a job from where they are."""
-        low, high = LOCATIONS[self.where(crew)].minutes
+        low, high = LOCATIONS[self.at[crew.key]].minutes
         return self.rng.randint(low, high)
 
     def send(self, force: str, report: str, work: int,
@@ -243,9 +233,9 @@ class FieldForce:
         if not available:
             return None, 0, ''
         # The nearest free crew goes, which is what a dispatcher would do.
-        available.sort(key=lambda crew: LOCATIONS[self.where(crew)].minutes[0])
+        available.sort(key=lambda crew: LOCATIONS[self.at[crew.key]].minutes[0])
         crew = available[0]
-        came_from = LOCATIONS[self.where(crew)].came_from
+        came_from = LOCATIONS[self.at[crew.key]].came_from
         travel = self.travel_minutes(crew)
         job = Assignment(crew, report, travel, work, now)
         self.out[crew.key] = job
