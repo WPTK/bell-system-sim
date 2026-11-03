@@ -70,6 +70,7 @@ these changes this table first.
 | W14 | A player may read anything their qualifications and group allow, and the machine never hides lore behind a puzzle that needs outside knowledge. | Provisional (pillar 4 test) | `plan.md` section 1 |
 | W15 | The groups are a ladder, one rung to a sign-off: `craft`, `uucp`, `adm`, `sys`, `mgmt`. A file shut to the player is shut by its mode and group bits, as on a real machine, and opens when the group is given. The ladder is [own]; `mgmt` is a group the player is put in and not a rank: it opens Halloran's file and no command. A new shut file goes on the ladder in `data/finds.py`, and a sign-off that opens nothing is a defect. | Established | `data/finds.py` `GROUP_FOR_SIGN_OFF`; `screens/shell.py` `_may_read` |
 | W16 | A regular's card says what has happened to the line and the people on it, never what the next report off it will be. Fault, force and close code stay in `mlt` and the field finding. | Established (C16) | `data/regulars.py` arcs; `tests/test_regulars_arc.py` |
+| W17 | A second career finds, under `/usr/users/prior/`, the files an earlier holder of the desk left: a handover note of totals and whatever that holder wrote under `/usr/users/`. They are undated, unsigned and read only, and they are not Alvarez (section 4): Alvarez is the predecessor *in the story*, and this is anyone who sat there before. Every career walks the same calendar from 14 November, so a date on them would be a paradox; they say how a career ended, never anything about a report (pillar 1). The note is generated and the rest is the player's own earlier writing, so nothing here is authored plot. | Provisional (A13) | `legacy.py`, `screens/careers.py` |
 
 ## 4. Voices
 
@@ -310,6 +311,7 @@ PR can see what it must not contradict. All **Established**.
 | Fade margin, diversity switch, the Chester hop, TH-3 | `npc.py`, `data/homes.py` | Equipment years [sourced] `SOURCES.md` (TH-3); the hop is [own] |
 | The finds: the numbered files in `data/finds.py` `FRAGMENTS` that `finds` lists once read. New in A4, all the simulation's own and Provisional: `/usr/adm/testlog` (Alvarez), `/tmp/.f` (tour 2), `/usr/users/rjohnson/.trial` (tour 5, Johnson's third-trial times, which rise by a second or so a season), `/usr/adm/.retain` (tour 8, the chief's retention list), `/usr/lib/.xfer` (tour 10, accounts for transfer) | `data/finds.py` | [own]; log formats follow the Seventh Edition where it had them. None says what is true about T1 or T2 |
 | The thread of the last holder, one file to a sign-off: `~sysop/dead.letter`, the sent handover (`/usr/spool/mail/ehalloran`), `/usr/adm/sulog`, `/usr/adm/lmoslog`, `~ehalloran/reopened` | `data/finds.py`, `data/homes.py` | [own]; the su log format follows the Seventh Edition. Shut by group, W15 |
+| `/usr/users/prior/` and `HANDOVER` in the next career: an earlier holder's files, undated | `legacy.py` | [own]; the replay-date paradox is why nothing is dated |
 | The Okafor eleven | `screens/games.py`, `npc.py`, `filesystem.py` | [own] |
 
 ## 8. Inconsistencies found
