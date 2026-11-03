@@ -51,7 +51,7 @@ from .filesystem import Node, normalise
 from .npc import render as render_message
 from .data.man_pages import MAN_PAGES
 from .data.positions import get as neutral_position
-from .loop_testing import STAGE_NUMBERS
+from .loop_testing import names_fault
 from .progression import (
     QUALIFICATIONS_BY_KEY,
     ROLE_QUALIFICATIONS,
@@ -184,8 +184,15 @@ class BellSystemTerminal(
     _NANPA_CACHE: Optional[Dict[str, Any]] = None
     _NANPA_DEGRADED: bool = False
 
-    def __init__(self) -> None:
-        """Initialize the Bell System terminal simulation environment."""
+    def __init__(self, rng: Optional[random.Random] = None) -> None:
+        """
+        Initialize the Bell System terminal simulation environment.
+
+        Args:
+            rng: Source for the report board and the SARTS inventory. A player
+                leaves it out and gets a fresh board each time; a test or a
+                calibration run passes a seeded one to get the same board.
+        """
         # Settings and the clock come first: logging honours a setting, and
         # every piece of state initialised below stamps itself with the time.
         self.settings = Settings(settings_path(state_dir()))
@@ -201,7 +208,7 @@ class BellSystemTerminal(
         # Which day of the run-up to divestiture this tour falls on. A
         # career walks the calendar from 14 November to the last working
         # day of the Bell System, so the countdown moves as it goes.
-        self.clock.set_tour(self.career.shift)
+        self.start_tour_clock()
 
         # Setup enhanced logging first
         self._setup_logging()
@@ -306,7 +313,11 @@ class BellSystemTerminal(
         self._initialize_enhanced_ticket_system()
 
         # The repair service bureau's board, and the other craft on the wire.
-        self._initialize_repair_bureau()
+        self._initialize_repair_bureau(rng)
+        # Who is in follows the tour being worked, not the hour on the
+        # clock (npc.py ``on_shift``), so the room and the crews ask here.
+        self.switchroom.present = lambda login, _when: self.is_in(login)
+        self.desk.force.absent = self.absent_crews
 
         # The tour's scheduled work. After the bureau, because the events
         # name the office the career was assigned to.
@@ -825,6 +836,7 @@ class BellSystemTerminal(
         # The mailbox is made out to whoever is at the position, and until
         # now nobody was.
         self.add_mailbox()
+        self.sync_groups()
 
         # The first moment the machine knows which desk it is. Everything
         # above ran while self.role was still None.
@@ -1196,6 +1208,12 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                     output = self.execute_command(command_line)
                     if output:
                         self.emit(output)
+                    # Said here, where the output reaches the screen, and
+                    # not in the output: a pipe, a file or head would
+                    # otherwise take it for part of the text.
+                    notice = self.take_find_notice()
+                    if notice:
+                        self.emit(notice)
                     # After every command, because the thing this is
                     # insuring against is the window being closed rather
                     # than the session being ended politely.
@@ -1502,8 +1520,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
             rows.append(f"dispatched  {report.dispatched_to}"
                         + (f" ({report.crew})" if report.crew else ''))
         if report.field_finding:
-            named = (self._reading_stage(report, count=False)
-                     != STAGE_NUMBERS)
+            named = names_fault(self._reading_stage(report, count=False))
             rows.append("field found "
                         + (report.field_finding if named else 'cleared'))
         if report.sheath_repaired:

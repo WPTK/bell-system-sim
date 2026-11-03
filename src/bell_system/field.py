@@ -25,7 +25,7 @@ making it the whole game.
 """
 
 import random
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Callable, Dict, List, NamedTuple, Optional, Set, Tuple
 
 class Place(NamedTuple):
     """Somewhere a crew can be, and how long it takes them to leave it."""
@@ -121,6 +121,11 @@ class FieldForce:
                                  else self.rng.choice(('GARAGE', 'GARAGE',
                                                        'DISTRICT')))
         self.at[POOL_CREW.key] = 'FAR'
+        # Keys of the crews who are away for this tour (npc.py ``AWAY``), by
+        # whoever holds the tour. The only thing here that keeps a crew from
+        # being sent; the watch they are on does not, since a crew is called
+        # out.
+        self.absent: Callable[[], Set[str]] = lambda: set()
         self.out: Dict[str, Assignment] = {}
         self.log: List[Assignment] = []
         # The category the pool crew is answering this tour, if it is here.
@@ -130,14 +135,18 @@ class FieldForce:
 
     def crews_for(self, force: str) -> List[Crew]:
         """Every crew that answers a dispatch category."""
-        crews = [crew for crew in CREWS if crew.force.lower() == force.lower()]
+        away = self.absent()
+        crews = [crew for crew in CREWS if crew.force.lower() == force.lower()
+                 and crew.key not in away]
         if self.loaned and self.loaned.lower() == force.lower():
             crews.append(POOL_CREW)
         return crews
 
     def roster(self) -> List[Crew]:
         """Everybody here: the wire centre's own, and the pool if it is."""
-        return list(CREWS) + ([POOL_CREW] if self.loaned else [])
+        away = self.absent()
+        return ([crew for crew in CREWS if crew.key not in away]
+                + ([POOL_CREW] if self.loaned else []))
 
     def borrow(self, force: str) -> bool:
         """

@@ -24,7 +24,7 @@ from ..data.trouble import (
 from ..clock import career_progress
 from ..console import article as _a, sentence_case as _lower, wrap
 from ..lmos import LmosConsole
-from ..loop_testing import STAGE_NUMBERS, post_mortem, reading_stage
+from ..loop_testing import names_fault, post_mortem, reading_stage
 from ..npc import (
     Switchroom,
 )
@@ -97,13 +97,17 @@ class BureauCommands(SessionState):
     which owns the session state these read.
     """
 
-    def _initialize_repair_bureau(self) -> None:
+    def _initialize_repair_bureau(
+            self, rng: Optional[random.Random] = None) -> None:
         """
         Stand up the report board, the other craft, and the home wire centre.
 
         The wire centre is chosen from the geographic data already loaded so
         the reports the desk generates carry a numbering plan area and a
         COMMON LANGUAGE code that belong together.
+
+        Args:
+            rng: Source for the board; ``None`` draws a fresh one
         """
         home = None
         for office in self.central_offices.values():
@@ -146,13 +150,22 @@ class BureauCommands(SessionState):
 
         self.desk = ReportDesk(npa, nxx, self.home_office['clli'],
                                wet_bias=career_progress(
-                                   self.career.shift))
+                                   self.career.shift),
+                               rng=rng)
         # The career's index counts reports left open past commitment, and
         # the only place that is true is the board.
         self.career.open_overdue = lambda: sum(
             1 for report in self.desk.pending() if report.overdue())
+        self.career.open_ages = lambda: [
+            report.minutes_spent for report in self.desk.customers()]
+        self.career.overdue_numbers = lambda: [
+            report.number for report in self.desk.customers()
+            if report.overdue()]
         self.switchroom = Switchroom()
-        self.special_services = SartsInventory(self.home_office['clli'])
+        # Its own stream, so the inventory's draws do not shift the desk's.
+        self.special_services = SartsInventory(
+            self.home_office['clli'],
+            rng=None if rng is None else random.Random(rng.random()))
         self.lmos_console = LmosConsole(self)
         self.sarts_console = SartsConsole(self)
         self._queued_messages: deque = deque()
@@ -197,7 +210,9 @@ class BureauCommands(SessionState):
         fault = report.record.fault
         sighting = report.sighting
         if sighting is None:
-            if count:
+            # A practical's report is Halloran's, not a sighting of the
+            # fault for the career, so it never moves the count.
+            if count and not report.practical:
                 sighting = report.sighting = self.career.sight_fault(fault)
             else:
                 sighting = self.career.fault_sightings.get(fault, 0) + 1
@@ -303,7 +318,7 @@ class BureauCommands(SessionState):
     def _show_report_board(self) -> str:
         """Render the pending list, nearest commitment first."""
         self._board_reviewed = True
-        pending = self.desk.pending()
+        pending = self.desk.listing()
         office = self.home_office
         header = (
             f"Repair Service Bureau - Pending Trouble Reports\n"
@@ -358,7 +373,8 @@ class BureauCommands(SessionState):
         """Render one report in full: the line record and everything done to it."""
         report = self.desk.find(token)
         if report is None:
-            return f"report: no report matching '{token}'"
+            return (self.desk.stale_position(token)
+                    or f"report: no report matching '{token}'")
         self._board_reviewed = True
 
         record = report.record
@@ -450,10 +466,13 @@ class BureauCommands(SessionState):
             '-' * 74,
         ]
         for fault in FAULTS.values():
-            lines.append(
-                f"{fault.code:<10} {fault.name:<26} {fault.where:<9} "
-                f"{fault.dispatch}"
-            )
+            row = (f"{fault.code:<10} {fault.name:<26} {fault.where:<9} "
+                   f"{fault.dispatch}")
+            if fault.dispatch.startswith('None') and fault.code != 'NONE':
+                # Nobody is sent, so it reads like nothing found; it is
+                # still a finding, and closes as one.
+                row += "\n" + f"{'':<10} close 5 {fault.code}, not 8"
+            lines.append(row)
         lines.extend([
             '-' * 74,
             '',
@@ -473,7 +492,8 @@ class BureauCommands(SessionState):
         """Send a repair force out and report what they found."""
         report = self.desk.find(token)
         if report is None:
-            return f"report: no report matching '{token}'"
+            return (self.desk.stale_position(token)
+                    or f"report: no report matching '{token}'")
         if report.status == 'CLOSED':
             return f"{report.number} is already closed."
 
@@ -484,18 +504,29 @@ class BureauCommands(SessionState):
 
         # A crew that goes to the wrong place reads nothing, so only a
         # dispatch that finds something is a sighting.
-        name_fault = self._reading_stage(report, count=False) != STAGE_NUMBERS
-        finding = self.desk.dispatch(report, canonical, self.shift_minutes,
-                                     name_fault)
+        name_fault = names_fault(self._reading_stage(report, count=False))
+        repaired = sum(r.sheath_repaired for r in self.desk.reports.values())
+        finding, went = self.desk.send_crew(
+            report, canonical, self.shift_minutes, name_fault)
+        if went and not report.first_dispatch_judged:
+            # The first crew sent is the judgement; whatever follows it is
+            # not. Nobody sent, or nobody needed, is not a dispatch.
+            report.first_dispatch_judged = True
+            self.career.record_dispatch(
+                canonical.lower()
+                == FAULTS[report.record.fault].dispatch.lower(),
+                sum(r.sheath_repaired for r in self.desk.reports.values())
+                - repaired if report.tested else 0)
         # Only a crew that went reads the plant. A report another report's
         # splice repaired carries a finding but nobody was sent, and one
         # splice must not burn a sighting for every pair in the sheath.
-        if report.field_finding and report.dispatched_to is not None:
+        if report.field_finding and went:
             self._reading_stage(report)
-        if report.dispatched_to is None:
+        if not went:
             # Nobody went: either the force is all out, or the sheath is
             # already repaired. Either way there is no field call coming.
-            if report.sheath_repaired:
+            if (report.sheath_repaired
+                    or not self.settings.is_on('game.prompts')):
                 return finding
             wait_note = self._while_you_wait(report, canonical)
             return finding + '\n\n' + wait_note
@@ -568,7 +599,8 @@ class BureauCommands(SessionState):
         """Close a report against a disposition code and judge the call."""
         report = self.desk.find(token)
         if report is None:
-            return f"report: no report matching '{token}'"
+            return (self.desk.stale_position(token)
+                    or f"report: no report matching '{token}'")
         if report.status == 'CLOSED':
             return f"{report.number} is already closed."
         if report.practical:
@@ -613,7 +645,8 @@ class BureauCommands(SessionState):
         if report.missed_commitment and not was_late:
             # Ran past the commitment on the close itself.
             self.career.record_missed()
-        self.career.record_closure(correct)
+        self.career.record_closure(correct, report.minutes_spent,
+                                   report.tested, report.number)
 
         lines = [
             f"{report.number} closed, code {disposition} - "
@@ -681,7 +714,8 @@ class BureauCommands(SessionState):
         """Call the customer back and get more out of them than the card has."""
         report = self.desk.find(token)
         if report is None:
-            return f"report: no report matching '{token}'"
+            return (self.desk.stale_position(token)
+                    or f"report: no report matching '{token}'")
         if report.status == 'CLOSED':
             return f"{report.number} is already closed."
 
@@ -780,9 +814,13 @@ class BureauCommands(SessionState):
             span = career.index_history[-5:]
             lines.append(f"  Last five tours     {trend}   "
                          f"{span[0]:.1f} to {span[-1]:.1f}")
-        lines.extend([
-            '',
-            'QUALIFICATIONS',
+        lines.extend(['', *self.kpi_rows(career.kpis(), 'THE FIVE KPIs'),
+                      self.tour_index_row(), self.board_meter()])
+        tours = self.sparkline(career.tour_index_history)
+        if tours:
+            lines.append(f"  Tour by tour          {tours}")
+        lines.extend(['', *self.commendation_roll(), '',
+                      'QUALIFICATIONS',
             '-' * 74,
         ])
         for qualification in QUALIFICATIONS:

@@ -21,6 +21,8 @@ def working(raw_terminal):
     raw_terminal.career.shift = 2
     raw_terminal.career.qualifications = [q.key for q in QUALIFICATIONS]
     raw_terminal.settings.set('game.ambience', 'off')
+    # Off by default (R5); these tests are about what it says when it is on.
+    raw_terminal.settings.set('game.prompts', 'on')
     return raw_terminal
 
 
@@ -98,8 +100,8 @@ class TestTheStandingPrompt:
         working.settings.set('game.prompts', 'off')
         assert working.next_line() == ''
 
-    def test_it_is_on_by_default(self, raw_terminal):
-        assert raw_terminal.settings.is_on('game.prompts')
+    def test_it_is_off_by_default(self, raw_terminal):
+        assert not raw_terminal.settings.is_on('game.prompts')
 
     def test_it_follows_a_command_that_shows_nothing(self, working):
         board(working)

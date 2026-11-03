@@ -24,6 +24,7 @@ words for a thing that really was about to happen.
 """
 
 from .clock import DIVESTITURE as _DIVESTITURE
+from .data.finds import FRAGMENTS, Fragment
 from .data.homes import HOMES
 from .data.practices import SHEETS, index as _binder_index, render as _sheet
 from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
@@ -218,7 +219,7 @@ main()
 
 TESTLOG_C = """/*
  * testlog - append a line to the position test log
- * R. Alvarez, tour 2
+ * R. Alvarez, evening tour
  */
 #include <stdio.h>
 
@@ -1436,7 +1437,7 @@ FILESYSTEM: Dict[str, Node] = {
 
     '/usr/adm': _dir(owner='adm', group='adm'),
     '/usr/adm/messages': _file(MESSAGES, owner='adm', group='adm'),
-    '/usr/adm/sulog': _file(SULOG, owner='adm', group='adm', mode='-rw-------'),
+    '/usr/adm/sulog': _file(SULOG, owner='adm', group='adm', mode='-rw-r-----'),
     '/usr/adm/uucplog': _file(UUCPLOG, owner='uucp', group='uucp'),
 
     '/usr/bin': _dir(),
@@ -1532,6 +1533,44 @@ for _role, _files in HOMES.items():
             _text, owner=_role, group='craft')
 
 
+# The fragments that are on the machine from the first tour. Those that
+# arrive on a later tour are put in by deliver_fragments (screens/finds.py),
+# the way the netnews is. A fragment with no text is a file that ships
+# already and is only given the owner, group or mode its layer needs.
+def fragment_node(fragment: Fragment, held: Optional[Node] = None) -> Node:
+    """
+    Build the node for a fragment.
+
+    Args:
+        fragment: The fragment, from data/finds.py
+        held: The node already at its path, if the file ships already; only
+            what the fragment names is changed on it
+    """
+    if held is not None:
+        return held._replace(
+            owner=fragment.owner or held.owner,
+            group=fragment.group or held.group,
+            mode=fragment.mode or held.mode)
+    return _file(fragment.text or '', fragment.owner or 'root',
+                 fragment.group or 'other', fragment.mode or '-rw-r--r--')
+
+
+for _fragment in FRAGMENTS:
+    if _fragment.text is None:
+        FILESYSTEM[_fragment.path] = fragment_node(
+            _fragment, FILESYSTEM[_fragment.path])
+    elif _fragment.tour <= 1:
+        FILESYSTEM[_fragment.path] = fragment_node(_fragment)
+
+
+# Files that turn up on a later tour. They are the machine's and not the
+# player's, so they are not saved with the player: they come back on their
+# tour, and one under a home directory would otherwise be kept as if written.
+ARRIVING = frozenset(
+    fragment.path for fragment in FRAGMENTS
+    if fragment.text is not None and fragment.tour > 1)
+
+
 # What a player writes, and so what is kept between sessions: anything under
 # the users' home directories, and the moo scoreboard, which is the one file
 # outside them the games ask you to write to. Everything else on the machine
@@ -1563,6 +1602,7 @@ def player_changes(tree: Dict[str, Node]) -> Tuple[Dict[str, Node], List[str]]:
     """
     changed = {path: node for path, node in tree.items()
                if is_player_path(path) and FILESYSTEM.get(path) != node
+               and path not in ARRIVING
                and (node.is_dir or isinstance(node.content, str))}
     removed = sorted(path for path in FILESYSTEM
                      if is_player_path(path) and path not in tree)

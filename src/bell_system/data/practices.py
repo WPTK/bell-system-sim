@@ -20,6 +20,7 @@ The tables are built from the same data the simulation runs on
 machine it describes.
 """
 
+import re
 from typing import Callable, Dict, List, NamedTuple, Sequence
 
 from ..loop_testing import (
@@ -209,7 +210,7 @@ SHEETS: Dict[str, Sheet] = {sheet.number: sheet for sheet in (
           [('Which crew clears which condition', OWN),
            ('Typical repair minutes', OWN)],
           _who),
-    Sheet('660-001', 'Reading a mechanised loop test',
+    Sheet('660-001', 'Reading a mechanised loop test (mlt)',
           [('Resistance ranges for each condition', OWN),
            ('Foreign voltage with no battery on the pair read as foreign EMF '
             'or a cross', OWN),
@@ -270,6 +271,50 @@ def render(number: str) -> str:
     lines.extend(['', '=' * 72])
     lines.extend(sheet.body())
     return '\n'.join(line.rstrip() for line in lines) + '\n'
+
+
+# A topic shorter than this is every sheet's, so it is not a topic.
+TOPIC_MIN = 3
+
+
+def _words(text: str) -> List[str]:
+    """Break text into the lower-case words a search compares."""
+    return re.findall(r'[a-z0-9]+', text.lower())
+
+
+def about(topic: str, text: str) -> bool:
+    """
+    Say whether a text is about a topic.
+
+    Args:
+        topic: Words to look for
+        text: What to look in
+
+    Returns:
+        Whether every word of the topic is a whole word of the text, so that
+        'loop' does not find 'loops' by accident and 'oh' does not find
+        'ohms'; False for a topic shorter than TOPIC_MIN characters
+    """
+    if len(topic.strip()) < TOPIC_MIN:
+        return False
+    have = set(_words(text))
+    return all(word in have for word in _words(topic))
+
+
+def search(topic: str) -> List[Sheet]:
+    """
+    Find the sheets that are about a topic.
+
+    Args:
+        topic: Words to look for; a sheet matches when every one of them is
+            a whole word of its number, its title or its text
+
+    Returns:
+        The matching sheets, in binder order
+    """
+    return [SHEETS[number] for number in sorted(SHEETS)
+            if about(topic, f"{number} {SHEETS[number].title} "
+                            f"{render(number)}")]
 
 
 def index() -> str:

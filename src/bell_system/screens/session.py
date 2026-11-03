@@ -27,7 +27,7 @@ from typing import (
 
 from ..clock import SimClock
 from ..filesystem import Node
-from ..progression import Career, Difficulty
+from ..progression import Career, Difficulty, Kpis
 from ..reports import ReportDesk
 from ..routing import TollNetwork
 from ..settings import Settings
@@ -227,11 +227,16 @@ class SessionState:
         """Return a timestamp in the form the messaging channels carried."""
         raise NotImplementedError
 
+    def start_tour_clock(self) -> None:
+        """Put the clock on this tour's day and the hour of its watch."""
+        raise NotImplementedError
+
     def _read(self, path: str) -> Optional[str]:
         """Return a file's text, or None if it is not a readable file."""
         raise NotImplementedError
 
-    def _gather(self, args: List[str], command: str) -> tuple:
+    def _gather(self, args: List[str], command: str,
+                note: bool = False) -> tuple:
         """Return (text, error) for a command reading files or stdin."""
         raise NotImplementedError
 
@@ -254,6 +259,11 @@ class SessionState:
     def write_file(self, path: str, text: str,
                    append: bool = False) -> Optional[str]:
         """Create or replace a file; returns an error string or None."""
+        raise NotImplementedError
+
+    def put_file(self, path: str, text: str,
+                 append: bool = False) -> Optional[str]:
+        """Write a file as the machine does, whoever owns it."""
         raise NotImplementedError
 
     def store_node(self, path: str, node: Node,
@@ -283,6 +293,10 @@ class SessionState:
 
     def prefer_tickets(self, tickets: List[Any]) -> List[Any]:
         """Narrow unassigned tickets to this desk's kind, if any are."""
+        raise NotImplementedError
+
+    def is_in(self, login: str) -> bool:
+        """Whether this person is in the building on the tour being worked."""
         raise NotImplementedError
 
     def position_voices(self) -> Any:
@@ -373,6 +387,22 @@ class SessionState:
         """File the articles the feed has brought in by this tour."""
         raise NotImplementedError
 
+    def deliver_fragments(self) -> None:
+        """Put the files that have arrived by this tour on the machine."""
+        raise NotImplementedError
+
+    def sync_groups(self) -> None:
+        """Record the groups the held sign-offs give."""
+        raise NotImplementedError
+
+    def _note_read(self, path: str) -> None:
+        """Record that a file has been put in front of the player."""
+        raise NotImplementedError
+
+    def take_find_notice(self) -> str:
+        """Return the one-time note about finds, once, if it is due."""
+        raise NotImplementedError
+
     def tour_script(self) -> Optional[Any]:
         """This tour's entry in data/tours.py, if the calendar fits."""
         raise NotImplementedError
@@ -407,12 +437,36 @@ class SessionState:
         raise NotImplementedError
 
     def tour_summary(self, closed: int, correct: int, missed: int,
-                     repeats: int) -> List[str]:
+                     repeats: int, unmeasured: int = 0) -> List[str]:
         """Three sentences on a tour, written from its tally."""
         raise NotImplementedError
 
     def sparkline(self, values: List[float], span: int = 5) -> str:
         """Draw the last few figures as a bar, so a trend reads."""
+        raise NotImplementedError
+
+    def kpi_rows(self, kpis: Kpis, heading: str) -> List[str]:
+        """The five KPIs under a heading, with the PROVISIONAL label."""
+        raise NotImplementedError
+
+    def tour_index_row(self) -> str:
+        """This tour's own index, beside the cumulative one."""
+        raise NotImplementedError
+
+    def board_meter(self) -> str:
+        """How much of this tour's board has been cleared."""
+        raise NotImplementedError
+
+    def credit_rows(self) -> List[str]:
+        """The tour's index, its meter and its KPIs."""
+        raise NotImplementedError
+
+    def commendation_lines(self, earned: List[str]) -> List[str]:
+        """The commendations earned this tour, named."""
+        raise NotImplementedError
+
+    def commendation_roll(self) -> List[str]:
+        """Every commendation, marked where it is held."""
         raise NotImplementedError
 
     def first_tour(self, after_close: bool = False) -> bool:

@@ -1548,8 +1548,9 @@ ASSISTS
                          Scales every penalty on the index by 0.7 or 1.0.
      assist.annotate            profile | off | fade | on
                          Whether mlt and the crews keep naming the fault:
-                         never, for the first four sightings of each kind
-                         of trouble, or always.
+                         never; for the first two sightings of each kind of
+                         trouble, then the crew class for two more; or
+                         always.
 
 SEE ALSO
      date(1), status(1), verbosity(1)
@@ -2052,6 +2053,29 @@ SERVICE INDEX
      index figures as a bar, because a column of decimals does not show a
      trend and getting better is the point.
 
+KPIS AND COMMENDATIONS
+     Beside the index, which only takes marks off, the record keeps five
+     measures and a list of names. They are the simulation's own and none
+     of them is scored.
+
+     Mean time to repair      minutes from a report arriving to its close,
+                              correct closes only
+     Commitments met          reports not past their commitment, in percent
+     Right first dispatch     first crews sent to the right force, in percent
+     Repeat rate              reports that came back, per hundred closed
+     Backlog age              average age of the reports still open
+
+     Each reads PROVISIONAL until five reports have been closed. The tour
+     index is the service index of this tour alone, and the board-cleared
+     meter shows how much of the tour's board was closed: a tour of five
+     reports and a tour of thirty can both be perfect, and only the meter
+     says which was bigger.
+
+     A commendation is earned once, printed at the handoff and kept. Each
+     asks for a clean record over at least five reports; none is earned by
+     doing a great deal, and none by guessing. Five straight counts only
+     closes you measured first.
+
 DIFFICULTY
      set game.difficulty fun      Fun Simulation. Close without measuring,
                                   advance quickly, a wrong call costs little
@@ -2077,6 +2101,10 @@ DESCRIPTION
      The other craft on this system are working too, and they answer.
 
 USERS
+     Who is reachable depends on the watch the tour is worked on: some of
+     these are a day job, and one is away the last two tours. who(1) lists
+     whoever is in. Write to somebody who is not and it says so.
+
      rjohnson    Switching Equipment Technician, central office
      mreyes      Repair Service Attendant, repair service bureau
      dpetrak     SCC Maintenance Administrator, switching control centre
@@ -2509,26 +2537,51 @@ NAME
      grep - search a file for a pattern
 
 SYNOPSIS
-     grep [-cinv] pattern [file ...]
+     grep [-chilnv] pattern [file ...]
 
 DESCRIPTION
      Print the lines of each file that contain the pattern. With no file,
-     read standard input, which is how grep is most often used.
+     read standard input, which is how grep is most often used. The shell
+     expands * ? and [ in a file name, so a directory's worth of files is
+     one argument; given more than one file, grep puts each file's name in
+     front of its lines. A file it may not read costs a line of complaint,
+     not the whole search. It does not descend into directories.
 
 OPTIONS
      -i   Ignore case
      -n   Number the lines
      -v   Print the lines that do NOT match
      -c   Print a count instead of the lines
+     -l   Print only the names of files that match
+     -h   Leave the file names off
 
 EXAMPLES
      grep 1FR /usr/lmos/board            Residence lines on the board
      cat /usr/lmos/board | grep PEND     Reports not yet worked
      grep -c . /usr/lmos/board           How many lines that is
      who | grep -v carot                 Everybody who is a person
+     grep -l sysop /usr/adm/*            Which files in a directory say it
 
 SEE ALSO
      cat(1), wc(1), sort(1)
+""",
+    "finds": """
+NAME
+     finds - list what you have turned up
+
+SYNOPSIS
+     finds [number]
+
+DESCRIPTION
+     The machine keeps files that are not part of the work: other people's
+     notes, logs, things left behind. Reading one with cat(1) or turning
+     it up with grep(1) puts it on this list, under the same number it
+     always has. finds does not search; ls(1), cat(1) and grep(1) do.
+
+     finds followed by a number says where that find was made.
+
+SEE ALSO
+     ls(1), cat(1), grep(1)
 """,
     "wc": """
 NAME

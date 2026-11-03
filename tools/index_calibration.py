@@ -307,6 +307,8 @@ def take_practicals(terminal) -> None:
         staged = terminal._practical_open()
         if staged is None:
             continue
+        # He signs the reading as well as the fix, so measure first.
+        terminal.execute_command(f'mlt {staged[1].number}')
         for command in PRACTICAL_SOLUTIONS[offered.key]:
             terminal.execute_command(command.format(n=staged[1].number))
         terminal.execute_command('qual submit')
@@ -326,7 +328,7 @@ def play_career(skill: float, difficulty: str, seed: int,
     Args:
         skill: Chance, from 0 to 1, that a close names what the line had
         difficulty: ``fun`` or ``craft``
-        seed: Seeds the board and the bot's mistakes
+        seed: Seeds the board, from its own stream, and the bot's mistakes
         tours: How many tours to work
 
     Returns:
@@ -336,9 +338,11 @@ def play_career(skill: float, difficulty: str, seed: int,
     from bell_system.terminal import BellSystemTerminal
 
     rng = random.Random(seed)
+    # The terminal still draws message delays and frame numbers from the
+    # global generator, so that is seeded too.
     random.seed(seed)
     os.environ['BELL_SYSTEM_HOME'] = tempfile.mkdtemp(prefix='ladder-')
-    terminal = BellSystemTerminal()
+    terminal = BellSystemTerminal(rng=random.Random(f'board-{seed}'))
     for key, value in (('game.ambience', 'off'), ('game.prompts', 'off'),
                        ('display.pacing', 'off'),
                        ('game.difficulty', difficulty)):

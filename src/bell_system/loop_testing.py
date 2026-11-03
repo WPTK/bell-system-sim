@@ -126,6 +126,17 @@ def reading_stage(sighting: int, annotate_sightings: int) -> str:
     return STAGE_NOTE if sighting <= note_sightings else STAGE_CREW
 
 
+def names_fault(stage: str) -> bool:
+    """
+    Say whether the system still tells somebody which fault it is.
+
+    The reading note names it, and so does the crew that cleared it; from the
+    crew-class stage on, mlt gives only where to send somebody and the field
+    says "the trouble", as it does on the harder difficulty throughout.
+    """
+    return stage == STAGE_NOTE
+
+
 def reading_is_clean(measured: 'LoopMeasurement') -> bool:
     """
     Say whether every reading is inside limits.

@@ -152,13 +152,14 @@ OPTIONS: List[Option] = [
         accurate='300',
     ),
     Option(
-        'game.prompts', 'on', ['on', 'off'],
+        'game.prompts', 'off', ['on', 'off'],
         'Say what is worth doing next',
         'on puts one line after a command that leaves you with nothing '
         'obvious in front of you, naming the report that most wants '
         'working and the command that works it. It is guidance for a new '
-        'craftsperson and not something the machine did; somebody who '
-        'knows the job should turn it off.',
+        'craftsperson and not something the machine did, so it is off '
+        'unless you ask: the first tour has the wire chief for this.',
+        accurate='off',
     ),
     Option(
         'display.log_console', 'off', ['off', 'on'],
@@ -292,9 +293,21 @@ class Settings:
         try:
             write_text_atomically(
                 self.path,
-                json.dumps(self._values, indent=2, sort_keys=True) + '\n')
+                json.dumps(self._departures(), indent=2, sort_keys=True)
+                + '\n')
         except OSError:
             return
+
+    def _departures(self) -> Dict[str, str]:
+        """
+        The values that differ from their defaults, which is all that is kept.
+
+        A file that stored every value stored the default of the day it was
+        written, so a later change of default never reached anybody who had
+        played before it. Only what the player chose is written.
+        """
+        return {key: value for key, value in self._values.items()
+                if value != OPTIONS_BY_KEY[key].default}
 
     # -- derived values -------------------------------------------------
 

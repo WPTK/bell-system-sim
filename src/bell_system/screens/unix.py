@@ -10,6 +10,7 @@ import logging.handlers
 from typing import Any, List, Optional
 
 from ..console import clear_screen
+from ..data.finds import FRAGMENTS_BY_PATH
 from ..constants import BSP_CATEGORIES
 from ..data.man_pages import DESK_SECTIONS
 from ..filesystem import FILESYSTEM, Node
@@ -200,6 +201,8 @@ class UnixCommands(SessionState):
         self.filesystem['/usr/lmos/cable'] = _generated(
             lambda terminal: terminal._render_cable_file(),
             owner='sysop', group='craft')
+        self.filesystem['/etc/group'] = _generated(
+            lambda terminal: terminal._render_group())
         self.filesystem['/usr/spool/mail'] = Node(
             'dir', 'root', 'other', 'drwxrwxr-x', '')
         self.add_mailbox()
@@ -218,7 +221,8 @@ class UnixCommands(SessionState):
         Seventh Edition did.
         """
         for path in [path for path in self.filesystem
-                     if path.startswith(MAIL_DIR)]:
+                     if path.startswith(MAIL_DIR)
+                     and path not in FRAGMENTS_BY_PATH]:
             del self.filesystem[path]
         self.filesystem[MAIL_DIR + (self.username or 'sysop')] = _generated(
             lambda terminal: terminal._render_mailbox(),
@@ -257,6 +261,8 @@ class UnixCommands(SessionState):
         """
         output = ""
         for user in self.users:
+            if not self.is_in(user['user']):
+                continue
             person = CRAFT.get(user['user'])
             title = f"  {person.title}" if person else ""
             output += (f"{user['user']:<10} tty{user['tty']:<4} "

@@ -3,6 +3,7 @@ The working shift: its clock, its events, and the other craft on the wire.
 """
 from ..constants import BELL_SYSTEM_ROLES, SHIFT_LENGTH_MINUTES
 import random
+from datetime import timedelta
 from collections import (
     deque,
 )
@@ -12,22 +13,31 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Set,
 )
+from ..field import CREWS
 from ..data import tours
-from ..data.tours import Tour
+from ..data.consequences import Late
+from ..data.tours import Tour, watch_of
 from ..npc import (
     CRAFT,
+    FAVOUR_MINUTES,
+    WATCH_LABELS,
     Message,
+    CRAFT_BY_NAME,
+    adjust_rapport,
+    chatter_key,
+    favour_due,
+    forget_rested,
+    is_away,
+    on_shift,
+    rapport_with,
     render as render_message,
+    watch_at,
 )
 from ..progression import (
     QUALIFICATIONS,
 )
-from ..settings import (
-    EPOCH_HOUR,
-)
-
-
 from .session import SessionState
 
 
@@ -116,6 +126,7 @@ class ShiftCommands(SessionState):
         self.emit(f"\n{'='*60}")
         self.emit(f"BELL SYSTEM SHIFT BRIEFING - {current_date}")
         self.emit(f"Shift Start Time: {current_time}")
+        self.emit(f"Watch: {self._get_shift_hours()}")
         # Find the role name for display
         role_name = "Unknown Role"
         for role_id, (role_key, name) in BELL_SYSTEM_ROLES.items():
@@ -215,13 +226,29 @@ class ShiftCommands(SessionState):
                       "worked the hard way.")
     def _get_shift_hours(self) -> str:
         """Get current shift description."""
-        hour = self.clock.now().hour
-        if 8 <= hour < 16:
-            return "Day Shift (08:00-16:00)"
-        elif 16 <= hour < 24:
-            return "Evening Shift (16:00-24:00)"
-        else:
-            return "Night Shift (24:00-08:00)"
+        return WATCH_LABELS[self.current_watch()]
+
+    def current_watch(self) -> str:
+        """
+        Which watch of the day this tour is worked on.
+
+        The tour says (``tours.watch_of``), and the clock opens the tour on
+        that watch's hour. With ``date.source`` set to ``real`` the clock is
+        the host's and its hour decides, since that is the one place the
+        hour on the clock is the hour.
+        """
+        if self.settings.get('date.source') == 'real':
+            return watch_at(self.clock.now())
+        return watch_of(self.career.shift)
+
+    def is_in(self, login: str) -> bool:
+        """Whether this person is in the building on this watch and tour."""
+        return on_shift(login, self.current_watch(), self.career.shift)
+
+    def absent_crews(self) -> Set[str]:
+        """Keys of the field crews who are away for the whole of this tour."""
+        return {crew.key for crew in CREWS
+                if is_away(CRAFT_BY_NAME.get(crew.name, ''), self.career.shift)}
     def cmd_events(self, args: List[str]) -> str:
         """Bell System operational events and shift activity"""
         if not args:
@@ -365,9 +392,32 @@ class ShiftCommands(SessionState):
     def _stamp(self) -> str:
         """Return a timestamp in the form the messaging channels carried."""
         return self.clock.log_stamp()
+
+    def start_tour_clock(self) -> None:
+        """Put the clock on this tour's day and the hour of its watch."""
+        self.clock.set_tour(self.career.shift,
+                            tours.start_hour(self.career.shift))
     def _queue_message(self, message, after: int) -> None:
-        """Hold a message back so it lands a few commands from now."""
+        """
+        Hold a message back so it lands a few commands from now.
+
+        A repeat is filed by the bureau (``bureau.py``, ``_close_report``) with
+        the code it was closed under and nothing of the customer; the class of
+        service and the new commitment are on the report, and the customer's
+        second call is made from them here. This is a workaround for not
+        editing that call site, which is outside this phase's files.
+        """
+        if message.kind == 'repeat' and message.about:
+            report = self.desk.find(message.about)
+            original = self.desk.find(report.repeat_of or '') if report else None
+            if report and original:
+                message = self.switchroom.with_class(
+                    message, f'code {original.disposition}',
+                    report.record.telephone_number,
+                    report.record.class_of_service,
+                    report.commitment.strftime('%H:%M'))
         self._queued_messages.append([after, message])
+
     def _drain_queue(self) -> List[str]:
         """Return any held messages that are now due."""
         due: List[str] = []
@@ -381,6 +431,7 @@ class ShiftCommands(SessionState):
                 remaining.append([countdown, message])
         self._queued_messages = remaining
         return due
+
     def _interrupt(self) -> str:
         """
         Advance the shift and return whatever the building has to say.
@@ -411,6 +462,8 @@ class ShiftCommands(SessionState):
         # it is a tutorial with the lights off.
         if self.first_tour():
             return '\n'.join(self.at_due() + ([] if quiet else pieces))
+
+        pieces.extend(self._settle_people(quiet))
 
         # The switching control centre puts a ticket on you now and then.
         # These are the tickets the trouble system already carries; being
@@ -478,29 +531,120 @@ class ShiftCommands(SessionState):
                 pieces.append(render_message(message, self._stamp()))
 
         return '\n'.join(fired + pieces)
+
     def _craft_interruption(self, difficulty):
         """
         Return whatever one of the other craft would say right now.
 
-        A report past its commitment gets chased first, because that is what
-        would actually happen. Otherwise it is advice on the forgiving
-        setting and ordinary building noise on either.
+        In order: a story beat that is due, then somebody asking after a
+        report past its commitment, then the building. Nobody offers
+        advice unasked; that is hint(1).
         """
-        now = self.clock.now()
-        pending = self.desk.pending()
-        overdue = [report for report in pending if report.overdue()]
-        untested = [report for report in pending if not report.tested]
-        roll = random.random()
+        overdue = [
+            Late(report.number, report.record.telephone_number,
+                 report.record.class_of_service, report.out_of_service,
+                 report.commitment.strftime('%H:%M'))
+            for report in self.desk.pending() if report.overdue()]
+        message = self.switchroom.next_message(
+            self.clock.now(), self.career.shift, position=self.role,
+            overdue=overdue, seen=self.career.beats_seen,
+            recall=self._last_closed())
+        if message is not None:
+            ledger = self.career.beats_seen
+            if message.beat:
+                ledger.append(message.beat)
+                if message.about:
+                    ledger.append(f'about:{message.about}')
+            elif message.kind == 'chase' and message.about:
+                ledger.append(f'chased:{message.about}')
+            elif message.kind == 'chatter':
+                forget_rested(ledger, self.career.shift)
+                key = chatter_key(self.career.shift, message.lines)
+                if key not in ledger:
+                    ledger.append(key)
+            if message.beat or message.kind in ('chase', 'chatter'):
+                self.career.save()
+        return message
 
-        if overdue and roll < 0.45:
-            target = random.choice(overdue)
-            return self.switchroom.chase(
-                now, target.number, target.record.telephone_number)
-        if untested and roll < 0.60 and difficulty.annotation_sightings:
-            return self.switchroom.hint(now)
-        if untested and roll < 0.50:
-            return self.switchroom.hint(now)
-        return self.switchroom.chatter(now, position=self.role)
+    def _last_closed(self):
+        """
+        The report most recently closed, for a person who speaks of it.
+
+        One that an earlier beat already spoke of is not offered again, so
+        two beats never tell the same story twice.
+        """
+        spoken = self.career.beats_seen
+        done = [r for r in self.desk.closed()
+                if not r.practical and r.closed_at
+                and f'about:{r.number}' not in spoken]
+        if not done:
+            return None
+        report = done[0]
+        return Late(report.number, report.record.telephone_number,
+                    report.record.class_of_service, False,
+                    report.closed_at.strftime('%H:%M'))
+
+    def _settle_people(self, quiet: bool) -> List[str]:
+        """
+        What the day's closed work does to how the crews feel about you.
+
+        Each report closed this tour moves its crew's rapport one step, up
+        when the code was right and down when it was not, once per person per
+        tour. A correct one may bring a call back to the board later. At the
+        threshold one person does a favour, once.
+
+        The ledger (``settled:``, ``rang:``, ``favour:`` in the career's
+        ``beats_seen``) is what makes each of those once across a save and a
+        resume; the room keeps nothing of its own. A report closed on an
+        earlier tour was settled on that tour or not at all, so it is only
+        marked here, never counted: the first tour has no people, and the
+        reports it closed must not move anyone in the second.
+        """
+        room = self.switchroom
+        ledger = self.career.beats_seen
+        tour = self.career.shift
+        today = self.clock.tour_day()
+        spoken: List[str] = []
+        changed = False
+        for report in self.desk.closed():
+            key = f'settled:{report.number}'
+            if key in ledger or report.practical:
+                continue
+            ledger.append(key)
+            changed = True
+            if report.closed_at is None or report.closed_at.date() < today:
+                continue
+            changed |= adjust_rapport(
+                self.career.rapport, ledger,
+                rapport_with(report.crew), tour, 1 if report.correct else -1)
+            if (report.correct and not quiet
+                    and room.rings_back(report.number, ledger)):
+                closed = (report.closed_at.strftime('%H:%M')
+                          if report.closed_at else '')
+                self._queue_message(room.call_back(
+                    self.clock.now(), report.number,
+                    report.record.telephone_number,
+                    report.record.class_of_service, closed),
+                    after=room.rng.randint(2, 5))
+        if not quiet:
+            # The favour is asked at the door, so it waits until the nearest
+            # report is close enough to its commitment for an hour to matter.
+            login = favour_due(self.career.rapport, ledger, self.is_in)
+            waiting = sorted((r for r in self.desk.customers()
+                              if not r.overdue()), key=lambda r: r.commitment)
+            window = timedelta(minutes=FAVOUR_MINUTES)
+            if login and waiting and waiting[0].due_in() <= window:
+                target = waiting[0]
+                target.commitment += timedelta(minutes=FAVOUR_MINUTES)
+                self.career.beats_seen.append(f'favour:{login}')
+                changed = True
+                spoken.append(render_message(room.favour(
+                    self.clock.now(), login, target.number,
+                    target.commitment.strftime('%H:%M')), self._stamp()))
+        if changed:
+            self.career.save()
+        return spoken
+
     def _advance_shift(self) -> List[str]:
         """
         Charge the shift for the work just done and fire anything now due.
@@ -546,9 +690,23 @@ class ShiftCommands(SessionState):
         if not late:
             return []
         self.career.record_missed(len(late))
-        return [self.switchroom.overdue_notice(
-            self.clock.now(), report.number, report.record.telephone_number)
-            for report in late]
+        notices = []
+        for report in late:
+            # Missed is counted either way; said is once. A shift file that
+            # was dealt again must not make her say it a second time.
+            if f'chased:{report.number}' in self.career.beats_seen:
+                continue
+            self.career.beats_seen.append(f'chased:{report.number}')
+            notices.append(self.switchroom.overdue_notice(
+                self.clock.now(), report.number,
+                Late(report.number, report.record.telephone_number,
+                     report.record.class_of_service, report.out_of_service,
+                     report.commitment.strftime('%H:%M'))))
+        # The ledger is the only thing that remembers, across a quit, that
+        # she has said it: written now, not at the next beat, or a resume
+        # lets the board-driven chase ask the same again.
+        self.career.save()
+        return notices
 
     def _weather_events(self, was: int) -> List[str]:
         """
@@ -591,7 +749,8 @@ class ShiftCommands(SessionState):
         return f"{self.shift_minutes // 60}:{self.shift_minutes % 60:02d}"
     def _due_events(self) -> List[Dict[str, Any]]:
         """Return the events whose time the working shift has reached."""
-        reached = EPOCH_HOUR * 60 + self.shift_minutes
+        reached = (tours.start_hour(self.career.shift) * 60
+                   + self.shift_minutes)
         due_now = []
         for event in self.shift_events:
             if event['id'] in self._fired_events:
@@ -671,6 +830,8 @@ class ShiftCommands(SessionState):
                 '-' * 66,
             ]
             for person in CRAFT.values():
+                if not self.is_in(person.login):
+                    continue
                 lines.append(f"{person.login:<12} tty{person.tty:<2} "
                              f"{person.name:<16} {person.location}")
             lines.append('-' * 66)
@@ -679,7 +840,7 @@ class ShiftCommands(SessionState):
 
         login = args[0].lower()
         found = CRAFT.get(login)
-        if found is None:
+        if found is None or not self.is_in(login):
             return f"write: {args[0]} is not logged on."
         if login == 'carot':
             return ("write: CAROT is a test system, not a terminal. It prints "
@@ -711,7 +872,7 @@ class ShiftCommands(SessionState):
             ],
             'dpetrak': [
                 "SCC has you. Nothing outstanding from here.",
-                "Keep the order wire clear, we are routining trunks tonight.",
+                "Keep the order wire clear, we are routining trunks this shift.",
             ],
             'lokafor': [
                 "I am up a pole. Make it quick.",

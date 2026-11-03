@@ -45,7 +45,7 @@ USAGE
      report next  Shows the one report that most wants working.
 
      'man <command>' prints the manual page for any command. The board prints
-     its own next action along the bottom; 'set game.prompts off' stops that.
+     its own next action along the bottom if you ask: 'set game.prompts on'.
 
      To leave, use 'exit' or Ctrl+C. The tour is saved after every command and
      picked up where you left it next time.
@@ -168,7 +168,8 @@ TEST CALLS
 DIFFICULTY
      set game.difficulty fun
          Fun Simulation. Loop testing names the fault it reads for the
-         first four sightings of each kind, a report may be closed without measuring, a wrong call costs little,
+         first two sightings of each kind, a report may be closed without
+         measuring, a wrong call costs little,
          commitments are not counted, and qualification comes quickly.
 
      set game.difficulty craft
@@ -332,7 +333,7 @@ SETTINGS
      set date.epoch 1978-06-01    Run the shift on a different date
      set display.charset unicode  Allow block and box-drawing glyphs
      set game.difficulty craft    Work the shift the hard way
-     set game.prompts off         Stop the terminal telling you what to do next
+     set game.prompts on          Have the terminal tell you what to do next
      set game.ambience off        Stop the other craft interrupting you
      set reset                    Restore period-accurate defaults
 

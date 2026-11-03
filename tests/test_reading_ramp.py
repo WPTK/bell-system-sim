@@ -186,6 +186,33 @@ class TestACorrectDispatchStopsNamingTheFault:
         assert 'ground' not in queued
 
 
+class TestTheCrewFadesWhenMltDoes:
+    """The field says "the trouble" from the sighting mlt stops naming it."""
+
+    @pytest.mark.parametrize('code', ['OPEN', 'SHORT', 'CROSS', 'WET'])
+    @pytest.mark.parametrize('seen', [0, 1, 2, 3, 4, 5])
+    def test_crew_and_mlt_stop_naming_it_on_the_same_sighting(
+            self, terminal, code, seen):
+        terminal.career.fault_sightings[code] = seen
+        measured = terminal.desk.receive(terminal.clock.now(), fault=code)
+        mlt_names_it = 'System reads this as' in terminal.execute_command(
+            f'mlt {measured.number}')
+        # mlt counted that sighting; put the count back for the crew's.
+        terminal.career.fault_sightings[code] = seen
+        measured.sighting = None
+        terminal.shift_minutes += 900
+        force = FAULTS[code].dispatch.lower()
+        told = terminal.execute_command(
+            f'report dispatch {measured.number} {force}').lower()
+        crew_names_it = (FAULTS[code].name.lower() in told
+                         or 'water in' in told)
+        assert crew_names_it == mlt_names_it == (seen < 2)
+        if seen >= 2:
+            # Craft's wording, not merely the absence of the name.
+            assert ('the trouble located and cleared' in told
+                    or 'trouble in cable' in told)
+
+
 class TestTheFirstReportTeaches:
     def test_each_first_report_symptom_belongs_to_a_different_fault(self):
         for fault, symptom in FIRST_REPORT_SYMPTOMS.items():
