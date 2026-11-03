@@ -10,6 +10,7 @@ import logging.handlers
 from typing import Any, List, Optional
 
 from ..console import clear_screen
+from ..data.finds import FRAGMENTS_BY_PATH
 from ..constants import BSP_CATEGORIES
 from ..filesystem import FILESYSTEM, Node
 from ..npc import CRAFT
@@ -202,7 +203,6 @@ class UnixCommands(SessionState):
         self.filesystem['/usr/spool/mail'] = Node(
             'dir', 'root', 'other', 'drwxrwxr-x', '')
         self.add_mailbox()
-        self.sync_groups()
 
     def add_mailbox(self) -> None:
         """
@@ -218,7 +218,8 @@ class UnixCommands(SessionState):
         Seventh Edition did.
         """
         for path in [path for path in self.filesystem
-                     if path.startswith(MAIL_DIR)]:
+                     if path.startswith(MAIL_DIR)
+                     and path not in FRAGMENTS_BY_PATH]:
             del self.filesystem[path]
         self.filesystem[MAIL_DIR + (self.username or 'sysop')] = _generated(
             lambda terminal: terminal._render_mailbox(),

@@ -8,13 +8,17 @@ that each sign-off opens something, that the order is the story's order,
 and that the machine records the player in the group it gives.
 """
 
+from datetime import datetime
+
 import pytest
 
 from bell_system.data import finds as data
 from bell_system.screens import shell
 
+from bell_system.progression import QUALIFICATIONS_BY_KEY
+
 LETTER = '/usr/users/sysop/dead.letter'
-SENT = '/usr/spool/uucp/D.mhuxcoB0212'
+SENT = '/usr/spool/mail/ehalloran'
 SULOG = '/usr/adm/sulog'
 LMOSLOG = '/usr/adm/lmoslog'
 REOPENED = '/usr/users/ehalloran/reopened'
@@ -93,15 +97,17 @@ class TestEachSignOffOpensAFile:
         """
         shut = {path for path, node in held(raw_terminal, 0).filesystem.items()
                 if not node.is_dir and not raw_terminal._may_read(path)
-                and not path.startswith(('/dev/', '/usr/spool/mail/'))}
-        assert shut == set(OPENED_BY.values()) | {
-            '/usr/users/ehalloran/reopened'}
+                and not path.startswith('/dev/')
+                and (path == SENT or not path.startswith('/usr/spool/mail/'))}
+        assert shut == set(OPENED_BY.values())
 
     def test_a_full_career_reads_everything(self, raw_terminal):
         everything = {path for path, node in
                       held(raw_terminal, 5).filesystem.items()
                       if not node.is_dir
-                      and not path.startswith(('/dev/', '/usr/spool/mail/'))}
+                      and not path.startswith('/dev/')
+                      and (path == SENT
+                           or not path.startswith('/usr/spool/mail/'))}
         assert readable(raw_terminal) >= everything
 
 
@@ -139,11 +145,94 @@ class TestTheGroupsAreRecorded:
         assert 'switch' in rows['adm'] and 'switch' in rows['craft']
         assert 'switch' not in rows['sys']
 
-    def test_a_sign_off_taken_at_the_practical_syncs(self, raw_terminal):
-        """Passing a practical is where the groups are given."""
-        import inspect
-        from bell_system.screens import practical
-        assert 'sync_groups' in inspect.getsource(practical)
+    def test_a_practical_that_is_passed_gives_the_group(self, terminal):
+        """Passing the third practical is where adm and the log line are."""
+        career = terminal.career
+        career.qualifications = ['loop', 'frame']
+        career.groups = []
+        career.granted = {}
+        career.reports_correct = (
+            QUALIFICATIONS_BY_KEY['office'].requires_reports
+            * career.difficulty.reports_per_qualification)
+        terminal.execute_command('qual take office')
+        _, report = terminal._practical_open()
+        terminal.execute_command(f'mlt {report.number}')
+        terminal.execute_command(f'switch clear {report.number}')
+        assert 'passed' in terminal.execute_command('qual submit')
+        assert 'adm' in terminal.career.groups
+        assert 'adm' in terminal.career.granted
+        assert f'ehalloran-{terminal.username}' in (
+            terminal._read(SULOG) or '')
+
+    def test_membership_is_the_sign_offs_and_not_the_record(
+            self, raw_terminal):
+        """What is written in career.groups cannot add a group."""
+        held(raw_terminal, 1)
+        raw_terminal.career.groups = ['craft', 'sys', 'mgmt']
+        assert raw_terminal._groups() == frozenset({'craft'})
+
+    def test_the_line_is_not_written_before_there_is_a_position(
+            self, raw_terminal):
+        held(raw_terminal, 3)
+        raw_terminal.career.granted = {'adm': 600}
+        raw_terminal._add_generated_files()
+        assert 'ehalloran-switch' not in (raw_terminal._read(SULOG) or '')
+
+    def test_the_line_stays_where_it_was_put(self, raw_terminal):
+        held(raw_terminal, 3)
+        raw_terminal.sync_groups()
+        before = raw_terminal._read(SULOG)
+        raw_terminal.sync_groups()
+        assert raw_terminal._read(SULOG) == before
+
+    def test_the_line_is_after_the_last_shipped_one(self, raw_terminal):
+        """A grant is never stamped before Halloran's 06:15 su."""
+        held(raw_terminal, 3)
+        raw_terminal.clock.now = lambda: datetime(1983, 11, 14, 5, 0)
+        raw_terminal.sync_groups()
+        rows = (raw_terminal._read(SULOG) or '').splitlines()
+        mine = [n for n, row in enumerate(rows) if 'ehalloran-switch' in row]
+        assert mine and rows[mine[0]][3:14] >= '11/14 06:16'
+        assert rows == sorted(rows, key=lambda row: row[3:14])
+
+    def test_a_real_clock_is_clamped_into_the_game(self, raw_terminal):
+        held(raw_terminal, 3)
+        raw_terminal.clock.now = lambda: datetime(2026, 11, 3, 9, 0)
+        raw_terminal.sync_groups()
+        rows = (raw_terminal._read(SULOG) or '').splitlines()
+        mine = [row for row in rows if 'ehalloran-switch' in row][0]
+        assert mine[3:14] == '12/31 23:59'
+        assert raw_terminal.career.granted['adm'] > 0
+
+
+class TestTheLadderIsNotOpenedByChmod:
+    """A file the position does not own is not its to change."""
+
+    def test_chmod_does_not_open_the_next_file(self, raw_terminal):
+        held(raw_terminal, 1)
+        reply = raw_terminal.execute_command(f'chmod 644 {SENT}')
+        assert reply == f'chmod: {SENT}: not owner'
+        assert SENT not in readable(raw_terminal)
+
+    def test_rm_and_mv_are_refused_too(self, raw_terminal):
+        held(raw_terminal, 3)
+        assert raw_terminal.execute_command(f'rm {SULOG}') == (
+            f'rm: {SULOG}: permission denied')
+        assert raw_terminal.execute_command(f'mv {SULOG} /tmp/x') == (
+            f'mv: {SULOG}: permission denied')
+        assert SULOG in raw_terminal.filesystem
+
+    def test_the_position_still_manages_its_own_files(self, raw_terminal):
+        raw_terminal.username = 'sysop'
+        assert raw_terminal.execute_command(f'chmod 600 {LETTER}') == ''
+        assert raw_terminal.filesystem[LETTER].mode == '-rw-------'
+
+    def test_the_handover_is_in_the_chiefs_mailbox(self, raw_terminal):
+        """In the mail spool, where mail is, and on the second rung."""
+        node = held(raw_terminal, 2).filesystem[SENT]
+        assert (node.owner, node.group) == ('ehalloran', 'uucp')
+        assert SENT in readable(raw_terminal)
+        assert SENT not in readable(held(raw_terminal, 1))
 
 
 class TestTheRegistry:
@@ -165,9 +254,9 @@ class TestTheRegistry:
             if 'alvarez' in text.lower() and 'halloran' not in text.lower():
                 assert not pronoun.search(text)
 
-    def test_the_twenty_nine_adds_up(self):
-        """Halloran's number is Alvarez's log's number."""
-        rows = [line.split() for line in data.TESTLOG.splitlines()]
-        week = [int(row[4]) for row in rows if row[0] >= '11/07']
-        assert sum(week) == 29
-        assert 'twenty-nine no trouble found' in data.REOPENED
+    def test_halloran_does_not_say_why(self):
+        """He reopened them; the reader works out the rest."""
+        text = data.REOPENED.lower()
+        for word in ('no trouble found', 'ntf', 'twenty', 'closed',
+                     'alvarez', 'those are'):
+            assert word not in text

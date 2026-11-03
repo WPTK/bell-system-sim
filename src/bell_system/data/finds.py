@@ -103,16 +103,9 @@ LMOSLOG = """line record journal, mhuxco                     11/14
 # the one file where he says why.
 REOPENED = """records reopened 11/14, under my name
 
-The memo says what is open on the 31st goes to the operating company
-with the name of whoever held it. I would rather the name was mine.
-The position has nobody in it, and Reyes has signed for none of them.
-
-She tried at 03:47. It was the right thing to try. It was not hers to
-try and I have not told her so.
-
-Alvarez closed twenty-nine no trouble found in the last week. Some of
-them rang back. Those are the ones. They are mine until they are
-closed.
+The reports that rang back since 11/07 were reopened at 06:16.
+Reyes tried at 03:47 and was refused.
+The position has nobody in it.
 
                                                        E. Halloran
 """
@@ -185,8 +178,8 @@ FRAGMENTS: Tuple[Fragment, ...] = (
     Fragment('letter', 'Mail to the chief, not sent',
              '/usr/users/sysop/dead.letter', mode='-rw-r-----'),
     Fragment('sent', 'Mail to the chief, sent',
-             '/usr/spool/uucp/D.mhuxcoB0212', text=SENT,
-             owner='uucp', group='uucp', mode='-rw-r-----'),
+             '/usr/spool/mail/ehalloran', text=SENT,
+             owner='ehalloran', group='uucp', mode='-rw-r-----'),
     Fragment('sulog', 'Who became whom', '/usr/adm/sulog'),
     Fragment('lmoslog', 'The record journal', '/usr/adm/lmoslog',
              text=LMOSLOG, owner='sys', group='sys', mode='-rw-r-----'),

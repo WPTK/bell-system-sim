@@ -40,6 +40,10 @@ ADM_GROUP_QUALIFICATIONS = 3
 GRANT_EPOCH = datetime(1983, 11, 14)
 
 SULOG = '/usr/adm/sulog'
+# The su log's last shipped line is Halloran's at 06:15 on the first morning,
+# so a grant is never stamped before 06:16 that day or after the last night.
+FIRST_GRANT = 6 * 60 + 16
+LAST_GRANT = (datetime(1983, 12, 31) - GRANT_EPOCH).days * 1440 + 1439
 # Halloran's terminal, which he is on when he puts someone in a group.
 CHIEF_LINE = 'tty01'
 
@@ -103,36 +107,36 @@ class ShellCommands(FindsCommands):
         """
         Return which groups this position is in.
 
-        What the held sign-offs give (data/finds.py), and anything the
-        career has been put in by name. The first comes from how many are
-        held and not from a record of having been told, so a career signed
-        off before the groups were kept has them from the first command.
+        Only what the held sign-offs give (data/finds.py). ``career.groups``
+        and ``career.granted`` are a record of when each group was given,
+        kept for the su log, and are not a second source of membership: a
+        career signed off before they were kept has its groups from the
+        first command, and nothing that is written there can add one.
         """
-        return groups_for(len(self.career.qualifications)) | frozenset(
-            self.career.groups)
+        return groups_for(len(self.career.qualifications))
 
     def sync_groups(self) -> None:
         """
-        Record the groups the held sign-offs give, and what that leaves in
-        the su log.
+        Record when each group was given, and put the player in the su log.
 
         Halloran says the log "has your name in it" when he adds someone to
         adm. This makes it true: one successful su, from his login to the
-        player's, at the moment of the sign-off (narrative bible T5).
-        Called when a sign-off is passed, when a position is taken (the
-        login is the position) and when the machine starts. The log is
-        rebuilt every session, so the line is written again each time from
-        the stamp the career kept.
+        player's, at the moment of the third sign-off (narrative bible T5).
+        Called when a sign-off is passed and when a position is taken (the
+        login is the position). The record is the career's; the log is
+        rebuilt every session, and the line is put back once, in its place
+        by the clock, and left where it is.
         """
         career = self.career
         held = groups_for(len(career.qualifications))
         minutes = int((self.clock.now() - GRANT_EPOCH).total_seconds() // 60)
+        minutes = min(max(minutes, FIRST_GRANT), LAST_GRANT)
         changed = False
         for number in sorted(GROUP_FOR_SIGN_OFF):
             group = GROUP_FOR_SIGN_OFF[number]
             if group in held and group not in career.groups:
                 career.groups.append(group)
-                career.granted[group] = max(0, minutes)
+                career.granted[group] = minutes
                 changed = True
         if changed:
             career.save()
@@ -141,14 +145,19 @@ class ShellCommands(FindsCommands):
             return
         if not isinstance(node.content, str):
             return
-        stamp = (GRANT_EPOCH + timedelta(minutes=career.granted['adm'])
-                 ).strftime('%m/%d %H:%M')
-        head = f"SU {stamp} + {CHIEF_LINE} ehalloran-"
-        kept = [line for line in node.content.split('\n')
-                if line and not line.startswith(head)]
-        kept.append(f"{head}{self.username or 'sysop'}")
+        when = min(max(career.granted['adm'], FIRST_GRANT), LAST_GRANT)
+        stamp = (GRANT_EPOCH + timedelta(minutes=when)).strftime('%m/%d %H:%M')
+        line = (f"SU {stamp} + {CHIEF_LINE} "
+                f"ehalloran-{self.username or 'sysop'}")
+        lines = [row for row in node.content.split('\n') if row]
+        if line in lines:
+            return
+        # In its place: the log is in the order things happened.
+        place = next((n for n, row in enumerate(lines)
+                      if row[3:14] > stamp), len(lines))
+        lines.insert(place, line)
         self.filesystem[SULOG] = node._replace(
-            content='\n'.join(kept) + '\n')
+            content='\n'.join(lines) + '\n')
 
     def _render_group(self) -> str:
         """Render /etc/group with this position in the groups it holds."""
@@ -524,6 +533,17 @@ class ShellCommands(FindsCommands):
             return f"{command}: {parent}: not a directory"
         return None
 
+    def _owns(self, node: Node) -> bool:
+        """
+        Return whether this position owns a file.
+
+        chmod, rm and mv act on a file the way its owner may, which keeps a
+        file the player can read (and so, by a group, one the next sign-off
+        was meant to open) from being made readable by chmod 644 and moved
+        or removed out of its turn.
+        """
+        return node.owner == (self.username or 'sysop')
+
     def write_file(self, path: str, text: str,
                    append: bool = False) -> Optional[str]:
         """
@@ -622,12 +642,18 @@ class ShellCommands(FindsCommands):
             if node is None:
                 problems.append(f"rm: {name}: no such file or directory")
                 continue
+            if not self._owns(node):
+                problems.append(f"rm: {name}: permission denied")
+                continue
             if node.is_dir:
                 if 'r' not in flags:
                     problems.append(f"rm: {name}: is a directory")
                     continue
                 doomed = [p for p in self.filesystem
                           if p == path or p.startswith(path + '/')]
+                if not all(self._owns(self.filesystem[v]) for v in doomed):
+                    problems.append(f"rm: {name}: permission denied")
+                    continue
                 for victim in doomed:
                     del self.filesystem[victim]
                 continue
@@ -656,6 +682,8 @@ class ShellCommands(FindsCommands):
         node = self.filesystem.get(source)
         if node is None:
             return f"mv: {args[0]}: cannot access"
+        if not self._owns(node):
+            return f"mv: {args[0]}: permission denied"
         target = normalise(args[1], self.current_directory)
         if target in self.filesystem and self.filesystem[target].is_dir:
             target = f"{target}/{source.rsplit('/', 1)[-1]}"
@@ -686,9 +714,9 @@ class ShellCommands(FindsCommands):
         """
         Change a file's mode.
 
-        Takes the octal form. The mode is displayed by ls(1) and read by
-        file(1); nothing here enforces permission, which is honest about
-        what this simulation does and does not model.
+        Takes the octal form, and only on a file the position owns. The mode
+        is what decides who may read it (``_may_read``), so a mode that
+        anybody could change would open the whole of the machine at once.
         """
         args = args or []
         if len(args) < 2:
@@ -706,6 +734,9 @@ class ShellCommands(FindsCommands):
             node = self.filesystem.get(path)
             if node is None:
                 problems.append(f"chmod: {name}: cannot access")
+                continue
+            if not self._owns(node):
+                problems.append(f"chmod: {name}: not owner")
                 continue
             head = 'd' if node.is_dir else '-'
             error = self.store_node(
