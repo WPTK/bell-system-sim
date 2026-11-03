@@ -9,7 +9,9 @@ import re
 
 from bell_system import save
 from bell_system.data.homes import HOMES
+from bell_system.data.tours import TOURS
 from bell_system.field import CREWS
+from bell_system.filesystem import GROUP, NEWS_MISC_88, PASSWD
 from bell_system.npc import CRAFT, Switchroom
 from bell_system.progression import QUALIFICATIONS
 from bell_system.terminal import BellSystemTerminal
@@ -92,3 +94,22 @@ class TestI8OneTerminalEach:
         listing = terminal.execute_command('ls /dev').split()
         for person in CRAFT.values():
             assert f'tty{person.tty}' in listing, person.login
+
+
+class TestI9SandovalsOldAccount:
+    """
+    Sandoval has a login here and posts from mhuxt. Both are meant (T3):
+    the news account did not move with him.
+    """
+
+    def test_he_has_a_login_and_the_craft_group_here(self):
+        assert 'jsandoval:' in PASSWD
+        members = GROUP.split('craft::10:')[1].split('\n')[0].split(',')
+        assert 'jsandoval' in members
+
+    def test_everything_he_posts_is_from_the_old_site(self):
+        assert 'site mhuxt.UUCP' in NEWS_MISC_88
+        posts = [tour.news for tour in TOURS
+                 if tour.news is not None
+                 and tour.news.sender.startswith('jsandoval@')]
+        assert posts and {item.posting for item in posts} == {'mhuxt'}
