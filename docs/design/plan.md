@@ -520,6 +520,9 @@ Everything else in a review stays as the review loop already has it.
 
 ## 11. The final step
 
+Before the 5.0.0 tag: #88 (surface cleanup) and #89 (README rewrite), one
+session, both uncertainty gates to Bill together.
+
 All issues must be closed to bring this event to an end. This does not
 replace anything else that still needs to be worked; it is the last check
 after everything above is done.
