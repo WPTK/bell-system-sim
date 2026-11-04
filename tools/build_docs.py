@@ -121,6 +121,13 @@ def render_index(groups: Dict[str, List[str]]) -> str:
     return '\n'.join(parts)
 
 
+def write(path: Path, text: str) -> None:
+    """Write `text` with Unix line endings. Path.write_text has no newline
+    argument before Python 3.10."""
+    with open(path, 'w', encoding='utf-8', newline='\n') as handle:
+        handle.write(text)
+
+
 def build(out: Path = DEFAULT_OUT) -> Tuple[int, int]:
     """
     Write the site's Markdown to `out`, replacing what is there.
@@ -137,9 +144,8 @@ def build(out: Path = DEFAULT_OUT) -> Tuple[int, int]:
         groups[section_of(name)].append(name)
         page = commands / section_of(name) / f"{name}.md"
         page.parent.mkdir(parents=True, exist_ok=True)
-        page.write_text(render_page(name), encoding='utf-8', newline='\n')
-    (commands / 'index.md').write_text(
-        render_index(groups), encoding='utf-8', newline='\n')
+        write(page, render_page(name))
+    write(commands / 'index.md', render_index(groups))
     shutil.copyfile(HOME_PAGE, out / 'index.md')
     count = sum(len(names) for names in groups.values())
     files = sum(1 for p in out.rglob('*') if p.is_file())
