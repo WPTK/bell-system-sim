@@ -4635,9 +4635,9 @@ ALARM PANEL
      The Switching Station Technician desk only. With no argument, the
      panel: every alarm standing on every office this console watches,
      the lamp it now shows, how many shift minutes until the lamp rises
-     (while the lamps run), what clearing it would cost, and a line saying what it reads.
-     Naming an alarm clears it at its cause, and the shift loses the
-     minutes.
+     (while the lamps run), what clearing it would cost, and a line saying
+     what it reads. Naming an alarm clears it at its cause, and the shift
+     loses the minutes.
 
      An alarm nobody works lights one lamp higher every 40 shift minutes,
      from its own point in them, so they do not all rise together. The

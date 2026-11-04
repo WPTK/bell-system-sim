@@ -523,6 +523,14 @@ microwave(1), radio(1), trace(1)
             rows.append("  one dispatch; the same water tomorrow costs "
                         "several.")
         for section in sections:
+            if section.latent:
+                # The gauge names a cable. Which group is leaking is the
+                # splicers' to find, and the job's work.
+                rows.append(f"    cable {section.cable}, "
+                            f"{section.psi:.1f} psi")
+                rows.append("      pressure contactor alarming on this "
+                            "cable")
+                continue
             rows.append(f"    {section.describe()}")
             if section.alarming():
                 rows.append("      pressure contactor alarming on this "

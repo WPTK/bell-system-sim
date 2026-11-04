@@ -197,12 +197,29 @@ def test_cp_stamps_the_copy_now_and_leaves_the_original_alone(terminal):
     assert mtime(terminal, 'copy') - made >= timedelta(minutes=60)
 
 
+def an_old_home_file(terminal, name):
+    """A file from a home written before files carried their times."""
+    terminal.execute_command(f'echo one > {name}')
+    path = normalise(name, terminal.current_directory)
+    terminal.filesystem[path] = terminal.filesystem[path]._replace(mtime=None)
+    return path
+
+
 def test_mv_keeps_the_mtime(terminal):
     terminal.execute_command('echo one > note')
     made = mtime(terminal, 'note')
     terminal.execute_command('sleep 3600')
     terminal.execute_command('mv note moved')
     assert mtime(terminal, 'moved') == made
+
+
+def test_mv_does_not_date_a_file_that_has_no_mtime(terminal):
+    an_old_home_file(terminal, 'note')
+    terminal.execute_command('sleep 3600')
+    terminal.execute_command('mv note moved')
+    assert mtime(terminal, 'moved') is None
+    # Still as old as the epoch, which is what ls says of it.
+    assert 'Nov 14 08:00' in terminal.execute_command('ls -l moved')
 
 
 def test_mkdir_and_cc_stamp_what_they_make(terminal):
@@ -219,6 +236,14 @@ def test_chmod_does_not_make_a_file_newer(terminal):
     terminal.execute_command('sleep 3600')
     terminal.execute_command('chmod 600 note')
     assert mtime(terminal, 'note') == made
+
+
+def test_chmod_does_not_date_a_file_that_has_no_mtime(terminal):
+    an_old_home_file(terminal, 'note')
+    terminal.execute_command('sleep 3600')
+    terminal.execute_command('chmod 600 note')
+    assert mtime(terminal, 'note') is None
+    assert 'Nov 14 08:00' in terminal.execute_command('ls -l note')
 
 
 def assert_never_goes_back(terminal, names):

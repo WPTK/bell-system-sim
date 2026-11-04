@@ -357,11 +357,15 @@ class UnixCommands(SessionState):
         return result
     def cmd_status(self, args: Optional[List[str]] = None) -> str:
         """Display Bell System operational status overview."""
+        # The session is named for the tour it opened on, on the shift clock;
+        # the host's own time of day has no place on a 1983 terminal.
+        session = (f"BELL-{self.clock.tour_start():%Y%m%d%H%M}-"
+                   f"{str(self.session_id).rsplit('-', 1)[-1]}")
         return """BELL SYSTEM STATUS OVERVIEW
 =============================
 
 System Time:           """ + self.clock.timestamp() + """
-Session ID:            """ + str(self.session_id) + """
+Session ID:            """ + session + """
 Current Role:          """ + (str(self.role) if self.role else "Not selected") + """
 Active Shift:          """ + str(self.current_shift) + """
 

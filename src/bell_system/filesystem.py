@@ -1609,8 +1609,8 @@ def is_prior_path(path: str) -> bool:
 # slowly growing state directory. It is measured on what the file holds
 # (save.home_size) and not on the text of the files alone, because names,
 # directories and permissions take room in it too. The written-at stamps are
-# bookkeeping and are left out of the measure, so the file itself may run a
-# little over it.
+# bookkeeping and are left out of the measure, so the file itself may run up
+# to about 17 KB over it.
 PLAYER_LIMIT = 64 * 1024
 
 

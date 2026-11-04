@@ -692,7 +692,8 @@ class TestThePressureAlarm:
         terminal.desk.plant.leak(110, 0.0)
         shown = terminal.execute_command('weather')
         assert 'pressure contactor alarming' in shown
-        assert f"cable {section.cable} binder {section.binder}" in shown
+        assert f"cable {section.cable}, " in shown
+        assert f"binder {section.binder}" not in shown
 
     def test_the_water_is_in_the_group_the_alarm_was_for(self, terminal):
         section = _leaking_tour(terminal)

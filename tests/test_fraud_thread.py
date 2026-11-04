@@ -12,8 +12,9 @@ import pytest
 from bell_system.data import fraud
 
 
-def _at(terminal, tour=9, minutes=200):
+def _at(terminal, tour=fraud.FIRST_TOUR, minutes=200):
     terminal.career.shift = tour
+    terminal.start_tour_clock()
     terminal.shift_minutes = minutes
     return terminal
 

@@ -572,6 +572,10 @@ class SessionState:
         """Return every report the desk has seen this session."""
         raise NotImplementedError
 
+    def _charged_minutes(self) -> int:
+        """The desk minutes charged so far, reports and plant jobs."""
+        raise NotImplementedError
+
     def _get_shift_hours(self) -> str:
         """Return the hours the current shift covers."""
         raise NotImplementedError

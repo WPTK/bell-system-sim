@@ -667,8 +667,7 @@ class ShiftCommands(SessionState):
             Rendered notices for events that came due, whether or not the
             caller will display them
         """
-        charged = (sum(report.desk_minutes for report in self.reports_all())
-                   + sum(job.desk_minutes for job in self.desk.jobs))
+        charged = self._charged_minutes()
         was = self.shift_minutes
         self.shift_minutes += 1 + max(0, charged - self._charged_total)
         self._charged_total = charged

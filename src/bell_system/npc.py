@@ -503,7 +503,7 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
          ['We have had six calls off one exchange saying the line is busy',
           'when it is not. Six is not six people being wrong.']),
         (CHANNEL_WRITE, 'mreyes',
-         ['A permanent signal and a receiver off the hook are the same',
+         ['A permanent signal and a telephone set down wrong are the same',
           'thing to the equipment. They are not the same thing to the',
           'customer, who is asleep.']),
         (CHANNEL_WRITE, 'jhaverty',

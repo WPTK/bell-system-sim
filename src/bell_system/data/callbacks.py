@@ -17,11 +17,12 @@ tests/test_board_cases.py: no answer is given by every condition, and none
 by only one that the others could not also be said of, except where the
 customer has in fact seen nothing else (a clean line).
 
-Nor do two questions together settle which force to send. For every pair of
-them there is a condition whose two answers fit conditions that different
-forces clear: a cross and a wet sheath both creep up on a house and are
-both shared with a neighbour. That is tests/test_phase8_fixes.py, over the
-pairs and not over any one answer.
+Nor do the questions together settle which force to send for every
+condition. Asked together they pin a good many (hear and start pin eight of
+the ten to one force), but never all ten: a cross and a wet sheath both
+creep up on a house and are both shared with a neighbour. The bound is
+tests/test_phase8_fixes.py, a count of conditions pinned for each set of
+questions and not a check on any one answer.
 
 The simulation's own. The conditions are the documented ones (data.trouble);
 what a customer says of each is the simulation's own, as REPORT_SYMPTOMS is.

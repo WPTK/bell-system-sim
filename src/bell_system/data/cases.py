@@ -71,7 +71,7 @@ CASE_KINDS: Dict[str, CaseKind] = {
         members=(3, 5), window=(25, 170),
         sender='rjohnson',
         opened=("That frame is in my aisle. Marker 2 took eleven seconds on",
-                "a third trial this morning, and I have three off the one",
+                "a third trial earlier, and I have three off the one",
                 "frame. I am only telling you where it is."),
         closed=("Marker 2 is out and the other one has the frame.",
                 "Two years I have been saying it."),

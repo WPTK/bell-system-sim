@@ -137,7 +137,11 @@ class CaseCommands(SessionState):
                         f"{binder * PAIRS_PER_BINDER}".ljust(19)
                         + binder_colour(binder))
         rows.extend(['', "cable <pair> says which group a pair is in. "
-                         "report dispatch <number> cable <cable>/<group>."])
+                         "report dispatch <number> cable <cable>/<group>.",
+                     "A group with a pressure alarm open is worked as its "
+                     "job, report dispatch PJ-001",
+                     "cable <cable>/<group>, and its trip is charged to the "
+                     "job and not to a report."])
         return '\n'.join(rows)
 
     def _plant_case(self) -> None:

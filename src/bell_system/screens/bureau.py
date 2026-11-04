@@ -22,7 +22,9 @@ from ..data.trouble import (
 )
 from ..cases import see_also
 from ..seeding import new_seed
-from ..plantjobs import PREFIX as JOB_PREFIX, listing as job_listing
+from ..plantjobs import (
+    PREFIX as JOB_PREFIX, job_at, listing as job_listing, work as work_job,
+)
 from ..clock import career_progress
 from ..console import article as _a, sentence_case as _lower, wrap
 from ..commitment import commitment_label
@@ -500,6 +502,22 @@ class BureauCommands(SessionState):
         if refusal:
             return refusal
 
+        # A group with a pressure alarm open is the alarm's work, whichever
+        # report the words were typed after, and its trip is the job's. Only
+        # a wet report's own group is the report's trouble as well.
+        job = (job_at(self.desk, *section)
+               if section is not None and canonical == 'Cable repair'
+               and not (report.record.fault == 'WET'
+                        and self._is_own_section(report, section))
+               else None)
+        if job is not None:
+            found, _ = work_job(
+                self.desk, job, canonical, section, self.shift_minutes,
+                self._difficulty().section_required, True)
+            return (f"That group has a pressure alarm open, {job.number}. "
+                    f"This is the job's dispatch and not {report.number}'s: "
+                    f"nothing is charged to it.\n{found}")
+
         # A crew that goes to the wrong place reads nothing, so only a
         # dispatch that finds something is a sighting.
         name_fault = names_fault(self._reading_stage(report, count=False))
@@ -593,10 +611,14 @@ class BureauCommands(SessionState):
         return (f"Next: nothing else wants you. 'sleep {wait * 60}' waits "
                 f"until a crew is in, then dispatch {waiting.number} again.")
 
+    def _charged_minutes(self) -> int:
+        """The desk minutes charged so far: the reports' and the plant jobs'."""
+        return (sum(report.desk_minutes for report in self.reports_all())
+                + sum(job.desk_minutes for job in self.desk.jobs))
+
     def _uncharged_minutes(self) -> int:
         """What the command now running will cost the shift clock."""
-        charged = sum(report.desk_minutes for report in self.reports_all())
-        return 1 + max(0, charged - self._charged_total)
+        return 1 + max(0, self._charged_minutes() - self._charged_total)
 
     def _close_report(self, token: str, rest: List[str]) -> str:
         """Close a report against a disposition code and judge the call."""
@@ -664,10 +686,15 @@ class BureauCommands(SessionState):
                 # It was there when it was measured and gone when it was
                 # judged, so neither "nothing was wrong" nor "there was" is
                 # the whole of it.
-                lines.append("That trouble cleared by itself before the "
-                             "close. What you measured was there when you "
-                             "measured it, and the close is judged against "
-                             "the line as it then stood.")
+                if report.last_read not in (None, 'NONE'):
+                    lines.append("That trouble cleared by itself before the "
+                                 "close. What you measured was there when "
+                                 "you measured it, and the close is judged "
+                                 "against the line as it then stood.")
+                else:
+                    lines.append("That trouble cleared by itself before the "
+                                 "close, and the close is judged against the "
+                                 "line as it then stood.")
             elif report.record.fault == 'NONE':
                 lines.append("Nothing was actually wrong with that line.")
             else:

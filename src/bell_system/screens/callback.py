@@ -32,7 +32,11 @@ class CallbackCommands(SessionState):
                     or f"report: no report matching '{token}'")
         if report.status == 'CLOSED':
             return f"{report.number} is already closed."
-        if topic is not None and asked(topic, report.record.fault,
+        # What the customer says is of the line as the player last saw it,
+        # so a call after trouble that cleared by itself does not tell them
+        # that it did.
+        fault = report.read_fault()
+        if topic is not None and asked(topic, fault,
                                        report.symptom) is None:
             # Refused before the call is made, so a mistyped question does
             # not cost the clock anything.
@@ -47,13 +51,12 @@ class CallbackCommands(SessionState):
         by_ear = False
         if topic is None:
             said, by_ear = general(
-                report.record.fault, report.symptom,
-                FAULTS[report.record.fault].description)
+                fault, report.symptom, FAULTS[fault].description)
         else:
-            said = asked(topic, report.record.fault, report.symptom) or ''
+            said = asked(topic, fault, report.symptom) or ''
             by_ear = (topic.lower() == 'hear'
                       and 'complete' in report.symptom.lower()
-                      and report.record.fault in CADENCE_HEARD)
+                      and fault in CADENCE_HEARD)
 
         lines = [f"Call back on {report.record.telephone_number} "
                  f"({report.record.name}).", '']

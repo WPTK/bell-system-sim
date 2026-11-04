@@ -70,8 +70,36 @@ def find_job(desk: 'ReportDesk', token: str) -> Optional[PlantJob]:
 
 
 def is_open(desk: 'ReportDesk', job: PlantJob) -> bool:
-    """Whether the sheath is still unrepaired."""
-    return desk.plant.open_section(job.cable, job.binder) is not None
+    """
+    Whether the sheath the job was opened for is still unrepaired.
+
+    A later leak in the same group is another sheath with another alarm, and
+    it opens a job of its own; it does not bring this one back.
+    """
+    section = desk.plant.open_section(job.cable, job.binder)
+    return section is not None and section.opened <= job.opened
+
+
+def job_at(desk: 'ReportDesk', cable: int,
+           binder: int) -> Optional[PlantJob]:
+    """The open job for a cable and binder group, if the alarm has one."""
+    for job in desk.jobs:
+        if job.cable == cable and job.binder == binder and is_open(desk, job):
+            return job
+    return None
+
+
+def open_missing(desk: 'ReportDesk') -> None:
+    """
+    Open a job for every alarm that is standing without one.
+
+    A shift saved before there were jobs has its alarmed sheaths and no
+    jobs, and the alarm will not sound again to open them.
+    """
+    for section in desk.plant.open_sections():
+        if section.alarmed and job_at(
+                desk, section.cable, section.binder) is None:
+            open_job(desk, section.cable, section.binder, section.opened)
 
 
 def listing(desk: 'ReportDesk') -> List[str]:
@@ -142,7 +170,10 @@ def work(desk: 'ReportDesk', job: PlantJob, force: str,
                 f"and {crew.name} is now out on nothing. No customer's "
                 f"commitment is charged for it.", True)
     job.desk_minutes += COST_DISPATCH
-    mates = desk.clear_sheath(wet, job.opened)
+    # The reports on this sheath are not cleared with it. A trip sent to a
+    # job is nobody's dispatch, and a report that closed on it would never
+    # have been judged for one; each is dispatched, and judged, on its own.
+    desk.clear_sheath(wet, job.opened, flag=False)
     found = 'water in' if name_fault else 'trouble in'
     lines = [went,
              f"{crew.name} reports {found} cable {wet.cable}, binder "
@@ -150,9 +181,4 @@ def work(desk: 'ReportDesk', job: PlantJob, force: str,
              f"{wet.last_pair}.",
              f"Sheath opened, dried and resealed. {repair} minutes on the "
              f"job."]
-    if mates:
-        lines.extend(['', f"{len(mates)} report"
-                      f"{'' if len(mates) == 1 else 's'} on this sheath "
-                      f"can be closed without a further dispatch:",
-                      '  ' + ', '.join(sorted(m.number for m in mates))])
     return '\n'.join(lines), True

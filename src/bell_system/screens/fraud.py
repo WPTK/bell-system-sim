@@ -35,6 +35,10 @@ class FraudThread(SessionState):
             return []
         if LEDGER in self.career.beats_seen:
             return []
+        # Nakamura works days. On an evening or a night tour the note waits
+        # for the next day tour of the four and is not left in the ledger.
+        if not self.switchroom.present('tnakamura', self.clock.now()):
+            return []
         self.career.beats_seen.append(LEDGER)
         self.career.save()
         return [self.switchroom.fraud_note(

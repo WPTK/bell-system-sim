@@ -41,6 +41,7 @@ from .cable import (
     CablePlant,
     WetSection,
     binder_colour,
+    binder_of,
 )
 from .field import FieldForce
 from .weather import Weather
@@ -973,7 +974,8 @@ class ReportDesk:
         A splicer sent to a binder group the dispatcher named.
 
         Returns None when that group is this report's own wet one, which is
-        the ordinary repair and goes on down send_crew. Anywhere else the
+        the ordinary repair and goes on down send_crew, whether the sheath
+        is still open or a job's splice has dried it. Anywhere else the
         splicer goes, opens what they were told to open, and finds what is
         there: water, which they dry and which is somebody else's trouble
         cleared, or a dry sheath, which is a wrong trip charged like any
@@ -983,8 +985,8 @@ class ReportDesk:
         record = report.record
         cable, binder = section
         wet = self.plant.open_section(cable, binder)
-        if (record.fault == 'WET' and wet is not None
-                and wet is self.plant.section_at(record.cable, record.pair)):
+        if (record.fault == 'WET'
+                and section == (record.cable, binder_of(record.pair))):
             return None
         fault = FAULTS['WET'] if wet is not None else FAULTS[record.fault]
         low, high = fault.typical_minutes
@@ -1014,15 +1016,19 @@ class ReportDesk:
 
     def clear_sheath(self, section: WetSection,
                      when: Optional[datetime] = None,
-                     skip: str = '') -> List[TroubleReport]:
+                     skip: str = '', flag: bool = True
+                     ) -> List[TroubleReport]:
         """
         Repair a sheath and say which open reports came back with it.
 
         The other pairs in the group were repaired by the same trip and cost
         nothing further; they still have to be closed out, which is the
-        craftsperson's job and not the splicer's.
+        craftsperson's job and not the splicer's. A trip that was nobody's
+        dispatch repairs the sheath and flags no report (``flag`` off).
         """
         cleared = self.plant.repair(section, when or datetime.now())
+        if not flag:
+            return []
         # A line that reports twice on one pair has two reports open and the
         # section only remembers the later one. The sheath is dry for both.
         cleared += [number for number, other in self.reports.items()

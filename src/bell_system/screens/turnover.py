@@ -479,8 +479,7 @@ this shift and the next one starts on a fresh board."""
 
         # A new shift starts with its own clock and its own schedule.
         self.shift_minutes = 0
-        self._charged_total = sum(report.desk_minutes
-                                  for report in self.reports_all())
+        self._charged_total = self._charged_minutes()
         self._tour_desk_start = self._charged_total
         self._board_reviewed = False
         self._fired_events = set()

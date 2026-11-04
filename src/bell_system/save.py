@@ -29,8 +29,9 @@ The one part of the filesystem that is kept is what the player wrote, in a
 file of its own, ``home.json``. It is not the shift's: the shift file is
 thrown away at every handoff, and a note written on tour 2 is still there on
 tour 9. It holds only the difference from the shipped tree, under the home
-directories and the moo scoreboard, in a file of up to 64 KB. A home that does
-not load whole is set aside as ``home.json.bad`` and never written over, and
+directories and the moo scoreboard, in a file of up to 64 KB, and up to about
+17 KB over that in the written-at stamps, which the limit does not count. A
+home that does not load whole is set aside as ``home.json.bad`` and never written over, and
 every file here is written to a scratch name and moved into place, so a crash
 mid-write leaves the old file and not a short one.
 """
@@ -42,8 +43,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .cable import WetSection
 from .cases import Case
-from .plantjobs import PlantJob
+from .plantjobs import PlantJob, open_missing
 from .data.practicals import PRACTICALS
+from .data.trouble import FAULTS
 from .field import Assignment, CREWS, POOL_CREW
 from .filesystem import (
     PLAYER_LIMIT,
@@ -244,7 +246,14 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     # the usual kind, which stays until it is fixed.
     report.clears_after = stored.get('clears_after')
     report.clears_at = stored.get('clears_at')
-    report.last_read = stored.get('last_read')
+    last_read = stored.get('last_read')
+    report.last_read = (last_read if isinstance(last_read, str)
+                        and last_read in FAULTS else None)
+    if 'last_read' not in stored and report.tested:
+        # Saved before the last reading was kept. It was measured, and the
+        # line then was as the record has it: nothing before this save can
+        # have cleared a report that did not know it could.
+        report.last_read = report.record.fault
     report.cleared_alone = bool(stored.get('cleared_alone', False))
     # Written since one cause could stand behind several reports.
     case = stored.get('case')
@@ -475,6 +484,7 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     desk.control = control
     desk.cases = cases
     desk.jobs = jobs
+    open_missing(desk)
     desk._regulars = regulars
 
     desk.weather.regime = weather['regime']

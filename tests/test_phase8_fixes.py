@@ -12,6 +12,13 @@ def _alone(terminal, fault='GROUND', after=30):
     report.clears_after = after
     terminal.desk.reports = {report.number: report}
     terminal.desk.order = [report.number]
+    # No sighting yet, so a measured ground prompts the dispatch it calls
+    # for and a clean line prompts something else; with sightings the two
+    # can read alike and a test of the difference could not fail.
+    terminal.career.fault_sightings = {}
+    # A first tour holds the board at the one report, so nothing else comes in
+    # and moves what the standing prompt is about.
+    terminal.career.shift = 1
     return report
 
 
@@ -22,9 +29,13 @@ class TestThePromptReadsWhatWasMeasured:
         report = _alone(terminal)
         terminal.execute_command(f'mlt {report.number}')
         before = terminal.next_action()
+        assert before.command == (
+            f'report dispatch {report.number} outside plant')
         report.age(report.clears_at - report.minutes_spent + 5)
         assert report.record.fault == 'NONE'
-        assert terminal.next_action() == before
+        after = terminal.next_action()
+        # The time left moves with the clock; what to do next does not.
+        assert (after.command, after.step) == (before.command, before.step)
 
     def test_it_changes_when_the_player_measures_again(self, terminal):
         report = _alone(terminal)
@@ -33,7 +44,22 @@ class TestThePromptReadsWhatWasMeasured:
         report.age(report.clears_at - report.minutes_spent + 5)
         terminal.execute_command(f'mlt {report.number}')
         assert report.read_fault() == 'NONE'
-        assert terminal.next_action() != before or report.read_fault() == 'NONE'
+        after = terminal.next_action()
+        assert after != before
+        assert after.command == f'report show {report.number}'
+
+    def test_a_call_to_the_customer_does_not_say_it_cleared(self, terminal):
+        report = _alone(terminal)
+        terminal.execute_command(f'mlt {report.number}')
+        said = terminal.execute_command(f'report callback {report.number}')
+        report.age(report.clears_at - report.minutes_spent + 5)
+        assert report.record.fault == 'NONE'
+        again = terminal.execute_command(f'report callback {report.number}')
+        quoted = lambda text: text.split('"')[1]  # noqa: E731
+        assert quoted(again) == quoted(said)
+        asked = terminal.execute_command(
+            f'report callback {report.number} start')
+        assert 'fixed itself' not in asked
 
     def test_what_was_last_read_is_saved(self, terminal):
         import json
@@ -58,6 +84,21 @@ class TestThePromptReadsWhatWasMeasured:
         for entry in captured['board']['reports']:
             entry.pop('last_read', None)
             entry.pop('cleared_alone', None)
+        fresh = BellSystemTerminal()
+        assert save.restore(fresh, captured)
+        # Measured before the reading was kept: it was read as it stood.
+        assert fresh.desk.reports[report.number].last_read == 'GROUND'
+
+    def test_a_stored_reading_that_is_not_a_condition_is_dropped(
+            self, terminal):
+        import json
+        from bell_system import save
+        from bell_system.terminal import BellSystemTerminal
+        report = _alone(terminal)
+        terminal.execute_command(f'mlt {report.number}')
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        for entry in captured['board']['reports']:
+            entry['last_read'] = 'LAVA'
         fresh = BellSystemTerminal()
         assert save.restore(fresh, captured)
         assert fresh.desk.reports[report.number].last_read is None
@@ -157,7 +198,7 @@ class TestASectionIsOnlyForCableRepair:
     def test_the_usage_line_offers_a_section_to_cable_repair_only(
             self, terminal):
         shown = terminal.execute_command('report dispatch')
-        assert '<force>\n' in shown or '<force>' in shown
+        assert '<force>' in shown
         assert '[cable/binder]' not in shown
         assert 'Cable repair also takes a cable/binder' in shown
 
@@ -255,16 +296,132 @@ class TestThePressureAlarmOpensAJob:
         assert 'Only Cable repair' in shown
         assert terminal.desk.jobs[0].desk_minutes == 0
 
-    def test_a_customer_report_on_the_same_sheath_comes_back_with_it(
+    def _wet_report_on(self, terminal, section):
+        terminal.desk.plant.leak(200, 0.0)
+        return terminal.desk.receive(
+            terminal.clock.now(), fault='WET', section=section)
+
+    def test_a_customer_report_on_the_sheath_still_needs_its_own_dispatch(
             self, terminal):
         section, _ = self._alarmed(terminal)
-        terminal.desk.plant.leak(200, 0.0)
-        report = terminal.desk.receive(
-            terminal.clock.now(), fault='WET', section=section)
+        report = self._wet_report_on(terminal, section)
         terminal.execute_command(
             f'report dispatch PJ-001 cable repair '
             f'{section.cable}/{section.binder}')
-        assert report.sheath_repaired
+        # The sheath is dry. The report was never dispatched or judged, and
+        # a trip to a job is neither.
+        assert terminal.desk.plant.open_section(
+            section.cable, section.binder) is None
+        assert not report.sheath_repaired and not report.field_finding
+        judged = []
+        was = terminal.career.record_dispatch
+        terminal.career.record_dispatch = lambda *a, **k: judged.append(a)
+        shown = terminal.execute_command(
+            f'report dispatch {report.number} cable repair '
+            f'{section.cable}/{section.binder}')
+        terminal.career.record_dispatch = was
+        assert 'found it dry' not in shown
+        assert [right for right, *_ in judged] == [True]
+        assert report.first_dispatch_judged
+
+    def test_a_dispatch_to_the_sheath_of_a_job_is_the_jobs_not_the_reports(
+            self, terminal):
+        section, _ = self._alarmed(terminal)
+        report = terminal.desk.receive(terminal.clock.now(), fault='OPEN')
+        terminal.execute_command(f'mlt {report.number}')
+        spent = (report.minutes_spent, report.desk_minutes)
+        clock = terminal.shift_minutes
+        judged = []
+        was = terminal.career.record_dispatch
+        terminal.career.record_dispatch = lambda *a, **k: judged.append(a)
+        shown = terminal.execute_command(
+            f'report dispatch {report.number} cable repair '
+            f'{section.cable}/{section.binder}')
+        terminal.career.record_dispatch = was
+        assert 'PJ-001' in shown and 'resealed' in shown
+        # The board ages with the clock, and that is all the report took:
+        # not the trip's travel and repair, which are the job's.
+        assert report.desk_minutes == spent[1]
+        assert report.minutes_spent - spent[0] == (
+            terminal.shift_minutes - clock)
+        assert report.dispatched_to is None
+        assert not report.first_dispatch_judged and judged == []
+        assert terminal.desk.jobs[0].desk_minutes > 0
+        assert terminal.desk.plant.open_section(
+            section.cable, section.binder) is None
+
+    def test_a_wet_reports_own_sheath_is_still_the_reports_trouble(
+            self, terminal):
+        section, _ = self._alarmed(terminal)
+        report = self._wet_report_on(terminal, section)
+        terminal.execute_command(f'mlt {report.number}')
+        shown = terminal.execute_command(
+            f'report dispatch {report.number} cable repair '
+            f'{section.cable}/{section.binder}')
+        assert 'PJ-001' not in shown
+        assert report.dispatched_to == 'Cable repair'
+        assert terminal.desk.jobs[0].desk_minutes == 0
+
+    def test_a_job_trip_is_charged_once_and_not_again_next_tour(
+            self, terminal):
+        section, _ = self._alarmed(terminal)
+        other = section.binder % 24 + 1
+        terminal.execute_command(
+            f'report dispatch PJ-001 cable repair {section.cable}/{other}')
+        job = terminal.desk.jobs[0]
+        assert job.desk_minutes > 0
+        assert terminal._charged_total == terminal._charged_minutes()
+        terminal.execute_command('handoff relieve')
+        assert terminal._charged_total == terminal._charged_minutes()
+        # A new tour starts at its own beginning, not a trip's minutes in.
+        assert terminal.shift_minutes < job.desk_minutes
+        start = terminal.shift_minutes
+        terminal.execute_command('date')
+        # One minute for the command, and none of the old trip over again.
+        assert terminal.shift_minutes == start + 1
+
+    def test_an_alarm_with_no_job_in_an_old_save_gets_one_on_load(
+            self, terminal):
+        import json
+        from bell_system import save
+        from bell_system.terminal import BellSystemTerminal
+        section, _ = self._alarmed(terminal)
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        captured['board'].pop('jobs', None)
+        fresh = BellSystemTerminal()
+        fresh.career.shift = terminal.career.shift
+        fresh.career.reports_closed = terminal.career.reports_closed
+        assert save.restore(fresh, captured)
+        assert [(j.number, j.cable, j.binder) for j in fresh.desk.jobs] == [
+            ('PJ-001', section.cable, section.binder)]
+        again = json.loads(json.dumps(save.capture(fresh)))
+        other = BellSystemTerminal()
+        other.career.shift = terminal.career.shift
+        other.career.reports_closed = terminal.career.reports_closed
+        assert save.restore(other, again)
+        assert len(other.desk.jobs) == 1
+
+    def test_a_job_that_was_worked_does_not_come_back_with_a_later_leak(
+            self, terminal):
+        from bell_system.cable import WetSection
+        from bell_system.plantjobs import is_open, job_at
+        section, _ = self._alarmed(terminal)
+        job = terminal.desk.jobs[0]
+        terminal.execute_command(
+            f'report dispatch PJ-001 cable repair '
+            f'{section.cable}/{section.binder}')
+        assert not is_open(terminal.desk, job)
+        later = WetSection(section.cable, section.binder, 6,
+                           terminal.clock.now())
+        terminal.desk.plant.sections.append(later)
+        assert not is_open(terminal.desk, job)
+        assert job_at(terminal.desk, section.cable, section.binder) is None
+        assert 'PJ-001' not in terminal.execute_command('report jobs')
+
+    def test_the_cable_help_says_where_a_pressure_alarm_is_charged(
+            self, terminal):
+        shown = terminal.execute_command('cable')
+        assert 'PJ-001' in shown and 'charged to the' in shown
 
     def test_the_job_is_saved(self, terminal):
         import json
@@ -508,33 +665,53 @@ class TestAClearedLineIsJudgedAsOne:
 
 
 class TestQuestionsTogetherDoNotNameTheForce:
-    """C22: W20, over the combinations and not over any one answer."""
+    """
+    C22: W20. The questions together narrow the force; they never settle
+    it for every condition. The bound is stated as a count of the ten
+    conditions that the questions asked pin to one force, and a question
+    added to the data that pinned more of them would fail here.
+    """
+
+    # Conditions, of the ten, whose answers to these questions fit
+    # conditions that one force clears and no other.
+    PINNED_AT_MOST = {
+        ('hear',): 6,
+        ('start', 'hear'): 8,
+        ('others', 'hear'): 6,
+        ('start', 'others'): 4,
+        ('start', 'others', 'hear'): 8,
+    }
 
     @staticmethod
-    def _fits(first, second, fault):
-        from bell_system.data.callbacks import TOPICS, narrowed
-        return (set(narrowed(first, TOPICS[first].heard[fault]))
-                & set(narrowed(second, TOPICS[second].heard[fault])))
+    def _fits(keys, fault):
+        from bell_system.data.callbacks import GENERAL, TOPICS, narrowed
+        fits = set(GENERAL)
+        for key in keys:
+            fits &= set(narrowed(key, TOPICS[key].heard[fault]))
+        return fits
 
-    @pytest.mark.parametrize('pair', [('start', 'others'),
-                                      ('start', 'hear'),
-                                      ('others', 'hear')])
-    def test_no_pair_tells_the_force_for_every_condition(self, pair):
+    def _pinned(self, keys):
         from bell_system.data.callbacks import GENERAL
         from bell_system.data.trouble import FAULTS
-        loose = [
-            fault for fault in GENERAL
-            if len({FAULTS[f].dispatch
-                    for f in self._fits(*pair, fault)}) > 1]
-        assert loose, pair
+        return [fault for fault in GENERAL
+                if len({FAULTS[f].dispatch
+                        for f in self._fits(keys, fault)}) == 1]
 
-    @pytest.mark.parametrize('pair', [('start', 'others'),
-                                      ('start', 'hear'),
-                                      ('others', 'hear')])
-    def test_the_condition_is_always_among_those_a_pair_fits(self, pair):
+    @pytest.mark.parametrize('keys', sorted(PINNED_AT_MOST))
+    def test_the_questions_pin_no_more_conditions_than_the_bound(self, keys):
+        assert len(self._pinned(keys)) <= self.PINNED_AT_MOST[keys], keys
+
+    @pytest.mark.parametrize('keys', sorted(PINNED_AT_MOST))
+    def test_no_set_of_questions_pins_every_condition(self, keys):
+        from bell_system.data.callbacks import GENERAL
+        assert len(self._pinned(keys)) < len(GENERAL), keys
+
+    @pytest.mark.parametrize('keys', sorted(PINNED_AT_MOST))
+    def test_the_condition_is_always_among_those_the_questions_fit(
+            self, keys):
         from bell_system.data.callbacks import GENERAL
         for fault in GENERAL:
-            assert fault in self._fits(*pair, fault), (pair, fault)
+            assert fault in self._fits(keys, fault), (keys, fault)
 
     def test_even_all_three_leave_two_conditions_with_the_same_words(self):
         from bell_system.data.callbacks import GENERAL, TOPICS, narrowed
@@ -563,8 +740,12 @@ class TestSmallThingsTheReviewFound:
         from test_board_cases import _leaking_tour
         section = _leaking_tour(terminal)
         terminal.desk.plant.leak(110, 0.0)
-        assert f'cable {section.cable} binder {section.binder}' in (
-            terminal.execute_command('weather'))
+        shown = terminal.execute_command('weather')
+        # The cable, as the alarm names it, and never the group in it.
+        assert f'cable {section.cable}, ' in shown
+        assert 'pressure contactor alarming' in shown
+        assert f'binder {section.binder}' not in shown
+        assert section.colour() not in shown
 
     def test_the_marker_note_says_nothing_about_an_hour(self):
         from bell_system.data.cases import CASE_KINDS
@@ -597,3 +778,85 @@ class TestSmallThingsTheReviewFound:
         terminal._fraud_events()
         stored = json.loads(open(terminal.career.path).read())
         assert fraud.LEDGER in stored['beats_seen']
+
+
+class TestTimeAcrossAHandoff:
+    """#97: a sign-off starts a clock of its own, and time must not go back."""
+
+    @staticmethod
+    def _real(shown):
+        import re
+        return float(re.search(r'real\s+(-?[\d.]+)', shown).group(1))
+
+    def test_time_of_a_handoff_is_never_negative(self, terminal):
+        terminal.execute_command('report')
+        terminal.shift_minutes = 300
+        shown = terminal.execute_command('time handoff relieve')
+        assert 'Relieved' in shown
+        assert self._real(shown) >= 0
+        # Not the five hours back to where the old clock stood either.
+        assert self._real(shown) < 300 * 60
+
+    def test_time_of_an_ordinary_command_is_unchanged(self, terminal):
+        shown = terminal.execute_command('time sleep 120')
+        spent = self._real(shown)
+        assert spent >= 120 and spent % 60 == 0
+
+
+class TestTheLastSmallThings:
+    """The nits that are tests, from the second half of the review."""
+
+    @pytest.mark.parametrize('tour', [9, 11])
+    def test_the_toll_note_waits_for_a_day_tour(self, terminal, tour):
+        from bell_system.data import fraud
+        from bell_system.data.tours import watch_of
+        assert watch_of(tour) != 'day'
+        terminal.career.shift = tour
+        terminal.start_tour_clock()
+        terminal.shift_minutes = fraud.MAIL_AFTER + 1
+        terminal.career.qualifications = ['loop', 'toll']
+        assert terminal._fraud_events() == []
+        assert fraud.LEDGER not in terminal.career.beats_seen
+
+    def test_the_toll_note_comes_on_a_day_tour(self, terminal):
+        from bell_system.data import fraud
+        terminal.career.shift = fraud.FIRST_TOUR
+        terminal.start_tour_clock()
+        terminal.shift_minutes = fraud.MAIL_AFTER + 1
+        terminal.career.qualifications = ['loop', 'toll']
+        assert len(terminal._fraud_events()) == 1
+
+    def test_the_session_is_named_on_the_shift_clock(self, terminal):
+        shown = terminal.execute_command('status')
+        stamp = f"{terminal.clock.tour_start():%Y%m%d%H%M}"
+        assert f'BELL-{stamp}-' in shown
+        import time
+        assert str(int(time.time()))[:6] not in shown
+
+    def test_a_number_is_a_whole_part_of_a_circuit_or_no_circuit(
+            self, terminal):
+        count = len(terminal.sarts_console.inventory_state.circuits)
+        for token in (str(count + 1), '0', '25' if count < 25 else '99999'):
+            shown = terminal.execute_command(f'sarts show {token}')
+            assert f"no circuit matching '{token}'" in shown, token
+        last = terminal.sarts_console.inventory_state.listing()[0]
+        number = last.circuit_id.split('-')[-1]
+        if number.isdigit():
+            assert last.circuit_id in terminal.execute_command(
+                f'sarts show {number}')
+
+    def test_a_cleared_line_last_read_clean_does_not_say_it_was_measured(
+            self, terminal):
+        report = _alone(terminal)
+        terminal.execute_command(f'mlt {report.number}')
+        report.age(report.clears_at - report.minutes_spent + 5)
+        terminal.execute_command(f'mlt {report.number}')
+        assert report.cleared_alone and report.last_read == 'NONE'
+        shown = terminal.execute_command(f'report close {report.number} '
+                                         f'5 GROUND')
+        assert 'cleared by itself' in shown
+        assert 'was there when you measured it' not in shown
+
+    def test_the_marker_note_is_not_about_the_morning(self):
+        from bell_system.data.cases import CASE_KINDS
+        assert 'morning' not in ' '.join(CASE_KINDS['marker'].opened)
