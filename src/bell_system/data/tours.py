@@ -566,7 +566,7 @@ _FILLER: Tuple[Tuple[Any, ...], ...] = (
      'protectors. Findings become reports.',
      ('Log what is found', 'Raise a report for anything open')),
     ('11:20', 'TRAFFIC', 'LOW', 'MONITORING',
-     'Peak-hour usage study at {clli}',
+     'Usage study at {clli}',
      'Usage study, {switch}',
      'Usage counts are being taken on the {switch} at {city} for the '
      'engineers. They are not yours to act on.',

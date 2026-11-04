@@ -122,7 +122,8 @@ POSITIONS: Dict[str, Position] = {
                'alarms_cleared', 'alarms_lit', 'alarms_held'),
         verb='connect work',
         pressure='Alarm lamps: an alarm nobody works lights a level higher '
-                 'every 40 shift minutes, and one in this building left a '
+                 'every 40 shift minutes once the control centre has signed '
+                 'you off to work them, and one in this building left a '
                  'whole span at the top lamp counts as a missed '
                  'commitment.',
     ),

@@ -15,7 +15,7 @@ import random
 import statistics
 from collections import Counter
 from contextlib import redirect_stdout
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 
@@ -50,18 +50,36 @@ SHIFT_START = datetime(1983, 11, 14, 8, 0)
 
 def skew_the_wall_clock(terminal, monkeypatch, hours=9):
     """
-    Make the session clock run hours ahead, as a long lunch would.
+    Make the host's clock run hours ahead, as a long lunch would.
 
-    Moves the session's start back, so that now() and elapsed() both read
-    the later time, and checks that it took: a skew that moved nothing
-    would let every test that uses it pass without looking at anything.
+    The desks count the shift clock and nothing else, so nothing may move.
+    ``time.time`` really does run ahead, and the clock module's datetime
+    refuses to be asked the host's date at all: the default clock never
+    needs it, so a desk that reached for it would fail here and not just
+    read a different number.
     """
+    import time
+
+    from bell_system import clock as clock_module
+
     before = terminal.clock.now()
-    monkeypatch.setattr(terminal.clock, '_session_start',
-                        terminal.clock._session_start
-                        - timedelta(hours=hours))
-    assert terminal.clock.now() - before >= timedelta(hours=hours - 1)
-    assert terminal.clock.elapsed() >= timedelta(hours=hours - 1)
+    real_time = time.time
+    monkeypatch.setattr(time, 'time', lambda: real_time() + hours * 3600)
+
+    class Barred(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            raise AssertionError('the host clock was read')
+
+        @classmethod
+        def today(cls):
+            raise AssertionError('the host clock was read')
+
+    monkeypatch.setattr(clock_module, 'datetime', Barred)
+    assert time.time() - real_time() >= (hours - 1) * 3600
+    with pytest.raises(AssertionError):
+        clock_module.datetime.now()
+    assert terminal.clock.now() == before
 
 
 ROLE_KEYS = [key for key, _ in BELL_SYSTEM_ROLES.values()]
@@ -1265,6 +1283,56 @@ class TestTheOfficeAlarmPanel:
         after = {a['id']: lamp for a, lamp, *_ in terminal.lamp_panel()}
         assert any(LAMPS.index(after[i]) > LAMPS.index(before[i])
                    for i in before)
+
+    def test_nothing_runs_while_connect_work_is_refused(self, at_desk):
+        # An alarm the desk cannot clear does not climb, is not held and is
+        # not on the index, however late in the tour it is.
+        terminal = at_desk('switch')
+        terminal.career.qualifications.remove('scc')
+        terminal.career.shift = 3
+        terminal.deal_alarms()
+        assert not terminal.career.may_use('connect')
+        terminal.shift_minutes = 470
+        for alarm, lamp, *_ in terminal.lamp_panel():
+            assert lamp == alarm['severity']
+            assert not terminal.lamp_held(alarm)
+        assert terminal.alarms_risen() == 0
+        assert terminal.alarms_overdue() == 0
+
+    def test_the_tour_the_sign_off_arrives_in_stays_a_grace(self, at_desk):
+        terminal = at_desk('switch')
+        terminal.career.qualifications.remove('scc')
+        terminal.career.shift = 3
+        terminal.deal_alarms()
+        terminal.shift_minutes = 300
+        assert terminal.alarms_overdue() == 0
+        terminal.lamp_book()
+        terminal.career.qualifications.append('scc')
+        terminal.shift_minutes = 470
+        assert terminal.alarms_overdue() == 0 and terminal.alarms_risen() == 0
+        # The next tour began with the sign-off in hand, so it runs.
+        terminal.career.shift = 4
+        terminal.deal_alarms()
+        terminal.shift_minutes = 470
+        assert terminal.alarms_overdue() > 0
+
+    def test_a_dead_panel_stays_dead_across_a_resume(self, at_desk):
+        import json
+        from bell_system import save
+        terminal = at_desk('switch')
+        terminal.career.qualifications.remove('scc')
+        terminal.career.shift = 3
+        terminal.deal_alarms()
+        terminal.career.qualifications.append('scc')
+        captured = json.loads(json.dumps(save.capture(terminal)))
+        assert captured['tour']['lamps']['live'] is False
+        fresh = BellSystemTerminal(rng=random.Random(SEED))
+        fresh.career.shift = 3
+        fresh.career.qualifications = list(terminal.career.qualifications)
+        assert save.restore(fresh, captured)
+        fresh.shift_minutes = 470
+        assert fresh.lamp_book()['live'] is False
+        assert fresh.alarms_overdue() == 0
 
     def test_the_first_tour_is_a_grace(self, at_desk):
         terminal = office_desk(at_desk)
@@ -3187,6 +3255,47 @@ class TestTheNocQueueAcrossAResume:
         terminal.restore_triage(terminal.triage_state())
         assert terminal.triage_book()['taken'] == {major['id']: 5}
         assert terminal.triage_book()['earlier'] == {'taken': 0, 'lapsed': 0}
+
+
+class TestSartsRepairByRow:
+
+    def test_a_row_past_a_shrunken_board_is_not_an_identifier(self, at_desk):
+        terminal = at_desk('sarts')
+        terminal.special_services = SartsInventory('NWRKNJ01', random.Random(5))
+        board = [c for c in terminal.special_services.listing()
+                 if c.status == 'TRBL']
+        assert len(board) >= 1
+        past = len(board) + 1
+        assert past <= len(terminal.special_services.listing())
+        said = terminal.execute_command(f'sarts repair {past}')
+        assert f'no row {past} on the board' in said
+        assert 'Loop-back' not in said
+
+    def test_a_row_past_the_whole_inventory_is_no_row_either(self, at_desk):
+        terminal = at_desk('sarts')
+        terminal.special_services = SartsInventory('NWRKNJ01', random.Random(5))
+        total = len(terminal.special_services.listing())
+        # '166' is the tail of 0006-FX-166 and is past every row there is.
+        for token in (str(total + 1), '166'):
+            said = terminal.execute_command(f'sarts repair {token}')
+            assert f'no row {token} on the board' in said, said
+            assert 'Loop-back' not in said
+
+    def test_a_zero_led_number_is_an_identifier(self, at_desk):
+        terminal = at_desk('sarts')
+        terminal.special_services = SartsInventory('NWRKNJ01', random.Random(5))
+        said = terminal.execute_command('sarts repair 0006')
+        assert 'no row' not in said
+        assert '0006-FX-166' in said
+
+    def test_an_identifier_still_works_whole_or_as_a_zero_led_number(
+            self, at_desk):
+        terminal = at_desk('sarts')
+        terminal.special_services = SartsInventory('NWRKNJ01', random.Random(5))
+        first = next(c for c in terminal.special_services.listing()
+                     if c.status == 'TRBL')
+        said = terminal.execute_command(f'sarts repair {first.circuit_id}')
+        assert f'SARTS Loop-back - {first.circuit_id}' in said
 
 
 class TestTheLeftoversFromPhaseNine:

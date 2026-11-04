@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - Playtest wave 3
+
+- **Office alarms need the sign-off to count.** The Switching Station panel
+  runs only on a tour that began with the SCC sign-off, since `connect work`
+  is refused until then. No lamp climbs and no lapse counts on a tour the desk
+  could not work it.
+- **One clock.** `date`, the header, mail and message stamps and the times
+  `ls -l` shows on files written in play all derive from the shift clock. The
+  separate wall clock is gone as a source (`date.source real` still reads the
+  host's, on request).
+- **Chatter rests rather than recycles.** A line is not said again inside three
+  tours; a pool said dry is quiet until a line has rested. 44 new lines give
+  every voice on every desk four it can say for a 13-tour career.
+- Small fixes: the night watch reads 00:00-08:00; the filler no longer claims a
+  peak hour at 03:20; the briefing says "past" or "remaining" instead of a
+  negative time; a resolved regular's card loses CHRONIC; `qual` prints
+  `Next:` only with prompts on; `sarts repair <n>` past a shrunken board says
+  so; `touch` on a file you don't own says so and on one you do marks it
+  written, and carries on to the next name after an error; one report gets one
+  favour; the test log and the scratch file in `/tmp` belong to the machine
+  (and the lines about them say so).
+- **Review round on the clocks.** An alarm's "Raised" time is anchored to the
+  tour's start, so it does not slide on a resume and is never in the future;
+  `who` logins likewise; `time` reports the shift minutes the command charged,
+  not host seconds. `mv` keeps a file's time, `cp`, `mkdir` and `cc` stamp
+  theirs, and the stamps are not counted against the 64 KB a home may hold.
+  The alarm panel on a tour its lamps are not running says so instead of
+  printing a frozen NEXT column, and the lamp book opens with the tour.
+- **Chatter and the facts.** The deny-list of what a line may not name is built
+  from the fault data, and nobody on the floor says a close code, a force or a
+  fault outside `mlt` or a field finding. Every commitment is worded by one
+  function, so no sentence puts a minus beside "past".
+
 ### Changed - Playtest wave 1
 
 - **The crew fades with `mlt`.** On the forgiving difficulty the field crew

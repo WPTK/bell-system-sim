@@ -1481,9 +1481,10 @@ DESCRIPTION
 
 SETTINGS
      date.source         simulated | real
-                         simulated runs the 1983 shift clock, which advances
-                         in real time from the configured epoch. real reports
-                         the host system clock.
+                         simulated runs the 1983 shift clock, which is the
+                         minutes the work has charged laid on the tour's
+                         start. Every stamp reads it. real reports the host
+                         system clock.
 
      date.epoch          YYYY-MM-DD
                          Date on which the simulated shift begins. The shift
@@ -4633,8 +4634,8 @@ ALARM PANEL
 
      The Switching Station Technician desk only. With no argument, the
      panel: every alarm standing on every office this console watches,
-     the lamp it now shows, how many shift minutes until the lamp rises,
-     what clearing it would cost, and a line saying what it reads.
+     the lamp it now shows, how many shift minutes until the lamp rises
+     (while the lamps run), what clearing it would cost, and a line saying what it reads.
      Naming an alarm clears it at its cause, and the shift loses the
      minutes.
 
@@ -4661,8 +4662,13 @@ ALARM PANEL
      then is not; one cleared after it still is, and stays on the
      index. The other buildings' lamps rise and show on the panel but
      are not on the index. Each tour deals the alarms again, the same ones
-     for the same tour however many times the shift is resumed. The first
-     tour is a grace. The clock is the shift clock and not a stopwatch.
+     for the same tour however many times the shift is resumed. The lamps
+     run only on a tour that began with the Switching Control Center
+     sign-off, which is what connect work waits on: the first tour, and
+     the tour the sign-off is passed in, are a grace, with nothing
+     climbing and nothing counted: the panel drops its NEXT column and
+     says the lamps are not running. The clock is the shift clock and not
+     a stopwatch.
      These figures are the simulation's own.
 """},
 }

@@ -160,6 +160,7 @@ class ShellCommands(FindsCommands):
                       if row[3:14] > stamp), len(lines))
         lines.insert(place, line)
         self.filesystem[SULOG] = node._replace(
+            mtime=self.clock.now(),
             content='\n'.join(lines) + '\n')
 
     def _render_group(self) -> str:
@@ -300,13 +301,29 @@ class ShellCommands(FindsCommands):
                 size = (len(child.content) if isinstance(child.content, str)
                         else 512 if child.is_dir else 0)
                 rows.append(f"{child.mode} 1 {child.owner:<9} {child.group:<7} "
-                            f"{size:>6} Nov 14 08:00 {name}")
+                            f"{size:>6} {self._written(child)} {name}")
             blocks.append('\n'.join(rows))
 
         header = len(targets) > 1
         if not header:
             return '\n'.join(b for b in blocks if b is not None)
         return '\n\n'.join(f"{t}:\n{b}" for t, b in zip(targets, blocks))
+
+    def _written(self, node: Node) -> str:
+        """
+        When a file was last written, as ls -l spells it, on the shift clock.
+
+        A file the machine renders each time it is read is as new as the
+        clock; one that shipped with it is as old as the epoch; the rest
+        carry the minute they were written.
+        """
+        if node.mtime is not None:
+            when = node.mtime
+        elif callable(node.content):
+            when = self.clock.now()
+        else:
+            when = self.settings.epoch()
+        return f"{when:%b} {when.day:>2} {when:%H:%M}"
 
     # -- reading ---------------------------------------------------------
 
@@ -583,9 +600,9 @@ class ShellCommands(FindsCommands):
             text = existing.content + text
         if existing is None:
             node = Node('file', self.username or 'sysop', 'craft',
-                        '-rw-r--r--', text)
+                        '-rw-r--r--', text, self.clock.now())
         else:
-            node = existing._replace(content=text)
+            node = existing._replace(content=text, mtime=self.clock.now())
         return self.store_node(path, node, 'sh')
 
     def store_node(self, path: str, node: Node,
@@ -629,8 +646,8 @@ class ShellCommands(FindsCommands):
                 problems.append(f"mkdir: {name}: no such file or directory")
                 continue
             error = self.store_node(path, Node(
-                'dir', self.username or 'sysop', 'craft', 'drwxr-xr-x'),
-                'mkdir')
+                'dir', self.username or 'sysop', 'craft', 'drwxr-xr-x',
+                None, self.clock.now()), 'mkdir')
             if error:
                 problems.append(error)
         return '\n'.join(problems)
@@ -727,17 +744,25 @@ class ShellCommands(FindsCommands):
         return ''
 
     def cmd_touch(self, args: Optional[List[str]] = None) -> str:
-        """Create a file if it does not exist."""
+        """Create a file, or mark one the position owns as written now."""
         args = args or []
         if not args:
             return "touch: usage: touch file ..."
+        problems = []
         for name in args:
             path = normalise(name, self.current_directory)
-            if path not in self.filesystem:
+            existing = self.filesystem.get(path)
+            if existing is None:
                 error = self.write_file(path, '')
-                if error:
-                    return error
-        return ''
+            elif not self._owns(existing):
+                error = f"touch: {name}: not owner"
+            else:
+                error = self.store_node(
+                    path, existing._replace(mtime=self.clock.now()), 'touch')
+            # As touch does, an error on one name is not the end of the rest.
+            if error:
+                problems.append(error)
+        return '\n'.join(problems)
 
     def cmd_chmod(self, args: Optional[List[str]] = None) -> str:
         """

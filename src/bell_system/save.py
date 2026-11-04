@@ -516,17 +516,24 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
 # -- what the player wrote ------------------------------------------------
 
 
-def home_record(tree: Dict[str, Node]) -> Dict[str, Any]:
-    """Take the player's files from a filesystem: what differs from the shipped one."""
+def home_record(tree: Dict[str, Node],
+                times: bool = True) -> Dict[str, Any]:
+    """
+    Take the player's files from a filesystem: what differs from the shipped one.
+
+    ``times`` leaves the written-at stamps in or out; the size a home is held
+    to is measured without them (see :func:`home_size`).
+    """
     changed, removed = player_changes(tree)
-    return {
-        'version': HOME_VERSION,
-        'nodes': {path: {'kind': node.kind, 'owner': node.owner,
-                         'group': node.group, 'mode': node.mode,
-                         'content': node.content if not node.is_dir else None}
-                  for path, node in sorted(changed.items())},
-        'removed': removed,
-    }
+    nodes = {}
+    for path, node in sorted(changed.items()):
+        entry = {'kind': node.kind, 'owner': node.owner,
+                 'group': node.group, 'mode': node.mode,
+                 'content': node.content if not node.is_dir else None}
+        if times:
+            entry['mtime'] = _stamp(node.mtime)
+        nodes[path] = entry
+    return {'version': HOME_VERSION, 'nodes': nodes, 'removed': removed}
 
 
 def home_text(tree: Dict[str, Node]) -> str:
@@ -541,9 +548,13 @@ def home_size(tree: Dict[str, Node]) -> int:
     The limit is on this and nothing narrower - not the text of the files
     alone - because the file is what grows: names, directories and
     permissions all take room in it. Every route that adds to a home (echo,
-    mv, cc -o, mkdir) is held to the one measure by asking it.
+    mv, cc -o, mkdir) is held to the one measure by asking it. The stamps
+    of when a file was written are bookkeeping and are not counted, so a
+    home that fitted before it carried them still fits.
     """
-    return len(home_text(tree).encode('utf-8'))
+    text = json.dumps(home_record(tree, times=False), indent=1,
+                      sort_keys=True) + '\n'
+    return len(text.encode('utf-8'))
 
 
 def _home_node(path: Any, entry: Any) -> Optional[Node]:
@@ -560,7 +571,8 @@ def _home_node(path: Any, entry: Any) -> Optional[Node]:
     if not (isinstance(owner, str) and isinstance(group, str)
             and isinstance(mode, str)):
         return None
-    return Node(kind, owner, group, mode, text if kind == 'file' else None)
+    return Node(kind, owner, group, mode, text if kind == 'file' else None,
+                _moment(entry.get('mtime')))
 
 
 def restore_home(terminal: Any, stored: Any) -> Optional[int]:
@@ -665,7 +677,7 @@ def write_home(path: str, terminal: Any) -> None:
         return
     if not (record['nodes'] or record['removed']) and not os.path.exists(path):
         return
-    if len(text.encode('utf-8')) > PLAYER_LIMIT:
+    if home_size(terminal.filesystem) > PLAYER_LIMIT:
         return
     try:
         write_text_atomically(path, text)

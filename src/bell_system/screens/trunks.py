@@ -11,6 +11,7 @@ from typing import (
 
 
 from ..reports import COST_FRAME_LOOKUP, COST_TRUNK_TRACE
+from ..commitment import commitment_label
 from ..verbs import already_done, open_report, trace_trunk
 from .session import SessionState
 
@@ -290,8 +291,8 @@ Next test due: {(self.clock.now() + timedelta(days=30)).strftime('%B %d, %Y')}""
             f"tested and certified again.",
             '',
             "The customer's line was never the trouble.",
-            f"{COST_TRUNK_TRACE} minutes charged. {report.age_label()} "
-            f"{'past' if report.overdue() else 'remaining'}.",
+            f"{COST_TRUNK_TRACE} minutes charged. "
+            f"{commitment_label(report)}.",
             f"Close it out: report close {report.number} 8",
         ])
 

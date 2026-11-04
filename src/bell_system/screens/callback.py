@@ -8,6 +8,7 @@ costs the same, so a question is chosen and not asked for the sake of it.
 
 from typing import Optional
 
+from ..commitment import commitment_label
 from ..console import wrap
 from ..data.callbacks import CADENCE_HEARD, asked, general, topics
 from ..data.trouble import FAULTS
@@ -64,8 +65,7 @@ class CallbackCommands(SessionState):
             lines.extend(['', "tone(1) will make both of those if you want "
                               "to hear them side by side."])
         lines.extend(['', f"{COST_CALLBACK} minutes charged. "
-                          f"{report.age_label()} "
-                          f"{'past' if report.overdue() else 'remaining'}."])
+                          f"{commitment_label(report)}."])
         if topic is None:
             lines.append(f"You could also ask: {topics()}")
         nudge = self.first_tour_nudge('callback')

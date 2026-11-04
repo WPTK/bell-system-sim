@@ -25,6 +25,7 @@ from ..seeding import new_seed
 from ..plantjobs import PREFIX as JOB_PREFIX, listing as job_listing
 from ..clock import career_progress
 from ..console import article as _a, sentence_case as _lower, wrap
+from ..commitment import commitment_label
 from ..lmos import LmosConsole
 from ..loop_testing import names_fault, post_mortem, reading_stage
 from ..npc import (
@@ -389,8 +390,7 @@ class BureauCommands(SessionState):
             f"  Customer states     {report.symptom}",
             f"  Commitment          "
             f"{report.commitment.strftime('%H:%M %a %b %d')}"
-            f"   ({report.age_label()} "
-            f"{'past' if report.overdue() else 'remaining'})",
+            f"   ({commitment_label(report)})",
             f"  Status              {report.status}",
             f"  Time charged        {report.minutes_spent // 60}:"
             f"{report.minutes_spent % 60:02d}",
@@ -553,8 +553,7 @@ class BureauCommands(SessionState):
                 f"{finding}\n"
                 f"Time charged {report.minutes_spent // 60}:"
                 f"{report.minutes_spent % 60:02d} of the commitment "
-                f"({report.age_label()} "
-                f"{'past' if report.overdue() else 'remaining'}).")
+                f"({commitment_label(report)}).")
         nudge = self.first_tour_nudge('dispatch')
         return f"{sent}\n\n{nudge}" if nudge else sent
     def _while_you_wait(self, waiting: TroubleReport, force: str) -> str:
@@ -815,7 +814,8 @@ class BureauCommands(SessionState):
         if nxt is None:
             lines.append("Fully qualified. Every system on this terminal is "
                          "open to you.")
-        else:
+        elif self.settings.is_on('game.prompts'):
+            # "Next:" is the guidance 'game.prompts' turns off.
             short = career.reports_until_next()
             lines.append(f"Next: {nxt.name} in {short} correct closure"
                          f"{'' if short == 1 else 's'}." if short else

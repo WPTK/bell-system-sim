@@ -61,7 +61,6 @@ class SessionState:
     clock: SimClock
     logger: logging.Logger
     session_id: str
-    session_start_time: float
     username: str
     hostname: str
     shell: str
@@ -187,7 +186,7 @@ class SessionState:
     _office_alarms: Dict[str, List[Any]]
     _scc_assigned: Optional[str]
     _tour_nudges: Any
-    users: List[Dict[str, str]]
+    users: List[Dict[str, Any]]
     project_numbers: Dict[str, Any]
     rate_structures: Dict[str, Any]
 
