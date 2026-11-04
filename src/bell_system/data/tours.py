@@ -90,7 +90,14 @@ class Goal(NamedTuple):
     target: int
 
     def met(self, counts: Mapping[str, int]) -> bool:
-        """Whether the tour's counts satisfy this goal."""
+        """
+        Whether the tour's counts satisfy this goal.
+
+        A goal about wrong closes is about closes: a tour that closed
+        nothing has no wrong ones and has met nothing.
+        """
+        if self.metric == 'wrong' and not counts.get('closed'):
+            return False
         value = counts[self.metric]
         return value >= self.target if self.op == '>=' else value <= self.target
 

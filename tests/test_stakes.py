@@ -19,6 +19,7 @@ from bell_system.clock import (
     TOURS_TO_DIVESTITURE,
     SimClock,
     days_to_divestiture,
+    divestiture_countdown,
 )
 from bell_system.data.regulars import REGULARS, REGULAR_SHARE
 from bell_system.npc import Switchroom
@@ -36,6 +37,25 @@ class TestTheCountdown:
     def test_it_goes_negative_afterwards(self):
         """A state the simulation can reach and should not lie about."""
         assert days_to_divestiture(datetime(1984, 1, 5)) == -4
+
+    def test_a_header_never_says_one_days_or_minus_two(self):
+        assert divestiture_countdown(datetime(1983, 11, 14)) == (
+            '48 days to divestiture')
+        assert divestiture_countdown(datetime(1983, 12, 30)) == (
+            '2 days to divestiture')
+        assert divestiture_countdown(datetime(1983, 12, 31)) == (
+            '1 day to divestiture')
+        assert divestiture_countdown(DIVESTITURE) == 'divestiture today'
+        assert divestiture_countdown(datetime(1984, 1, 3)) == (
+            'divestiture was 2 days ago')
+
+    def test_the_last_tour_screen_says_one_day(self, terminal):
+        terminal.career.shift = TOURS_TO_DIVESTITURE
+        terminal.clock.set_tour(TOURS_TO_DIVESTITURE)
+        shown = terminal.execute_command('shift')
+        assert '1 day to divestiture' in shown
+        assert '1 days' not in shown
+        assert '-' not in shown.split('\n')[0]
 
     def test_the_login_banner_carries_it(self, raw_terminal):
         assert '48 days to divestiture' in '\n'.join(

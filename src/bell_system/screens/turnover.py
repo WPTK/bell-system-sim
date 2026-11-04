@@ -21,7 +21,7 @@ machine did not stop on the first of January either.
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from .. import ledger, save
-from ..clock import career_progress, days_to_divestiture
+from ..clock import career_progress, divestiture_countdown
 from ..console import wrap
 from ..constants import SHIFT_LENGTH_MINUTES
 from ..npc import (
@@ -146,7 +146,7 @@ class TurnoverCommands(SessionState):
 
         output = f"""Bell System Shift Handoff Record
 {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
-{days_to_divestiture(self.clock.now())} days to divestiture
+{divestiture_countdown(self.clock.now())}
 {'=' * 50}
 
 INCOMING FROM PREVIOUS SHIFT
@@ -207,7 +207,7 @@ Qualifications Held:      {len(self.career.qualifications)} of \
                     f"\n{report.number}: {report.record.telephone_number}"
                     f"\n  Customer states:    {report.symptom}"
                     f"\n  Commitment:         "
-                    f"{report.commitment.strftime('%H:%M %a %b %d')}"
+                    f"{report.due_at(self.clock.now()).strftime('%H:%M %a %b %d')}"
                     f" ({commitment_label(report)})"
                     f"\n  Measured:           "
                     f"{'yes' if report.tested else 'NO'}")
@@ -624,7 +624,8 @@ this shift and the next one starts on a fresh board."""
         # The last night reads the career: the office goes to its own
         # company, the bureau and the field say their last, and the wire
         # chief has the final word.
-        shape = ending.shape_of(career, self.desk, found.verdict)
+        shape = ending.shape_of(career, self.desk, found.verdict,
+                                 self.clock.now())
         career.assignment = shape.company or shape.outside
         career.save()
         lines.extend(ending.epilogue(shape, self.clock.now(), self._stamp(),
@@ -692,7 +693,7 @@ this shift and the next one starts on a fresh board."""
 
         rows = [
             f"Tour {self.career.shift}   {self.clock.date(now)}   "
-            f"{days_to_divestiture(now)} days to divestiture",
+            f"{divestiture_countdown(now)}",
             '=' * 62,
             *brief,
             *([''] if brief else []),

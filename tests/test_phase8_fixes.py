@@ -747,6 +747,26 @@ class TestSmallThingsTheReviewFound:
         assert f'binder {section.binder}' not in shown
         assert section.colour() not in shown
 
+    @pytest.mark.parametrize('difficulty', ['craft', 'fun'])
+    @pytest.mark.parametrize('reports', [1, 2])
+    def test_weather_names_no_group_once_a_sheath_has_reports(
+            self, terminal, difficulty, reports):
+        """
+        A wet sheath with a report or two printed its group, pairs and the
+        word wet, which is the measuring step 'mlt' is for (pillar 1).
+        """
+        terminal.settings.set('game.difficulty', difficulty)
+        held = [terminal.desk.receive(terminal.clock.now(), fault='WET')
+                for _ in range(reports)]
+        section = terminal.desk.plant.open_sections()[0]
+        assert len(section.pairs) >= 1 and held
+        shown = terminal.execute_command('weather')
+        plant = shown[shown.index('WHAT IT IS DOING TO THE PLANT'):]
+        assert f'cable {section.cable}, ' in plant
+        assert f'binder {section.binder}' not in plant
+        assert f'pairs {section.first_pair}' not in plant
+        assert 'reported' not in plant and 'wet' not in plant.lower()
+
     def test_the_marker_note_says_nothing_about_an_hour(self):
         from bell_system.data.cases import CASE_KINDS
         assert 'hour' not in ' '.join(CASE_KINDS['marker'].opened)

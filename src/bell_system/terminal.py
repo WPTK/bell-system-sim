@@ -1546,7 +1546,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
             '',
             f"symptom     {report.symptom}",
             f"received    {report.received.strftime('%d %b %H:%M')}",
-            f"commitment  {report.commitment.strftime('%d %b %H:%M')}",
+            f"commitment  {report.due_at(self.clock.now()).strftime('%d %b %H:%M')}",
             f"due         {commitment_label(report)}",
             f"status      {report.status}",
             f"charged     {report.minutes_spent // 60}:"

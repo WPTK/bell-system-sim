@@ -25,13 +25,13 @@ _FAVOURED_PREFIX = 'favoured:'
 _SHEATH_FORCE = 'cable repair'
 
 
-def _ring(desk: Any) -> Optional[Ring]:
+def _ring(desk: Any, now: datetime) -> Optional[Ring]:
     """The report the bureau speaks of: the first one going over open."""
     pending = desk.customers()
     if pending:
         report = pending[0]
         return Ring(report.number, report.record.telephone_number,
-                    report.commitment.strftime('%H:%M'), 'open')
+                    report.due_at(now).strftime('%H:%M'), 'open')
     # closed() is newest first, so the last one closed is the first.
     closed = [held for held in desk.closed() if held.closed_at]
     if closed:
@@ -60,8 +60,13 @@ def _sheath_open(desk: Any) -> bool:
 def _hour_kept(desk: Any, ledger: Iterable[str]) -> bool:
     """
     Whether the hour Reyes got was kept: the report it was given for was
-    closed by the commitment as extended. A report that has left the desk,
-    or is still open, did not keep it.
+    closed without passing its commitment as extended. A report that has
+    left the desk, or is still open, did not keep it.
+
+    The report knows whether it passed its commitment (``missed_commitment``,
+    set as the working time runs out, on the close at the latest). The stored
+    commitment is a clock reading from the tour it was made on and says
+    nothing of a report carried to a later one.
     """
     entries = list(ledger)
     if 'favour:mreyes' not in entries:
@@ -70,11 +75,11 @@ def _hour_kept(desk: Any, ledger: Iterable[str]) -> bool:
     number = next((entry[len(_FAVOURED_PREFIX):] for entry in after
                    if entry.startswith(_FAVOURED_PREFIX)), '')
     held = desk.reports.get(number)
-    return bool(held and held.status == STATUS_CLOSED and held.closed_at
-                and held.closed_at <= held.commitment)
+    return bool(held and held.status == STATUS_CLOSED
+                and not held.missed_commitment)
 
 
-def shape_of(career: Any, desk: Any, verdict: str) -> Shape:
+def shape_of(career: Any, desk: Any, verdict: str, now: datetime) -> Shape:
     """
     Gather what the ending reads.
 
@@ -100,7 +105,7 @@ def shape_of(career: Any, desk: Any, verdict: str) -> Shape:
                           if entry.startswith(_FAVOUR_PREFIX)),
         finds=frozenset(career.finds),
         commendations=frozenset(career.commendations),
-        ring=_ring(desk),
+        ring=_ring(desk, now),
     )
 
 

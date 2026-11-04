@@ -245,6 +245,8 @@ class BureauCommands(SessionState):
         action = args[0].lower()
         rest = args[1:]
 
+        if action in ('dispatch', 'close', 'callback') and self.career.finished:
+            return self._position_closed()
         if action in ('board', 'list'):
             return self._show_report_board()
         if action == 'next':
@@ -289,6 +291,13 @@ class BureauCommands(SessionState):
             f"report: unknown option '{args[0]}'\n"
             "Options: board, next, show, dispatch, close, callback, closed, jobs, "
             "faults, forces")
+
+    @staticmethod
+    def _position_closed() -> str:
+        """What the desk says to work asked of it after the last tour."""
+        return ("The position is closed. The last tour is over and the "
+                "record is what the ending printed.\n'qual' has it, and "
+                "'career new' files it and starts the next.")
 
     def _show_next_report(self) -> str:
         """
@@ -395,7 +404,7 @@ class BureauCommands(SessionState):
             'REPORT',
             f"  Customer states     {report.symptom}",
             f"  Commitment          "
-            f"{report.commitment.strftime('%H:%M %a %b %d')}"
+            f"{report.due_at(self.clock.now()).strftime('%H:%M %a %b %d')}"
             f"   ({commitment_label(report)})",
             f"  Status              {report.status}",
             f"  Time charged        {report.minutes_spent // 60}:"
@@ -767,6 +776,8 @@ class BureauCommands(SessionState):
         if args and args[0].lower() == 'index':
             return self._show_service_index()
         if args and args[0].lower() in ('take', 'submit'):
+            if self.career.finished:
+                return self._position_closed()
             return self._qual_practical(args)
 
         career = self.career

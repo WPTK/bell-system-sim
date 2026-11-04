@@ -335,6 +335,19 @@ class TroubleReport:
         allowed = self.commitment - self.received
         return allowed - self.elapsed()
 
+    def due_at(self, now: datetime) -> datetime:
+        """
+        Return the moment, on the clock as it reads now, the report is due.
+
+        The stored ``commitment`` is a clock reading from the tour the
+        report came in on, and only the allowance between it and ``received``
+        means anything after that: a report carried to a later tour keeps
+        its working time, not its date. Everything that names a due time to
+        the player goes through here, so it agrees with what the board shows
+        as remaining.
+        """
+        return now + self.due_in()
+
     def overdue(self) -> bool:
         """Return whether the commitment has been passed."""
         return self.due_in() < timedelta(0)

@@ -785,6 +785,63 @@ class TestTicketAssignment:
             set(terminal._assigned_tickets))
 
 
+class TestDueTimesAreTheBoards:
+    """
+    A report carried to a later tour keeps its working time, not its date.
+
+    Every due time the player is shown is the clock now plus what the board
+    says is left (``TroubleReport.due_at``), never the clock reading stored
+    when the report came in, which belongs to another tour.
+    """
+
+    def _carried(self, terminal, minutes_spent=30):
+        report = terminal.desk.pending()[0]
+        stale = timedelta(days=8, hours=6)
+        report.received -= stale
+        report.commitment -= stale
+        report.age(minutes_spent)
+        return report
+
+    def test_report_show_gives_the_time_the_board_remaining_means(
+            self, terminal):
+        report = self._carried(terminal)
+        due = terminal.clock.now() + report.due_in()
+        shown = terminal.execute_command(f'report show {report.number}')
+        assert due.strftime('%H:%M %a %b %d') in shown
+        assert report.commitment.strftime('%H:%M %a %b %d') not in shown
+
+    def test_the_report_file_gives_the_same_time(self, terminal):
+        report = self._carried(terminal)
+        due = terminal.clock.now() + report.due_in()
+        filed = terminal._render_report_file(report.number)
+        assert due.strftime('%d %b %H:%M') in filed
+
+    def test_a_chase_says_it_was_due_when_it_went_past(self, terminal):
+        report = self._carried(terminal, minutes_spent=0)
+        report.age(int(report.due_in().total_seconds() // 60) + 12)
+        assert report.overdue()
+        said = terminal._report_late([report])
+        text = ' '.join(' '.join(m.lines) for m in said)
+        went = (terminal.clock.now() + report.due_in()).strftime('%H:%M')
+        assert f'was due {went}' in text
+
+
+class TestAnAbsentCrewIsNotOut:
+    """Okafor is away on tours 12 and 13; a job from tour 11 does not hold him."""
+
+    def test_a_job_carried_into_his_absence_is_not_on_the_shift_screen(
+            self, terminal):
+        crew, _, _ = terminal.desk.force.send(
+            'Cable repair', 'TR-90001', 600, terminal.shift_minutes)
+        assert crew is not None and crew.key == 'okafor'
+        assert 'Okafor' in terminal.execute_command('shift')
+        terminal.career.shift = 12
+        terminal.clock.set_tour(12)
+        shown = terminal.execute_command('shift')
+        assert 'Okafor' not in shown
+        assert 'okafor' not in terminal.desk.force.out
+
+
 class TestShiftClock:
     """The working shift, and the events that come due on it."""
 
@@ -992,6 +1049,51 @@ class TestShiftClock:
             assert terminal.career.shift == tour + 1, line
         assert 'That is eight hours' not in terminal.execute_command(
             'cat board.txt')
+
+    def _ended(self, terminal):
+        self._last_tour(terminal)
+        assert 'That is eight hours' in terminal.execute_command('report')
+        assert terminal.career.finished
+
+    @staticmethod
+    def _record(terminal):
+        career = terminal.career
+        return (career.reports_closed, career.reports_correct,
+                career.reports_wrong, career.missed_commitments,
+                career.repeat_reports, career.shift,
+                terminal.shift_minutes, terminal.clock.now())
+
+    def test_the_career_is_over_at_the_ending(self, terminal):
+        """
+        The ending's record is the record: 71:01 of 8:00 and a date in
+        January were what the game kept counting after it (P2-4).
+        """
+        self._ended(terminal)
+        before = self._record(terminal)
+        waiting = terminal.desk.pending()
+        for line in ('sleep 36000', 'mlt', 'report', 'ls', 'qual', 'shift'):
+            terminal.execute_command(line)
+        assert self._record(terminal) == before
+        assert len(terminal.desk.pending()) == len(waiting)
+
+    def test_nothing_is_closed_or_dispatched_after_the_ending(self, terminal):
+        self._ended(terminal)
+        held = terminal.desk.customers()[0]
+        before = self._record(terminal)
+        for line in (f'report close {held.number} 8',
+                     f'report dispatch {held.number} cable',
+                     f'report callback {held.number}'):
+            assert 'The position is closed' in terminal.execute_command(line)
+        assert held.status != 'CLOSED' and held.dispatched_to is None
+        assert self._record(terminal) == before
+
+    def test_the_archive_holds_what_the_ending_printed(self, terminal):
+        self._ended(terminal)
+        printed = terminal.career.reports_closed
+        for line in ('sleep 36000', 'mlt', 'report'):
+            terminal.execute_command(line)
+        plan = terminal.execute_command('career new')
+        assert f'{printed} reports closed' in plan
 
     def test_relieving_resets_the_shift_clock_and_schedule(self, terminal):
         terminal.shift_minutes = 400

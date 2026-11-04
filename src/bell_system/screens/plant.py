@@ -508,33 +508,31 @@ microwave(1), radio(1), trace(1)
             rows.append("  No wet sheath on this board. Rain costs you "
                         "nothing today.")
         elif not weather.wet:
-            rows.append(f"  {len(sections)} wet sheath"
-                        f"{'' if len(sections) == 1 else 's'} open, and "
-                        f"nothing falling on {'it' if len(sections) == 1 else 'them'}.")
+            rows.append(f"  {len(sections)} cable"
+                        f"{'' if len(sections) == 1 else 's'} open on the "
+                        f"gauge, and nothing falling on "
+                        f"{'it' if len(sections) == 1 else 'them'}.")
             rows.append("  Water already in a sheath does not dry out on "
                         "its own, but it")
             rows.append("  spreads slower when it is not being fed.")
         else:
-            rows.append(f"  {len(sections)} wet sheath"
-                        f"{'' if len(sections) == 1 else 's'} open and it is "
-                        f"raining on {'it' if len(sections) == 1 else 'them'}.")
+            rows.append(f"  {len(sections)} cable"
+                        f"{'' if len(sections) == 1 else 's'} open on the "
+                        f"gauge and it is raining on "
+                        f"{'it' if len(sections) == 1 else 'them'}.")
             rows.append("  Expect more pairs off the same cables. A splicer "
                         "trip now costs")
             rows.append("  one dispatch; the same water tomorrow costs "
                         "several.")
         for section in sections:
-            if section.latent:
-                # The gauge names a cable. Which group is leaking is the
-                # splicers' to find, and the job's work.
-                rows.append(f"    cable {section.cable}, "
-                            f"{section.psi:.1f} psi")
-                rows.append("      pressure contactor alarming on this "
-                            "cable")
-                continue
-            rows.append(f"    {section.describe()}")
+            # The gauge names a cable and its pressure. Which group is
+            # leaking, and which pairs are in it, is the splicers' to find
+            # and what 'mlt' and the field tell you; a report or two on the
+            # sheath does not change what the gauge knows.
+            rows.append(f"    cable {section.cable}, {section.psi:.1f} psi")
             if section.alarming():
                 rows.append("      pressure contactor alarming on this "
-                            "sheath")
+                            "cable")
         rows.extend(['', "lmos cable groups the board by binder group."])
         return '\n'.join(rows)
 
