@@ -31,7 +31,7 @@ repeat call and some shift minutes, never the end of the career.
 | **Knowledge** (the main one) | What a reading means, which crew a fault needs, where the practice is written | `data/trouble.py`, `data/hints.py`, `/usr/bsp` (A3), the manual | Yes: `hint`, the annotation fade (`annotation_sightings`: fun 4, craft 0), the binder |
 | **Time** | 480 minutes a tour; commitments of 480 (out of service) or 1440 (service affecting); each command and test costs minutes | `constants.py`, `reports.py` `COST_*`, `OUT_OF_SERVICE_COMMITMENT`, `SERVICE_AFFECTING_COMMITMENT` | Yes: `assist.commitment_slack` (fun +90, craft +0), `assist.commitments_count` |
 | **Decision** | Which force to dispatch, in what order, when a cluster is one cable | dispatch, `field.py`, wet-cable clustering | Partly: C21 and C22 widen it later; the base is fixed |
-| **Resource** | Five crews; one busy while out; a wrong dispatch costs 45 minutes | `field.py` `CREWS`, `COST_WRONG_DISPATCH` | No: fixed by the setting |
+| **Resource** | Five crews; one busy while out; a wrong dispatch costs 45 minutes. Outside plant jobs run 30 to 240 minutes (halved in #64: one lineman takes half the faults) | `field.py` `CREWS`, `COST_WRONG_DISPATCH` | No: fixed by the setting |
 | **Pressure from others** | Interruptions as a share of commands: fun 0.06, craft 0.22 | `progression.py` `interruption_rate` | Via the profile only; not an assist yet |
 | **Execution** | Typing at 300 baud. No timing or aim anywhere | `display.pacing` | Yes: `set display.pacing off` |
 
@@ -95,7 +95,7 @@ from a bigger board. The shape column is each tour's `kind` and `theme` in
 ### Fun against craft
 
 Sign-offs need cumulative correct closes of `requires_reports * reports_per_qualification`.
-`requires_reports` is 1, 2, 4, 6, 10 for Frame, Office, SCC, Trunk, Toll
+`requires_reports` is 1, 2, 4, 6, 12 for Frame, Office, SCC, Trunk, Toll
 (`progression.QUALIFICATIONS`).
 
 | Sign-off | Fun | Craft | Earliest tour, 10 a tour | Earliest tour, 5 a tour |
@@ -104,12 +104,13 @@ Sign-offs need cumulative correct closes of `requires_reports * reports_per_qual
 | Office | 6 | 24 | fun 1, craft 3 | fun 2, craft 5 |
 | SCC | 12 | 48 | fun 2, craft 5 | fun 3, craft 10 |
 | Trunk | 18 | 72 | fun 2, craft 8 | fun 4, craft 15 (not in 13) |
-| Toll | 30 | 120 | fun 3, craft 12 | fun 6, craft 24 (not in 13) |
+| Toll | 36 | 144 | fun 4, craft 15 (not in 13) | fun 8, craft 29 (not in 13) |
 
-"10 a tour" is the pace implied by the Toll comment in `progression.py`: a bot
-that names the fault 90 times in 100 reaches Toll on craft in 97% of careers,
-median on tour 12, which needs 120 correct closes. It is a ceiling for a
-person. "5 a tour" is a **guess** for a careful first-time human; the last
+"10 a tour" is a round pace for reading the table. The calibration bot now
+closes about 13 a tour (outside-plant jobs were halved for #64): at 90 in 100
+it reaches Toll on craft in 100% of careers, median on tour 11, at 75 in 80%,
+at 60 in 20% (`requires_reports` 12; ten let the 60 bot in 75% of the time).
+That is a ceiling for a person. "5 a tour" is a **guess** for a careful first-time human; the last
 measurement of human pace (2 to 7 closes a tour, S2) was taken before the
 clock fix in PR 46 and plan section 4 item 3 says to re-measure. That is C7.
 
@@ -179,7 +180,9 @@ real play, tour 1 plus the start of tour 2.
 **First competent.** Two beats, both visible to the player.
 First: Halloran's first sign-off (Frame: 3 correct closes on Fun, 12 on Craft,
 `progression.py`), because the machine says in someone's voice that the player
-can do something new. Second: the first report closed correctly after its
+can do something new. `cosmos jumper`, the read, is open from the start, so
+the closes that earn it are not guesses (#64); the sign-off is for `cosmos
+fix`. Second: the first report closed correctly after its
 reading note has faded, when the crew class was inferred, not read. The first
 is the better lever; the second is what makes the first earned. **Guess:**
 reached by the end of tour 1 on Fun, by tour 2 or 3 on Craft.

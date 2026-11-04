@@ -1762,6 +1762,12 @@ NOTES
      COSMOS transaction syntax is not reproduced from any source
      available to this simulation. The commands here are its own.
 
+QUALIFICATION
+     'cosmos jumper' reads a record and is open to everyone: it is how a
+     loop that measures clean is told from a jumper on the frame. The rest
+     needs the Main Distributing Frame sign-off, which is also what lets
+     you put a jumper right ('cosmos fix').
+
 SEE ALSO
      clli(1), switch(1), trouble(1)
 """,

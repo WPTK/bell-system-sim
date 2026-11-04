@@ -204,7 +204,9 @@ class BureauCommands(SessionState):
     def reports_all(self):
         """Return every report the desk has seen this session."""
         return list(self.desk.reports.values())
-    def _qualification_block(self, command: str) -> Optional[str]:
+    def _qualification_block(self, command: str,
+                             args: Optional[List[str]] = None
+                             ) -> Optional[str]:
         """
         Return the wire chief's refusal when a command is not signed off.
 
@@ -213,7 +215,8 @@ class BureauCommands(SessionState):
         a missing binary.
         """
         needed = self.career.qualification_for_command(command)
-        if needed is None or self._may_use(command):
+        action = args[0].lower() if args else ''
+        if needed is None or self._may_use(command, action):
             return None
         qualification = QUALIFICATIONS_BY_KEY[needed]
         remaining = max(

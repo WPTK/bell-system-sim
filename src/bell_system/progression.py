@@ -28,7 +28,8 @@ import json
 import math
 import os
 from typing import (
-    Any, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence)
+    Any, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence,
+    Tuple)
 
 from .data.commendations import COMMENDATIONS, MINIMUM_CLOSES, Evidence
 from .data.trouble import NSPMP_WEIGHTS
@@ -355,6 +356,16 @@ def compute_kpis(counts: Mapping[str, int], backlog: int,
     )
 
 
+# Reads that need no sign-off, by command. Qualification gates what a
+# craftsperson may touch, and looking a line up on the frame touches nothing.
+# It is also the only thing that tells a clean-reading CO_EQUIP from a false
+# cross or ground or no trouble, so without it the closes that earn the Frame
+# sign-off are guesses; on Craft that is a dozen of them, and one took the
+# index from 100 to 86 on the first tour. The fix at the frame is still the
+# sign-off's (cosmos fix).
+OPEN_READS: Dict[str, Tuple[str, ...]] = {'cosmos': ('jumper',)}
+
+
 class Qualification(NamedTuple):
     """One thing a craftsperson is signed off to work."""
 
@@ -431,16 +442,17 @@ QUALIFICATIONS: List[Qualification] = [
         'toll', 'Toll Network',
         'The toll network, its measurement systems and the traffic that '
         'crosses regions.',
-        # Nine, then ten. tools/index_calibration.py plays whole careers
-        # through the terminal now that the clocks agree. At nine (108
-        # correct closes on I Hate Myself) a bot that names the fault 60
-        # times in 100 reached Toll on the last tour in 2 careers of 12. At
-        # ten (120), in 40 careers each, it never does, and a bot at 90 in
-        # 100 signs off on all six in 97% of them, the median on tour 12.
-        # That bot is a ceiling and a person is slower, so on I Hate Myself
-        # Toll is for someone working very well. assist.pace is the way to
-        # ask for the quicker ladder without changing the scoring.
-        requires_reports=10,
+        # Twelve. tools/index_calibration.py plays whole careers through the
+        # terminal. Outside-plant jobs were halved for #64 (one lineman was
+        # the whole shift's dead time), so a bot closes more reports a tour
+        # and ten (120 correct closes on I Hate Myself) no longer holds the
+        # 60-in-100 bot back: it reached Toll in 75% of careers, up from 45%.
+        # At twelve (144), in 20 careers each, a bot at 90 in 100 signs off
+        # on all six in 100% of them (median tour 11), one at 75 in 80%, and
+        # one at 60 in 20%. A person is slower than that bot, so on I Hate
+        # Myself Toll is for someone working very well. assist.pace is the
+        # way to ask for the quicker ladder without changing the scoring.
+        requires_reports=12,
         unlocks=('toll', 'tnds', 'traffic'),
         verb='toll control <block|reroute|off>',
         verb_effect='Hold calls off a congested route to thin the board. '
@@ -597,8 +609,16 @@ class Career:
                 return qualification.key
         return None
 
-    def may_use(self, command: str) -> bool:
-        """Return whether the craftsperson may use a command."""
+    def may_use(self, command: str, action: str = '') -> bool:
+        """
+        Return whether the craftsperson may use a command.
+
+        Args:
+            command: The command
+            action: Its first argument, for a read that is open to everyone
+        """
+        if action in OPEN_READS.get(command, ()):
+            return True
         needed = self.qualification_for_command(command)
         return needed is None or needed in self.qualifications
 

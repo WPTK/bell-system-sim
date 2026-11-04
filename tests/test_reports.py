@@ -848,8 +848,28 @@ class TestShiftClock:
     def test_the_wire_chief_calls_time_at_eight_hours(self, terminal):
         from bell_system.constants import SHIFT_LENGTH_MINUTES
         terminal.shift_minutes = SHIFT_LENGTH_MINUTES
-        notices = terminal._fire_due_events()
-        assert any('eight hours' in notice for notice in notices)
+        assert 'eight hours' in terminal._shift_over_due()
+        assert terminal._shift_over_due() == ''
+
+    def test_he_says_so_with_ambience_off(self, terminal):
+        # The fixture's terminal is quiet. Time being up is not ambience.
+        terminal.shift_minutes = 479
+        assert 'eight hours' in terminal.execute_command('report')
+        assert 'eight hours' not in terminal.execute_command('report')
+
+    def test_a_sleep_past_the_end_is_called_at_once(self, terminal):
+        out = terminal.execute_command('sleep 36000')
+        assert terminal.shift_minutes > 480
+        assert 'eight hours' in out
+
+    def test_the_shift_screen_says_how_far_past_the_end_it_is(
+            self, terminal):
+        terminal.shift_minutes = 480 + 75
+        out = terminal.execute_command('shift')
+        assert 'Left                0:00' in out
+        assert 'Past the end' in out and '1:1' in out
+        terminal.shift_minutes = 100
+        assert 'Past the end' not in terminal.execute_command('shift')
 
     def test_relieving_resets_the_shift_clock_and_schedule(self, terminal):
         terminal.shift_minutes = 400

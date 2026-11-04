@@ -674,6 +674,9 @@ this shift and the next one starts on a fresh board."""
             f"  Worked              {self.shift_time()} of "
             f"{SHIFT_LENGTH_MINUTES // 60}:00",
             f"  Left                {left // 60}:{left % 60:02d}",
+            *([f"  Past the end        "
+               f"{hours_minutes(self.shift_minutes - SHIFT_LENGTH_MINUTES)}"]
+              if self.shift_minutes > SHIFT_LENGTH_MINUTES else []),
             '',
             f"  On the board        {len(pending)}",
             f"  Past commitment     {len(overdue)}",

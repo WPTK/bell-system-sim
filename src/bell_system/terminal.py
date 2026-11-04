@@ -1338,7 +1338,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                 # Qualification gates what a craftsperson may work on, so a
                 # command they are not signed off for is refused by the wire
                 # chief rather than run.
-                refusal = self._qualification_block(command)
+                refusal = self._qualification_block(command, args)
                 if refusal is not None:
                     self.command_counts[command] += 1
                     return refusal

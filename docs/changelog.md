@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - The ending and the balance (phases 10 and 11)
+
+- **The last night reads the career.** The audit's verdict, the files read,
+  the arc beats heard, the favours done, the commendations and the office's
+  own company choose what the teletype, Reyes, Sandoval and the wire chief
+  say at the end. None of it names a fault, a code or a cause.
+- **`cosmos jumper` is open from the start.** A loop that reads clean can only
+  be told from a jumper on the frame by the record, so the closes that earn
+  the Frame sign-off were guesses. The sign-off is still for `cosmos fix`.
+- **Outside plant jobs are half as long**, so one lineman for half the faults
+  no longer turns a tour into waiting.
+- **The chief calls time at eight hours with ambience off too**, and `shift`
+  says how far past the end a tour has run.
+- **The tour ledger prints**, against peers played on this balance
+  (`tools/index_calibration.py peers`).
+
 ### Changed - Playtest wave 3
 
 - **Office alarms need the sign-off to count.** The Switching Station panel

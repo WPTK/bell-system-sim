@@ -23,15 +23,15 @@ from typing import Dict, Tuple
 
 # False while the numbers are placeholders, and the ledger prints nothing
 # then. The run that writes real numbers sets it True.
-GENERATED = False
+GENERATED = True
 
 PEERS: Dict[str, Dict[str, Tuple[float, ...]]] = {
     'fun': {
-        'mttr': (60.0, 75.0, 90.0, 105.0, 120.0, 135.0, 150.0, 170.0, 195.0, 230.0),
-        'accuracy': (50.0, 58.0, 65.0, 72.0, 78.0, 83.0, 88.0, 92.0, 96.0, 100.0),
+        'mttr': (234.6, 321.1, 365.6, 387.6, 412.0, 440.4, 473.9, 507.3, 552.8, 640.1),
+        'accuracy': (45.5, 55.6, 64.3, 71.4, 77.2, 81.8, 87.5, 92.3, 100.0, 100.0),
     },
     'craft': {
-        'mttr': (60.0, 75.0, 90.0, 105.0, 120.0, 135.0, 150.0, 170.0, 195.0, 230.0),
-        'accuracy': (50.0, 58.0, 65.0, 72.0, 78.0, 83.0, 88.0, 92.0, 96.0, 100.0),
+        'mttr': (179.2, 230.1, 261.5, 295.2, 329.1, 359.6, 387.0, 421.9, 467.3, 544.5),
+        'accuracy': (45.5, 55.6, 64.3, 70.8, 76.9, 81.8, 86.7, 91.8, 95.7, 100.0),
     },
 }

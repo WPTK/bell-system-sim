@@ -196,6 +196,9 @@ QUALIFICATION AND THE SERVICE INDEX
      Interoffice Trunks            trunk, routing, dialtone, testcall
      Toll Network                  toll, tnds, traffic
 
+     'cosmos jumper' only reads a line's frame record and is open to
+     everyone; the rest of cosmos, and the fix, are the sign-off's.
+
      qual          The craft record
      qual index    The measurement weights the index is scored against
      career new    After the last tour: says what it will do; 'career new

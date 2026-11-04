@@ -442,6 +442,17 @@ class ShiftCommands(SessionState):
 
     def _interrupt(self) -> str:
         """
+        Advance the shift; the building's word, then the chief's if it is time.
+
+        Time being up is the clock's, so ambience off does not hold it back.
+        """
+        if getattr(self, '_in_pipeline', False):
+            return ''  # a pipeline charges for itself once it finishes
+        return '\n'.join(piece for piece in (
+            self._building_says(), self._shift_over_due()) if piece)
+
+    def _building_says(self) -> str:
+        """
         Advance the shift and return whatever the building has to say.
 
         Called after every command. The shift clock, new work arriving and
@@ -450,11 +461,6 @@ class ShiftCommands(SessionState):
         them. Interruption rate is the difficulty's: a shift on the forgiving
         setting is quiet, a shift on the other one is not.
         """
-        if getattr(self, '_in_pipeline', False):
-            # A pipeline's stages are one command; the pipeline charges for
-            # itself once it finishes.
-            return ''
-
         quiet = not self.settings.is_on('game.ambience')
         difficulty = self._difficulty()
         pieces = self._advance_shift()
@@ -827,11 +833,16 @@ class ShiftCommands(SessionState):
                 event['title'], event['priority'], event['time'],
             ), self._stamp()))
 
-        if (self.shift_minutes >= SHIFT_LENGTH_MINUTES
-                and 'SHIFT-END' not in self._fired_events):
-            self._fired_events.add('SHIFT-END')
-            notices.append(self._shift_over_notice())
         return notices
+
+    def _shift_over_due(self) -> str:
+        """The wire chief calling time, once, the first time it is past."""
+        if (self.shift_minutes < SHIFT_LENGTH_MINUTES
+                or 'SHIFT-END' in self._fired_events):
+            return ''
+        self._fired_events.add('SHIFT-END')
+        return self._shift_over_notice()
+
     def _shift_over_notice(self) -> str:
         """Return the wire chief telling you your eight hours are up."""
         pending = len(self.desk.pending())

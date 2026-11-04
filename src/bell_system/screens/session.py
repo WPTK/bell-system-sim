@@ -552,7 +552,7 @@ class SessionState:
         """The sign-off whose practical is on the board, if one is."""
         raise NotImplementedError
 
-    def _may_use(self, command: str) -> bool:
+    def _may_use(self, command: str, action: str = '') -> bool:
         """Whether a command is open to the operator, a practical included."""
         raise NotImplementedError
 
