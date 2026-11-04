@@ -124,7 +124,7 @@ class ShellCommands(FindsCommands):
 
         Halloran says the log "has your name in it" when he adds someone to
         adm. This makes it true: one successful su, from his login to the
-        player's, at the moment of the third sign-off (narrative bible T5).
+        player's, at the moment of the third sign-off.
         Called when a sign-off is passed and when a position is taken (the
         login is the position). The record is the career's; the log is
         rebuilt every session, and the line is put back once, in its place

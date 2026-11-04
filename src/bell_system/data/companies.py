@@ -11,7 +11,7 @@ WHY THIS RATHER THAN EQUIPMENT MIX
 
 The roadmap asked for per-operating-company character "drawn from
 documented differences in equipment mix and practice". That turned out not
-to be gettable: neither the bundled documents nor the sources reachable
+to be gettable: neither the period documents nor the sources reachable
 from this project establish how one operating company's crossbar-to-ESS mix
 differed from another's, and inventing one would have been the exact thing
 this project refuses to do.

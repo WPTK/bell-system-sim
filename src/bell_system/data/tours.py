@@ -22,10 +22,9 @@ What is in an entry:
   ``readnews`` is not the same list on 22 December as on 14 November.
 
 Provenance follows ``SOURCES.md``. Every beat and every article says which
-it is: ``SOURCED``, resting on a document in this repository or a row in
+it is: ``SOURCED``, resting on a period document or a row in
 SOURCES.md, or ``OWN``, which the simulation made up. The briefings and
-goals are the simulation's own throughout. The calendar is pinned in
-docs/design/plan.md section 6:
+goals are the simulation's own throughout. The calendar is pinned:
 
 * 14 November 1983 is the career epoch and the first tour (repo, clock.py).
 * Thanksgiving was Thursday 24 November 1983 (SOURCES.md, derived).

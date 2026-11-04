@@ -1,0 +1,21 @@
+site_name: Bell System UNIX V7 Terminal Simulation
+site_url: https://wptk.github.io/bell-system-sim/
+site_description: A repair test desk in a Bell System wire centre, November 1983.
+repo_url: https://github.com/WPTK/bell-system-sim
+repo_name: WPTK/bell-system-sim
+
+# The pages are generated from the in-game man pages. Run
+# python tools/build_docs.py first; it fills docs-build/ and copies in
+# docs/site/index.md.
+docs_dir: docs-build
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.indexes
+    - navigation.top
+    - search.highlight
+
+plugins:
+  - search

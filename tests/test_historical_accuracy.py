@@ -2,8 +2,8 @@
 Tests that hold period claims to their sources.
 
 Each check here corresponds to a specific factual error the audit found, and
-several assert values taken from Bell System documents bundled with this
-repository - so a future edit cannot quietly reintroduce the error.
+several assert values taken from Bell System documents listed in
+SOURCES.md - so a future edit cannot quietly reintroduce the error.
 """
 
 import pytest
@@ -95,7 +95,7 @@ class TestSwitchingMachines:
 
 class TestLCarrier:
     """
-    Line spectra verified against the transmission volumes in this repository.
+    Line spectra verified against the transmission volumes listed in SOURCES.md.
 
     The old table gave every system the wrong band and mislabelled all three
     with multiplex-level names: 564-3084 kHz is the basic mastergroup, an
@@ -210,7 +210,7 @@ class TestTsps:
 
 
 class TestSignalingValues:
-    """Signaling values, with the repo-verified ones asserted exactly."""
+    """Signaling values, with the document-verified ones asserted exactly."""
 
     def test_sf_supervision_levels(self):
         """
@@ -233,7 +233,7 @@ class TestSignalingValues:
         assert len(pairs) == 15
 
     def test_receiver_off_hook_tone(self):
-        """Repo-verified: four frequencies interrupted five times a second."""
+        """Document-verified: four frequencies interrupted five times a second."""
         roh = PROGRESS_TONES['howler']
         assert roh.frequencies == (1400, 2060, 2450, 2600)
         assert roh.cadence == (0.1, 0.1)

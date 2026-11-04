@@ -11,7 +11,7 @@ General) and 660 (Test Center Operation) are real BSP divisions (see
 BSP_CATEGORIES in :mod:`bell_system.constants`), but no Practice from either
 was reachable, and the section and sheet numbers here are not Bell System
 numbers. Every sheet says so in its header, and says which of its figures
-come from a document in the repository (SOURCES.md) and which are the
+come from a period document (SOURCES.md) and which are the
 simulation's own.
 
 The tables are built from the same data the simulation runs on
@@ -40,7 +40,7 @@ NUMBER_NOTICE = (
     "are Bell System divisions; the section and sheet numbers are not Bell "
     "System numbers, and no Practice was consulted.")
 
-SOURCED = 'From a document in the repository'
+SOURCED = 'From a period document'
 OWN = "The simulation's own"
 
 
@@ -233,7 +233,7 @@ SHEETS: Dict[str, Sheet] = {sheet.number: sheet for sheet in (
           [('The complaint wording', OWN),
            ('The pairing of wording and condition', OWN),
            ('Busy and reorder as the same two tones at different cadences',
-            OWN + ': 480 and 620 Hz, as docs/changelog.md has it; no '
+            OWN + ': 480 and 620 Hz, the pair tone(1) writes; no '
             'source was consulted')],
           _customer_says),
     Sheet('660-005', 'Closing out a report',

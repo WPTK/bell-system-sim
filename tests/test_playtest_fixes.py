@@ -230,30 +230,41 @@ class TestTheFaultTableSaysHowToCloseRoh:
         assert shown.count(', not 8') == 1
 
 
-class TestTheDocsAgreeWithTheCode:
-    def test_the_readme_says_two_sightings_not_four(self):
-        import os
-        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, 'README.md'), encoding='utf-8') as f:
-            text = ' '.join(f.read().split())
-        assert 'first two times' in text
+class TestTheManualAgreesWithTheCode:
+    def test_the_set_page_says_two_sightings_not_four(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        text = ' '.join(MAN_PAGES['set'].split())
+        assert 'first two sightings' in text
         assert 'first four times' not in text
         assert 'first four sightings' not in text
 
-    def test_the_curve_names_every_tours_kind(self):
-        import os
-        from bell_system.data import tours
-        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        path = os.path.join(root, 'docs', 'design', 'difficulty-curve.md')
-        with open(path, encoding='utf-8') as f:
-            rows = [line for line in f.read().splitlines()
-                    if line.startswith('| ') and line[2:3].isdigit()]
-        shapes = {}
-        for row in rows:
-            cells = [cell.strip() for cell in row.strip('|').split('|')]
-            if len(cells) == 7:
-                shapes[int(cells[0])] = cells[6]
-        for entry in tours.TOURS:
-            shape = shapes[entry.number]
-            assert shape.startswith(entry.kind.capitalize()), entry.number
-            assert entry.theme in shape, entry.number
+    @staticmethod
+    def _section(page, heading):
+        lines = page.splitlines()
+        start = lines.index(heading) + 1
+        end = next((i for i in range(start, len(lines))
+                    if lines[i] and lines[i] == lines[i].upper()
+                    and not lines[i].startswith(' ')), len(lines))
+        return lines[start:end]
+
+    def test_the_set_page_lists_every_setting_under_its_heading(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        from bell_system.settings import OPTIONS
+        page = MAN_PAGES['set']
+        settings = self._section(page, 'SETTINGS')
+        assists = self._section(page, 'ASSISTS')
+        for option in OPTIONS:
+            rows = assists if option.key.startswith('assist.') else settings
+            entries = [line.split()[0] for line in rows
+                       if line.startswith('     ') and
+                       not line.startswith('      ')]
+            assert option.key in entries, option.key
+
+    def test_the_named_settings_are_in_the_settings_section(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        settings = '\n'.join(self._section(MAN_PAGES['set'], 'SETTINGS'))
+        for key in ('game.ambience', 'game.prompts', 'game.difficulty',
+                    'display.pacing'):
+            assert key in settings, key
+        assert 'assist.sections' in '\n'.join(
+            self._section(MAN_PAGES['set'], 'ASSISTS'))

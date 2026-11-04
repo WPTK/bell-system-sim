@@ -64,7 +64,7 @@ class TestTheTables:
     @pytest.mark.parametrize('table', [
         consequences.SECOND_CALL, consequences.CALL_BACK])
     def test_what_she_passes_on_ends_on_a_question(self, table):
-        """Narrative bible section 4: every message of hers asks one."""
+        """Every message of hers asks one."""
         for line in table.values():
             assert line.endswith('?'), line
 

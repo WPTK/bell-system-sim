@@ -9,6 +9,7 @@ how a wrong close out scores.
 import importlib
 import json
 import os
+import re
 
 import pytest
 
@@ -606,11 +607,18 @@ class TestWhatQualificationClaims:
         with open(os.path.join(self.ROOT, name), encoding='utf-8') as handle:
             return handle.read()
 
-    def test_the_readme_does_not_say_qualification_governed_the_job(self):
-        readme = self.read('README.md')
-        assert 'was governed by qualification' not in readme
-        ladder = readme.split('A career, and its last day')[1][:900]
-        assert "simulation's own" in ladder
+    def test_the_manual_does_not_say_qualification_governed_the_job(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        for name, page in MAN_PAGES.items():
+            # The pages wrap at 78 columns, so the phrase can straddle a
+            # line break: compare with the whitespace collapsed.
+            flat = ' '.join(page.split()).lower()
+            assert not re.search(
+                r'govern\w*\W+(?:\w+\W+){0,4}?qualif\w*', flat), name
+            assert not re.search(
+                r'qualif\w*\W+(?:\w+\W+){0,4}?govern\w*', flat), name
+        ladder = ' '.join(MAN_PAGES['qual'].split())
+        assert "The ladder is the simulation's own" in ladder
 
     def test_the_progression_module_does_not_either(self):
         import bell_system.progression as module

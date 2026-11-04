@@ -8,7 +8,7 @@ expands MLT as "mechanical loop testing", while the system was more widely
 called Mechanized Loop Testing.
 
 The physical constants used to turn a fault into a set of readings are taken
-from the bundled documents:
+from the period documents:
 
   * Local exchange cable capacitance is 0.083 microfarads per mile
     (Telecommunications Transmission Engineering volume 2), which is what

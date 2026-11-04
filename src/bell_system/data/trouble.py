@@ -44,7 +44,7 @@ class Fault(NamedTuple):
 # a quarter less of the tour. A second lineman would have changed the roster,
 # which stays at five.
 #
-# Electrical fault conditions. Every name here appears in the bundled Bell
+# Electrical fault conditions. Every name here appears in the period Bell
 # documents: open, short, ground, cross, false cross or ground, foreign EMF,
 # and the wet cable that causes low insulation resistance.
 FAULTS: Dict[str, Fault] = {

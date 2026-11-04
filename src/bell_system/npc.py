@@ -18,7 +18,7 @@ Four channels, each period-correct:
               schedule. Nobody sends these; the office does.
 
 The people are invented. The jobs, the places and the things they say about
-the plant are drawn from the operations the bundled documents describe.
+the plant are drawn from the operations the period documents describe.
 """
 
 import random
@@ -89,7 +89,7 @@ class Craft(NamedTuple):
     manner: str
     # The watches they are on. Most of the building is staffed round the
     # clock; a few are a day job. The simulation's own, set from what each
-    # job was (narrative-bible.md section 4); nothing says otherwise.
+    # job was; nothing says otherwise.
     # Dispatch ignores it: a crew is called out, not asked in.
     watches: Tuple[str, ...] = WATCHES
 
@@ -246,7 +246,7 @@ class ArcBeat(NamedTuple):
 
     The simulation's own. A beat is the story arriving on a channel the
     building already has: one or two lines, never a scene, and nothing the
-    player has to answer (plan.md anti-pillar 1).
+    player has to answer.
 
     The sender has to be on the watch the tour is worked on or the beat waits
     for a tour they are, so a beat from a day-only person in a window of
@@ -696,7 +696,7 @@ CRAFT_BY_NAME: Dict[str, str] = {
     person.name: login for login, person in CRAFT.items()}
 
 # People away for whole tours, by login: Okafor is out on tours 12 and 13
-# (narrative-bible T3, which has Sandoval take the sheath nobody else will).
+# (Sandoval takes the sheath nobody else will).
 # The simulation's own.
 AWAY: Dict[str, Window] = {'lokafor': (12, 13)}
 
@@ -728,10 +728,9 @@ def _by_the_clock(login: str, when: datetime) -> bool:
 
 
 # The story, said once each, in the order they are due. The simulation's own;
-# the people and what is known of them are narrative-bible.md sections 4 and
-# 5, and each beat keeps to its speaker's profile there. Two lines at most,
+# each beat keeps to its speaker's profile. Two lines at most,
 # nothing the player must answer, and no beat explains what the machine
-# keeps for the player to find (T2 and T3 stay open).
+# keeps for the player to find.
 ARC_BEATS: Tuple[ArcBeat, ...] = (
     # Alvarez has no login and no terminal, so is spoken of, not heard.
     ArcBeat('alvarez.1', CHANNEL_MAIL, 'ehalloran', (2, 4), (

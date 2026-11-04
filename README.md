@@ -1,365 +1,115 @@
-```
-                  5555555555555555555          
-              555555555555555555555555555    
-           5555555552             5555555551 
-         55555552                     55555555
-        555555          155555           555555
-      555555            2555557            555555
-     55555        5555555555555555555        55555
-    55555       2555555555555555555555        55555
-   55555        555555           555555        55555 
-   5555         55555             55555         5555
-  55555         55555             55555         55555
-  5555          55552             55555         15555
-  5555          5555               5555          5555
-  5555         55555               55555         5555   
-  5555       1555555               555555        5555   
-  55555    5555551                    555555    55555
-  55555    555555555555555555555555555555555    55553 
-   55555   555555555555555555555555555555555   55555
-    55555  555555555555555555555555555555555  55555
-    155555               55555               55555
-      55555              55555              55555
-       555555                             555555
-        3555555                         555555
-          555555552                 555555551
-             55555555555557 75555555555555
-                55555555555555555555555
-                     5555555555552
-       
-```
-
 # Bell System UNIX V7 Terminal Simulation
 
-**It is Monday 14 November 1983. You are at a repair test desk in a Bell
-System wire centre in Jersey City, logged into a Seventh Edition UNIX
-machine. Customers are out of service. The Bell System has forty-eight days
-left to exist.**
+A text game set in November 1983. You work a repair test desk at a Bell System wire centre in Jersey City, logged into a simulated Seventh Edition UNIX machine, and take customer trouble reports from measurement to dispatch to close. It runs in your terminal, uses only the Python standard library and one packaged table of North American numbering plan data, and needs no network or API keys.
 
-On 8 January 1982 AT&T settled the Justice Department's antitrust suit by
-agreeing to divest the operating companies. The decree took effect on
-1 January 1984, and *Engineering and Operations in the Bell System* records
-the consequence plainly: the existence of the Bell System ends with
-divestiture. This simulation is set in the run-up. Nothing about the job
-changes because of it, which is the point — the reports still arrive, the
-commitments still run, and everybody in the building knows.
+## Prerequisites
 
-You work the board. A customer report reaches you with nothing on it but
-what the customer said; what is actually on the pair is not known until you
-measure it.
+- Python 3.9 or newer.
+- git and pip.
+- A terminal. Output is plain 7-bit ASCII unless you change it.
 
-```bash
-git clone https://github.com/WPTK/bell-system-sim.git
-cd bell-system-sim
-pip install -e .
-bell-system
-```
+The game has no third-party dependencies. Command history needs Python's `readline` module, which stock Windows Python does not have. The game runs without it.
 
-Python 3.9 or newer. No dependencies — standard library only.
+## Quickstart
 
----
+1. Clone the repository:
 
-## Your first ten minutes
+   ```bash
+   git clone https://github.com/WPTK/bell-system-sim.git
+   cd bell-system-sim
+   ```
 
-There is no tutorial mode and nothing to read first. Log in and the wire
-chief puts his head round the door.
+2. Install it:
 
-The first tour opens with **one report** on the board and the rest held off
-it until that one is closed. Halloran walks you through the loop on
-`write(1)`, one message per step, and then stops. That is the whole of the
-onboarding.
+   ```bash
+   python -m pip install .
+   ```
 
-The job is four commands:
+3. Start the game:
 
-```
-report                          what is on your board
-mlt 1                           measure the line
-report dispatch 1 outside       send somebody
-report close 1 5 SHORT          close it out
-```
+   ```bash
+   bell-system
+   ```
 
-On the forgiving difficulty `mlt` names the fault for the first two times
-you meet each kind of trouble, names only the crew for the next two, and
-then prints the numbers — you do not need to know any telephony to start. Three things
-exist for when you are stuck:
+You see a login banner and a `mhuxco login:` prompt. Type `?` to list the twelve positions, then type `1` (or `sysop`) and press Enter. The board prints one pending report and the wire chief writes to your terminal. To skip the login, run `bell-system --role 1`. If your shell cannot find `bell-system`, run `python -m bell_system`.
 
-- **`help`** — opens on *what to do now*, worked out from your actual board
-- **`hint`** — asks somebody. Ask again and you get more, three levels deep
-- **`report next`** — shows the one report that most wants working
+## Configuration
 
-Every refusal names a way out when `set game.prompts on` is set, and the board
-then prints its own next action along the bottom. It is off by default: the
-first tour has the wire chief, and after it `hint` is there to ask.
+Flags and environment variables:
 
----
+| Variable / Flag | Default | Description |
+| --- | --- | --- |
+| `--role N` | login menu | Start as position N (1 to 12) and skip the login. |
+| `--simple` | off | Start a plain Unix V7 shell with no board and no positions. |
+| `--version` | | Print the version and exit. |
+| `BELL_SYSTEM_HOME` | `$XDG_STATE_HOME/bell-system` | Directory for your saves, settings and logs. The game creates it if it is missing. |
+| `XDG_STATE_HOME` | `~/.local/state` | Parent of the state directory when `BELL_SYSTEM_HOME` is not set. |
 
-## The work
+Settings live inside the game. Type `set` for the list, `set <setting>` to read about one, and `set <setting> <value>` to change it. The game saves your changes in `settings.json`. `set reset` restores every default.
 
-```
-report                       The pending list, nearest commitment first
-report show TR-04471         The line record, the symptom, what has been done
-report callback TR-04471     Telephone the customer for more than the card holds
-mlt TR-04471                 Measure the loop
-report dispatch TR-04471 outside plant
-report close TR-04471 5 GROUND       Trouble found, and what it was
-report close TR-04471 8              No trouble found
-```
+| Setting | Default | Description |
+| --- | --- | --- |
+| `game.difficulty` | `fun` | `fun` lets you close a report you never measured, forgives a wrong call and counts a missed commitment at a quarter of its craft cost. `craft` ("I Hate Myself") makes you measure first, brings wrongly closed lines back as repeat reports more often and counts missed commitments in full. |
+| `game.ambience` | `on` | `off` stops the other craft from writing to your terminal. |
+| `game.prompts` | `off` | `on` prints the next useful command after a command that leaves you with nothing obvious to do. |
+| `assist.*` | `profile` | Eight assists (`assist.test_first`, `assist.commitments_count`, `assist.repeat_reports`, `assist.commitment_slack`, `assist.pace`, `assist.scoring`, `assist.annotate`, `assist.sections`) set one part of the difficulty profile each. `profile` takes the value `game.difficulty` sets. |
+| `display.pacing` | `300` | Print speed in baud: `110`, `300`, `1200` or `off`. The game never paces output that goes to a pipe. |
+| `display.log_console` | `off` | `on` prints diagnostic log records to the terminal. They always reach `bell_system.log`. |
+| `display.charset` | `ascii` | `unicode` allows block and box-drawing characters. |
+| `display.prompt` | `v7` | `verbose` adds user, host and directory to the shell prompt. |
+| `date.source` | `simulated` | `real` shows your own system clock. `simulated` shows 1983. |
+| `date.epoch` | `1983-11-14` | Start date of the shift, as `YYYY-MM-DD`. |
+| `date.format` | `v7` | `iso` prints `YYYY-MM-DD`. `us` prints `MM-DD-YYYY`. |
+| `date.clock` | `24` | `12` switches to a 12-hour clock. |
+| `date.seconds` | `on` | `off` drops seconds from timestamps. |
 
-Codes 5 and 8 are the published Bell System dispositions, counted
-separately in the network switching performance measurement plan. Closing a
-faulty line as code 8 does not fail loudly. It closes — and then the
-customer calls back, and the repeat is on your service index.
+The game writes these files to the state directory:
 
-**A wrong close tells you what you missed.** Not a score: the actual
-numbers from the measurement you took, and what they meant.
+| File | Contents |
+| --- | --- |
+| `career.json` | Difficulty, sign-offs, service index history and your wire centre. |
+| `shift.json` | The tour in progress. |
+| `home.json` | What you write under `/usr/users` and the moo scoreboard, up to 64 KB. A file that fails to load is renamed `home.json.bad` and never overwritten. |
+| `settings.json` | Settings whose value differs from the default. |
+| `legacy.json` | What a finished career passes to the next one. |
+| `archive/career-N/` | A finished career's files, moved here by `career new`. |
+| `tones/` | Audio files written by the `tone` command. |
+| `bell_system.log` | Application log, rotated at 10 MB with five backups. |
+| `bell_system_history.txt` | Command history. Written only where `readline` is available. |
 
-> That pair had a wet cable, not a short.
->
-> Insulation measured 48,591 ohms tip to ring and 20,241 to ground. Low but
-> not zero, and low on every reading at once, is water in the sheath. Short
-> reads near zero resistance tip to ring.
+## Usage and controls
 
-Mechanised loop testing gives you insulation resistance on all three
-combinations, loop resistance, foreign potential and capacitance. Local
-cable runs 0.083 microfarads to the mile, so the capacitance reading on an
-open pair is a distance to the break. Transmission goes through the
-far-end test line series — 102-type for loss, 100-type for loss and noise,
-105-type for the full two-way picture — all at 1004 Hz, because that is the
-frequency the loss objectives were stated at.
-
-Water is a **sheath** fault, not a pair fault. A wet binder group takes
-more pairs the harder it rains, so several reports off one cable are one
-trip, and `cat /usr/lmos/cable` is how you notice before you send four
-crews.
-
-### Two difficulties
+The game saves after every command. The work is four commands:
 
 ```
-set game.difficulty fun      Fun Simulation
-set game.difficulty craft    I Hate Myself
+report                          show the board
+mlt 1                           measure the line on report 1
+report dispatch 1 outside       send a crew
+report close 1 5 SHORT          close it as trouble found, fault SHORT
 ```
 
-**Fun Simulation** is forgiving. Loop testing names the fault it reads for
-the first two sightings of each kind of trouble and the crew class for the
-next two, and the field crew stops naming what it cleared at the same point
-(`set assist.annotate on` keeps the notes). You may close a report you never
-measured, a wrong call costs you little, commitments are not counted against
-you, and a sign-off is offered every 3 correct closures.
+| Command | What it does |
+| --- | --- |
+| `report` | Lists the pending reports, nearest commitment first. |
+| `report next` | Shows the one report that most wants working. |
+| `report show <n>` | Shows the line record, the symptom and what has been done. |
+| `report callback <n>` | Calls the customer for more than the card holds. |
+| `mlt <n>` | Measures the loop. |
+| `report dispatch <n> <force>` | Sends a crew. `report forces` lists them. |
+| `report close <n> 5 <fault>` | Closes a report as trouble found. `report faults` lists the fault names. |
+| `report close <n> 8` | Closes a report as no trouble found. A faulty line closed this way comes back as a repeat report: one time in four in `fun`, 85 times in 100 in `craft`. |
+| `help` | Lists the commands, starting with what to do now. |
+| `hint` | Asks somebody. Ask again for more, up to three levels. |
+| `man <command>` | Shows the manual page for a command. |
+| `qual` | Shows your sign-offs and service index. `qual take <name>` sits the practical for one. |
+| `shift` | Shows where you are in the tour. |
+| `handoff` | Prints the turnover record. `handoff relieve` signs off the tour. |
+| `career new` | Starts a new career once the last tour is signed off. |
+| `exit` | Logs out. |
 
-**I Hate Myself** is close to the job. Loop testing prints the numbers and
-nothing else, because reading them is the work. A report cannot be closed
-until it has been measured. Wrongly closed lines come back as repeat
-reports at a rate you will not enjoy. Missed commitments count.
-Qualification is four times slower, and the rest of the building interrupts
-you four times as often.
+The rest is a Seventh Edition UNIX shell with `ls`, `cd`, `cat`, `grep`, pipes, `ed`, `cc` and `nroff`. Your board is the directory `/usr/lmos`. Press Ctrl-C to stop a listing.
 
-The difficulty governs **how forgiving the scoring is** and nothing else.
-How much is happening is a matter of how far into a career you are.
-
-Each part of a difficulty is also a setting of its own, an **assist**, for
-anyone who wants one without the rest. The profile applies until you name a
-value, and `set` marks every assist that is not on its profile:
-
-```
-set assist.commitments_count full   Count every missed commitment, even on fun
-set assist.pace quick               Sign-offs every three correct closures
-set assist.test_first off           Close a report without measuring it
-```
-
-`man set` lists them all.
-
-### A career, and its last day
-
-Qualification is this simulation's own mechanic. A craft job did grow by
-being trusted with more of the plant, but no source consulted says how many
-reports earned which sign-off, or that a sign-off locked a command, so the
-ladder below is invented and so is the count. You start signed off on Loop
-and Station plus whatever your position carries. Correct closures offer you
-the rest, one sign-off at every 3 (Fun) or 12 (I Hate Myself), and a
-practical on your own board is what signs it (`qual take <name>`):
-
-```
-Loop and Station              report, mlt, trouble, testboard, testline
-Main Distributing Frame       cosmos, lmos
-Central Office Switching      switch, alarm, crossbar, 3a
-Switching Control Center      sarts, orderwire, connect
-Interoffice Trunks            trunk, routing, dialtone, testcall
-Toll Network                  toll, tnds, traffic
-```
-
-Halloran signs them, and he notices the third. By the fifth there is not
-much left that he can sign.
-
-**A career walks the calendar.** Tours are four days apart, so the
-thirteenth falls on 31 December 1983 and there is no fourteenth. The board
-gets deeper as you go and the weather gets worse, because it is December.
-Signing off that last tour closes the career: the whole record, every tour
-of the service index drawn as a trend, and the wire chief. It happens once
-per career: `career new` files the record away (nothing is deleted) and the
-next career starts at tour 1, with your files left in `/usr/users/prior/`.
-
-```
-shift                        Where you are in the tour
-handoff                      The full turnover record
-handoff relieve              Sign off. The index banks, the day moves on
-qual                         Your craft record and the trend
-```
-
-**Your tour survives the window closing.** The board, the weather, the
-water in the cable, where every crew is standing and how much of every
-commitment has been spent are written down after every command and picked
-back up next time you start.
-
-Two clocks run and they are not the same clock. A report's commitment runs
-on elapsed time — the customer is out of service whether or not you are
-doing anything, so the repair force's hours in a manhole count against it.
-Your own working day runs on your time: while the field is out on one
-report you are working the next.
-
----
-
-## The machine
-
-It is a Seventh Edition UNIX system and you are logged into it. Move
-around, read things, join commands together.
-
-```
-cd /usr/doc         ls -l          nroff why.unix
-who | wc -l         ls /usr/bin | grep test
-grep WRONG /usr/lmos/closed
-```
-
-**Your board is a directory.** `/usr/lmos` holds one file per report with
-the whole record on it, plus three that are always there: `board`, `closed`
-and `cable`. Your mail is a file under `/usr/spool/mail`. The practices are
-under `/usr/bsp`. So there are two ways to work and neither is the proper
-one.
-
-New to UNIX? The annual refresher is on the machine and takes ten minutes:
-
-```
-training unix
-```
-
-It covers the shell, reading a file, joining two commands with a pipe, and
-why a document under `/usr/doc` prints as dot commands until you run it
-through `nroff(1)`.
-
-The filesystem is writable, so `ed` and `cc` and the formatters have
-somewhere to put things:
-
-```
-cp /usr/src/cmd/hello.c .    cc hello.c    a.out
-ed report                    tbl table | nroff
-echo 'note to self' > notes  banner SHIFT 2
-```
-
-`ed` is the real one — every line goes to it until you type `q`, and it
-answers mistakes with a single question mark. `cc` compiles a C program and
-leaves a working `a.out`; it understands `printf` and nothing else, and
-says so.
-
-### Things to find
-
-The machine rewards poking at. Some of it is useful, some of it was written
-by somebody at Murray Hill on a Friday, and part of the point is that you
-cannot always tell which until you have looked.
-
-Without spoiling any of it: there are notes from whoever held your position
-last, a nightly netnews feed with people arguing on `net.unix-wizards`, a
-scoreboard somebody has been keeping and a grudge attached to it, a file
-you cannot read yet and will be able to later, a memo about January, C
-source, `fortune`, and a trouble report whose answer is a sound rather than
-a number. `/usr/games` exists because it is a long night shift.
-
-```
-tone busy                    Write a signalling tone to a file you can listen to
-tone reorder                 The same two frequencies, twice as fast
-bcd HELLO                    Punch it onto an 026 card
-readnews                     The overnight feed
-```
-
-You do not need to know anything about telephony to enjoy any of that.
-
----
-
-## The other craft
-
-You are not alone on the system. The repair service attendant puts reports
-on your board and asks what she should tell the customer. The wire chief
-reads your index every morning. The cable splicer calls in from a terminal
-box and does not have all day. CAROT routines the trunk groups all night
-and prints its exceptions to the maintenance teletype whether anybody is
-reading or not.
-
-Four lines the bureau knows by heart come back across a career — a sheath
-on Sussex Street that has been in water since the spring, a coin station in
-a rooming-house lobby, a drop over a bus route — and `custdb` says how long
-you have known them and what the last craftsperson wrote on the card.
-
-```
-who                          Who is on the system
-write gvasquez <message>     Interrupt somebody's terminal, as write(1) did
-mail                         What is waiting for you
-orderwire                    The maintenance circuit to the control centre
-set game.ambience off        Silence, if you want it
-```
-
----
-
-## Accuracy and playability
-
-The simulation runs period-accurate by default: a 1983 clock, the bare
-Bourne shell prompt, output restricted to the printable 7-bit ASCII a
-Teletype Model 43 or DATASPEED 40 could render, and printing paced at
-**300 baud** — ten bits to the character, thirty characters a second, which
-is what a Model 43 actually did.
-
-Where accuracy costs playability on a modern terminal, the choice is yours
-rather than ours. Type `set` (or `settings`) for the screen, which lists
-every setting, its current value, its options, and marks any that depart
-from 1978–1983 behaviour.
-
-```
-set                          Every setting and where it stands
-set display.pacing off       Print at once instead of at 300 baud
-set display.pacing 110       A Model 33 instead: eleven bits, ten a second
-set date.format iso          Dates as YYYY-MM-DD instead of UNIX date(1) order
-set date.source real         Use your own system clock instead of 1983
-set date.epoch 1978-06-01    Run the shift on a different date
-set display.charset unicode  Allow block and box-drawing glyphs
-set game.difficulty craft    Work the shift the hard way
-set game.prompts on          Have the terminal tell you what to do next
-set game.ambience off        Stop the other craft interrupting you
-set reset                    Restore period-accurate defaults
-```
-
-Settings persist between sessions, and so do the files you write under
-`/usr/users` and the moo scoreboard, in a saved file (`home.json`) of up to 64 KB. A saved file that
-will not load whole is set aside as `home.json.bad` and never written over. Pacing switches itself off
-when output is not going to a terminal, because a pipe has nobody watching it.
-
-Every historical value in the simulation is either verified against a
-bundled document, externally sourced and labelled, or explicitly marked as
-the simulation's own invention. Where a source could not be reached, the
-gap is recorded in the code rather than filled with something plausible.
-`SOURCES.md` is the record.
-
----
-
-## Running it
-
-```bash
-bell-system                    Start the simulation
-bell-system --role 3           Start at position 3, skipping the login
-bell-system --simple           A plain Unix V7 sandbox (shell only: no board, no positions)
-python -m bell_system          Equivalent to bell-system
-bell-system --version
-```
-
-At the login prompt, `?` lists the twelve positions. Each works the same
-board but gets different work on it, different people talking to it, and a
-different measure of a good tour:
+A career is 13 tours that start on 14 November 1983 and end on 31 December 1983. Each position gets different work on the same board. At the login prompt, type `?` to list them:
 
 | # | Login | Position |
 | ---: | --- | --- |
@@ -376,55 +126,12 @@ different measure of a good tour:
 | 11 | `sarts` | SARTS Technician |
 | 12 | `docprep` | Document Preparation Specialist |
 
-### Where your files go
+## Manual
 
-State is written to a per-user directory, not the one you ran from:
-`$BELL_SYSTEM_HOME` if set, otherwise `$XDG_STATE_HOME/bell-system`,
-otherwise `~/.local/state/bell-system`.
+Type `man <command>` in the game for the manual page of any command, and `help` for the commands your position has. The same pages, with a getting started guide and search, are at <https://wptk.github.io/bell-system-sim/>. Sources for every historical claim are in [SOURCES.md](SOURCES.md).
 
-| File | What it holds |
-| --- | --- |
-| `career.json` | Difficulty, sign-offs, index history, your wire centre |
-| `settings.json` | Everything `set` changes |
-| `shift.json` | The tour you are in the middle of |
-| `legacy.json` | What a finished career hands to the next (`career new`) |
-| `archive/career-N/` | A finished career's files, moved here by `career new` |
-| `bell_system.log` | Rotating application log |
-| `bell_system_history.txt` | Command history |
+To build the site locally, install `docs/requirements.txt` into a virtual environment, then run `python tools/build_docs.py` and `mkdocs serve`.
 
-> **If you cloned before 31 August 2026:** the history was rewritten to
-> remove 167 MB of scanned PDFs and a superseded data dump, taking a clone
-> from 126 MiB to 6 MiB. Every commit SHA changed, so an existing clone
-> cannot be pulled into — re-clone instead. File contents are unchanged.
+## License
 
----
-
-## Development
-
-```bash
-pip install -e ".[dev]"
-python -m pytest tests        # 1800-odd tests
-ruff check src tests
-mypy src/bell_system          # clean, with no suppressions
-```
-
-The package is `src/bell_system/`. `terminal.py` is dispatch and session
-only; every screen lives in `screens/`, one module per subsystem, mixed
-into the terminal. `screens/session.py` declares every attribute and
-cross-mixin method they share, which is what keeps that arrangement
-honest. Reference tables and manual pages live in `data/`.
-
-Three guards in `tests/test_integrity.py` hold the shape: no screens module
-over 1,000 lines, `terminal.py` under 2,000, and every `self.x()` call
-resolving against the constructed class.
-
-| Document | What it is |
-| --- | --- |
-| `docs/overview.md` | How the package fits together |
-| `docs/api.md` | Programmatic use of the simulation classes |
-| `docs/manual.txt` | Operational guide |
-| `docs/command_reference.txt` | Quick reference |
-| `docs/faq.md` | Common questions |
-| `docs/contributing.md` | Layout and conventions |
-| `SOURCES.md` | What every historical claim rests on |
-| `attached_assets/` | Searchable text of the cited documents |
+MIT. See [LICENSE](LICENSE).

@@ -8,19 +8,19 @@ did them a good turn, what was earned. Everything here is a function of
 those, so the same career always ends the same way and a resumed one says
 nothing different.
 
-Rules the text keeps, from ``docs/design/plan.md`` and the narrative bible:
+Rules the text keeps:
 
-* Pillar 1. Nothing here names a fault, a disposition or a cause for any
+* Nothing here names a fault, a disposition or a cause for any
   report. It reads what the career amounted to, never what was true of a
   line, so a second career has no key to a board by reading the first one's
   ending.
-* Pillar 4. Nothing is pushed that the machine keeps for the player to find.
+* Nothing is pushed that the machine keeps for the player to find.
   A line may say that something was read; it never says what is in it. Reyes
   speaks of the log only when the player has read the log.
-* No cutscene (anti-pillar 1). Each piece is a message on a channel the
-  building already has, in its speaker's voice (bible section 4), two lines
+* No cutscene. Each piece is a message on a channel the
+  building already has, in its speaker's voice, two lines
   and no more, each well inside 120 characters.
-* The audit changes the words, not the length of the career (D2, W10).
+* The audit changes the words, not the length of the career.
 
 The wording is the simulation's own. The one period fact, that the operating
 companies passed to the regional holding companies on 1 January 1984, is the

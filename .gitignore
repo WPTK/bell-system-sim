@@ -1,101 +1,31 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
+.eggs/
 
 # Environments
 .env
-.venv
-env/
+.venv/
 venv/
-ENV/
-env.bak/
-venv.bak/
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pyenv
-.python-version
-
-# mypy
+# Tool caches
+.pytest_cache/
 .mypy_cache/
-.dmypy.json
-dmypy.json
+.ruff_cache/
 
-# Linting and formatting
-.flake8
-.black
-
-# Application logs
-logs/
+# Logs
 *.log
 
-# Temporary files
-tmp/
-temp/
-.tmp
-
-# Editor directories and files
+# Editors and OS
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-
-# OS generated files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Performance profiling output
-*.prof
-profile_*.txt
-
-# Security scan reports
-bandit-report.json
-safety-report.txt
-# Scanned PDFs and the NANPA dump: see SOURCES.md
-attached_assets/*.pdf
-attached_assets/full_dataset_csv.csv
-
-# The planning documents, kept locally and out of the repository. The
-# audit, its remediation, the roadmap and the fun plan are all closed
-# out: they record how the project got here rather than how it works.
-# SOURCES.md is not among them - that one is the live provenance record.
-docs/archive/
+# Documentation site, built by tools/build_docs.py and mkdocs
+/docs-build/
+.venv-docs/
+/site/

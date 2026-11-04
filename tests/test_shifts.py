@@ -107,7 +107,7 @@ class TestTheWatches:
             assert CRAFT[login].watches == WATCHES
 
     def test_the_people_the_story_needs_at_night_are_there(self):
-        """Reyes at 03:47 and Halloran at 06:15 (narrative-bible T2)."""
+        """Reyes at 03:47 and Halloran at 06:15."""
         for login in ('mreyes', 'ehalloran'):
             assert on_shift(login, 'night')
 

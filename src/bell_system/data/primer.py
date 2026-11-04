@@ -15,7 +15,7 @@ because a tutorial box would not survive contact with the rest of this
 simulation.
 
 Nothing in here is a Bell System document. The commands and their
-behaviour are Seventh Edition, which the bundled UNIX documentation
+behaviour are Seventh Edition, which the period UNIX documentation
 covers; the course around them, the wire chief's remarks and the framing
 as an annual requirement are the simulation's own.
 """
