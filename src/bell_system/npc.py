@@ -1524,8 +1524,10 @@ class Switchroom:
         lines.extend(_SIGN_OFF_REMARKS.get(
             held, ('Do not work anything you are not signed off on.',)))
         if held >= 3 and days_left <= 14:
-            lines.append(f'For whatever it is worth with {days_left} days '
-                         f'left of the company.')
+            left = (f"{days_left} day{'' if days_left == 1 else 's'} left"
+                    if days_left > 0 else 'no days left')
+            lines.append(f'For whatever it is worth with {left} '
+                         f'of the company.')
         return self._deliver(Message(
             channel=CHANNEL_MAIL, sender='ehalloran', received=now,
             lines=lines,

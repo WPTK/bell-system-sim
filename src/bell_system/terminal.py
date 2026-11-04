@@ -1265,6 +1265,8 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
         relief, and on the last tour the whole ending, for the text of a
         command and write it to a file.
         """
+        if self._command_depth == 0 and self.career.finished:
+            self.desk.seal()
         self._command_depth += 1
         try:
             result = self._run_command(command_line)
@@ -1545,7 +1547,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
             f"equipment   {record.line_equipment}",
             '',
             f"symptom     {report.symptom}",
-            f"received    {report.received.strftime('%d %b %H:%M')}",
+            f"received    {report.received.strftime('%H:%M')}",
             f"commitment  {report.due_at(self.clock.now()).strftime('%d %b %H:%M')}",
             f"due         {commitment_label(report)}",
             f"status      {report.status}",

@@ -263,6 +263,9 @@ class TroubleReport:
         self.commitment = commitment
         self.repeat_of = repeat_of
         self.status = STATUS_PENDING
+        # Set when the career is over: nothing is charged to the report or
+        # recorded on it after that, so it stays as the ending found it.
+        self.sealed = False
         # Elapsed time against the commitment, the repair force's hours
         # included.
         self.minutes_spent = 0
@@ -362,6 +365,8 @@ class TroubleReport:
                 Defaults to the same, which is right for anything you do
                 yourself
         """
+        if self.sealed:
+            return
         self.minutes_spent += minutes
         self.desk_minutes += minutes if desk is None else desk
         self._settle()
@@ -391,6 +396,8 @@ class TroubleReport:
         report has your attention. This moves the elapsed time and leaves
         your own desk time alone, which is what spend() is for.
         """
+        if self.sealed:
+            return
         self.minutes_spent += minutes
         self._settle()
 
@@ -810,6 +817,8 @@ class ReportDesk:
     def record_test(self, report: TroubleReport, note: str,
                     minutes: int = COST_MLT) -> None:
         """Note a measurement against a report and charge the time."""
+        if report.sealed:
+            return
         report.last_read = report.record.fault
         report.tested = True
         report.test_notes.append(note)
@@ -1219,6 +1228,16 @@ class ReportDesk:
         late = self.age(elapsed, was)
         self.force.new_tour(was + elapsed)
         return late
+
+    def seal(self) -> None:
+        """
+        Close the books on the board when the career ends.
+
+        A sealed report takes no more time, no measurement and no change of
+        state, so the board stays as the ending read it.
+        """
+        for report in self.reports.values():
+            report.sealed = True
 
     def full(self) -> bool:
         """Return whether the pending list is at this desk's working limit."""

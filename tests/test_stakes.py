@@ -158,6 +158,11 @@ class TestTheWireChief:
     def test_close_to_the_end_he_says_what_it_is_worth(self):
         assert 'days left of the company' in self.notice(3, days_left=5)
 
+    def test_on_the_last_day_it_is_one_day_not_one_days(self):
+        said = self.notice(3, days_left=1)
+        assert '1 day left of the company' in said
+        assert '1 days' not in said
+
     def test_early_on_he_does_not(self):
         assert 'days left of the company' not in self.notice(3, days_left=48)
 

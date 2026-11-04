@@ -444,6 +444,17 @@ this shift and the next one starts on a fresh board."""
         ), self._stamp())
         return f"{said}\n\n{self._end_shift()}"
 
+    def _career_closed(self) -> str:
+        """What a sign-off says once the last tour has been signed off."""
+        return (
+            "The last tour is closed. Nobody relieves this position "
+            "on the last\nday of the Bell System, and there is no "
+            "shift after this one to open.\n\n"
+            "The board is still there if you want it. "
+            "'qual' has the career record, and 'career new' "
+            "files it and starts the next."
+            + self._audit_again())
+
     def _end_shift(self) -> str:
         """
         Sign off: bank the index, advance the shift, and start a new board.
@@ -453,6 +464,10 @@ this shift and the next one starts on a fresh board."""
 
         Except on the last tour, when there is no morning to carry them to.
         """
+        if self.career.finished and self.clock.last_tour(self.career.shift):
+            # Nothing below may run again: the board is not aged, nothing is
+            # counted missed, and the record is the one the ending printed.
+            return self._career_closed()
         # The rest of the tour goes by with the board as you leave it. Reports
         # nobody worked pass their commitments in the hours left, and the
         # index you bank is the one for the board you are handing over.
@@ -475,15 +490,6 @@ this shift and the next one starts on a fresh board."""
         # whole tour's are printed once.
         credit = self._credit_section(earned=False, spent=True)
         if self.clock.last_tour(self.career.shift):
-            if self.career.finished:
-                return (
-                    "The last tour is closed. Nobody relieves this position "
-                    "on the last\nday of the Bell System, and there is no "
-                    "shift after this one to open.\n\n"
-                    "The board is still there if you want it. "
-                    "'qual' has the career record, and 'career new' "
-                    "files it and starts the next."
-                    + self._audit_again())
             return self._end_career(banked, worked, summary, goals, credit)
         earned = self.career.end_shift()
         self.current_shift = self.career.shift

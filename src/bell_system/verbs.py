@@ -88,6 +88,8 @@ def _cleared(report: TroubleReport, note: str, minutes: int) -> None:
     is the fault, so report next calls it ready to close, and the work is
     on the report as a measurement, so a close is not refused as untested.
     """
+    if report.sealed:
+        return
     report.spend(minutes)
     report.tested = True
     report.test_notes.append(note)

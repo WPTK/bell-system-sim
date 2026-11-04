@@ -387,7 +387,7 @@ class BureauCommands(SessionState):
         lines = [
             f"{report.number}"
             f"{' ' * max(1, 40 - len(report.number))}"
-            f"Received {report.received.strftime('%H:%M %a %b %d')}",
+            f"Received {report.received.strftime('%H:%M')}",
             '=' * 74,
             'LINE RECORD',
             f"  Telephone number    {record.telephone_number}",

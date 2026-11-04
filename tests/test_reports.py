@@ -816,6 +816,21 @@ class TestDueTimesAreTheBoards:
         filed = terminal._render_report_file(report.number)
         assert due.strftime('%d %b %H:%M') in filed
 
+    def test_received_carries_no_date_from_another_tour(self, terminal):
+        """A stale date beside a rebased commitment is two different days."""
+        report = self._carried(terminal)
+        stale = report.received
+        shown = terminal.execute_command(f'report show {report.number}')
+        received = next(line for line in shown.split(chr(10))
+                        if 'Received' in line)
+        assert stale.strftime('%H:%M') in received
+        assert stale.strftime('%b %d') not in received
+        filed = terminal._render_report_file(report.number)
+        received = next(line for line in filed.split(chr(10))
+                        if line.startswith('received'))
+        assert stale.strftime('%H:%M') in received
+        assert stale.strftime('%d %b') not in received
+
     def test_a_chase_says_it_was_due_when_it_went_past(self, terminal):
         report = self._carried(terminal, minutes_spent=0)
         report.age(int(report.due_in().total_seconds() // 60) + 12)
@@ -1094,6 +1109,49 @@ class TestShiftClock:
             terminal.execute_command(line)
         plan = terminal.execute_command('career new')
         assert f'{printed} reports closed' in plan
+
+    def test_a_restart_after_the_ending_leaves_the_record_alone(
+            self, terminal):
+        """
+        The saved career is the ending's, and signing off again on the new
+        session ages no board and counts nothing missed (review of P2-4).
+        """
+        from bell_system.terminal import BellSystemTerminal
+        self._ended(terminal)
+        printed = self._record(terminal)[:5]
+        fresh = BellSystemTerminal()
+        assert fresh.career.finished
+        for report in fresh.desk.pending():
+            report.commitment = report.received + timedelta(hours=1)
+        for line in ('report', 'handoff relieve', 'report', 'handoff relieve'):
+            fresh.execute_command(line)
+        fresh.save_shift()
+        again = BellSystemTerminal()
+        assert self._record(again)[:5] == printed
+        assert f'{printed[0]} reports closed' in again.execute_command(
+            'career new')
+        assert again.career.missed_commitments == printed[3]
+
+    def test_a_test_after_the_ending_charges_nothing(self, terminal):
+        self._ended(terminal)
+        held = terminal.desk.customers()[0]
+        spent, status = held.minutes_spent, held.status
+        before = self._record(terminal)
+        terminal.execute_command(f'mlt {held.number}')
+        assert (held.minutes_spent, held.status) == (spent, status)
+        assert self._record(terminal) == before
+        terminal.execute_command('handoff relieve')
+        assert terminal.career.missed_commitments == before[3]
+
+    def test_a_test_after_a_restart_charges_nothing(self, terminal):
+        from bell_system.terminal import BellSystemTerminal
+        self._ended(terminal)
+        terminal.save_shift()
+        fresh = BellSystemTerminal()
+        held = fresh.desk.customers()[0]
+        spent, status = held.minutes_spent, held.status
+        fresh.execute_command(f'mlt {held.number}')
+        assert (held.minutes_spent, held.status) == (spent, status)
 
     def test_relieving_resets_the_shift_clock_and_schedule(self, terminal):
         terminal.shift_minutes = 400
