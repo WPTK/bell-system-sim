@@ -333,7 +333,8 @@ class TestTheLastTour:
 
     def test_nobody_relieves_you_twice(self, ending):
         ending.execute_command('handoff relieve')
-        assert 'relieve you twice' in ending.execute_command('handoff relieve')
+        assert 'Nobody relieves this position' in ending.execute_command(
+            'handoff relieve')
 
     def test_the_ending_survives_the_session(self, ending):
         ending.execute_command('handoff relieve')

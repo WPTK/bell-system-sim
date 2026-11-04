@@ -1111,7 +1111,9 @@ DESCRIPTION
 
      A tour is eight hours. When the clock reaches them, the command in
      hand finishes and relief takes the position: the same sign-off, on
-     the board as it stands. There is no working past the end of a tour.
+     the board as it stands. A tour is not worked past its end. On the
+     last day there is no relief: the position is closed, the ending is
+     printed, and the board stays on the machine.
 
 SIGNING OFF
      Relieving prints three sentences on the tour before it prints the
@@ -1993,7 +1995,8 @@ DESCRIPTION
 
      The tour ends at eight hours. The command that reaches them is
      finished, then relief takes the board, so the screen never shows a
-     tour past its end. Sign off sooner with 'handoff relieve' if the
+     tour past its end. (After the last day's ending the board is still
+     there but no tour is running.) Sign off sooner with 'handoff relieve' if the
      board is as you want to leave it.
 
      The date and the days remaining are on it because a career walks the

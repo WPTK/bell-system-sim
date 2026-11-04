@@ -442,20 +442,26 @@ class ShiftCommands(SessionState):
 
     def _interrupt(self) -> str:
         """
-        Advance the shift; the building's word, then relief if time is up.
+        Advance the shift and return what the building has to say.
 
-        Eight hours is the tour. The command that crosses it has finished by
-        now, so the handoff runs after it, as ``handoff relieve`` would, and
-        ambience off does not hold it back. The handoff starts the next tour
-        on a clock at zero, so nothing here can fire twice.
+        Eight hours is the tour, and ``_relief_due`` ends it, after the line
+        the player typed and outside its output.
         """
         if getattr(self, '_in_pipeline', False):
             return ''  # a pipeline charges for itself once it finishes
-        said = self._building_says()
+        return self._building_says()
+
+    def _relief_due(self) -> str:
+        """
+        The handoff, once the line that crossed eight hours has finished.
+
+        The same sign-off as ``handoff relieve``, whatever the ambience. It
+        starts the next tour on a clock at zero, so it cannot fire twice,
+        and a career that is finished has no tour to end.
+        """
         if self.shift_minutes < SHIFT_LENGTH_MINUTES or self.career.finished:
-            return said
-        return '\n'.join(piece for piece in (said, self._time_is_up())
-                         if piece)
+            return ''
+        return self._time_is_up()
 
     def _building_says(self) -> str:
         """

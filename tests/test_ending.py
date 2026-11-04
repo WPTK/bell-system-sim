@@ -209,11 +209,43 @@ class TestTheBoardItIsReadOff:
         assert not ending.shape_of(terminal.career, terminal.desk,
                                    AUDIT_PASSED).sheath_open
 
-    def test_the_franklin_beat_keeps_the_sheath_side_open(self, terminal):
+    def _alarmed_sheath(self, terminal):
+        """A leak the gauge has alarmed on, with its job on the board."""
+        from test_board_cases import _leaking_tour
+        from bell_system import plantjobs
+        section = _leaking_tour(terminal)
+        job = plantjobs.open_job(terminal.desk, section.cable, section.binder,
+                                 section.opened)
+        return section, job
+
+    def test_an_open_pressure_alarm_job_keeps_the_sheath_side_open(
+            self, terminal):
+        """Nobody dispatched, the board lists PJ-001, and he must know."""
         self.board(terminal)
-        terminal.career.beats_seen = ['sandoval.3']
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).sheath_open
+        self._alarmed_sheath(terminal)
         assert ending.shape_of(terminal.career, terminal.desk,
                                AUDIT_PASSED).sheath_open
+
+    def test_a_repaired_sheath_is_not_open_whatever_was_heard(
+            self, terminal):
+        """The Franklin beat once held the sheath open for good."""
+        self.board(terminal)
+        terminal.career.beats_seen = ['sandoval.3']
+        section, job = self._alarmed_sheath(terminal)
+        assert ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).sheath_open
+        terminal.desk.plant.repair(section, terminal.clock.now())
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).sheath_open
+
+    def test_the_franklin_beat_alone_does_not_open_the_sheath(
+            self, terminal):
+        self.board(terminal)
+        terminal.career.beats_seen = ['sandoval.3']
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).sheath_open
 
     def test_the_hour_is_kept_only_when_that_report_closed_inside_it(
             self, terminal):

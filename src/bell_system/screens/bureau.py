@@ -20,6 +20,7 @@ from ..data.trouble import (
     NSPMP_CATEGORIES,
     NSPMP_WEIGHTS,
 )
+from ..constants import SHIFT_LENGTH_MINUTES
 from ..cases import see_also
 from ..seeding import new_seed
 from ..plantjobs import (
@@ -611,6 +612,12 @@ class BureauCommands(SessionState):
         if not wait:
             return (f"Next: a crew is in by the time this is done. Dispatch "
                     f"{waiting.number} again.")
+        if later + wait >= SHIFT_LENGTH_MINUTES:
+            # The sleep would run out the tour, and the tour is handed off
+            # at the end of it: the dispatch it was for would never be made.
+            return (f"Next: nothing else wants you, and no crew is in "
+                    f"before this tour ends. {waiting.number} is handed off as "
+                    f"it stands.")
         return (f"Next: nothing else wants you. 'sleep {wait * 60}' waits "
                 f"until a crew is in, then dispatch {waiting.number} again.")
 

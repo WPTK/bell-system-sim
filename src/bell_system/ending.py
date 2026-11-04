@@ -10,6 +10,7 @@ here changes the career, and a career that is read twice ends the same way.
 from datetime import datetime
 from typing import Any, Iterable, List, Optional
 
+from . import plantjobs
 from .data.companies import NOT_WHOLLY_OWNED, RBOCS, for_state
 from .data.epilogue import Ring, Shape, halloran_note, pieces
 from .npc import Message, render as render_message
@@ -40,15 +41,18 @@ def _ring(desk: Any) -> Optional[Ring]:
     return None
 
 
-def _sheath_open(desk: Any, heard: Iterable[str]) -> bool:
+def _sheath_open(desk: Any) -> bool:
     """
-    Whether the sheath side has work that is not done.
+    Whether the sheath side has work that is not done, as the board stands.
 
     That is a report the player sent the cable force to and has not closed,
-    or the Franklin sheath Sandoval spoke of on the order wire. It reads the
-    dispatch the player made, never the cause of any report (pillar 1).
+    or a pressure-alarm job the board lists and nobody has cleared. It reads
+    the dispatch the player made and the jobs the player can read on the
+    board, never the cause of any report (pillar 1), and it reads them as
+    they are at the end: a sheath that was spoken of and has been repaired
+    is not open.
     """
-    return ('sandoval.3' in heard
+    return (any(plantjobs.is_open(desk, job) for job in desk.jobs)
             or any((held.dispatched_to or '').lower() == _SHEATH_FORCE
                    for held in desk.customers()))
 
@@ -85,7 +89,7 @@ def shape_of(career: Any, desk: Any, verdict: str) -> Shape:
     return Shape(
         verdict=verdict,
         closed=career.reports_closed,
-        sheath_open=_sheath_open(desk, ledger),
+        sheath_open=_sheath_open(desk),
         hour_kept=_hour_kept(desk, ledger),
         company=company.name if company else '',
         holding=(RBOCS.get(company.rboc, '')

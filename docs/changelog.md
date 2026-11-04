@@ -23,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `handoff relieve` would, ambience on or off. The save is written after the
   handoff, so a resume does not fire it twice; a save from before this change
   that is past the end hands off on its first command. `shift` never shows
-  a tour past its end.
+  a tour past its end; on the last day nobody relieves the position, the
+  wire chief says so and the ending prints instead.
 - **The Toll sign-off asks for 13, not 10.** With shorter jobs the bot
   that names the fault 60 times in 100 reached Toll in 65% of careers; at 13
   it is 0% and the strong bot is 90%, the shape the ladder had.

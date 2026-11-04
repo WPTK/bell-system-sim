@@ -468,14 +468,15 @@ class TestOldSavesDoNotBurstOnLoad:
 class TestTheSuggestedWaitIsTheRealOne:
     """'Next:' is worked out against the clock as the command will leave it."""
 
-    def block_cable_crews(self, terminal, minutes=300):
+    def block_cable_crews(self, terminal, minutes=600):
         terminal.settings.set('game.prompts', 'on')
         for number in ('TR-90001', 'TR-90002'):
             terminal.desk.force.send('Cable repair', number, minutes,
                                      terminal.shift_minutes)
 
     def test_sleeping_the_suggested_time_brings_a_crew_in(self, terminal):
-        self.block_cable_crews(terminal)
+        # Back inside the tour; one that is not has its own advice, below.
+        self.block_cable_crews(terminal, minutes=300)
         report = terminal.desk.pending()[0]
         report.record.fault = 'WET'
         for other in terminal.desk.pending()[1:]:
@@ -490,6 +491,32 @@ class TestTheSuggestedWaitIsTheRealOne:
         assert terminal.shift_minutes >= returns
         # Not a dispatch's twelve minutes more than it had to be.
         assert terminal.shift_minutes - returns <= 2
+
+    def test_no_sleep_is_suggested_that_would_run_out_the_tour(
+            self, terminal):
+        """
+        At 7:00 worked with the crews back at 8:40, 'sleep' ends the tour.
+
+        The tour is handed off at eight hours, so the dispatch the advice
+        sent the player back to would never be made.
+        """
+        terminal.settings.set('game.prompts', 'on')
+        terminal.shift_minutes = 420
+        for number in ('TR-90001', 'TR-90002'):
+            terminal.desk.force.send('Cable repair', number, 100,
+                                     terminal.shift_minutes)
+        returns = min(job.back_at()
+                      for job in terminal.desk.force.out.values()
+                      if job.crew.force == 'Cable repair')
+        assert returns > 480
+        report = terminal.desk.pending()[0]
+        report.record.fault = 'WET'
+        for other in terminal.desk.pending()[1:]:
+            other.tested = True
+        said = terminal.execute_command(
+            f'report dispatch {report.number} cable')
+        assert "'sleep" not in said
+        assert 'before this tour ends' in said
 
     def test_a_crew_back_before_the_command_ends_is_not_waited_for(
             self, terminal):

@@ -78,11 +78,11 @@ class Shape(NamedTuple):
 def _transfer(shape: Shape) -> List[str]:
     """The maintenance teletype: where the office goes. A machine, so no 'you'."""
     if shape.company:
-        first = f"mhuxco: position relieved. records to {shape.company}."
+        first = f"mhuxco: position closed. records to {shape.company}."
         second = (f"holding company {shape.holding}. effective 1/1/84."
                   if shape.holding else "effective 1/1/84.")
     else:
-        first = "mhuxco: position relieved."
+        first = "mhuxco: position closed."
         second = (f"{shape.outside}: minority-held, outside the divestiture."
                   if shape.outside else "effective 1/1/84.")
     return [first, second]

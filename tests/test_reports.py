@@ -939,6 +939,60 @@ class TestShiftClock:
         assert 'That is eight hours' in out and terminal.career.finished
         assert 'eight hours' not in terminal.execute_command('report')
 
+    def _last_tour(self, terminal):
+        from bell_system.clock import TOURS_TO_DIVESTITURE
+        terminal.career.shift = TOURS_TO_DIVESTITURE
+        terminal.career.save()
+        terminal.clock.set_tour(terminal.career.shift)
+        terminal.execute_command('report')
+        terminal.shift_minutes = 479
+
+    def test_the_last_tour_time_up_is_one_coherent_scene(self, terminal):
+        """
+        No relief comes on the last day, and the screen never says it does.
+
+        The wire chief says the eight hours are up and that nobody relieves
+        the position, on the day watch, with no evening word and no
+        'relieved' anywhere in it.
+        """
+        self._last_tour(terminal)
+        out = terminal.execute_command('report')
+        assert 'That is eight hours' in out
+        assert 'no relief on the last day' in out
+        for word in ('Relief is on the floor', 'Relieved', 'relieved',
+                     'tonight', 'this evening', 'this morning',
+                     'handing the position over'):
+            assert word not in out, word
+
+    def test_a_redirect_does_not_swallow_the_end_of_the_last_tour(
+            self, terminal):
+        self._last_tour(terminal)
+        out = terminal.execute_command('report > board.txt')
+        assert 'That is eight hours' in out and terminal.career.finished
+        filed = terminal.execute_command('cat board.txt')
+        assert 'That is eight hours' not in filed
+        assert 'THE CAREER' not in filed
+
+    def test_a_redirect_does_not_swallow_the_end_of_a_tour(self, terminal):
+        tour = terminal.career.shift
+        terminal.shift_minutes = 479
+        out = terminal.execute_command('report > board.txt')
+        assert 'That is eight hours' in out
+        assert terminal.career.shift == tour + 1
+        filed = terminal.execute_command('cat board.txt')
+        assert 'That is eight hours' not in filed
+        assert 'Relieved.' not in filed
+
+    def test_a_pipe_or_tee_does_not_swallow_the_end_of_a_tour(self, terminal):
+        for line in ('report | cat', 'report | tee board.txt'):
+            tour = terminal.career.shift
+            terminal.shift_minutes = 479
+            out = terminal.execute_command(line)
+            assert 'That is eight hours' in out, line
+            assert terminal.career.shift == tour + 1, line
+        assert 'That is eight hours' not in terminal.execute_command(
+            'cat board.txt')
+
     def test_relieving_resets_the_shift_clock_and_schedule(self, terminal):
         terminal.shift_minutes = 400
         terminal._fire_due_events()

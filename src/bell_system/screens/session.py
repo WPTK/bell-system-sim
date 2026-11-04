@@ -161,6 +161,7 @@ class SessionState:
     # standard input when given no file arguments.
     _pipe_input: str
     _in_pipeline: bool
+    _command_depth: int
     # The running ed session, and the programs cc has built.
     _editor: Any
     _compiled: Dict[str, str]
@@ -432,6 +433,10 @@ class SessionState:
 
     def _time_is_up(self) -> str:
         """Eight hours are worked: relief takes the position."""
+        raise NotImplementedError
+
+    def _relief_due(self) -> str:
+        """The handoff, if the tour has run its eight hours."""
         raise NotImplementedError
 
     def tour_minute(self) -> int:

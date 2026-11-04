@@ -426,13 +426,21 @@ this shift and the next one starts on a fresh board."""
 
         The same sign-off as ``handoff relieve``, without the refusal for a
         tour with nothing in it, since the tour has run its length. The
-        board goes as it stands.
+        board goes as it stands. On the last day nobody comes to take it,
+        and the wire chief says so; no time of day is named, because the
+        last tour is worked on the day watch.
         """
+        if self.clock.last_tour(self.career.shift):
+            lines = ['That is eight hours.',
+                     'There is no relief on the last day. The office goes '
+                     'to its company on the first.']
+        else:
+            lines = ['That is eight hours.',
+                     'Relief is on the floor. I am handing the position '
+                     'over.']
         said = render_message(Message(
             channel='write', sender='ehalloran', received=self.clock.now(),
-            lines=['That is eight hours.',
-                   'Relief is on the floor. I am handing the position over.'],
-            kind='shift', subject='End of shift', about=None,
+            lines=lines, kind='shift', subject='End of shift', about=None,
         ), self._stamp())
         return f"{said}\n\n{self._end_shift()}"
 
@@ -469,9 +477,9 @@ this shift and the next one starts on a fresh board."""
         if self.clock.last_tour(self.career.shift):
             if self.career.finished:
                 return (
-                    "You have been relieved. There is nobody to relieve "
-                    "you twice on the last\nday of the Bell System, and "
-                    "there is no shift after this one to open.\n\n"
+                    "The last tour is closed. Nobody relieves this position "
+                    "on the last\nday of the Bell System, and there is no "
+                    "shift after this one to open.\n\n"
                     "The board is still there if you want it. "
                     "'qual' has the career record, and 'career new' "
                     "files it and starts the next."
@@ -585,7 +593,7 @@ this shift and the next one starts on a fresh board."""
         save.discard(self.shift_file)
 
         lines = [
-            f"Relieved. Tour {career.shift} closed after {worked} worked.",
+            f"Signed off. Tour {career.shift} closed after {worked} worked.",
             '=' * 66,
         ]
         for sentence in summary:
@@ -626,7 +634,7 @@ this shift and the next one starts on a fresh board."""
             len(career.qualifications), found.verdict,
             ending.chief_note(shape)), self._stamp())])
         lines.append("The board is still on the machine. Nobody is coming "
-                     "to take it off you tonight.")
+                     "to take it from you.")
         lines.append("'career new' files this career and starts the next.")
         return '\n'.join(lines)
 
