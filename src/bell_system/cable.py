@@ -204,13 +204,6 @@ class WetSection:
         """Whether the pressure contactor on this sheath would be alarming."""
         return self.psi < ALARM_PSI and not self.repaired
 
-    def describe(self) -> str:
-        """One line for a listing."""
-        state = 'repaired' if self.repaired else f"{self.psi:.1f} psi"
-        return (f"cable {self.cable} binder {self.binder} "
-                f"({self.colour()}), pairs {self.first_pair}-{self.last_pair}, "
-                f"{len(self.pairs)} reported, {state}")
-
 
 class CablePlant:
     """

@@ -66,6 +66,21 @@ def days_to_divestiture(now: datetime) -> int:
     return (DIVESTITURE.date() - now.date()).days
 
 
+def divestiture_countdown(now: datetime) -> str:
+    """
+    The days left, as a phrase for a header: "1 day", never "1 days" and
+    never a negative count of days "to" a date that has gone.
+    """
+    left = days_to_divestiture(now)
+    if left > 1:
+        return f"{left} days to divestiture"
+    if left == 1:
+        return "1 day to divestiture"
+    if left == 0:
+        return "divestiture today"
+    return f"divestiture was {-left} day{'' if left == -1 else 's'} ago"
+
+
 class SimClock:
     """
     Reports the current simulated time and formats it for display.

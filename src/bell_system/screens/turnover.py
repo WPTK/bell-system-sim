@@ -21,7 +21,7 @@ machine did not stop on the first of January either.
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from .. import ledger, save
-from ..clock import career_progress, days_to_divestiture
+from ..clock import career_progress, divestiture_countdown
 from ..console import wrap
 from ..constants import SHIFT_LENGTH_MINUTES
 from ..npc import (
@@ -146,7 +146,7 @@ class TurnoverCommands(SessionState):
 
         output = f"""Bell System Shift Handoff Record
 {self.clock.now().strftime('%B %d, %Y %H:%M EST')}
-{days_to_divestiture(self.clock.now())} days to divestiture
+{divestiture_countdown(self.clock.now())}
 {'=' * 50}
 
 INCOMING FROM PREVIOUS SHIFT
@@ -207,7 +207,7 @@ Qualifications Held:      {len(self.career.qualifications)} of \
                     f"\n{report.number}: {report.record.telephone_number}"
                     f"\n  Customer states:    {report.symptom}"
                     f"\n  Commitment:         "
-                    f"{report.commitment.strftime('%H:%M %a %b %d')}"
+                    f"{report.due_at(self.clock.now()).strftime('%H:%M %a %b %d')}"
                     f" ({commitment_label(report)})"
                     f"\n  Measured:           "
                     f"{'yes' if report.tested else 'NO'}")
@@ -444,6 +444,17 @@ this shift and the next one starts on a fresh board."""
         ), self._stamp())
         return f"{said}\n\n{self._end_shift()}"
 
+    def _career_closed(self) -> str:
+        """What a sign-off says once the last tour has been signed off."""
+        return (
+            "The last tour is closed. Nobody relieves this position "
+            "on the last\nday of the Bell System, and there is no "
+            "shift after this one to open.\n\n"
+            "The board is still there if you want it. "
+            "'qual' has the career record, and 'career new' "
+            "files it and starts the next."
+            + self._audit_again())
+
     def _end_shift(self) -> str:
         """
         Sign off: bank the index, advance the shift, and start a new board.
@@ -453,6 +464,10 @@ this shift and the next one starts on a fresh board."""
 
         Except on the last tour, when there is no morning to carry them to.
         """
+        if self.career.finished and self.clock.last_tour(self.career.shift):
+            # Nothing below may run again: the board is not aged, nothing is
+            # counted missed, and the record is the one the ending printed.
+            return self._career_closed()
         # The rest of the tour goes by with the board as you leave it. Reports
         # nobody worked pass their commitments in the hours left, and the
         # index you bank is the one for the board you are handing over.
@@ -475,15 +490,6 @@ this shift and the next one starts on a fresh board."""
         # whole tour's are printed once.
         credit = self._credit_section(earned=False, spent=True)
         if self.clock.last_tour(self.career.shift):
-            if self.career.finished:
-                return (
-                    "The last tour is closed. Nobody relieves this position "
-                    "on the last\nday of the Bell System, and there is no "
-                    "shift after this one to open.\n\n"
-                    "The board is still there if you want it. "
-                    "'qual' has the career record, and 'career new' "
-                    "files it and starts the next."
-                    + self._audit_again())
             return self._end_career(banked, worked, summary, goals, credit)
         earned = self.career.end_shift()
         self.current_shift = self.career.shift
@@ -588,6 +594,9 @@ this shift and the next one starts on a fresh board."""
         career.audit_open = list(found.open_numbers)
         career.audit_late = found.late
         career.finished = True
+        # Signing off was the last thing done to the board; a command
+        # chained after it must find the board as the ending read it.
+        self.desk.seal()
         career.save()
         self.resumed = False
         save.discard(self.shift_file)
@@ -624,7 +633,8 @@ this shift and the next one starts on a fresh board."""
         # The last night reads the career: the office goes to its own
         # company, the bureau and the field say their last, and the wire
         # chief has the final word.
-        shape = ending.shape_of(career, self.desk, found.verdict)
+        shape = ending.shape_of(career, self.desk, found.verdict,
+                                 self.clock.now())
         career.assignment = shape.company or shape.outside
         career.save()
         lines.extend(ending.epilogue(shape, self.clock.now(), self._stamp(),
@@ -692,7 +702,7 @@ this shift and the next one starts on a fresh board."""
 
         rows = [
             f"Tour {self.career.shift}   {self.clock.date(now)}   "
-            f"{days_to_divestiture(now)} days to divestiture",
+            f"{divestiture_countdown(now)}",
             '=' * 62,
             *brief,
             *([''] if brief else []),

@@ -189,9 +189,16 @@ class FieldForce:
         return sorted(self.out.values(), key=lambda job: job.back_at())
 
     def _return_anybody_due(self, now: int) -> None:
-        """Bring back every crew whose job has finished."""
+        """
+        Bring back every crew whose job has finished.
+
+        And anybody who is away this tour: a job carried over a handoff
+        does not keep a person out on the board who the wire says is not
+        on this shift.
+        """
+        away = self.absent()
         for key, job in list(self.out.items()):
-            if job.back_at() <= now:
+            if job.back_at() <= now or key in away:
                 del self.out[key]
                 # They come back to the garage unless they work inside.
                 self.at[key] = self._home(job.crew)

@@ -266,6 +266,12 @@ class TestBriefingAndGoals:
         goal = tours.Goal('x', 'late', '<=', 1)
         assert goal.met({'late': 1}) and not goal.met({'late': 2})
 
+    def test_no_wrong_closes_is_not_met_by_closing_nothing(self):
+        goal = tours.Goal('No wrong closes.', 'wrong', '<=', 0)
+        assert not goal.met({'closed': 0, 'wrong': 0})
+        assert goal.met({'closed': 3, 'wrong': 0})
+        assert not goal.met({'closed': 3, 'wrong': 1})
+
     def test_goal_progress_follows_the_tour(self, terminal):
         go_to(terminal, 2)
         before = terminal.goal_counts()
@@ -417,7 +423,10 @@ class TestReviewOfTheFirstPass:
 
     def test_the_final_strike_still_ticks_what_was_met(self, terminal):
         go_to(terminal, 2)
-        assert any('[x]' in row for row in terminal.goal_lines(final=True))
+        counts = dict(terminal.goal_counts(), closed=3, correct=3, wrong=0)
+        terminal.goal_counts = lambda: counts
+        rows = terminal.goal_lines(final=True)
+        assert sum('[x]' in row for row in rows) == 2
 
     def test_the_shift_screen_has_no_stray_blank_line_without_a_brief(
             self, terminal):

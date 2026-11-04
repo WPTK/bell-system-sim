@@ -8,7 +8,7 @@ terminal proves they reach the screen.
 """
 
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 
 from bell_system.clock import TOURS_TO_DIVESTITURE
@@ -19,6 +19,8 @@ from bell_system.data.trouble import FAULTS
 from bell_system.npc import AUDIT_EXCEPTIONS, AUDIT_FAILED, AUDIT_PASSED
 from bell_system import ending
 from bell_system.reports import STATUS_CLOSED
+
+AT = datetime(1983, 12, 31, 9, 0)
 
 RING = Ring('TR-04001', '201-200-1234', '14:30', 'open')
 
@@ -154,7 +156,7 @@ class TestReadingTheCareer:
         career.finds = ['lmoslog']
         career.beats_seen = ['sandoval.2', 'favour:mreyes', 'settled:x']
         career.commendations = ['first_clean_tour']
-        held = ending.shape_of(career, terminal.desk, AUDIT_PASSED)
+        held = ending.shape_of(career, terminal.desk, AUDIT_PASSED, AT)
         assert held.finds == {'lmoslog'}
         assert held.heard == {'sandoval.2'}
         assert held.favours == {'mreyes'}
@@ -164,7 +166,7 @@ class TestReadingTheCareer:
     def test_a_state_with_no_company_gets_the_minority_held_one(
             self, terminal):
         terminal.career.office = {**terminal.career.office, 'state': 'CT'}
-        held = ending.shape_of(terminal.career, terminal.desk, AUDIT_PASSED)
+        held = ending.shape_of(terminal.career, terminal.desk, AUDIT_PASSED, AT)
         assert held.company == ''
         assert 'Southern New England' in held.outside
 
@@ -186,7 +188,7 @@ class TestTheBoardItIsReadOff:
         self.close(early, now + timedelta(minutes=10))
         self.close(late, now + timedelta(minutes=90))
         ring = ending.shape_of(terminal.career, terminal.desk,
-                               AUDIT_PASSED).ring
+                               AUDIT_PASSED, AT).ring
         assert ring.state == 'closed' and ring.number == late.number
         assert ring.time == late.closed_at.strftime('%H:%M')
 
@@ -194,20 +196,20 @@ class TestTheBoardItIsReadOff:
         done, waiting = self.board(terminal)
         self.close(done, terminal.clock.now() + timedelta(minutes=10))
         ring = ending.shape_of(terminal.career, terminal.desk,
-                               AUDIT_PASSED).ring
+                               AUDIT_PASSED, AT).ring
         assert ring.state == 'open' and ring.number == waiting.number
 
     def test_the_sheath_side_is_open_for_a_cable_dispatch_still_open(
             self, terminal):
         held, _ = self.board(terminal)
         assert not ending.shape_of(terminal.career, terminal.desk,
-                                   AUDIT_PASSED).sheath_open
+                                   AUDIT_PASSED, AT).sheath_open
         held.dispatched_to = 'Cable repair'
         assert ending.shape_of(terminal.career, terminal.desk,
-                               AUDIT_PASSED).sheath_open
+                               AUDIT_PASSED, AT).sheath_open
         self.close(held, terminal.clock.now())
         assert not ending.shape_of(terminal.career, terminal.desk,
-                                   AUDIT_PASSED).sheath_open
+                                   AUDIT_PASSED, AT).sheath_open
 
     def _alarmed_sheath(self, terminal):
         """A leak the gauge has alarmed on, with its job on the board."""
@@ -223,10 +225,10 @@ class TestTheBoardItIsReadOff:
         """Nobody dispatched, the board lists PJ-001, and he must know."""
         self.board(terminal)
         assert not ending.shape_of(terminal.career, terminal.desk,
-                                   AUDIT_PASSED).sheath_open
+                                   AUDIT_PASSED, AT).sheath_open
         self._alarmed_sheath(terminal)
         assert ending.shape_of(terminal.career, terminal.desk,
-                               AUDIT_PASSED).sheath_open
+                               AUDIT_PASSED, AT).sheath_open
 
     def test_a_repaired_sheath_is_not_open_whatever_was_heard(
             self, terminal):
@@ -235,17 +237,17 @@ class TestTheBoardItIsReadOff:
         terminal.career.beats_seen = ['sandoval.3']
         section, job = self._alarmed_sheath(terminal)
         assert ending.shape_of(terminal.career, terminal.desk,
-                               AUDIT_PASSED).sheath_open
+                               AUDIT_PASSED, AT).sheath_open
         terminal.desk.plant.repair(section, terminal.clock.now())
         assert not ending.shape_of(terminal.career, terminal.desk,
-                                   AUDIT_PASSED).sheath_open
+                                   AUDIT_PASSED, AT).sheath_open
 
     def test_the_franklin_beat_alone_does_not_open_the_sheath(
             self, terminal):
         self.board(terminal)
         terminal.career.beats_seen = ['sandoval.3']
         assert not ending.shape_of(terminal.career, terminal.desk,
-                                   AUDIT_PASSED).sheath_open
+                                   AUDIT_PASSED, AT).sheath_open
 
     def test_the_hour_is_kept_only_when_that_report_closed_inside_it(
             self, terminal):
@@ -253,13 +255,39 @@ class TestTheBoardItIsReadOff:
         terminal.career.beats_seen = ['favour:mreyes',
                                       f'favoured:{held.number}']
         assert not ending.shape_of(terminal.career, terminal.desk,
-                                   AUDIT_PASSED).hour_kept
+                                   AUDIT_PASSED, AT).hour_kept
         self.close(held, held.commitment + timedelta(minutes=5))
+        held.missed_commitment = True
         assert not ending.shape_of(terminal.career, terminal.desk,
-                                   AUDIT_PASSED).hour_kept
-        self.close(held, held.commitment - timedelta(minutes=5))
+                                   AUDIT_PASSED, AT).hour_kept
+        held.missed_commitment = False
         assert ending.shape_of(terminal.career, terminal.desk,
-                               AUDIT_PASSED).hour_kept
+                               AUDIT_PASSED, AT).hour_kept
+
+    def test_a_report_closed_on_a_later_tour_keeps_its_hour(self, terminal):
+        """
+        The stored commitment is a clock reading from the tour it was made
+        on. Closed eight days later with working time to spare, the clock
+        was past it and the hour read as not kept (TR-01625).
+        """
+        held, _ = self.board(terminal)
+        terminal.career.beats_seen = ['favour:mreyes',
+                                      f'favoured:{held.number}']
+        self.close(held, held.commitment + timedelta(days=8, hours=14))
+        assert held.closed_at > held.commitment and held.due_in() > timedelta(0)
+        assert ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED, AT).hour_kept
+
+    def test_an_open_report_is_due_when_the_board_says_not_when_it_was_made(
+            self, terminal):
+        """Carried to a later tour, 'due' is the clock now plus what is left."""
+        (held,) = self.board(terminal, count=1)
+        held.age(30)
+        now = held.commitment + timedelta(days=21)
+        ring = ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED, now).ring
+        expected = (now + held.due_in()).strftime('%H:%M')
+        assert ring.state == 'open' and ring.time == expected
 
 
 class TestOnTheLastDay:

@@ -423,7 +423,7 @@ class ShiftCommands(SessionState):
                     message, f'code {original.disposition}',
                     report.record.telephone_number,
                     report.record.class_of_service,
-                    report.commitment.strftime('%H:%M'))
+                    report.due_at(self.clock.now()).strftime('%H:%M'))
         self._queued_messages.append([after, message])
 
     def _drain_queue(self) -> List[str]:
@@ -473,6 +473,11 @@ class ShiftCommands(SessionState):
         them. Interruption rate is the difficulty's: a shift on the forgiving
         setting is quiet, a shift on the other one is not.
         """
+        if self.career.finished:
+            # The career ended with the last tour. Nothing is charged, the
+            # board does not age and nothing arrives: what the ending
+            # printed is what the record holds.
+            return ''
         quiet = not self.settings.is_on('game.ambience')
         difficulty = self._difficulty()
         pieces = self._advance_shift()
@@ -569,7 +574,7 @@ class ShiftCommands(SessionState):
         overdue = [
             Late(report.number, report.record.telephone_number,
                  report.record.class_of_service, report.out_of_service,
-                 report.commitment.strftime('%H:%M'))
+                 report.due_at(self.clock.now()).strftime('%H:%M'))
             for report in self.desk.pending() if report.overdue()]
         message = self.switchroom.next_message(
             self.clock.now(), self.career.shift, position=self.role,
@@ -662,7 +667,7 @@ class ShiftCommands(SessionState):
             waiting = sorted((r for r in self.desk.customers()
                               if not r.overdue()
                               and f'favoured:{r.number}' not in ledger),
-                             key=lambda r: r.commitment)
+                             key=lambda r: r.due_in())
             window = timedelta(minutes=FAVOUR_MINUTES)
             if login and waiting and waiting[0].due_in() <= window:
                 target = waiting[0]
@@ -672,7 +677,8 @@ class ShiftCommands(SessionState):
                 changed = True
                 spoken.append(render_message(room.favour(
                     self.clock.now(), login, target.number,
-                    target.commitment.strftime('%H:%M')), self._stamp()))
+                    target.due_at(self.clock.now()).strftime('%H:%M')),
+                    self._stamp()))
         if changed:
             self.career.save()
         return spoken
@@ -706,6 +712,8 @@ class ShiftCommands(SessionState):
         has to say about a commitment that passed is held for the next
         prompt, like any other message that arrives while you are busy.
         """
+        if self.career.finished:
+            return
         was = self.shift_minutes
         self.shift_minutes += minutes
         late = self.desk.age(minutes, was)
@@ -736,7 +744,7 @@ class ShiftCommands(SessionState):
                 self.clock.now(), report.number,
                 Late(report.number, report.record.telephone_number,
                      report.record.class_of_service, report.out_of_service,
-                     report.commitment.strftime('%H:%M'))))
+                     report.due_at(self.clock.now()).strftime('%H:%M'))))
         # The ledger is the only thing that remembers, across a quit, that
         # she has said it: written now, not at the next beat, or a resume
         # lets the board-driven chase ask the same again.
