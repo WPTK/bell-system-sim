@@ -68,8 +68,8 @@ The game writes these files to the state directory:
 | File | Contents |
 | --- | --- |
 | `career.json` | Difficulty, sign-offs, service index history and your wire centre. |
-| `shift.json` | The tour in progress. |
-| `home.json` | What you write under `/usr/users` and the moo scoreboard, up to 64 KB. A file that fails to load is renamed `home.json.bad` and never overwritten. |
+| `shift.json` | The tour in progress. One that fails to load is set aside as `shift.json.bad` and the tour starts fresh. |
+| `home.json` | What you write under `/usr/users` and the moo scoreboard, up to 64 KB. A file that fails to load is renamed `home.json.bad` (or `.bad.1`, `.bad.2`, so an earlier one is never overwritten). |
 | `settings.json` | Settings whose value differs from the default. |
 | `legacy.json` | What a finished career passes to the next one. |
 | `archive/career-N/` | A finished career's files, moved here by `career new`. |
@@ -104,7 +104,7 @@ report close 1 5 SHORT          close it as trouble found, fault SHORT
 | `qual` | Shows your sign-offs and service index. `qual take <name>` sits the practical for one. |
 | `shift` | Shows where you are in the tour. |
 | `handoff` | Prints the turnover record. `handoff relieve` signs off the tour. |
-| `career new` | Starts a new career once the last tour is signed off. |
+| `career new` | Prints what starting the next career will do, once the last tour is signed off. `career new confirm` files this career and starts the next. |
 | `exit` | Logs out. |
 
 The rest is a Seventh Edition UNIX shell with `ls`, `cd`, `cat`, `grep`, pipes, `ed`, `cc` and `nroff`. Your board is the directory `/usr/lmos`. Press Ctrl-C to stop a listing.

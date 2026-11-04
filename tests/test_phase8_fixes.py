@@ -734,7 +734,7 @@ class TestSmallThingsTheReviewFound:
         assert section.latent and not section.alarming()
         shown = terminal.execute_command('weather')
         assert f'cable {section.cable} binder {section.binder}' not in shown
-        assert 'No wet sheath on this board' in shown
+        assert 'No cable is reading low' in shown
 
     def test_weather_lists_it_once_the_gauge_does(self, terminal):
         from test_board_cases import _leaking_tour
@@ -761,11 +761,44 @@ class TestSmallThingsTheReviewFound:
         section = terminal.desk.plant.open_sections()[0]
         assert len(section.pairs) >= 1 and held
         shown = terminal.execute_command('weather')
-        plant = shown[shown.index('WHAT IT IS DOING TO THE PLANT'):]
+        plant = shown[shown.index('ON THE GAUGE'):]
         assert f'cable {section.cable}, ' in plant
         assert f'binder {section.binder}' not in plant
         assert f'pairs {section.first_pair}' not in plant
         assert 'reported' not in plant and 'wet' not in plant.lower()
+
+    @pytest.mark.parametrize('difficulty', ['craft', 'fun'])
+    @pytest.mark.parametrize('reports', [0, 1, 2])
+    @pytest.mark.parametrize('sky', ['CLEAR', 'CLOUDY', 'DRIZZLE', 'RAIN',
+                                     'HEAVY'])
+    def test_weather_speaks_in_gauge_and_sky_alone(
+            self, terminal, difficulty, reports, sky):
+        """
+        No fault, no force, no group: those are 'mlt' and the field's to
+        say (pillar 1). The rain stays; the advice that went with it goes.
+        """
+        terminal.settings.set('game.difficulty', difficulty)
+        terminal.desk.weather.key = sky
+        for _ in range(reports):
+            terminal.desk.receive(terminal.clock.now(), fault='WET')
+        shown = terminal.execute_command('weather')
+        lowered = shown.lower()
+        for word in ('wet', 'water', 'splicer', 'cable repair', 'binder',
+                     'pair', 'dispatch'):
+            assert word not in lowered, (word, shown)
+        assert terminal.desk.weather.condition.label in shown
+        if reports:
+            section = terminal.desk.plant.open_sections()[0]
+            assert f'cable {section.cable}, ' in shown and ' psi' in shown
+
+    def test_weather_does_not_tell_a_latent_sheath_from_none(self, terminal):
+        from test_board_cases import _leaking_tour
+        terminal.desk.weather.key = 'RAIN'
+        before = terminal.execute_command('weather')
+        _leaking_tour(terminal)
+        after = terminal.execute_command('weather')
+        plant = 'ON THE GAUGE'
+        assert before[before.index(plant):] == after[after.index(plant):]
 
     def test_the_marker_note_says_nothing_about_an_hour(self):
         from bell_system.data.cases import CASE_KINDS

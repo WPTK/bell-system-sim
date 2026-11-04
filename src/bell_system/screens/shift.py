@@ -406,25 +406,29 @@ class ShiftCommands(SessionState):
         office.lamp_book()
 
     def _queue_message(self, message, after: int) -> None:
-        """
-        Hold a message back so it lands a few commands from now.
+        """Hold a message back so it lands a few commands from now."""
+        self._queued_messages.append([after, self._repeat_told(message)])
 
-        A repeat is filed by the bureau (``bureau.py``, ``_close_report``) with
-        the code it was closed under and nothing of the customer; the class of
-        service and the new commitment are on the report, and the customer's
-        second call is made from them here. This is a workaround for not
-        editing that call site, which is outside this phase's files.
+    def _repeat_told(self, message):
+        """
+        A repeat's notice with the customer and the due time on it.
+
+        The bureau files a repeat with the code and nothing of the customer
+        (``bureau.py``, ``_close_report``); the rest is on the report. Said
+        again at delivery, because the due time is the clock then plus what
+        the report has left, and a notice held over a handoff had the time
+        of the tour that was over.
         """
         if message.kind == 'repeat' and message.about:
             report = self.desk.find(message.about)
             original = self.desk.find(report.repeat_of or '') if report else None
             if report and original:
-                message = self.switchroom.with_class(
+                return self.switchroom.with_class(
                     message, f'code {original.disposition}',
                     report.record.telephone_number,
                     report.record.class_of_service,
                     report.due_at(self.clock.now()).strftime('%H:%M'))
-        self._queued_messages.append([after, message])
+        return message
 
     def _drain_queue(self) -> List[str]:
         """Return any held messages that are now due."""
@@ -434,7 +438,8 @@ class ShiftCommands(SessionState):
             countdown, message = self._queued_messages.popleft()
             countdown -= 1
             if countdown <= 0:
-                due.append(render_message(message, self._stamp()))
+                due.append(render_message(
+                    self._repeat_told(message), self._stamp()))
             else:
                 remaining.append([countdown, message])
         self._queued_messages = remaining

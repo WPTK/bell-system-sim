@@ -631,6 +631,31 @@ class TestAmbience:
         second = terminal.execute_command('pwd')
         assert 'TR-00001' in second
 
+    def test_a_held_repeat_says_the_due_time_of_when_it_lands(self, terminal):
+        """
+        The notice was made when it was held, with that moment's clock, and
+        said a time the report no longer had once a handoff had passed.
+        """
+        first = terminal.desk.pending()[0]
+        repeat = terminal.desk.repeat(first, terminal.clock.now(), 0)
+        notice = terminal.switchroom.repeat_notice(
+            terminal.clock.now(), repeat.number, 'code 8',
+            repeat.record.telephone_number)
+        terminal._queue_message(notice, after=2)
+        held = (terminal.clock.now() + repeat.due_in()).strftime('%H:%M')
+        terminal.shift_minutes += 90
+        landed = (terminal.clock.now() + repeat.due_in()).strftime('%H:%M')
+        assert landed != held
+        assert terminal._drain_queue() == []
+        (said,) = terminal._drain_queue()
+        assert f'Due {landed}.' in said and f'Due {held}.' not in said
+
+    def test_one_report_is_not_one_reports_at_the_ending(self, terminal):
+        for closed, expected in ((1, '1 report off'), (2, '2 reports off')):
+            said = ' '.join(terminal.switchroom.last_word(
+                terminal.clock.now(), 13, closed, 3).lines)
+            assert expected in said.replace('  ', ' '), said
+
 
 class TestShiftHandoff:
     """Signing off, and what carries to the next shift."""
@@ -1154,12 +1179,34 @@ class TestShiftClock:
         assert not held.tested and held.status == 'PEND'
         assert not held.test_notes
 
+    def test_the_career_new_plan_counts_one_report_as_one(self, terminal):
+        self._ended(terminal)
+        terminal.career.reports_closed = 1
+        plan = terminal.execute_command('career new')
+        assert '1 report closed' in plan and '1 reports' not in plan
+
     def test_career_new_straight_after_the_ending_holds_what_it_printed(
             self, terminal):
         self._ended(terminal)
         printed = terminal.career.reports_closed
         plan = terminal.execute_command('career new')
         assert f'{printed} reports closed' in plan
+
+    def test_after_the_ending_shift_reads_as_ended_and_mlt_charges_nothing(
+            self, terminal):
+        self._ended(terminal)
+        terminal.shift_minutes = 457
+        shown = terminal.execute_command('shift')
+        assert 'Left                0:00' in shown
+        assert 'Worked              8:00 of 8:00' in shown
+        held = terminal.desk.customers()[0]
+        assert 'Charged to' not in terminal.execute_command(
+            f'mlt {held.number}')
+
+    def test_mlt_still_says_what_it_charged_while_the_tour_runs(
+            self, terminal):
+        held = terminal.desk.customers()[0]
+        assert 'Charged to' in terminal.execute_command(f'mlt {held.number}')
 
     def test_a_test_after_a_restart_charges_nothing(self, terminal):
         from bell_system.terminal import BellSystemTerminal

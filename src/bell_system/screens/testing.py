@@ -314,9 +314,10 @@ All switching functions normal.
                 f"C {measurement.capacitance_uf} uF; loop {loop_note}")
         self.desk.record_test(report, note)
 
-        lines.append('')
-        lines.append(f"Charged to {report.number}. "
-                     f"{commitment_label(report)}.")
+        if not report.sealed:
+            lines.append('')
+            lines.append(f"Charged to {report.number}. "
+                         f"{commitment_label(report)}.")
         return '\n'.join(lines)
     def cmd_testline(self, args: Optional[List[str]] = None) -> str:
         """Reach a test line or responder on a circuit and read the result."""

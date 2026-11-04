@@ -154,6 +154,63 @@ class TestWhatIsNotPickedUp:
             json.dump(stored, handle)
         assert not reopen(worked).resumed
 
+    @pytest.mark.parametrize('damage', [
+        lambda stored: stored['board'].pop('sequence'),
+        lambda stored: stored['weather'].pop('regime'),
+        lambda stored: stored['tour'].__setitem__('fired_events', 5),
+        lambda stored: stored['tour'].__setitem__('baseline', None),
+        lambda stored: stored['tour'].pop('shift_minutes'),
+        lambda stored: stored['board'].pop('repeat_count'),
+    ], ids=['sequence', 'regime', 'fired-events', 'baseline', 'minutes',
+            'repeats'])
+    def test_a_shift_missing_a_field_is_set_aside_not_raised(
+            self, worked, damage):
+        """
+        Valid JSON with one key gone used to crash every launch until the
+        file was deleted by hand: those reads came after the assignments.
+        """
+        import os
+        stored = save.read(worked.shift_file)
+        damage(stored)
+        with open(worked.shift_file, 'w') as handle:
+            json.dump(stored, handle)
+        fresh = reopen(worked)
+        assert not fresh.resumed
+        assert fresh.execute_command('report')
+        assert not os.path.exists(worked.shift_file)
+        assert os.path.exists(worked.shift_file + '.bad')
+
+    def test_nothing_is_assigned_from_a_refused_shift(self, worked):
+        stored = save.read(worked.shift_file)
+        stored['tour']['baseline'] = None
+        fresh = BellSystemTerminal()
+        before = (fresh.shift_minutes, fresh.desk._sequence,
+                  fresh.desk.weather.regime)
+        assert not save.restore(fresh, stored)
+        assert (fresh.shift_minutes, fresh.desk._sequence,
+                fresh.desk.weather.regime) == before
+
+    def test_a_shift_of_another_tour_is_discarded_not_kept(self, worked):
+        import os
+        stored = save.read(worked.shift_file)
+        stored['shift'] += 1
+        with open(worked.shift_file, 'w') as handle:
+            json.dump(stored, handle)
+        assert not reopen(worked).resumed
+        assert not os.path.exists(worked.shift_file + '.bad')
+
+    def test_a_second_bad_file_does_not_replace_the_first(self, worked):
+        import os
+        for text in ('first', 'second'):
+            with open(worked.shift_file, 'w') as handle:
+                handle.write(text)
+            reopen(worked)
+        with open(worked.shift_file + '.bad') as handle:
+            assert handle.read() == 'first'
+        with open(worked.shift_file + '.bad.1') as handle:
+            assert handle.read() == 'second'
+        assert not os.path.exists(worked.shift_file)
+
     def test_a_refused_file_leaves_a_working_board(self, worked):
         with open(worked.shift_file, 'w') as handle:
             handle.write('not json at all')

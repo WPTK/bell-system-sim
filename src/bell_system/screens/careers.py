@@ -57,7 +57,8 @@ class CareerCommands(SessionState):
         where, _number = legacy.next_archive(state_dir())
         return '\n'.join([
             f"Career {handed.generation} is finished: {career.shift} tours,"
-            f" {career.reports_closed} reports closed, audit "
+            f" {career.reports_closed} report"
+            f"{'' if career.reports_closed == 1 else 's'} closed, audit "
             f"{(career.audit_verdict or 'not recorded').lower()}.",
             "",
             "Starting the next one will:",
