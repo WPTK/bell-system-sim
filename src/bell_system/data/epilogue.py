@@ -55,7 +55,12 @@ class Shape(NamedTuple):
 
     verdict: str
     closed: int
-    open_count: int
+    # Whether the sheath side has work that is not done: a report sent to the
+    # cable force and still open, or the Franklin sheath Sandoval spoke of.
+    sheath_open: bool
+    # Whether the hour Reyes got on a report was kept, by that report being
+    # closed inside the commitment as extended.
+    hour_kept: bool
     # The company the player's own office belongs to. Empty where the office
     # is in a state with no wholly-owned company (Connecticut).
     company: str
@@ -87,7 +92,7 @@ def _reyes(shape: Shape) -> List[str]:
     """The bureau, once: a report, a number to ring, a time, a question."""
     ring = shape.ring
     if ring is None:
-        first = "Nothing is on my sheet tonight."
+        first = "My sheet is clear."
     elif ring.state == 'open':
         first = (f"{ring.number} on {ring.telephone}, due {ring.time}, "
                  f"goes over open.")
@@ -95,14 +100,19 @@ def _reyes(shape: Shape) -> List[str]:
         first = (f"{ring.number} on {ring.telephone}, closed {ring.time}, "
                  f"has not rung back.")
     # The record journal is the fourth sign-off's, and the chief's own list
-    # the fifth's (data/finds.py). She says no more than the player has read.
+    # the fifth's (data/finds.py). She says no more than she knows: that the
+    # machine refused her, and that the reports it refused her are open now.
+    # The chief did not tell her he reopened them, so she asks who did.
     if 'lmoslog' in shape.finds and 'reopened' in shape.finds:
-        second = ("The chief reopened mine at 06:15 in my place. "
-                  "May I tell him I know?")
+        second = ("The ones I could not reopen are open again. "
+                  "I did not open them. Who did?")
     elif 'lmoslog' in shape.finds:
-        second = ("I tried to reopen one at 03:47 and it said no. "
+        second = ("I tried to reopen one at 03:41 and it said no. "
                   "Does it still say no?")
-    elif 'mreyes' in shape.favours:
+    elif ring is None:
+        # Nobody to ring, so nothing to tell anybody.
+        second = _no_ring(shape)
+    elif 'mreyes' in shape.favours and shape.hour_kept:
         second = ("The hour I asked for was kept. "
                   "What do I tell them on the second?")
     elif shape.verdict == AUDIT_FAILED:
@@ -114,6 +124,15 @@ def _reyes(shape: Shape) -> List[str]:
     return [first, second]
 
 
+def _no_ring(shape: Shape) -> str:
+    """Reyes with no report to speak of: nobody has rung, so nobody is asked."""
+    if shape.verdict == AUDIT_FAILED:
+        return "The audit has it with your name. Nobody has rung yet."
+    if shape.verdict == AUDIT_EXCEPTIONS:
+        return "The audit noted it. Nobody has rung yet."
+    return "Nobody has rung. If they do on the second, I will know what to say."
+
+
 def _sandoval(shape: Shape) -> List[str]:
     """The field, once: the order-wire form and little else."""
     first = "Field to test desk."
@@ -123,6 +142,9 @@ def _sandoval(shape: Shape) -> List[str]:
     if 'jsandoval' in shape.favours:
         return [f"{first} You sent me the jobs that fit.",
                 "That is not nothing. Thank you."]
+    if shape.sheath_open:
+        return [f"{first} The sheath side is not finished.",
+                "It will be there when the next one comes on."]
     return [f"{first} Nothing open on the sheath side.",
             "That is all I have."]
 
@@ -140,9 +162,6 @@ def halloran_note(shape: Shape) -> List[str]:
     if 'retain' in shape.finds:
         return ["You read what is kept. All of it is kept seven years.",
                 "Your record will be in it."]
-    if shape.closed and not shape.finds:
-        return ["There is more on this machine than the board.",
-                "It will be here."]
     return []
 
 

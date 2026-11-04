@@ -442,17 +442,19 @@ QUALIFICATIONS: List[Qualification] = [
         'toll', 'Toll Network',
         'The toll network, its measurement systems and the traffic that '
         'crosses regions.',
-        # Twelve. tools/index_calibration.py plays whole careers through the
-        # terminal. Outside-plant jobs were halved for #64 (one lineman was
-        # the whole shift's dead time), so a bot closes more reports a tour
-        # and ten (120 correct closes on I Hate Myself) no longer holds the
-        # 60-in-100 bot back: it reached Toll in 75% of careers, up from 45%.
-        # At twelve (144), in 20 careers each, a bot at 90 in 100 signs off
-        # on all six in 100% of them (median tour 11), one at 75 in 80%, and
-        # one at 60 in 20%. A person is slower than that bot, so on I Hate
-        # Myself Toll is for someone working very well. assist.pace is the
-        # way to ask for the quicker ladder without changing the scoring.
-        requires_reports=12,
+        # Thirteen. tools/index_calibration.py plays whole careers through the
+        # terminal, one seed one career, 20 careers a row. Outside-plant jobs
+        # were halved for #64 (one lineman was the whole shift's dead time),
+        # so a bot closes more reports a tour, and at ten (120 correct closes
+        # on I Hate Myself) the bot that names the fault 60 times in 100
+        # reached Toll in 65% of careers and the one at 75 in all of them.
+        # On the old jobs at ten they were 0% and 15%. At thirteen (156) the
+        # new jobs give 0% and 20%, and a bot at 90 in 100 signs off on all
+        # six in 90% of careers, the median on tour 12: the old shape. A
+        # person is slower than that bot, so on I Hate Myself Toll is for
+        # someone working very well. assist.pace is the way to ask for the
+        # quicker ladder without changing the scoring.
+        requires_reports=13,
         unlocks=('toll', 'tnds', 'traffic'),
         verb='toll control <block|reroute|off>',
         verb_effect='Hold calls off a congested route to thin the board. '

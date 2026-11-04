@@ -95,7 +95,7 @@ from a bigger board. The shape column is each tour's `kind` and `theme` in
 ### Fun against craft
 
 Sign-offs need cumulative correct closes of `requires_reports * reports_per_qualification`.
-`requires_reports` is 1, 2, 4, 6, 12 for Frame, Office, SCC, Trunk, Toll
+`requires_reports` is 1, 2, 4, 6, 13 for Frame, Office, SCC, Trunk, Toll
 (`progression.QUALIFICATIONS`).
 
 | Sign-off | Fun | Craft | Earliest tour, 10 a tour | Earliest tour, 5 a tour |
@@ -104,13 +104,14 @@ Sign-offs need cumulative correct closes of `requires_reports * reports_per_qual
 | Office | 6 | 24 | fun 1, craft 3 | fun 2, craft 5 |
 | SCC | 12 | 48 | fun 2, craft 5 | fun 3, craft 10 |
 | Trunk | 18 | 72 | fun 2, craft 8 | fun 4, craft 15 (not in 13) |
-| Toll | 36 | 144 | fun 4, craft 15 (not in 13) | fun 8, craft 29 (not in 13) |
+| Toll | 39 | 156 | fun 4, craft 16 (not in 13) | fun 8, craft 32 (not in 13) |
 
-"10 a tour" is a round pace for reading the table. The calibration bot now
-closes about 13 a tour (outside-plant jobs were halved for #64): at 90 in 100
-it reaches Toll on craft in 100% of careers, median on tour 11, at 75 in 80%,
-at 60 in 20% (`requires_reports` 12; ten let the 60 bot in 75% of the time).
-That is a ceiling for a person. "5 a tour" is a **guess** for a careful first-time human; the last
+"10 a tour" is a round pace for reading the table. The calibration bot
+closes about 16 a tour (outside-plant jobs were halved for #64). At 90 in 100
+it reaches Toll on craft in 90% of careers, median on tour 12, at 75 in 20%,
+at 60 in none (`requires_reports` 13; at ten, with the shorter jobs, the 60
+bot got there 65% of the time). That is a ceiling for a person. "5 a tour" is
+a **guess** for a careful first-time human; the last
 measurement of human pace (2 to 7 closes a tour, S2) was taken before the
 clock fix in PR 46 and plan section 4 item 3 says to re-measure. That is C7.
 

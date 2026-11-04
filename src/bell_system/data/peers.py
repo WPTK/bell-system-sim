@@ -25,13 +25,30 @@ from typing import Dict, Tuple
 # then. The run that writes real numbers sets it True.
 GENERATED = True
 
+# How they were played, so that this file can be written again from nothing.
+# ``python3 tools/index_calibration.py peers 4`` plays these careers
+# and writes the same numbers. A career is ``play_career(skill, difficulty,
+# seed, dawdle=dawdle)``, seeds counting up from 1 on each difficulty across
+# the skills, then the dawdles, then the careers.
+CAREERS_PER_CELL = 4
+SEEDS = (1, 48)
+SKILLS = (0.55, 0.7, 0.85, 0.95)
+# Minutes the peer sits on the clock after every close.
+DAWDLES = (0, 20, 45)
+# Times the peer asks again, a minute apart, for a crew that is out, before
+# closing the report anyway.
+CREW_WAITS = 6
+TOURS = 13
+# A tour counts toward the deciles only with this many closes.
+MINIMUM_CLOSES = 5
+
 PEERS: Dict[str, Dict[str, Tuple[float, ...]]] = {
     'fun': {
-        'mttr': (234.6, 321.1, 365.6, 387.6, 412.0, 440.4, 473.9, 507.3, 552.8, 640.1),
-        'accuracy': (45.5, 55.6, 64.3, 71.4, 77.2, 81.8, 87.5, 92.3, 100.0, 100.0),
+        'mttr': (224.9, 323.7, 366.2, 399.1, 426.6, 456.7, 500.9, 539.3, 585.7, 681.9),
+        'accuracy': (46.2, 57.1, 66.7, 72.7, 77.8, 83.3, 88.9, 92.3, 100.0, 100.0),
     },
     'craft': {
-        'mttr': (179.2, 230.1, 261.5, 295.2, 329.1, 359.6, 387.0, 421.9, 467.3, 544.5),
-        'accuracy': (45.5, 55.6, 64.3, 70.8, 76.9, 81.8, 86.7, 91.8, 95.7, 100.0),
+        'mttr': (176.4, 235.8, 279.2, 314.2, 335.4, 364.4, 389.0, 425.2, 474.9, 571.4),
+        'accuracy': (43.0, 56.2, 64.3, 71.4, 76.6, 81.0, 87.5, 91.7, 94.9, 100.0),
     },
 }

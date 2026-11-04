@@ -430,6 +430,10 @@ class SessionState:
         """Sign off: bank the index and start the next tour."""
         raise NotImplementedError
 
+    def _time_is_up(self) -> str:
+        """Eight hours are worked: relief takes the position."""
+        raise NotImplementedError
+
     def tour_minute(self) -> int:
         """The shift minute the desks count their windows against."""
         raise NotImplementedError

@@ -8,6 +8,7 @@ terminal proves they reach the screen.
 """
 
 import re
+from datetime import timedelta
 
 
 from bell_system.clock import TOURS_TO_DIVESTITURE
@@ -17,6 +18,7 @@ from bell_system.data.finds import FRAGMENTS_BY_KEY
 from bell_system.data.trouble import FAULTS
 from bell_system.npc import AUDIT_EXCEPTIONS, AUDIT_FAILED, AUDIT_PASSED
 from bell_system import ending
+from bell_system.reports import STATUS_CLOSED
 
 RING = Ring('TR-04001', '201-200-1234', '14:30', 'open')
 
@@ -24,7 +26,7 @@ RING = Ring('TR-04001', '201-200-1234', '14:30', 'open')
 def shape(**changes):
     """A shape with nothing in it, changed by what a test is about."""
     base = dict(
-        verdict=AUDIT_PASSED, closed=40, open_count=3,
+        verdict=AUDIT_PASSED, closed=40, sheath_open=False, hour_kept=True,
         company='New Jersey Bell Telephone Company', holding='Bell Atlantic',
         outside='', heard=frozenset(), favours=frozenset(),
         finds=frozenset(), commendations=frozenset(), ring=RING)
@@ -37,6 +39,12 @@ def said(subject):
     chief = halloran_note(subject)
     return '\n'.join([line for _, _, lines in pieces(subject)
                       for line in lines] + chief)
+
+
+def speech(subject, sender):
+    """What one person says in the epilogue, as one string."""
+    return '\n'.join(line for _, who, lines in pieces(subject)
+                     if who == sender for line in lines)
 
 
 SHAPES = {
@@ -75,10 +83,32 @@ class TestFourCareers:
 
     def test_reyes_says_no_more_than_the_player_has_read(self):
         nothing = said(shape())
-        assert '03:47' not in nothing and 'reopened' not in nothing
-        assert '03:47' in said(shape(finds=frozenset({'lmoslog'})))
+        assert '03:41' not in nothing and 'reopen' not in nothing
+        assert '03:41' in said(shape(finds=frozenset({'lmoslog'})))
         both = said(shape(finds=frozenset({'lmoslog', 'reopened'})))
-        assert 'reopened' in both and '06:15' in both
+        # She was not told the chief did it, so she asks and does not say.
+        assert 'Who did?' in both
+        assert '06:1' not in both and 'chief' not in speech(shape(
+            finds=frozenset({'lmoslog', 'reopened'})), 'mreyes')
+
+    def test_reyes_names_the_hour_kept_only_if_it_was(self):
+        liked = frozenset({'mreyes'})
+        assert 'was kept' in said(shape(favours=liked, hour_kept=True))
+        assert 'was kept' not in said(shape(favours=liked, hour_kept=False))
+
+    def test_an_empty_board_has_nobody_to_ring_and_no_time_of_day(self):
+        for verdict in (AUDIT_PASSED, AUDIT_EXCEPTIONS, AUDIT_FAILED):
+            text = speech(shape(ring=None, verdict=verdict), 'mreyes')
+            assert 'tonight' not in text and 'tell them' not in text
+            assert 'Nobody has rung' in text
+
+    def test_sandoval_says_the_sheath_side_is_open_only_when_it_is(self):
+        assert 'Nothing open' in speech(shape(), 'jsandoval')
+        held = speech(shape(sheath_open=True), 'jsandoval')
+        assert 'Nothing open' not in held and 'sheath side' in held
+
+    def test_the_chief_does_not_nudge_a_player_toward_the_files(self):
+        assert halloran_note(shape(closed=40)) == []
 
     def test_sandoval_names_the_company_only_after_the_memo_beat(self):
         assert 'The memo means' not in said(shape())
@@ -137,6 +167,67 @@ class TestReadingTheCareer:
         held = ending.shape_of(terminal.career, terminal.desk, AUDIT_PASSED)
         assert held.company == ''
         assert 'Southern New England' in held.outside
+
+
+class TestTheBoardItIsReadOff:
+    def board(self, terminal, count=2):
+        terminal.desk.reports.clear()
+        terminal.desk.order.clear()
+        terminal.desk.open_shift(terminal.clock.now(), 0, count=count)
+        return list(terminal.desk.pending())
+
+    def close(self, held, when):
+        held.status = STATUS_CLOSED
+        held.closed_at = when
+
+    def test_a_clear_board_speaks_of_the_last_report_closed(self, terminal):
+        early, late = self.board(terminal)
+        now = terminal.clock.now()
+        self.close(early, now + timedelta(minutes=10))
+        self.close(late, now + timedelta(minutes=90))
+        ring = ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).ring
+        assert ring.state == 'closed' and ring.number == late.number
+        assert ring.time == late.closed_at.strftime('%H:%M')
+
+    def test_an_open_report_is_spoken_of_before_a_closed_one(self, terminal):
+        done, waiting = self.board(terminal)
+        self.close(done, terminal.clock.now() + timedelta(minutes=10))
+        ring = ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).ring
+        assert ring.state == 'open' and ring.number == waiting.number
+
+    def test_the_sheath_side_is_open_for_a_cable_dispatch_still_open(
+            self, terminal):
+        held, _ = self.board(terminal)
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).sheath_open
+        held.dispatched_to = 'Cable repair'
+        assert ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).sheath_open
+        self.close(held, terminal.clock.now())
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).sheath_open
+
+    def test_the_franklin_beat_keeps_the_sheath_side_open(self, terminal):
+        self.board(terminal)
+        terminal.career.beats_seen = ['sandoval.3']
+        assert ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).sheath_open
+
+    def test_the_hour_is_kept_only_when_that_report_closed_inside_it(
+            self, terminal):
+        held, _ = self.board(terminal)
+        terminal.career.beats_seen = ['favour:mreyes',
+                                      f'favoured:{held.number}']
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).hour_kept
+        self.close(held, held.commitment + timedelta(minutes=5))
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).hour_kept
+        self.close(held, held.commitment - timedelta(minutes=5))
+        assert ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).hour_kept
 
 
 class TestOnTheLastDay:

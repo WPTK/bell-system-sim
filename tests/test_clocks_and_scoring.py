@@ -468,7 +468,7 @@ class TestOldSavesDoNotBurstOnLoad:
 class TestTheSuggestedWaitIsTheRealOne:
     """'Next:' is worked out against the clock as the command will leave it."""
 
-    def block_cable_crews(self, terminal, minutes=600):
+    def block_cable_crews(self, terminal, minutes=300):
         terminal.settings.set('game.prompts', 'on')
         for number in ('TR-90001', 'TR-90002'):
             terminal.desk.force.send('Cable repair', number, minutes,

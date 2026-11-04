@@ -8,17 +8,20 @@ here changes the career, and a career that is read twice ends the same way.
 """
 
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Iterable, List, Optional
 
 from .data.companies import NOT_WHOLLY_OWNED, RBOCS, for_state
 from .data.epilogue import Ring, Shape, halloran_note, pieces
 from .npc import Message, render as render_message
+from .reports import STATUS_CLOSED
 
 # The arc beats and favours the ending listens for (npc.py ARC_BEATS and
 # FAVOURS). Anything else in the ledger is not the ending's business.
 _BEATS = ('alvarez.1', 'alvarez.2', 'reyes.1', 'reyes.2',
           'sandoval.1', 'sandoval.2', 'sandoval.3')
 _FAVOUR_PREFIX = 'favour:'
+_FAVOURED_PREFIX = 'favoured:'
+_SHEATH_FORCE = 'cable repair'
 
 
 def _ring(desk: Any) -> Optional[Ring]:
@@ -28,12 +31,43 @@ def _ring(desk: Any) -> Optional[Ring]:
         report = pending[0]
         return Ring(report.number, report.record.telephone_number,
                     report.commitment.strftime('%H:%M'), 'open')
+    # closed() is newest first, so the last one closed is the first.
     closed = [held for held in desk.closed() if held.closed_at]
     if closed:
-        report = closed[-1]
+        report = closed[0]
         return Ring(report.number, report.record.telephone_number,
                     report.closed_at.strftime('%H:%M'), 'closed')
     return None
+
+
+def _sheath_open(desk: Any, heard: Iterable[str]) -> bool:
+    """
+    Whether the sheath side has work that is not done.
+
+    That is a report the player sent the cable force to and has not closed,
+    or the Franklin sheath Sandoval spoke of on the order wire. It reads the
+    dispatch the player made, never the cause of any report (pillar 1).
+    """
+    return ('sandoval.3' in heard
+            or any((held.dispatched_to or '').lower() == _SHEATH_FORCE
+                   for held in desk.customers()))
+
+
+def _hour_kept(desk: Any, ledger: Iterable[str]) -> bool:
+    """
+    Whether the hour Reyes got was kept: the report it was given for was
+    closed by the commitment as extended. A report that has left the desk,
+    or is still open, did not keep it.
+    """
+    entries = list(ledger)
+    if 'favour:mreyes' not in entries:
+        return False
+    after = entries[entries.index('favour:mreyes') + 1:]
+    number = next((entry[len(_FAVOURED_PREFIX):] for entry in after
+                   if entry.startswith(_FAVOURED_PREFIX)), '')
+    held = desk.reports.get(number)
+    return bool(held and held.status == STATUS_CLOSED and held.closed_at
+                and held.closed_at <= held.commitment)
 
 
 def shape_of(career: Any, desk: Any, verdict: str) -> Shape:
@@ -51,7 +85,8 @@ def shape_of(career: Any, desk: Any, verdict: str) -> Shape:
     return Shape(
         verdict=verdict,
         closed=career.reports_closed,
-        open_count=len(desk.customers()),
+        sheath_open=_sheath_open(desk, ledger),
+        hour_kept=_hour_kept(desk, ledger),
         company=company.name if company else '',
         holding=(RBOCS.get(company.rboc, '')
                  if company and company.verified else ''),

@@ -28,6 +28,7 @@ from ..npc import (
     AUDIT_EXCEPTIONS,
     AUDIT_FAILED,
     AUDIT_PASSED,
+    Message,
     render as render_message,
 )
 from ..progression import QUALIFICATIONS
@@ -419,6 +420,22 @@ this shift and the next one starts on a fresh board."""
                 "looked at it this tour.\n\n"
                 "Read it with 'report', then 'handoff relieve' again.")
 
+    def _time_is_up(self) -> str:
+        """
+        Eight hours are worked: relief takes the position.
+
+        The same sign-off as ``handoff relieve``, without the refusal for a
+        tour with nothing in it, since the tour has run its length. The
+        board goes as it stands.
+        """
+        said = render_message(Message(
+            channel='write', sender='ehalloran', received=self.clock.now(),
+            lines=['That is eight hours.',
+                   'Relief is on the floor. I am handing the position over.'],
+            kind='shift', subject='End of shift', about=None,
+        ), self._stamp())
+        return f"{said}\n\n{self._end_shift()}"
+
     def _end_shift(self) -> str:
         """
         Sign off: bank the index, advance the shift, and start a new board.
@@ -674,9 +691,6 @@ this shift and the next one starts on a fresh board."""
             f"  Worked              {self.shift_time()} of "
             f"{SHIFT_LENGTH_MINUTES // 60}:00",
             f"  Left                {left // 60}:{left % 60:02d}",
-            *([f"  Past the end        "
-               f"{hours_minutes(self.shift_minutes - SHIFT_LENGTH_MINUTES)}"]
-              if self.shift_minutes > SHIFT_LENGTH_MINUTES else []),
             '',
             f"  On the board        {len(pending)}",
             f"  Past commitment     {len(overdue)}",

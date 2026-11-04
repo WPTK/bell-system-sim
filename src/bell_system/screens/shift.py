@@ -442,14 +442,20 @@ class ShiftCommands(SessionState):
 
     def _interrupt(self) -> str:
         """
-        Advance the shift; the building's word, then the chief's if it is time.
+        Advance the shift; the building's word, then relief if time is up.
 
-        Time being up is the clock's, so ambience off does not hold it back.
+        Eight hours is the tour. The command that crosses it has finished by
+        now, so the handoff runs after it, as ``handoff relieve`` would, and
+        ambience off does not hold it back. The handoff starts the next tour
+        on a clock at zero, so nothing here can fire twice.
         """
         if getattr(self, '_in_pipeline', False):
             return ''  # a pipeline charges for itself once it finishes
-        return '\n'.join(piece for piece in (
-            self._building_says(), self._shift_over_due()) if piece)
+        said = self._building_says()
+        if self.shift_minutes < SHIFT_LENGTH_MINUTES or self.career.finished:
+            return said
+        return '\n'.join(piece for piece in (said, self._time_is_up())
+                         if piece)
 
     def _building_says(self) -> str:
         """
@@ -808,7 +814,7 @@ class ShiftCommands(SessionState):
         """
         on_board = {event['id'] for event in self.shift_events}
         self._fired_events = {fired for fired in self._fired_events
-                              if fired in on_board or fired == 'SHIFT-END'}
+                              if fired in on_board}
         for event in self._due_events():
             self._fired_events.add(event['id'])
             if event.get('status') == 'PENDING':
@@ -835,27 +841,6 @@ class ShiftCommands(SessionState):
 
         return notices
 
-    def _shift_over_due(self) -> str:
-        """The wire chief calling time, once, the first time it is past."""
-        if (self.shift_minutes < SHIFT_LENGTH_MINUTES
-                or 'SHIFT-END' in self._fired_events):
-            return ''
-        self._fired_events.add('SHIFT-END')
-        return self._shift_over_notice()
-
-    def _shift_over_notice(self) -> str:
-        """Return the wire chief telling you your eight hours are up."""
-        pending = len(self.desk.pending())
-        overdue = sum(1 for report in self.desk.pending() if report.overdue())
-        return render_message(Message(
-            channel='write', sender='ehalloran', received=self.clock.now(),
-            lines=[
-                'That is eight hours.',
-                f'{pending} still on your board, {overdue} past commitment.',
-                "'handoff relieve' when you are ready to sign off.",
-            ],
-            kind='shift', subject='End of shift', about=None,
-        ), self._stamp())
     def cmd_write(self, args: Optional[List[str]] = None) -> str:
         """Send a line to another craftsperson's terminal, as write(1) did."""
         args = args or []
