@@ -1,18 +1,18 @@
 # Sources
 
 Every historical value in this simulation is one of three things: verified
-against a document in this repository, sourced externally and marked as such,
-or explicitly recorded as the simulation's own invention. This file is the
-map for the first two.
+against one of the period documents listed below, sourced externally and
+marked as such, or explicitly recorded as the simulation's own invention.
+This file is the map for the first two.
 
-## What ships in the repository
+## The period documents
 
-The `attached_assets/` directory holds the searchable text of the documents
-the code cites. They are plain text, so a claim in a docstring can be checked
-with `grep`:
+The code cites a set of period documents. Their searchable text is not part
+of this repository; the maintainer keeps it as plain text, so a claim in a
+docstring can be checked with `grep` against a copy:
 
 ```
-grep -n "1300 ohms" attached_assets/Engineering_and_Operations_in_the_Bell_System_2ed_1984_djvu.txt
+grep -n "1300 ohms" Engineering_and_Operations_in_the_Bell_System_2ed_1984_djvu.txt
 ```
 
 ### Most cited
@@ -26,7 +26,7 @@ grep -n "1300 ohms" attached_assets/Engineering_and_Operations_in_the_Bell_Syste
 ### Full text inventory
 
 Sixty-five files, 968,959 lines and 2,668,827 words of searchable
-text. Counted in lines and words rather than megabytes because that is
+text, none of them in this repository. Counted in lines and words rather than megabytes because that is
 what the number is for: these are grepped, and `grep -n` answers in
 line numbers.
 
@@ -100,7 +100,7 @@ line numbers.
 
 ## Sourced from outside this repository
 
-Some of what the simulation depicts is not in any document here. Where that
+Some of what the simulation depicts is not in any of the period documents above. Where that
 is so, the module says where it came from and what it will not claim. This
 is the index of those.
 
@@ -169,8 +169,15 @@ invented to fill the gap:
 
 ## What does not ship
 
-Two categories were removed from the working tree. Both are recoverable;
-neither is needed to run, test or develop the simulation.
+Three categories are not in the repository. All are recoverable; none is needed
+to run or test the simulation.
+
+### The period document text
+
+The sixty-five `*_djvu.txt` files in the inventory above were tracked until
+release 5.0.0 and were then removed from the repository. They were never used
+at runtime and no test reads them. They were reference reading for the
+historical accuracy work.
 
 ### The NANPA geographic dump
 

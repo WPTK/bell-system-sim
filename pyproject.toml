@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bell-system-unix-v7"
-version = "4.0.0"
+version = "5.0.0"
 authors = [
     {name = "Bell System Operations Simulation Project"},
 ]
@@ -61,15 +61,10 @@ bell_system = ["data/*.csv.gz"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.black]
-line-length = 100
-target-version = ['py39']
-include = '\.pyi?$'
-
 [tool.ruff]
 line-length = 100
 target-version = "py39"
-exclude = ["build", "dist", "attached_assets"]
+exclude = ["build", "dist"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]

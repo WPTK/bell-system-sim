@@ -1145,7 +1145,7 @@ BELL SYSTEM PRACTICES
      BSP 010-100-000 - Shift Turnover Procedures, cited by the turnover
      checklist this command prints. The practice number is the one the
      simulation shows on that checklist; it is not independently verified
-     against a bundled document.
+     against any of the period documents SOURCES.md lists.
 """,
 
     "tariff": """
@@ -1515,6 +1515,27 @@ SETTINGS
                          Whether diagnostic log records print to the terminal.
                          They always reach the log file.
 
+     game.difficulty     fun | craft
+                         fun is Fun Simulation: a report can be closed
+                         without measuring and a wrong call costs little.
+                         craft is I Hate Myself: measure before you close,
+                         repeat reports come back on your index and
+                         commitments are counted. The assists below set one
+                         part of either.
+
+     game.ambience       on | off
+                         on lets the other craft interrupt you on write(1),
+                         mail(1), the order wire and the maintenance teletype,
+                         at the rate the difficulty sets. off leaves the
+                         terminal to you.
+
+     game.prompts        off | on
+                         on puts one line after a command that leaves you
+                         with nothing obvious in front of you, naming the
+                         report that most wants working and the command that
+                         works it. It is off by default; the first tour has
+                         the wire chief for this.
+
 EXAMPLES
      set                          Show the settings screen
      set date.format              Explain one setting
@@ -1553,6 +1574,11 @@ ASSISTS
                          never; for the first two sightings of each kind of
                          trouble, then the crew class for two more; or
                          always.
+     assist.sections            profile | named | assumed
+                         named has Cable repair ask for a cable and binder
+                         group and open the one you give it, so a wrong
+                         group costs a trip. assumed opens the sheath the
+                         report is on when you give none.
 
 SEE ALSO
      date(1), status(1), verbosity(1)
@@ -1855,8 +1881,9 @@ TIME
      Every action is charged against the report's commitment: a measurement
      costs four minutes, a call back eight, a repair as long as that repair
      takes, and a trip by the wrong force forty-five. The commitment
-     intervals and these costs are the simulation's own; no bundled source
-     states the Bell System's actual commitment policy.
+     intervals and these costs are the simulation's own; none of the period
+     documents SOURCES.md lists states the Bell System's actual commitment
+     policy.
 
 SEE ALSO
      mlt(1), testboard(1), testline(1), qual(1), trouble(1)
@@ -2075,20 +2102,22 @@ SYNOPSIS
      qual index
 
 DESCRIPTION
-     What a craftsperson was allowed to work on was governed by
-     qualification, not by seniority or by asking nicely. This command shows
-     which sign-offs you hold, which you are working toward, and how the
-     work you have done is scoring.
+     This command shows which sign-offs you hold, which you are working
+     toward, and how the work you have done is scoring.
 
-     The position you were assigned to carries its own sign-off. Everything
-     beyond that desk is earned a correctly closed report at a time.
+     The ladder is the simulation's own. A craft job did grow by being
+     trusted with more of the plant, but no source consulted says how many
+     reports earned which sign-off, or that a sign-off locked a command.
+     Here one does. The position you were assigned carries its own sign-off;
+     the rest are offered as correct closures add up, and a practical on
+     your own board signs each one.
 
 QUALIFICATIONS
      Loop and Station              report, mlt, trouble, testboard, testline
      Main Distributing Frame       cosmos, lmos
      Central Office Switching      switch, alarm, crossbar, 3a
-     Switching Control Center      sarts, orderwire
-     Interoffice Trunks            trunk, routing, dialtone
+     Switching Control Center      sarts, orderwire, connect
+     Interoffice Trunks            trunk, routing, dialtone, testcall
      Toll Network                  toll, tnds, traffic
 
 SERVICE INDEX
@@ -2433,8 +2462,8 @@ NOTES
      COMMON LANGUAGE circuit identification format, which no document
      available to this project sets out in full. Per-category circuit counts
      and trouble rates are this simulation's own. Seven of the nine service
-     categories are attested by name in the bundled documents; 'sarts
-     categories' marks which.
+     categories are attested by name in the period documents SOURCES.md
+     lists; 'sarts categories' marks which.
 
 QUALIFICATION
      Requires the Switching Control Center sign-off.

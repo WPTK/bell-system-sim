@@ -233,7 +233,7 @@ SHEETS: Dict[str, Sheet] = {sheet.number: sheet for sheet in (
           [('The complaint wording', OWN),
            ('The pairing of wording and condition', OWN),
            ('Busy and reorder as the same two tones at different cadences',
-            OWN + ': 480 and 620 Hz, as docs/changelog.md has it; no '
+            OWN + ': 480 and 620 Hz, the pair tone(1) writes; no '
             'source was consulted')],
           _customer_says),
     Sheet('660-005', 'Closing out a report',

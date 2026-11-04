@@ -177,16 +177,16 @@ DIFFICULTY
          report cannot be closed until it has been measured. Wrongly closed
          lines come back as repeats. Missed commitments count.
          Qualification is four times slower and the building interrupts you
-         four times as often.
+         nearly four times as often.
 
      set game.ambience off
          Silence the other craft.
 
 QUALIFICATION AND THE SERVICE INDEX
-     What a craftsperson was allowed to work on was governed by
-     qualification. You start signed off on Loop and Station, plus whatever
-     your assigned position carries, and earn the rest a correctly closed
-     report at a time.
+     The ladder is the simulation's own. No source consulted says how many
+     reports earned which sign-off, or that a sign-off locked a command. You
+     start signed off on Loop and Station, plus whatever your assigned
+     position carries, and are offered the rest as correct closures add up.
 
      Loop and Station              report, mlt, trouble, testboard,
                                    testline
@@ -371,7 +371,7 @@ SEE ALSO
      Journal; the Bell System Practices (see bsp).
 
 VERSION
-     Bell System UNIX V7 Terminal Simulation 4.0.0
+     Bell System UNIX V7 Terminal Simulation 5.0.0
 
 AUTHORS
      Bell System Operations Simulation Project

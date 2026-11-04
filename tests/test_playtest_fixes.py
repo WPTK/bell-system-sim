@@ -230,30 +230,17 @@ class TestTheFaultTableSaysHowToCloseRoh:
         assert shown.count(', not 8') == 1
 
 
-class TestTheDocsAgreeWithTheCode:
-    def test_the_readme_says_two_sightings_not_four(self):
-        import os
-        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, 'README.md'), encoding='utf-8') as f:
-            text = ' '.join(f.read().split())
-        assert 'first two times' in text
+class TestTheManualAgreesWithTheCode:
+    def test_the_set_page_says_two_sightings_not_four(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        text = ' '.join(MAN_PAGES['set'].split())
+        assert 'first two sightings' in text
         assert 'first four times' not in text
         assert 'first four sightings' not in text
 
-    def test_the_curve_names_every_tours_kind(self):
-        import os
-        from bell_system.data import tours
-        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        path = os.path.join(root, 'docs', 'design', 'difficulty-curve.md')
-        with open(path, encoding='utf-8') as f:
-            rows = [line for line in f.read().splitlines()
-                    if line.startswith('| ') and line[2:3].isdigit()]
-        shapes = {}
-        for row in rows:
-            cells = [cell.strip() for cell in row.strip('|').split('|')]
-            if len(cells) == 7:
-                shapes[int(cells[0])] = cells[6]
-        for entry in tours.TOURS:
-            shape = shapes[entry.number]
-            assert shape.startswith(entry.kind.capitalize()), entry.number
-            assert entry.theme in shape, entry.number
+    def test_the_set_page_lists_every_setting(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        from bell_system.settings import OPTIONS
+        missing = [option.key for option in OPTIONS
+                   if option.key not in MAN_PAGES['set']]
+        assert not missing

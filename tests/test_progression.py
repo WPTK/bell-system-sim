@@ -598,11 +598,12 @@ class TestWhatQualificationClaims:
         with open(os.path.join(self.ROOT, name), encoding='utf-8') as handle:
             return handle.read()
 
-    def test_the_readme_does_not_say_qualification_governed_the_job(self):
-        readme = self.read('README.md')
-        assert 'was governed by qualification' not in readme
-        ladder = readme.split('A career, and its last day')[1][:900]
-        assert "simulation's own" in ladder
+    def test_the_manual_does_not_say_qualification_governed_the_job(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        for page in MAN_PAGES.values():
+            assert 'was governed by qualification' not in page
+        ladder = ' '.join(MAN_PAGES['qual'].split())
+        assert "The ladder is the simulation's own" in ladder
 
     def test_the_progression_module_does_not_either(self):
         import bell_system.progression as module
