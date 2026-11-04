@@ -594,6 +594,9 @@ this shift and the next one starts on a fresh board."""
         career.audit_open = list(found.open_numbers)
         career.audit_late = found.late
         career.finished = True
+        # Signing off was the last thing done to the board; a command
+        # chained after it must find the board as the ending read it.
+        self.desk.seal()
         career.save()
         self.resumed = False
         save.discard(self.shift_file)

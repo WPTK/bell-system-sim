@@ -1143,6 +1143,24 @@ class TestShiftClock:
         terminal.execute_command('handoff relieve')
         assert terminal.career.missed_commitments == before[3]
 
+    def test_a_command_chained_after_the_ending_finds_the_board_as_it_was(
+            self, terminal):
+        """`handoff relieve; mlt N` is one top-level command (review)."""
+        self._last_tour(terminal)
+        held = terminal.desk.customers()[0]
+        assert not held.tested
+        terminal.execute_command(f'handoff relieve; mlt {held.number}')
+        assert terminal.career.finished
+        assert not held.tested and held.status == 'PEND'
+        assert not held.test_notes
+
+    def test_career_new_straight_after_the_ending_holds_what_it_printed(
+            self, terminal):
+        self._ended(terminal)
+        printed = terminal.career.reports_closed
+        plan = terminal.execute_command('career new')
+        assert f'{printed} reports closed' in plan
+
     def test_a_test_after_a_restart_charges_nothing(self, terminal):
         from bell_system.terminal import BellSystemTerminal
         self._ended(terminal)
