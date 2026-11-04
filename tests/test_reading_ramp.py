@@ -143,7 +143,6 @@ class TestAssists:
 
 class TestACorrectDispatchStopsNamingTheFault:
     def _dispatch(self, terminal, report):
-        terminal.shift_minutes += 900
         force = FAULTS[report.record.fault].dispatch.lower()
         return terminal.execute_command(
             f'report dispatch {report.number} {force}')
@@ -200,7 +199,6 @@ class TestTheCrewFadesWhenMltDoes:
         # mlt counted that sighting; put the count back for the crew's.
         terminal.career.fault_sightings[code] = seen
         measured.sighting = None
-        terminal.shift_minutes += 900
         force = FAULTS[code].dispatch.lower()
         told = terminal.execute_command(
             f'report dispatch {measured.number} {force}').lower()

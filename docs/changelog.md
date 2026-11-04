@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - The ending and the balance (phases 10 and 11)
+
+- **The last night reads the career.** The audit's verdict, the files read,
+  the arc beats heard, the favours done, the commendations and the office's
+  own company choose what the teletype, Reyes, Sandoval and the wire chief
+  say at the end. None of it names a fault, a code or a cause.
+- **`cosmos jumper` is open from the start.** A loop that reads clean can only
+  be told from a jumper on the frame by the record, so the closes that earn
+  the Frame sign-off were guesses. The sign-off is still for `cosmos fix`.
+- **Outside plant jobs are half as long**, so one lineman for half the faults
+  no longer turns a tour into waiting.
+- **The tour ends at eight hours.** The command that crosses 8:00 finishes,
+  then relief takes the position and the tour is handed off as
+  `handoff relieve` would, ambience on or off. The save is written after the
+  handoff, so a resume does not fire it twice; a save from before this change
+  that is past the end hands off on its first command. `shift` never shows
+  a tour past its end; on the last day nobody relieves the position, the
+  wire chief says so and the ending prints instead.
+- **The Toll sign-off asks for 13, not 10.** With shorter jobs the bot
+  that names the fault 60 times in 100 reached Toll in 65% of careers; at 13
+  it is 0% and the strong bot is 90%, the shape the ladder had.
+- **A calibration career is its seed.** The career's own seed was drawn from
+  the system, so one seed made a different career in each process;
+  `tools/index_calibration.py` now fixes it. `data/peers.py` records the
+  seeds, skills, pauses and crew waits it was played with, and a rerun writes
+  the same file.
+- **The tour ledger prints**, against peers played on this balance
+  (`tools/index_calibration.py peers`).
+
 ### Changed - Playtest wave 3
 
 - **Office alarms need the sign-off to count.** The Switching Station panel

@@ -238,6 +238,9 @@ class BellSystemTerminal(
         # True while a pipeline is running, so its stages do not each count
         # as a separate command against the shift.
         self._in_pipeline = False
+        # How many execute_command calls are open, a pipe, a redirect or a
+        # job being calls inside the one the player typed.
+        self._command_depth = 0
 
         # Enhanced UX features - command history and error tracking
         self.command_history: deque = deque(maxlen=1000)
@@ -1255,6 +1258,26 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
 
     def execute_command(self, command_line: str) -> str:
         """
+        Run what was typed, and hand the tour off if it ran out the clock.
+
+        The handoff is said once the whole line is done and is not part of
+        the line's output: a redirect or a pipe would otherwise take the
+        relief, and on the last tour the whole ending, for the text of a
+        command and write it to a file.
+        """
+        self._command_depth += 1
+        try:
+            result = self._run_command(command_line)
+        finally:
+            self._command_depth -= 1
+        if self._command_depth == 0:
+            relief = self._relief_due()
+            if relief:
+                result = f"{result}\n{relief}" if result else relief
+        return result
+
+    def _run_command(self, command_line: str) -> str:
+        """
         Execute Bell System commands with enhanced UX features and logging.
 
         Args:
@@ -1338,7 +1361,7 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
                 # Qualification gates what a craftsperson may work on, so a
                 # command they are not signed off for is refused by the wire
                 # chief rather than run.
-                refusal = self._qualification_block(command)
+                refusal = self._qualification_block(command, args)
                 if refusal is not None:
                     self.command_counts[command] += 1
                     return refusal

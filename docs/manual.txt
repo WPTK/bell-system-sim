@@ -196,6 +196,9 @@ QUALIFICATION AND THE SERVICE INDEX
      Interoffice Trunks            trunk, routing, dialtone, testcall
      Toll Network                  toll, tnds, traffic
 
+     'cosmos jumper' only reads a line's frame record and is open to
+     everyone; the rest of cosmos, and the fix, are the sign-off's.
+
      qual          The craft record
      qual index    The measurement weights the index is scored against
      career new    After the last tour: says what it will do; 'career new
@@ -222,8 +225,9 @@ QUALIFICATION AND THE SERVICE INDEX
      Your own working day runs on your time, because while the field is out
      on one report you are working the next. Shift events come due on your
      working time rather than on the wall clock, which in real time would
-     leave every afternoon event unreachable. Eight hours and the wire
-     chief calls time.
+     leave every afternoon event unreachable. Eight hours and relief takes
+     the position: the command in hand finishes, then the tour is handed
+     off as 'handoff relieve' would, on the board as it stands.
 
 THE OTHER CRAFT
      You are not alone on the system. Four channels reach you, each

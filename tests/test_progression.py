@@ -108,6 +108,14 @@ class TestQualifications:
         assert career.may_use('cosmos')
         assert career.practicals_passed == ['frame']
 
+    def test_reading_the_frame_record_needs_no_sign_off(self):
+        career = Career(difficulty='craft')
+        assert career.may_use('cosmos', 'jumper')
+        assert not career.may_use('cosmos', 'fix')
+        assert not career.may_use('cosmos')
+        # Only the one read is open.
+        assert not career.may_use('lmos', 'jumper')
+
     def test_wrong_closures_earn_nothing(self):
         career = Career(difficulty='fun')
         for _ in range(20):

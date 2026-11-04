@@ -161,6 +161,7 @@ class SessionState:
     # standard input when given no file arguments.
     _pipe_input: str
     _in_pipeline: bool
+    _command_depth: int
     # The running ed session, and the programs cc has built.
     _editor: Any
     _compiled: Dict[str, str]
@@ -430,6 +431,14 @@ class SessionState:
         """Sign off: bank the index and start the next tour."""
         raise NotImplementedError
 
+    def _time_is_up(self) -> str:
+        """Eight hours are worked: relief takes the position."""
+        raise NotImplementedError
+
+    def _relief_due(self) -> str:
+        """The handoff, if the tour has run its eight hours."""
+        raise NotImplementedError
+
     def tour_minute(self) -> int:
         """The shift minute the desks count their windows against."""
         raise NotImplementedError
@@ -552,7 +561,7 @@ class SessionState:
         """The sign-off whose practical is on the board, if one is."""
         raise NotImplementedError
 
-    def _may_use(self, command: str) -> bool:
+    def _may_use(self, command: str, action: str = '') -> bool:
         """Whether a command is open to the operator, a practical included."""
         raise NotImplementedError
 

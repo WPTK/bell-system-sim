@@ -1,0 +1,301 @@
+"""
+The ending reads the career (C23).
+
+Careers are built here by setting the saved fields the ending reads, on a
+career that has reached the last tour, not by playing whatever an unseeded
+board deals. The words are tested as a table; one run through the real
+terminal proves they reach the screen.
+"""
+
+import re
+from datetime import timedelta
+
+
+from bell_system.clock import TOURS_TO_DIVESTITURE
+from bell_system.data.companies import for_state
+from bell_system.data.epilogue import Ring, Shape, halloran_note, pieces
+from bell_system.data.finds import FRAGMENTS_BY_KEY
+from bell_system.data.trouble import FAULTS
+from bell_system.npc import AUDIT_EXCEPTIONS, AUDIT_FAILED, AUDIT_PASSED
+from bell_system import ending
+from bell_system.reports import STATUS_CLOSED
+
+RING = Ring('TR-04001', '201-200-1234', '14:30', 'open')
+
+
+def shape(**changes):
+    """A shape with nothing in it, changed by what a test is about."""
+    base = dict(
+        verdict=AUDIT_PASSED, closed=40, sheath_open=False, hour_kept=True,
+        company='New Jersey Bell Telephone Company', holding='Bell Atlantic',
+        outside='', heard=frozenset(), favours=frozenset(),
+        finds=frozenset(), commendations=frozenset(), ring=RING)
+    base.update(changes)
+    return Shape(**base)
+
+
+def said(subject):
+    """Everything the epilogue says for a shape, as one string."""
+    chief = halloran_note(subject)
+    return '\n'.join([line for _, _, lines in pieces(subject)
+                      for line in lines] + chief)
+
+
+def speech(subject, sender):
+    """What one person says in the epilogue, as one string."""
+    return '\n'.join(line for _, who, lines in pieces(subject)
+                     if who == sender for line in lines)
+
+
+SHAPES = {
+    'plain': shape(),
+    'failed': shape(verdict=AUDIT_FAILED, closed=0, ring=None),
+    'reader': shape(finds=frozenset({'lmoslog', 'reopened', 'retain'}),
+                    heard=frozenset({'sandoval.2'})),
+    'liked': shape(favours=frozenset({'mreyes', 'jsandoval'}),
+                   commendations=frozenset({'first_clean_tour'})),
+}
+
+
+class TestFourCareers:
+    def test_four_shapes_four_epilogues(self):
+        texts = {name: said(held) for name, held in SHAPES.items()}
+        assert len(set(texts.values())) == len(SHAPES)
+
+    def test_each_names_the_players_own_company(self):
+        for name, held in SHAPES.items():
+            if held.company:
+                assert held.company in said(held), name
+
+    def test_every_piece_is_two_short_lines(self):
+        for name, held in SHAPES.items():
+            for _channel, _sender, lines in pieces(held):
+                assert len(lines) == 2, name
+                assert all(len(line) <= 100 for line in lines), (name, lines)
+
+    def test_a_failed_audit_changes_the_words_and_not_the_length(self):
+        passed = shape(verdict=AUDIT_PASSED)
+        for verdict in (AUDIT_EXCEPTIONS, AUDIT_FAILED):
+            changed = shape(verdict=verdict)
+            assert said(changed) != said(passed)
+            assert ([len(lines) for *_, lines in pieces(changed)]
+                    == [len(lines) for *_, lines in pieces(passed)])
+
+    def test_reyes_says_no_more_than_the_player_has_read(self):
+        nothing = said(shape())
+        assert '03:41' not in nothing and 'reopen' not in nothing
+        assert '03:41' in said(shape(finds=frozenset({'lmoslog'})))
+        both = said(shape(finds=frozenset({'lmoslog', 'reopened'})))
+        # She was not told the chief did it, so she asks and does not say.
+        assert 'Who did?' in both
+        assert '06:1' not in both and 'chief' not in speech(shape(
+            finds=frozenset({'lmoslog', 'reopened'})), 'mreyes')
+
+    def test_reyes_names_the_hour_kept_only_if_it_was(self):
+        liked = frozenset({'mreyes'})
+        assert 'was kept' in said(shape(favours=liked, hour_kept=True))
+        assert 'was kept' not in said(shape(favours=liked, hour_kept=False))
+
+    def test_an_empty_board_has_nobody_to_ring_and_no_time_of_day(self):
+        for verdict in (AUDIT_PASSED, AUDIT_EXCEPTIONS, AUDIT_FAILED):
+            text = speech(shape(ring=None, verdict=verdict), 'mreyes')
+            assert 'tonight' not in text and 'tell them' not in text
+            assert 'Nobody has rung' in text
+
+    def test_sandoval_says_the_sheath_side_is_open_only_when_it_is(self):
+        assert 'Nothing open' in speech(shape(), 'jsandoval')
+        held = speech(shape(sheath_open=True), 'jsandoval')
+        assert 'Nothing open' not in held and 'sheath side' in held
+
+    def test_the_chief_does_not_nudge_a_player_toward_the_files(self):
+        assert halloran_note(shape(closed=40)) == []
+
+    def test_sandoval_names_the_company_only_after_the_memo_beat(self):
+        assert 'The memo means' not in said(shape())
+        heard = said(shape(heard=frozenset({'sandoval.2'})))
+        assert 'The memo means New Jersey Bell' in heard
+
+    def test_a_state_with_no_company_is_said_as_it_is(self):
+        held = shape(company='', holding='',
+                     outside='Southern New England Telephone Company')
+        assert 'minority-held' in said(held)
+
+    def test_a_holding_company_only_where_the_assignment_is_verified(self):
+        assert 'Bell Atlantic' in said(shape())
+        assert 'holding company' not in said(shape(holding=''))
+
+    def test_it_never_names_a_fault_or_a_disposition(self):
+        """Pillar 1: no answer key to a later board."""
+        # 'open' is left out: a report goes over open, which is the board.
+        names = [fault.name.lower() for fault in FAULTS.values()
+                 if ' ' in fault.name] + ['short', 'ground', 'cross']
+        codes = [re.compile(rf'\b{code}\b') for code in FAULTS]
+        for name, held in SHAPES.items():
+            text = said(held)
+            assert not any(re.search(rf'{word}', text.lower())
+                           for word in names), name
+            assert not any(code.search(text) for code in codes), name
+            assert 'code 5' not in text and 'code 8' not in text
+
+    def test_the_machine_does_not_say_you(self):
+        for held in SHAPES.values():
+            teletype = pieces(held)[0]
+            assert not re.search(r'\byou\b', ' '.join(teletype[2]).lower())
+
+    def test_the_finds_it_listens_for_exist(self):
+        for key in ('lmoslog', 'reopened', 'retain'):
+            assert key in FRAGMENTS_BY_KEY
+
+
+class TestReadingTheCareer:
+    def test_shape_is_read_from_the_saved_fields(self, terminal):
+        career = terminal.career
+        career.office = {**career.office, 'state': 'NJ'}
+        career.finds = ['lmoslog']
+        career.beats_seen = ['sandoval.2', 'favour:mreyes', 'settled:x']
+        career.commendations = ['first_clean_tour']
+        held = ending.shape_of(career, terminal.desk, AUDIT_PASSED)
+        assert held.finds == {'lmoslog'}
+        assert held.heard == {'sandoval.2'}
+        assert held.favours == {'mreyes'}
+        assert held.commendations == {'first_clean_tour'}
+        assert held.company == for_state('NJ').name
+
+    def test_a_state_with_no_company_gets_the_minority_held_one(
+            self, terminal):
+        terminal.career.office = {**terminal.career.office, 'state': 'CT'}
+        held = ending.shape_of(terminal.career, terminal.desk, AUDIT_PASSED)
+        assert held.company == ''
+        assert 'Southern New England' in held.outside
+
+
+class TestTheBoardItIsReadOff:
+    def board(self, terminal, count=2):
+        terminal.desk.reports.clear()
+        terminal.desk.order.clear()
+        terminal.desk.open_shift(terminal.clock.now(), 0, count=count)
+        return list(terminal.desk.pending())
+
+    def close(self, held, when):
+        held.status = STATUS_CLOSED
+        held.closed_at = when
+
+    def test_a_clear_board_speaks_of_the_last_report_closed(self, terminal):
+        early, late = self.board(terminal)
+        now = terminal.clock.now()
+        self.close(early, now + timedelta(minutes=10))
+        self.close(late, now + timedelta(minutes=90))
+        ring = ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).ring
+        assert ring.state == 'closed' and ring.number == late.number
+        assert ring.time == late.closed_at.strftime('%H:%M')
+
+    def test_an_open_report_is_spoken_of_before_a_closed_one(self, terminal):
+        done, waiting = self.board(terminal)
+        self.close(done, terminal.clock.now() + timedelta(minutes=10))
+        ring = ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).ring
+        assert ring.state == 'open' and ring.number == waiting.number
+
+    def test_the_sheath_side_is_open_for_a_cable_dispatch_still_open(
+            self, terminal):
+        held, _ = self.board(terminal)
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).sheath_open
+        held.dispatched_to = 'Cable repair'
+        assert ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).sheath_open
+        self.close(held, terminal.clock.now())
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).sheath_open
+
+    def _alarmed_sheath(self, terminal):
+        """A leak the gauge has alarmed on, with its job on the board."""
+        from test_board_cases import _leaking_tour
+        from bell_system import plantjobs
+        section = _leaking_tour(terminal)
+        job = plantjobs.open_job(terminal.desk, section.cable, section.binder,
+                                 section.opened)
+        return section, job
+
+    def test_an_open_pressure_alarm_job_keeps_the_sheath_side_open(
+            self, terminal):
+        """Nobody dispatched, the board lists PJ-001, and he must know."""
+        self.board(terminal)
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).sheath_open
+        self._alarmed_sheath(terminal)
+        assert ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).sheath_open
+
+    def test_a_repaired_sheath_is_not_open_whatever_was_heard(
+            self, terminal):
+        """The Franklin beat once held the sheath open for good."""
+        self.board(terminal)
+        terminal.career.beats_seen = ['sandoval.3']
+        section, job = self._alarmed_sheath(terminal)
+        assert ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).sheath_open
+        terminal.desk.plant.repair(section, terminal.clock.now())
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).sheath_open
+
+    def test_the_franklin_beat_alone_does_not_open_the_sheath(
+            self, terminal):
+        self.board(terminal)
+        terminal.career.beats_seen = ['sandoval.3']
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).sheath_open
+
+    def test_the_hour_is_kept_only_when_that_report_closed_inside_it(
+            self, terminal):
+        held, _ = self.board(terminal)
+        terminal.career.beats_seen = ['favour:mreyes',
+                                      f'favoured:{held.number}']
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).hour_kept
+        self.close(held, held.commitment + timedelta(minutes=5))
+        assert not ending.shape_of(terminal.career, terminal.desk,
+                                   AUDIT_PASSED).hour_kept
+        self.close(held, held.commitment - timedelta(minutes=5))
+        assert ending.shape_of(terminal.career, terminal.desk,
+                               AUDIT_PASSED).hour_kept
+
+
+class TestOnTheLastDay:
+    def last_tour(self, terminal, state='NJ'):
+        terminal.career.shift = TOURS_TO_DIVESTITURE
+        terminal.career.office = {**terminal.career.office, 'state': state}
+        terminal.career.save()
+        terminal.clock.set_tour(terminal.career.shift)
+        terminal.desk.reports.clear()
+        terminal.desk.order.clear()
+        terminal.desk.open_shift(terminal.clock.now(), 0, count=6)
+        terminal.execute_command('report')
+
+    def test_the_screen_carries_the_epilogue_in_order(self, terminal):
+        self.last_tour(terminal)
+        out = terminal.execute_command('handoff relieve')
+        company = for_state('NJ').name
+        assert company in out
+        order = [out.index(text) for text in
+                 ('THE AUDIT', 'MAINTENANCE TTY', 'Message from mreyes',
+                  'ORDER WIRE', 'Message from ehalloran')]
+        assert order == sorted(order)
+
+    def test_the_company_is_kept_as_the_assignment(self, terminal):
+        self.last_tour(terminal)
+        terminal.execute_command('handoff relieve')
+        assert terminal.career.assignment == for_state('NJ').name
+
+    def test_a_failed_audit_still_ends_on_the_chief(self, terminal):
+        self.last_tour(terminal)
+        out = terminal.execute_command('handoff relieve')
+        assert 'FAILED' in out
+        assert out.index('Go home.') > out.index('Message from mreyes')
+        assert terminal.career.finished
+
+    def test_connecticut_ends_without_a_company(self, terminal):
+        self.last_tour(terminal, state='CT')
+        out = terminal.execute_command('handoff relieve')
+        assert 'minority-held' in out

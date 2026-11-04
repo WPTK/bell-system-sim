@@ -442,6 +442,29 @@ class ShiftCommands(SessionState):
 
     def _interrupt(self) -> str:
         """
+        Advance the shift and return what the building has to say.
+
+        Eight hours is the tour, and ``_relief_due`` ends it, after the line
+        the player typed and outside its output.
+        """
+        if getattr(self, '_in_pipeline', False):
+            return ''  # a pipeline charges for itself once it finishes
+        return self._building_says()
+
+    def _relief_due(self) -> str:
+        """
+        The handoff, once the line that crossed eight hours has finished.
+
+        The same sign-off as ``handoff relieve``, whatever the ambience. It
+        starts the next tour on a clock at zero, so it cannot fire twice,
+        and a career that is finished has no tour to end.
+        """
+        if self.shift_minutes < SHIFT_LENGTH_MINUTES or self.career.finished:
+            return ''
+        return self._time_is_up()
+
+    def _building_says(self) -> str:
+        """
         Advance the shift and return whatever the building has to say.
 
         Called after every command. The shift clock, new work arriving and
@@ -450,11 +473,6 @@ class ShiftCommands(SessionState):
         them. Interruption rate is the difficulty's: a shift on the forgiving
         setting is quiet, a shift on the other one is not.
         """
-        if getattr(self, '_in_pipeline', False):
-            # A pipeline's stages are one command; the pipeline charges for
-            # itself once it finishes.
-            return ''
-
         quiet = not self.settings.is_on('game.ambience')
         difficulty = self._difficulty()
         pieces = self._advance_shift()
@@ -802,7 +820,7 @@ class ShiftCommands(SessionState):
         """
         on_board = {event['id'] for event in self.shift_events}
         self._fired_events = {fired for fired in self._fired_events
-                              if fired in on_board or fired == 'SHIFT-END'}
+                              if fired in on_board}
         for event in self._due_events():
             self._fired_events.add(event['id'])
             if event.get('status') == 'PENDING':
@@ -827,24 +845,8 @@ class ShiftCommands(SessionState):
                 event['title'], event['priority'], event['time'],
             ), self._stamp()))
 
-        if (self.shift_minutes >= SHIFT_LENGTH_MINUTES
-                and 'SHIFT-END' not in self._fired_events):
-            self._fired_events.add('SHIFT-END')
-            notices.append(self._shift_over_notice())
         return notices
-    def _shift_over_notice(self) -> str:
-        """Return the wire chief telling you your eight hours are up."""
-        pending = len(self.desk.pending())
-        overdue = sum(1 for report in self.desk.pending() if report.overdue())
-        return render_message(Message(
-            channel='write', sender='ehalloran', received=self.clock.now(),
-            lines=[
-                'That is eight hours.',
-                f'{pending} still on your board, {overdue} past commitment.',
-                "'handoff relieve' when you are ready to sign off.",
-            ],
-            kind='shift', subject='End of shift', about=None,
-        ), self._stamp())
+
     def cmd_write(self, args: Optional[List[str]] = None) -> str:
         """Send a line to another craftsperson's terminal, as write(1) did."""
         args = args or []

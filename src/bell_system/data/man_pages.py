@@ -1109,6 +1109,12 @@ DESCRIPTION
      forward, because it was: a report past its commitment at midnight is
      still past its commitment in the morning.
 
+     A tour is eight hours. When the clock reaches them, the command in
+     hand finishes and relief takes the position: the same sign-off, on
+     the board as it stands. A tour is not worked past its end. On the
+     last day there is no relief: the position is closed, the ending is
+     printed, and the board stays on the machine.
+
 SIGNING OFF
      Relieving prints three sentences on the tour before it prints the
      tally - what went well, what did not, and the one thing worth doing
@@ -1762,6 +1768,12 @@ NOTES
      COSMOS transaction syntax is not reproduced from any source
      available to this simulation. The commands here are its own.
 
+QUALIFICATION
+     'cosmos jumper' reads a record and is open to everyone: it is how a
+     loop that measures clean is told from a jumper on the frame. The rest
+     needs the Main Distributing Frame sign-off, which is also what lets
+     you put a jumper right ('cosmos fix').
+
 SEE ALSO
      clli(1), switch(1), trouble(1)
 """,
@@ -1980,6 +1992,12 @@ DESCRIPTION
      handoff(1) is the full turnover record and it is a page and a half,
      because it is for handing the board to the person relieving you.
      This is for the middle of the shift.
+
+     The tour ends at eight hours. The command that reaches them is
+     finished, then relief takes the board, so the screen never shows a
+     tour past its end. (After the last day's ending the board is still
+     there but no tour is running.) Sign off sooner with 'handoff relieve' if the
+     board is as you want to leave it.
 
      The date and the days remaining are on it because a career walks the
      calendar: tours are four days apart, from the fourteenth of November

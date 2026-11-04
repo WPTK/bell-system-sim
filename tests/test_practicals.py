@@ -77,14 +77,14 @@ def test_the_offer_is_made_once_and_names_the_command(terminal):
 
 def test_the_refusal_past_the_floor_points_at_the_practical(terminal):
     ready(terminal, 'frame')
-    reply = terminal.execute_command('cosmos jumper TR-1')
+    reply = terminal.execute_command('cosmos fix TR-1')
     assert "'qual take frame'" in reply
 
 
 def test_the_refusal_short_of_the_floor_still_counts_closures(terminal):
     ready(terminal, 'frame')
     terminal.career.reports_correct = 0
-    reply = terminal.execute_command('cosmos jumper TR-1')
+    reply = terminal.execute_command('cosmos fix TR-1')
     assert 'Correct closures still needed' in reply
 
 
@@ -163,7 +163,7 @@ def test_the_tools_go_again_when_it_is_handed_in(terminal):
     ready(terminal, 'frame')
     terminal.execute_command('qual take frame')
     terminal.execute_command('qual submit')
-    assert 'not signed off' in terminal.execute_command('cosmos jumper TR-1')
+    assert 'not signed off' in terminal.execute_command('cosmos fix TR-1')
 
 
 def test_a_practical_cannot_be_closed_as_a_report(terminal):

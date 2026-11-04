@@ -100,6 +100,9 @@ Switching Control Center  sarts, orderwire, connect
 Interoffice Trunks        trunk, routing, dialtone, testcall
 Toll Network              toll, tnds, traffic
 
+'cosmos jumper <number>' only reads a line's frame record and needs no
+sign-off. The rest of cosmos, and 'cosmos fix', need the frame sign-off.
+
 THE OTHER CRAFT
 ---------------
 who                     Who is on the system

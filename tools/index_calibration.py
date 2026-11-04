@@ -75,9 +75,14 @@ from bell_system.progression import (                         # noqa: E402
 )
 from bell_system.reports import MAX_PENDING, ReportDesk       # noqa: E402
 from bell_system.screens.position import CAREER_DEPTH         # noqa: E402
+from bell_system.seeding import ENVIRONMENT as SEED_ENVIRONMENT  # noqa: E402
 
 SHIFT_START = datetime(1983, 11, 14, 8, 0)
 SHIFT_MINUTES = 480
+
+# How many times the bot asks again for a crew that is out, a minute apart,
+# before it closes the report anyway.
+PEER_WAITS = 6
 
 
 class Player:
@@ -345,7 +350,6 @@ def play_career(skill: float, difficulty: str, seed: int,
     Returns:
         For each tour, how many sign-offs were held at its handoff
     """
-    from bell_system.constants import SHIFT_LENGTH_MINUTES
     from bell_system.terminal import BellSystemTerminal
 
     rng = random.Random(seed)
@@ -353,6 +357,11 @@ def play_career(skill: float, difficulty: str, seed: int,
     # global generator, so that is seeded too.
     random.seed(seed)
     os.environ['BELL_SYSTEM_HOME'] = tempfile.mkdtemp(prefix='ladder-')
+    # A career draws its own seed from the system when it has none
+    # (seeding.new_seed), and that seed deals its cases, leaks and toll
+    # counts from tour 2 on. Left alone, one seed made a different career in
+    # each process. The environment is the hook the module provides for this.
+    os.environ[SEED_ENVIRONMENT] = f'{difficulty}-{seed}'
     terminal = BellSystemTerminal(rng=random.Random(f'board-{seed}'))
     for key, value in (('game.ambience', 'off'), ('game.prompts', 'off'),
                        ('display.pacing', 'off'),
@@ -360,11 +369,23 @@ def play_career(skill: float, difficulty: str, seed: int,
         terminal.settings.set(key, value)
     terminal.career.set_difficulty(difficulty)
 
+    # The tour ends by itself at eight hours, as it does for a player, so the
+    # tour's figures are taken at the moment it is signed off, whichever way.
+    sign_off = terminal._end_shift
+
+    def banked() -> str:
+        if tour_log is not None:
+            tour_log.append(tour_figures(terminal.career))
+        return sign_off()
+
+    terminal._end_shift = banked  # type: ignore[method-assign]
+
     held = []
     for _ in range(tours):
+        tour = terminal.career.shift
         terminal.execute_command('report')
         for _step in range(400):
-            if terminal.shift_minutes >= SHIFT_LENGTH_MINUTES:
+            if terminal.career.shift != tour or terminal.career.finished:
                 break
             pending = terminal.desk.pending()
             if not pending:
@@ -375,7 +396,7 @@ def play_career(skill: float, difficulty: str, seed: int,
             terminal.execute_command(f'mlt {number}')
             force = FAULTS[truth].dispatch
             if force not in ('None', 'None - customer contact'):
-                for _wait in range(6):
+                for _wait in range(PEER_WAITS):
                     sent = terminal.execute_command(
                         f'report dispatch {number} {force.split()[0].lower()}')
                     if 'nobody' not in sent.lower():
@@ -391,9 +412,8 @@ def play_career(skill: float, difficulty: str, seed: int,
             if dawdle:
                 terminal.execute_command(f'sleep {dawdle}')
             take_practicals(terminal)
-        if tour_log is not None:
-            tour_log.append(tour_figures(terminal.career))
-        terminal.execute_command('handoff relieve')
+        if terminal.career.shift == tour and not terminal.career.finished:
+            terminal.execute_command('handoff relieve')
         take_practicals(terminal)
         held.append(len(terminal.career.qualifications))
     return held
@@ -454,32 +474,66 @@ from typing import Dict, Tuple
 # then. The run that writes real numbers sets it True.
 GENERATED = True
 
+# How they were played, so that this file can be written again from nothing.
+# ``python3 tools/index_calibration.py peers {careers}`` plays these careers
+# and writes the same numbers. A career is ``play_career(skill, difficulty,
+# seed, dawdle=dawdle)``, seeds counting up from 1 on each difficulty across
+# the skills, then the dawdles, then the careers.
+CAREERS_PER_CELL = {careers}
+SEEDS = (1, {last_seed})
+SKILLS = {skills!r}
+# Minutes the peer sits on the clock after every close.
+DAWDLES = {dawdles!r}
+# Times the peer asks again, a minute apart, for a crew that is out, before
+# closing the report anyway.
+CREW_WAITS = {waits}
+TOURS = 13
+# A tour counts toward the deciles only with this many closes.
+MINIMUM_CLOSES = {minimum}
+
 PEERS: Dict[str, Dict[str, Tuple[float, ...]]] = {{
 {body}
 }}
 '''
 
 
+def _peer_career(job: Tuple[float, str, int, int]) -> List[tuple]:
+    """One peer's career, for the pool: its tours' figures, in tour order."""
+    skill, difficulty, seed, dawdle = job
+    log: List[tuple] = []
+    play_career(skill, difficulty, seed, dawdle=dawdle, tour_log=log)
+    return log
+
+
 def peers(careers: int) -> None:
     """Play the peer population and write data/peers.py whole."""
+    from multiprocessing import Pool
     from bell_system.data.commendations import MINIMUM_CLOSES
-    found = {}
+    jobs: List[Tuple[float, str, int, int]] = []
     for difficulty in DIFFICULTIES:
-        times: List[float] = []
-        matched: List[float] = []
         seed = 0
         for skill in PEER_SKILLS:
             for dawdle in PEER_DAWDLES:
                 for _ in range(careers):
                     seed += 1
-                    log: List[tuple] = []
-                    play_career(skill, difficulty, seed, dawdle=dawdle,
-                                tour_log=log)
-                    for mttr, accuracy, closed in log:
-                        if (closed >= MINIMUM_CLOSES and mttr is not None
-                                and accuracy is not None):
-                            times.append(mttr)
-                            matched.append(accuracy)
+                    jobs.append((skill, difficulty, seed, dawdle))
+    # A career is its seed and nothing else, so playing them side by side
+    # and reading them back in order writes the same file as playing them
+    # one after another.
+    with Pool(min(8, os.cpu_count() or 1)) as pool:
+        played = pool.map(_peer_career, jobs, chunksize=1)
+    found = {}
+    for difficulty in DIFFICULTIES:
+        times: List[float] = []
+        matched: List[float] = []
+        for job, log in zip(jobs, played):
+            if job[1] != difficulty:
+                continue
+            for mttr, accuracy, closed in log:
+                if (closed >= MINIMUM_CLOSES and mttr is not None
+                        and accuracy is not None):
+                    times.append(mttr)
+                    matched.append(accuracy)
         print(f"{difficulty}: {len(times)} tours")
         found[difficulty] = {'mttr': deciles(times),
                              'accuracy': deciles(matched)}
@@ -491,8 +545,11 @@ def peers(careers: int) -> None:
         body.append('    },')
     path = (Path(__file__).resolve().parent.parent / 'src' / 'bell_system'
             / 'data' / 'peers.py')
-    path.write_text(PEERS_TEMPLATE.format(body='\n'.join(body)),
-                    encoding='utf-8')
+    path.write_text(PEERS_TEMPLATE.format(
+        body='\n'.join(body), careers=careers,
+        last_seed=careers * len(PEER_SKILLS) * len(PEER_DAWDLES),
+        skills=PEER_SKILLS, dawdles=PEER_DAWDLES, waits=PEER_WAITS,
+        minimum=MINIMUM_CLOSES), encoding='utf-8')
     print(f"wrote {path}")
 
 
