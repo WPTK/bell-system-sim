@@ -24,3 +24,7 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Documentation site, built by tools/build_docs.py and mkdocs
+/docs-build/
+/site/

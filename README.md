@@ -127,9 +127,9 @@ A career is 13 tours that start on 14 November 1983 and end on 31 December 1983.
 
 ## Manual
 
-Type `man <command>` in the game for the manual page of any command, and `help` for the commands your position has. Sources for every historical claim are in [SOURCES.md](SOURCES.md).
+Type `man <command>` in the game for the manual page of any command, and `help` for the commands your position has. The same pages, with a getting started guide and search, are at <https://wptk.github.io/bell-system-sim/>. Sources for every historical claim are in [SOURCES.md](SOURCES.md).
 
-<!-- TODO(#89): link the hosted manual here when the docs site is up. -->
+To build the site locally, install `docs/requirements.txt` into a virtual environment, then run `python tools/build_docs.py` and `mkdocs serve`.
 
 ## License
 
