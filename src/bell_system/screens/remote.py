@@ -718,7 +718,7 @@ class RemoteCommands(SessionState):
         if not company.verified:
             rows.append('')
             rows.append("  (Regional assignment externally sourced; the "
-                        "bundled documents")
+                        "period documents")
             rows.append("  give three of the seven groupings in full and "
                         "not this one.)")
         return rows
@@ -782,7 +782,7 @@ class RemoteCommands(SessionState):
             "They do",
             "not divest.",
             '',
-            "? marks a regional assignment taken from outside the bundled "
+            "? marks a regional assignment taken from outside the period "
             "documents.",
         ])
         return '\n'.join(rows)

@@ -1,7 +1,7 @@
 """
 Test lines, responders and the transmission measurements they return.
 
-Every test line type named here is attested in the bundled documents. The
+Every test line type named here is attested in the period documents. The
 Bell System Technical Journal for April 1982 describes single-channel
 transmission testing "using the RT miniresponder as a 102-type Far-End Test
 Line (FETL) for a 1-way (RSS to ESS) loss measurement, a 100-type FETL for a

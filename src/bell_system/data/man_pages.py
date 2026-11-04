@@ -1511,6 +1511,14 @@ SETTINGS
                          v7 is the bare Bourne shell prompt. verbose adds
                          user, host and working directory.
 
+     display.pacing      300 | 110 | 1200 | off
+                         Print output at a terminal speed: 110 for a Model 33,
+                         300 for the Model 43 this position has, 1200 for a
+                         later CRT, or off. A teleprinter printed one
+                         character at a time and you watched it happen.
+                         Ctrl-C stops a listing, as it did then. A pipe is
+                         never paced.
+
      display.log_console off | on
                          Whether diagnostic log records print to the terminal.
                          They always reach the log file.
@@ -1544,12 +1552,6 @@ EXAMPLES
      set date.source real         Show the real date instead of 1983
      set display.charset unicode  Permit block glyphs on a modern terminal
      set reset                    Restore period-accurate defaults
-
-     display.pacing  Print output at a terminal speed: 110 for a Model 33,
-                     300 for the Model 43 this position has, 1200 for a
-                     later CRT, or off. A teleprinter printed one character
-                     at a time and you watched it happen. Ctrl-C stops a
-                     listing, as it did then. A pipe is never paced.
 
 ASSISTS
      game.difficulty sets a bundle. An assist sets one part of it and
@@ -4379,7 +4381,7 @@ DESCRIPTION
      only a minority stake in Southern New England Telephone and Cincinnati
      Bell. They do not divest.
 
-     An entry marked ? has its regional assignment from outside the bundled
+     An entry marked ? has its regional assignment from outside the period
      documents. Engineering and Operations gives three of the seven
      groupings in full - Pacific Telesis, Ameritech and Bell Atlantic - and
      the rest are externally sourced.

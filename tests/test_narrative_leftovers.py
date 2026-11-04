@@ -226,7 +226,7 @@ class TestI11MessageIdsRunInDateOrder:
 
 
 class TestI13I14PeriodClaimsAreSourcedOrGone:
-    """A figure that no document here gives is not in the game's text."""
+    """A figure that no period document gives is not in the game's text."""
 
     def test_the_unsourced_figures_are_not_in_the_notes_or_the_memo(self):
         noc = HOMES['noc']['watch.notes']

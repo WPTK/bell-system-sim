@@ -8,7 +8,7 @@ The game runs in a terminal, needs Python 3.9 or newer and nothing else, and use
 
 ## Your first report
 
-Start the game with `bell-system`, type `?` at the `mhuxco login:` prompt to see the twelve positions, then type `1` (or `sysop`). The board prints one pending report and the wire chief writes to your terminal. There is no tutorial mode. The chief walks you through the first loop.
+Start the game with `bell-system`, type `?` at the `mhuxco login:` prompt to see the twelve positions, then type `1` (or `sysop`). The board prints one pending report and the wire chief writes to your terminal. The chief walks you through the first loop.
 
 The work is four commands:
 
@@ -47,7 +47,7 @@ Capacitance is the third reading. Local exchange cable runs 0.083 microfarads to
 
 ## Closing a report
 
-Codes 5 and 8 are published Bell System dispositions. Code 5 is trouble found, and you name the fault you found and cleared. Code 8 is no trouble found. Closing a faulty line as code 8 does not fail loudly. It closes, and then the customer calls back, and that repeat is what the performance plan counted.
+Codes 5 and 8 are published Bell System dispositions. Code 5 is trouble found, and you name the fault you found and cleared. Code 8 is no trouble found. Closing a faulty line as code 8 closes the report, and the customer may call back. That repeat is what the performance plan counted. The chance is one in four in `fun` and 85 in 100 in `craft`.
 
 The wrong repair force costs forty-five minutes and leaves the trouble where it was. `report forces` lists the forces and `report faults` lists the fault names.
 
@@ -55,7 +55,7 @@ The wrong repair force costs forty-five minutes and leaves the trouble where it 
 
 Two settings change how forgiving the desk is.
 
-`set game.difficulty fun` is the default. Loop testing names the fault for the first two sightings of each kind, a report can be closed without measuring, a wrong call costs little, commitments are not counted and qualification comes quickly.
+`set game.difficulty fun` is the default. Loop testing names the fault for the first two sightings of each kind, a report can be closed without measuring, a wrong call costs little, a missed commitment costs a quarter of what it costs in `craft`, and qualification comes quickly.
 
 `set game.difficulty craft` is called I Hate Myself. Loop testing prints the numbers and nothing else. A report cannot be closed until it has been measured. Wrongly closed lines come back as repeats, and missed commitments count. Qualification is four times slower, and the building interrupts you nearly four times as often.
 
@@ -73,12 +73,12 @@ Two clocks run. A report's commitment runs on elapsed time, because the customer
 
 ## The other craft
 
-You are not alone on the system. Four channels reach you:
+Four channels reach you:
 
 - `write` interrupts you at your terminal, from another terminal on the same machine.
 - `mail` reaches you whether you are at the terminal or not.
 - `orderwire` is the maintenance circuit between offices, the field and the switching control centre.
-- The switching machine's maintenance teletype prints on its own schedule. Nobody sends those. The office does.
+- The switching machine's maintenance teletype prints on its own schedule, with no sender.
 
 The people are invented. Their jobs, their places and what they say about the plant come from the period documents listed in [SOURCES.md](https://github.com/WPTK/bell-system-sim/blob/main/SOURCES.md).
 

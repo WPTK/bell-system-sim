@@ -600,8 +600,11 @@ class TestWhatQualificationClaims:
 
     def test_the_manual_does_not_say_qualification_governed_the_job(self):
         from bell_system.data.man_pages import MAN_PAGES
-        for page in MAN_PAGES.values():
-            assert 'was governed by qualification' not in page
+        for name, page in MAN_PAGES.items():
+            # The pages wrap at 78 columns, so the phrase can straddle a
+            # line break: compare with the whitespace collapsed.
+            flat = ' '.join(page.split())
+            assert 'governed by qualification' not in flat, name
         ladder = ' '.join(MAN_PAGES['qual'].split())
         assert "The ladder is the simulation's own" in ladder
 

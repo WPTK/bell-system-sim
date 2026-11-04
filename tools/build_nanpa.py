@@ -19,16 +19,16 @@ shared the N0/1X format, so eighteen of them survive it - 718, which split
 from 212 in September 1984, among them. Those are excluded by name in
 POST_PERIOD_NPAS below.
 
-Provenance, stated plainly: the format rule is repo-verified from Engineering
-and Operations. The split dates in POST_PERIOD_NPAS are not in any document
+Provenance, stated plainly: the format rule is document-verified from
+Engineering and Operations. The split dates in POST_PERIOD_NPAS are not in any document
 available to this project; they come from the published history of the
 numbering plan and are marked here as externally sourced. Each entry carries
 its year and its parent code so a wrong one can be found and corrected rather
 than merely suspected.
 
-Run from the repository root, with attached_assets present:
+Run from the repository root, naming the dump:
 
-    python tools/build_nanpa.py
+    python tools/build_nanpa.py --source /path/to/full_dataset_csv.csv
 """
 
 import argparse
@@ -44,7 +44,7 @@ PERIOD_NPA = re.compile(r'^[2-9][01][0-9]$')
 
 # Numbering plan areas created after the simulated period but sharing the
 # N0/1X format, so the structural filter cannot catch them. Externally
-# sourced, not repo-verified: value is the year and the code it split from.
+# sourced, not document-verified: value is the year and the code it split from.
 POST_PERIOD_NPAS = {
     '210': '1992, from 512 (San Antonio)',
     '310': '1991, from 213 (west Los Angeles)',
@@ -70,7 +70,6 @@ POST_PERIOD_NPAS = {
 # breadth of geography rather than depth in any one area.
 NXX_PER_NPA = 40
 
-SOURCE = os.path.join('attached_assets', 'full_dataset_csv.csv')
 TARGET = os.path.join('src', 'bell_system', 'data', 'nanpa.csv.gz')
 
 FIELDS = ('npa', 'nxx', 'city', 'state', 'latitude', 'longitude')
@@ -134,13 +133,14 @@ class _TextWrapper:
 def main() -> int:
     """Build the dataset and report what it contains."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--source', default=SOURCE)
+    parser.add_argument('--source', required=True,
+                        help='path to the NANPA dump (CSV)')
     parser.add_argument('--target', default=TARGET)
     args = parser.parse_args()
 
     if not os.path.exists(args.source):
         print(f"{args.source} not found. This script needs the NANPA dump "
-              f"from attached_assets; see SOURCES.md.", file=sys.stderr)
+              f"named by --source; see SOURCES.md.", file=sys.stderr)
         return 1
 
     counts = distil(args.source, args.target)

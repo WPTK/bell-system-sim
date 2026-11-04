@@ -16,8 +16,8 @@ non-precise tones from ringing-generator harmonics - a simulation may
 legitimately show both.
 
 Tone frequencies, cadences and levels below are the widely reproduced
-standard values; they are NOT stated in the transmission volumes bundled with
-this repository. The primary Bell source for them is Notes on the Network
+standard values; they are NOT stated in the transmission volumes listed in
+SOURCES.md. The primary Bell source for them is Notes on the Network
 (1980), which was not available. Treat them as well-attested but
 secondary.
 
@@ -136,7 +136,7 @@ MF_FREQUENCIES: Tuple[int, ...] = (700, 900, 1100, 1300, 1500, 1700)
 # The six frequencies and the existence of KP and ST are verified in
 # Engineering and Operations in the Bell System; the individual pair
 # assignments below are the standard MF-R1 table but are not stated in any
-# document bundled here. Note that 1300+1700 is ST2P domestically, while
+# period document. Note that 1300+1700 is ST2P domestically, while
 # CCITT No. 5 calls the same pair KP2 on international trunks.
 MF_SIGNALS: Dict[str, MFDigit] = {
     '1': MFDigit('1', 700, 900, 'digit'),
@@ -175,7 +175,7 @@ SF_ADDRESS_LEVEL_DBM = -8.0
 # Touch-Tone, the subscriber-facing signaling. Two tones, one from each group,
 # chosen so that the human voice is unlikely to simulate a valid pair - a
 # protection MF deliberately does not have, since the talking path is muted
-# while an office outpulses. Levels are repo-verified: the low group is
+# while an office outpulses. Levels are document-verified: the low group is
 # transmitted at nominally -6 dBm and the high group at -4 dBm, the 2 dB
 # difference being the customary "twist".
 DTMF_ROW_HZ: Tuple[int, ...] = (697, 770, 852, 941)

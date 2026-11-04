@@ -268,7 +268,7 @@ class TestTheCompanyCommand:
     def test_externally_sourced_assignments_are_marked(self, terminal):
         result = terminal.execute_command('company all')
         assert '?' in result
-        assert 'outside the bundled' in result
+        assert 'outside the period' in result
 
     def test_a_bad_state_code_is_refused(self, terminal):
         assert 'two-letter' in terminal.execute_command('company nonsense')

@@ -25,7 +25,7 @@ plan was counting when it scored codes 5 and 8 separately.
 Not verified, and marked here rather than hidden: the commitment intervals,
 the per-action time costs and the load factor are the simulation's own. The
 Bell System's actual repair commitment policy varied by company and by year,
-and no bundled source states it. What is taken from the documents is the
+and no period source states it. What is taken from the documents is the
 maintenance sequence, the disposition codes and the electrical vocabulary.
 """
 
@@ -185,7 +185,7 @@ _STREETS: Sequence[str] = (
 )
 
 # Class of service codes. Widely used Bell System line classes; the codes
-# themselves are conventional rather than quoted from a bundled document.
+# themselves are conventional rather than quoted from a period document.
 CLASSES_OF_SERVICE: Dict[str, str] = {
     '1FR': 'One party flat rate residence',
     '1MR': 'One party message rate residence',

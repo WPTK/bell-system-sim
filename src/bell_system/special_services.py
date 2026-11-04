@@ -36,7 +36,7 @@ class ServiceCategory(NamedTuple):
     code: str
     name: str
     description: str
-    # Whether the category is attested by name in the bundled documents.
+    # Whether the category is attested by name in the period documents.
     attested: bool
     # Two-wire or four-wire, which decides what can be measured on it.
     wires: int
@@ -631,7 +631,7 @@ class SartsConsole:
             return f"sarts: no circuit matching '{token}'"
 
         service = circuit.service
-        attested = ('attested in the bundled documents' if service.attested
+        attested = ('attested in the period documents' if service.attested
                     else "this simulation's own category")
         lines = [
             f"Circuit {circuit.circuit_id}",

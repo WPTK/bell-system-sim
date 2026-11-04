@@ -37,7 +37,7 @@ class Fault(NamedTuple):
     dispatch: str
 
 
-# Electrical fault conditions. Every name here appears in the bundled Bell
+# Electrical fault conditions. Every name here appears in the period Bell
 # documents: open, short, ground, cross, false cross or ground, foreign EMF,
 # and the wet cable that causes low insulation resistance.
 FAULTS: Dict[str, Fault] = {

@@ -73,3 +73,25 @@ class TestTheGeneratedSite:
         block = build_docs.fence("one ``` two\n")
         assert block.startswith('````text\n')
         assert block.rstrip().endswith('````')
+
+
+class TestTheGeneratorWillNotDeleteTheRepository:
+    def test_it_refuses_the_repository_root(self, build_docs):
+        with pytest.raises(ValueError):
+            build_docs.build(ROOT)
+
+    def test_it_refuses_a_directory_holding_tracked_files(self, build_docs):
+        for name in ('docs', 'src', 'tools'):
+            with pytest.raises(ValueError):
+                build_docs.build(ROOT / name)
+        assert (ROOT / 'tools' / 'build_docs.py').exists()
+        assert (ROOT / 'docs' / 'site' / 'index.md').exists()
+
+    def test_it_refuses_a_parent_of_the_repository(self, build_docs):
+        with pytest.raises(ValueError):
+            build_docs.build(ROOT.parent)
+
+    def test_main_reports_a_refusal_and_exits_nonzero(self, build_docs,
+                                                      capsys):
+        assert build_docs.main(['build_docs.py', str(ROOT / 'docs')]) == 2
+        assert 'refusing' in capsys.readouterr().err

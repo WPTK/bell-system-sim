@@ -3,9 +3,9 @@ L-carrier coaxial transmission systems.
 
 The simulation's frequency-allocation table gave each L-system the wrong
 spectrum and the wrong multiplex-level name, contradicting the very documents
-bundled with this repository. The figures here are taken from
+it cites. The figures here are taken from
 Telecommunications Transmission Engineering (1977) and Engineering and
-Operations in the Bell System (1984), both in attached_assets, and the two
+Operations in the Bell System (1984), both listed in SOURCES.md, and the two
 sources agree with each other on every value.
 
 The distinction the old table lost is between the frequency-division

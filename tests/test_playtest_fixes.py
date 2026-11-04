@@ -238,9 +238,33 @@ class TestTheManualAgreesWithTheCode:
         assert 'first four times' not in text
         assert 'first four sightings' not in text
 
-    def test_the_set_page_lists_every_setting(self):
+    @staticmethod
+    def _section(page, heading):
+        lines = page.splitlines()
+        start = lines.index(heading) + 1
+        end = next((i for i in range(start, len(lines))
+                    if lines[i] and lines[i] == lines[i].upper()
+                    and not lines[i].startswith(' ')), len(lines))
+        return lines[start:end]
+
+    def test_the_set_page_lists_every_setting_under_its_heading(self):
         from bell_system.data.man_pages import MAN_PAGES
         from bell_system.settings import OPTIONS
-        missing = [option.key for option in OPTIONS
-                   if option.key not in MAN_PAGES['set']]
-        assert not missing
+        page = MAN_PAGES['set']
+        settings = self._section(page, 'SETTINGS')
+        assists = self._section(page, 'ASSISTS')
+        for option in OPTIONS:
+            rows = assists if option.key.startswith('assist.') else settings
+            entries = [line.split()[0] for line in rows
+                       if line.startswith('     ') and
+                       not line.startswith('      ')]
+            assert option.key in entries, option.key
+
+    def test_the_named_settings_are_in_the_settings_section(self):
+        from bell_system.data.man_pages import MAN_PAGES
+        settings = '\n'.join(self._section(MAN_PAGES['set'], 'SETTINGS'))
+        for key in ('game.ambience', 'game.prompts', 'game.difficulty',
+                    'display.pacing'):
+            assert key in settings, key
+        assert 'assist.sections' in '\n'.join(
+            self._section(MAN_PAGES['set'], 'ASSISTS'))

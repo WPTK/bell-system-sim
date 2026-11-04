@@ -1,7 +1,7 @@
 """
 Things the machine holds that are worth finding, and who may read them.
 
-Two rules govern this module, both from pillar 4 of ``docs/design/plan.md``.
+Two rules govern this module, both from pillar 4 of the design notes.
 Lore is found with ls, cat and grep, and nothing here is pushed at the player:
 no briefing points at a file, and no file says what the player ought to do
 about a report. And each sign-off opens the next layer, which is why the
@@ -11,7 +11,7 @@ Everything in here is the simulation's own invention. The people are the
 roster's (``npc.CRAFT``) except R. Alvarez, who held the sysop position
 before the player and has no login; the dates are the fortnight before the
 game starts and the tours after it; the log formats are the Seventh Edition's
-where the Seventh Edition had them. ``narrative-bible.md`` T2 and T5 say what
+where the Seventh Edition had them. The narrative bible, T2 and T5, say what
 is true behind the files, and the voices in section 4 are the standard the
 text is held to. Alvarez is never given a pronoun.
 

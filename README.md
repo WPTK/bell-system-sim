@@ -49,14 +49,15 @@ Settings live inside the game. Type `set` for the list, `set <setting>` to read 
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `game.difficulty` | `fun` | `fun` lets you close a report you never measured and forgives a wrong call. `craft` ("I Hate Myself") makes you measure first, brings wrongly closed lines back as repeat reports and counts missed commitments. |
+| `game.difficulty` | `fun` | `fun` lets you close a report you never measured, forgives a wrong call and counts a missed commitment at a quarter of its craft cost. `craft` ("I Hate Myself") makes you measure first, brings wrongly closed lines back as repeat reports more often and counts missed commitments in full. |
 | `game.ambience` | `on` | `off` stops the other craft from writing to your terminal. |
 | `game.prompts` | `off` | `on` prints the next useful command after a command that leaves you with nothing obvious to do. |
 | `assist.*` | `profile` | Eight assists (`assist.test_first`, `assist.commitments_count`, `assist.repeat_reports`, `assist.commitment_slack`, `assist.pace`, `assist.scoring`, `assist.annotate`, `assist.sections`) set one part of the difficulty profile each. `profile` takes the value `game.difficulty` sets. |
 | `display.pacing` | `300` | Print speed in baud: `110`, `300`, `1200` or `off`. The game never paces output that goes to a pipe. |
+| `display.log_console` | `off` | `on` prints diagnostic log records to the terminal. They always reach `bell_system.log`. |
 | `display.charset` | `ascii` | `unicode` allows block and box-drawing characters. |
 | `display.prompt` | `v7` | `verbose` adds user, host and directory to the shell prompt. |
-| `date.source` | `simulated` | `real` shows your own system clock instead of 1983. |
+| `date.source` | `simulated` | `real` shows your own system clock. `simulated` shows 1983. |
 | `date.epoch` | `1983-11-14` | Start date of the shift, as `YYYY-MM-DD`. |
 | `date.format` | `v7` | `iso` prints `YYYY-MM-DD`. `us` prints `MM-DD-YYYY`. |
 | `date.clock` | `24` | `12` switches to a 12-hour clock. |
@@ -96,7 +97,7 @@ report close 1 5 SHORT          close it as trouble found, fault SHORT
 | `mlt <n>` | Measures the loop. |
 | `report dispatch <n> <force>` | Sends a crew. `report forces` lists them. |
 | `report close <n> 5 <fault>` | Closes a report as trouble found. `report faults` lists the fault names. |
-| `report close <n> 8` | Closes a report as no trouble found. A faulty line closed this way comes back as a repeat. |
+| `report close <n> 8` | Closes a report as no trouble found. A faulty line closed this way comes back as a repeat report: one time in four in `fun`, 85 times in 100 in `craft`. |
 | `help` | Lists the commands, starting with what to do now. |
 | `hint` | Asks somebody. Ask again for more, up to three levels. |
 | `man <command>` | Shows the manual page for a command. |

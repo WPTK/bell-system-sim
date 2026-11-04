@@ -24,6 +24,7 @@ Run from the repository root:
 
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -128,12 +129,36 @@ def write(path: Path, text: str) -> None:
         handle.write(text)
 
 
+def refuse_unsafe(out: Path) -> None:
+    """
+    Raise ValueError if replacing `out` could destroy tracked files.
+
+    build() deletes the directory it is given, so the repository root, any
+    directory that contains it and any directory holding a tracked file
+    (docs/, src/, tools/) are refused.
+    """
+    out = out.resolve()
+    if out == ROOT or out in ROOT.parents:
+        raise ValueError(f"{out} is or contains the repository root")
+    if ROOT not in out.parents:
+        return
+    try:
+        tracked = subprocess.run(
+            ['git', 'ls-files', '--', str(out)], cwd=ROOT,
+            capture_output=True, text=True, check=True).stdout.split()
+    except (OSError, subprocess.CalledProcessError):
+        tracked = [] if out == DEFAULT_OUT.resolve() else ['(git unavailable)']
+    if tracked:
+        raise ValueError(f"{out} holds tracked files, such as {tracked[0]}")
+
+
 def build(out: Path = DEFAULT_OUT) -> Tuple[int, int]:
     """
     Write the site's Markdown to `out`, replacing what is there.
 
     Returns the number of man pages written and the number of files.
     """
+    refuse_unsafe(out)
     if out.exists():
         shutil.rmtree(out)
     commands = out / 'command-reference'
@@ -154,7 +179,11 @@ def build(out: Path = DEFAULT_OUT) -> Tuple[int, int]:
 
 def main(argv: List[str]) -> int:
     out = Path(argv[1]) if len(argv) > 1 else DEFAULT_OUT
-    count, files = build(out)
+    try:
+        count, files = build(out)
+    except ValueError as err:
+        print(f"build_docs: refusing to write: {err}", file=sys.stderr)
+        return 2
     print(f"{count} man pages, {files} files written to {out}")
     return 0
 

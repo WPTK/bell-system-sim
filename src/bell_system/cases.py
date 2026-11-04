@@ -23,8 +23,8 @@ from .seeding import stream
 if TYPE_CHECKING:  # pragma: no cover - avoids an import cycle at runtime
     from .reports import ReportDesk, TroubleReport
 
-# The tours the scripted case lands on. It is Marker 2 (docs/design/
-# narrative-bible.md, T1): it fires on the first of these the career
+# The tours the scripted case lands on. It is Marker 2 (the narrative
+# bible, T1): it fires on the first of these the career
 # reaches, and on the second only if the first never had it.
 MARKER_TOURS = (9, 10)
 
@@ -153,7 +153,7 @@ def _deal(desk: 'ReportDesk', case: Case, now: datetime,
     if spec.shared == 'frame':
         # The line link frame is the first two places of the equipment
         # number. Cable and pair stay as drawn, which is why the lines have
-        # no cable in common (narrative-bible.md, T1).
+        # no cable in common (the narrative bible, T1).
         tail = record.line_equipment.split('-', 2)[2]
         record.line_equipment = f"{case.where}-{tail}"
     else:
