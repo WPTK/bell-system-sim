@@ -4,10 +4,10 @@ What happens to a person when the board does what it does.
 A missed commitment, a close that was wrong, a close that was right: each
 of them lands on somebody, and this is what that somebody says. The index
 already counts all three. These are the same events with a person on the
-other end, which is pillar 2 of the design notes.
+other end.
 
 The speaker is nearly always Reyes, the repair service attendant, because
-she is the one who takes the call (narrative bible section 4). So every
+she is the one who takes the call. So every
 line here is hers, and she keeps to her profile: she gives the report, the
 number to ring and a time, she asks the question she has to answer, and she
 never blames a person and never guesses a cause out loud. A line that

@@ -845,11 +845,153 @@ class TestShiftClock:
         for event in pending:
             assert event['status'] == 'ACTIVE'
 
-    def test_the_wire_chief_calls_time_at_eight_hours(self, terminal):
-        from bell_system.constants import SHIFT_LENGTH_MINUTES
-        terminal.shift_minutes = SHIFT_LENGTH_MINUTES
-        notices = terminal._fire_due_events()
-        assert any('eight hours' in notice for notice in notices)
+    def test_a_refused_dispatch_leaves_a_measured_report_tested(
+            self, terminal):
+        """#61 finding 2: the board dropped TESTED back to PEND."""
+        terminal.desk.reports.clear()
+        terminal.desk.order.clear()
+        terminal.desk.open_shift(terminal.clock.now(), 0, count=8)
+        outside = [held for held in terminal.desk.pending()
+                   if held.record.fault in ('OPEN', 'SHORT', 'GROUND',
+                                            'CROSS', 'FEMF')]
+        first, second = outside[0], outside[1]
+        terminal.execute_command(f'mlt {first.number}')
+        terminal.execute_command(f'mlt {second.number}')
+        terminal.execute_command(f'report dispatch {first.number} outside')
+        refused = terminal.execute_command(
+            f'report dispatch {second.number} outside')
+        assert 'Nobody free' in refused
+        board = terminal.execute_command('report')
+        row = next(line for line in board.splitlines()
+                   if second.number in line)
+        assert 'TESTED' in row and 'PEND' not in row
+
+    def test_the_tour_ends_at_eight_hours_and_relief_takes_it(self, terminal):
+        tour = terminal.career.shift
+        terminal.shift_minutes = 479
+        out = terminal.execute_command('report')
+        assert 'That is eight hours' in out and 'Relieved.' in out
+        assert terminal.career.shift == tour + 1
+        assert terminal.shift_minutes < 10
+
+    def test_it_ends_with_ambience_off_too(self, terminal):
+        # The fixture's terminal is quiet. Time being up is not ambience.
+        terminal.shift_minutes = 479
+        assert 'Relieved.' in terminal.execute_command('report')
+
+    def test_a_sleep_past_the_end_ends_the_tour_after_the_sleep(
+            self, terminal):
+        tour = terminal.career.shift
+        out = terminal.execute_command('sleep 36000')
+        assert 'That is eight hours' in out and 'Relieved.' in out
+        assert terminal.career.shift == tour + 1
+
+    def test_a_long_command_is_finished_before_the_handoff(self, terminal):
+        """The command that crosses 8:00 is not cut short; then relief."""
+        tour = terminal.career.shift
+        terminal.shift_minutes = 450
+        held = terminal.desk.customers()[0]
+        held.spend(120, desk=120)
+        out = terminal.execute_command(f'report {held.number}')
+        assert held.number in out
+        assert out.index(held.number) < out.index('That is eight hours')
+        assert terminal.career.shift == tour + 1
+
+    def test_the_handoff_is_not_repeated(self, terminal):
+        terminal.shift_minutes = 479
+        terminal.execute_command('report')
+        tour = terminal.career.shift
+        for command in ('report', 'shift', 'sleep 30'):
+            assert 'eight hours' not in terminal.execute_command(command)
+        assert terminal.career.shift == tour
+
+    def test_the_shift_screen_never_runs_past_the_end(self, terminal):
+        terminal.shift_minutes = 480 + 75
+        terminal.execute_command('report')
+        assert 'Past the end' not in terminal.execute_command('shift')
+        terminal.shift_minutes = 100
+        assert 'Past the end' not in terminal.execute_command('shift')
+
+    def test_a_save_made_past_the_end_hands_off_once_on_resume(
+            self, terminal):
+        from bell_system.terminal import BellSystemTerminal
+        terminal.execute_command('report')
+        tour = terminal.career.shift
+        terminal.shift_minutes = 500
+        terminal.save_shift()
+        fresh = BellSystemTerminal()
+        fresh.career.qualifications = list(terminal.career.qualifications)
+        assert fresh.resumed and fresh.career.shift == tour
+        assert 'Relieved.' in fresh.execute_command('report')
+        assert fresh.career.shift == tour + 1
+        assert 'eight hours' not in fresh.execute_command('report')
+        assert fresh.career.shift == tour + 1
+
+    def test_on_the_last_tour_the_end_is_the_career_and_only_once(
+            self, terminal):
+        from bell_system.clock import TOURS_TO_DIVESTITURE
+        terminal.career.shift = TOURS_TO_DIVESTITURE
+        terminal.career.save()
+        terminal.clock.set_tour(terminal.career.shift)
+        terminal.execute_command('report')
+        terminal.shift_minutes = 479
+        out = terminal.execute_command('report')
+        assert 'That is eight hours' in out and terminal.career.finished
+        assert 'eight hours' not in terminal.execute_command('report')
+
+    def _last_tour(self, terminal):
+        from bell_system.clock import TOURS_TO_DIVESTITURE
+        terminal.career.shift = TOURS_TO_DIVESTITURE
+        terminal.career.save()
+        terminal.clock.set_tour(terminal.career.shift)
+        terminal.execute_command('report')
+        terminal.shift_minutes = 479
+
+    def test_the_last_tour_time_up_is_one_coherent_scene(self, terminal):
+        """
+        No relief comes on the last day, and the screen never says it does.
+
+        The wire chief says the eight hours are up and that nobody relieves
+        the position, on the day watch, with no evening word and no
+        'relieved' anywhere in it.
+        """
+        self._last_tour(terminal)
+        out = terminal.execute_command('report')
+        assert 'That is eight hours' in out
+        assert 'no relief on the last day' in out
+        for word in ('Relief is on the floor', 'Relieved', 'relieved',
+                     'tonight', 'this evening', 'this morning',
+                     'handing the position over'):
+            assert word not in out, word
+
+    def test_a_redirect_does_not_swallow_the_end_of_the_last_tour(
+            self, terminal):
+        self._last_tour(terminal)
+        out = terminal.execute_command('report > board.txt')
+        assert 'That is eight hours' in out and terminal.career.finished
+        filed = terminal.execute_command('cat board.txt')
+        assert 'That is eight hours' not in filed
+        assert 'THE CAREER' not in filed
+
+    def test_a_redirect_does_not_swallow_the_end_of_a_tour(self, terminal):
+        tour = terminal.career.shift
+        terminal.shift_minutes = 479
+        out = terminal.execute_command('report > board.txt')
+        assert 'That is eight hours' in out
+        assert terminal.career.shift == tour + 1
+        filed = terminal.execute_command('cat board.txt')
+        assert 'That is eight hours' not in filed
+        assert 'Relieved.' not in filed
+
+    def test_a_pipe_or_tee_does_not_swallow_the_end_of_a_tour(self, terminal):
+        for line in ('report | cat', 'report | tee board.txt'):
+            tour = terminal.career.shift
+            terminal.shift_minutes = 479
+            out = terminal.execute_command(line)
+            assert 'That is eight hours' in out, line
+            assert terminal.career.shift == tour + 1, line
+        assert 'That is eight hours' not in terminal.execute_command(
+            'cat board.txt')
 
     def test_relieving_resets_the_shift_clock_and_schedule(self, terminal):
         terminal.shift_minutes = 400

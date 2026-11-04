@@ -49,14 +49,14 @@ class PracticalCommands(SessionState):
         staged = self._practical_open()
         return staged[0].key if staged else None
 
-    def _may_use(self, command: str) -> bool:
+    def _may_use(self, command: str, action: str = '') -> bool:
         """
         Whether a command is open to the operator right now.
 
         Signed off, or the tool of a sign-off whose practical is on the
         board: Halloran lends it for as long as the report is there.
         """
-        if self.career.may_use(command):
+        if self.career.may_use(command, action):
             return True
         needed = self.career.qualification_for_command(command)
         return needed is not None and needed == self._practical_key()

@@ -187,14 +187,28 @@ class TestAnAmbiguousReadingSendsThemToTheFrame:
         _only(working, report)
         assert working.next_action().step == 'measure'
 
-    def test_without_the_frame_sign_off_it_is_not_offered(self, working):
+    def test_the_lookup_is_offered_without_the_frame_sign_off(self, working):
+        """A clean reading is a guess until the record is read (#64)."""
         working.career.qualifications = [
             q for q in working.career.qualifications if q != 'frame']
-        _clean_report(working)
+        report = _clean_report(working)
         assert not working.career.may_use('cosmos')
         action = working.next_action()
-        assert action.step != 'frame'
-        assert 'cosmos' not in action.command
+        assert action.step == 'frame'
+        assert action.command == (
+            f'cosmos jumper {report.record.telephone_number}')
+        shown = working.execute_command(action.command)
+        assert 'not signed off' not in shown
+        assert 'Cross-Connect Record' in shown
+        assert report.frame_looked_up
+
+    def test_the_rest_of_cosmos_still_needs_the_sign_off(self, working):
+        working.career.qualifications = [
+            q for q in working.career.qualifications if q != 'frame']
+        report = _clean_report(working)
+        for line in (f'cosmos fix {report.number}', 'cosmos status',
+                     'cosmos balance', 'cosmos'):
+            assert 'not signed off' in working.execute_command(line), line
 
     def test_once_the_record_has_been_read_it_stops_asking(self, working):
         report = _clean_report(working)

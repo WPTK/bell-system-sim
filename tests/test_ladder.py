@@ -49,3 +49,30 @@ def test_a_middling_craft_bot_does_not_reach_toll(calibration):
     careers = [calibration.play_career(0.6, 'craft', seed)
                for seed in range(4)]
     assert sum(toll_reached(held) for held in careers) <= 1
+
+
+def test_one_seed_is_one_career(calibration, monkeypatch):
+    """
+    A career draws its own seed from the system unless it is given one.
+
+    The test setup pins the seed to empty, which would hide the draw, so
+    the variable is removed first: only what ``play_career`` sets can make
+    the two careers the same one.
+    """
+    from bell_system.seeding import ENVIRONMENT, new_seed
+    monkeypatch.delenv(ENVIRONMENT, raising=False)
+    assert new_seed() != new_seed()
+    first, second = [], []
+    calibration.play_career(0.75, 'craft', 3, tours=3, tour_log=first)
+    calibration.play_career(0.75, 'craft', 3, tours=3, tour_log=second)
+    assert first == second and first
+
+
+def test_the_peers_file_says_how_it_was_played(calibration):
+    from bell_system.data import peers
+    assert peers.GENERATED
+    assert peers.SKILLS == calibration.PEER_SKILLS
+    assert peers.DAWDLES == calibration.PEER_DAWDLES
+    assert peers.CREW_WAITS == calibration.PEER_WAITS
+    assert peers.SEEDS == (1, peers.CAREERS_PER_CELL
+                           * len(peers.SKILLS) * len(peers.DAWDLES))

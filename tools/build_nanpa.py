@@ -20,11 +20,11 @@ from 212 in September 1984, among them. Those are excluded by name in
 POST_PERIOD_NPAS below.
 
 Provenance, stated plainly: the format rule is document-verified from
-Engineering and Operations. The split dates in POST_PERIOD_NPAS are not in any document
-available to this project; they come from the published history of the
-numbering plan and are marked here as externally sourced. Each entry carries
-its year and its parent code so a wrong one can be found and corrected rather
-than merely suspected.
+Engineering and Operations. The split dates in POST_PERIOD_NPAS are not in
+any document available to this project; they come from the published history
+of the numbering plan and are marked here as externally sourced. Each entry
+carries its year and its parent code so a wrong one can be found and
+corrected rather than merely suspected.
 
 Run from the repository root, naming the dump:
 

@@ -37,6 +37,13 @@ class Fault(NamedTuple):
     dispatch: str
 
 
+# The repair minutes are the simulation's own. Five of the ten conditions go
+# to the one outside plant crew, and at 77 to 387 minutes a job it was out for
+# most of every tour, so play turned into waiting for it (#64). Halved, a
+# player who waits for the crew whenever nothing else can be done waits about
+# a quarter less of the tour. A second lineman would have changed the roster,
+# which stays at five.
+#
 # Electrical fault conditions. Every name here appears in the period Bell
 # documents: open, short, ground, cross, false cross or ground, foreign EMF,
 # and the wet cable that causes low insulation resistance.
@@ -48,7 +55,7 @@ FAULTS: Dict[str, Fault] = {
         mlt_signature='Infinite resistance tip to ring; no station termination',
         tip_ring_ohms=(3_000_000, 9_999_999),
         to_ground_ohms=(3_000_000, 9_999_999),
-        typical_minutes=(90, 320), dispatch='Outside plant',
+        typical_minutes=(45, 160), dispatch='Outside plant',
     ),
     'SHORT': Fault(
         code='SHORT', name='Short', where='LOOP',
@@ -57,7 +64,7 @@ FAULTS: Dict[str, Fault] = {
         mlt_signature='Near zero resistance tip to ring',
         tip_ring_ohms=(0, 90),
         to_ground_ohms=(200_000, 3_000_000),
-        typical_minutes=(60, 240), dispatch='Outside plant',
+        typical_minutes=(30, 120), dispatch='Outside plant',
     ),
     'GROUND': Fault(
         code='GROUND', name='Ground', where='LOOP',
@@ -66,7 +73,7 @@ FAULTS: Dict[str, Fault] = {
         mlt_signature='Low resistance conductor to ground, tip to ring normal',
         tip_ring_ohms=(150_000, 900_000),
         to_ground_ohms=(0, 4_000),
-        typical_minutes=(70, 260), dispatch='Outside plant',
+        typical_minutes=(35, 130), dispatch='Outside plant',
     ),
     'CROSS': Fault(
         code='CROSS', name='Cross', where='LOOP',
@@ -75,7 +82,7 @@ FAULTS: Dict[str, Fault] = {
         mlt_signature='Foreign potential and abnormal resistance to a second pair',
         tip_ring_ohms=(1_000, 40_000),
         to_ground_ohms=(20_000, 400_000),
-        typical_minutes=(110, 400), dispatch='Outside plant',
+        typical_minutes=(55, 200), dispatch='Outside plant',
     ),
     'WET': Fault(
         code='WET', name='Wet cable', where='LOOP',
@@ -102,7 +109,7 @@ FAULTS: Dict[str, Fault] = {
         mlt_signature='DC or AC voltage present with no office battery applied',
         tip_ring_ohms=(80_000, 900_000),
         to_ground_ohms=(40_000, 800_000),
-        typical_minutes=(120, 480), dispatch='Outside plant',
+        typical_minutes=(60, 240), dispatch='Outside plant',
     ),
     'ROH': Fault(
         code='ROH', name='Receiver off hook', where='STATION',

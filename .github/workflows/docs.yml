@@ -37,7 +37,7 @@ jobs:
   deploy:
     name: Deploy
     needs: build
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     # Only deploys share the group, so a pull request build can never queue
     # behind a deploy or cancel one.
     concurrency:

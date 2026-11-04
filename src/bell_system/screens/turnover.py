@@ -28,6 +28,7 @@ from ..npc import (
     AUDIT_EXCEPTIONS,
     AUDIT_FAILED,
     AUDIT_PASSED,
+    Message,
     render as render_message,
 )
 from ..progression import QUALIFICATIONS
@@ -35,6 +36,7 @@ from ..reports import hours_minutes
 from ..commitment import commitment_label
 from ..verbs import control_standing
 from ..weather import Weather
+from .. import ending
 from .session import SessionState
 
 # What the last tour opens on. Nothing mechanical changes - the board is
@@ -418,6 +420,30 @@ this shift and the next one starts on a fresh board."""
                 "looked at it this tour.\n\n"
                 "Read it with 'report', then 'handoff relieve' again.")
 
+    def _time_is_up(self) -> str:
+        """
+        Eight hours are worked: relief takes the position.
+
+        The same sign-off as ``handoff relieve``, without the refusal for a
+        tour with nothing in it, since the tour has run its length. The
+        board goes as it stands. On the last day nobody comes to take it,
+        and the wire chief says so; no time of day is named, because the
+        last tour is worked on the day watch.
+        """
+        if self.clock.last_tour(self.career.shift):
+            lines = ['That is eight hours.',
+                     'There is no relief on the last day. The office goes '
+                     'to its company on the first.']
+        else:
+            lines = ['That is eight hours.',
+                     'Relief is on the floor. I am handing the position '
+                     'over.']
+        said = render_message(Message(
+            channel='write', sender='ehalloran', received=self.clock.now(),
+            lines=lines, kind='shift', subject='End of shift', about=None,
+        ), self._stamp())
+        return f"{said}\n\n{self._end_shift()}"
+
     def _end_shift(self) -> str:
         """
         Sign off: bank the index, advance the shift, and start a new board.
@@ -451,9 +477,9 @@ this shift and the next one starts on a fresh board."""
         if self.clock.last_tour(self.career.shift):
             if self.career.finished:
                 return (
-                    "You have been relieved. There is nobody to relieve "
-                    "you twice on the last\nday of the Bell System, and "
-                    "there is no shift after this one to open.\n\n"
+                    "The last tour is closed. Nobody relieves this position "
+                    "on the last\nday of the Bell System, and there is no "
+                    "shift after this one to open.\n\n"
                     "The board is still there if you want it. "
                     "'qual' has the career record, and 'career new' "
                     "files it and starts the next."
@@ -567,7 +593,7 @@ this shift and the next one starts on a fresh board."""
         save.discard(self.shift_file)
 
         lines = [
-            f"Relieved. Tour {career.shift} closed after {worked} worked.",
+            f"Signed off. Tour {career.shift} closed after {worked} worked.",
             '=' * 66,
         ]
         for sentence in summary:
@@ -595,11 +621,20 @@ this shift and the next one starts on a fresh board."""
         if trend:
             lines.append(f"  Every tour of it    {trend}")
         lines.extend(['', *self.audit_lines(found, final=True)])
+        # The last night reads the career: the office goes to its own
+        # company, the bureau and the field say their last, and the wire
+        # chief has the final word.
+        shape = ending.shape_of(career, self.desk, found.verdict)
+        career.assignment = shape.company or shape.outside
+        career.save()
+        lines.extend(ending.epilogue(shape, self.clock.now(), self._stamp(),
+                                     self.switchroom))
         lines.extend(['', render_message(self.switchroom.last_word(
             self.clock.now(), career.shift, career.reports_closed,
-            len(career.qualifications), found.verdict), self._stamp())])
+            len(career.qualifications), found.verdict,
+            ending.chief_note(shape)), self._stamp())])
         lines.append("The board is still on the machine. Nobody is coming "
-                     "to take it off you tonight.")
+                     "to take it from you.")
         lines.append("'career new' files this career and starts the next.")
         return '\n'.join(lines)
 

@@ -95,3 +95,41 @@ class TestTheGeneratorWillNotDeleteTheRepository:
                                                       capsys):
         assert build_docs.main(['build_docs.py', str(ROOT / 'docs')]) == 2
         assert 'refusing' in capsys.readouterr().err
+
+
+class TestTheGeneratorOnlyReplacesItsOwnOutput:
+    def test_it_refuses_a_directory_with_files_it_did_not_write(
+            self, build_docs, tmp_path):
+        mine = tmp_path / 'notes'
+        mine.mkdir()
+        (mine / 'keep.txt').write_text('local only', encoding='utf-8')
+        with pytest.raises(ValueError):
+            build_docs.build(mine)
+        assert (mine / 'keep.txt').read_text(encoding='utf-8') == 'local only'
+
+    def test_it_refuses_an_untracked_directory_inside_the_repository(
+            self, build_docs):
+        out = ROOT / 'untracked-local-notes'
+        out.mkdir()
+        try:
+            (out / 'keep.txt').write_text('local only', encoding='utf-8')
+            with pytest.raises(ValueError):
+                build_docs.build(out)
+            assert (out / 'keep.txt').exists()
+        finally:
+            (out / 'keep.txt').unlink()
+            out.rmdir()
+
+    def test_it_replaces_its_own_earlier_output(self, build_docs, tmp_path):
+        out = tmp_path / 'site-source'
+        build_docs.build(out)
+        (out / 'stale.md').write_text('old', encoding='utf-8')
+        build_docs.build(out)
+        assert not (out / 'stale.md').exists()
+        assert (out / build_docs.MARKER).exists()
+
+    def test_it_accepts_an_empty_or_new_directory(self, build_docs, tmp_path):
+        empty = tmp_path / 'empty'
+        empty.mkdir()
+        build_docs.build(empty)
+        build_docs.build(tmp_path / 'new')

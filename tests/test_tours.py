@@ -455,7 +455,7 @@ class TestAnOldSaveMeetsTheNewIds:
         fresh = self.old_save(terminal, 200)
         assert fresh.resumed
         on_board = {e['id'] for e in fresh.shift_events}
-        assert fresh._fired_events <= on_board | {'SHIFT-END'}
+        assert fresh._fired_events <= on_board
 
     def test_what_was_already_due_does_not_fire_as_a_burst(self, terminal):
         fresh = self.old_save(terminal, 200)

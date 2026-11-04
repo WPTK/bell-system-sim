@@ -9,6 +9,7 @@ how a wrong close out scores.
 import importlib
 import json
 import os
+import re
 
 import pytest
 
@@ -107,6 +108,14 @@ class TestQualifications:
         assert career.pass_practical('frame').key == 'frame'
         assert career.may_use('cosmos')
         assert career.practicals_passed == ['frame']
+
+    def test_reading_the_frame_record_needs_no_sign_off(self):
+        career = Career(difficulty='craft')
+        assert career.may_use('cosmos', 'jumper')
+        assert not career.may_use('cosmos', 'fix')
+        assert not career.may_use('cosmos')
+        # Only the one read is open.
+        assert not career.may_use('lmos', 'jumper')
 
     def test_wrong_closures_earn_nothing(self):
         career = Career(difficulty='fun')
@@ -603,8 +612,11 @@ class TestWhatQualificationClaims:
         for name, page in MAN_PAGES.items():
             # The pages wrap at 78 columns, so the phrase can straddle a
             # line break: compare with the whitespace collapsed.
-            flat = ' '.join(page.split())
-            assert 'governed by qualification' not in flat, name
+            flat = ' '.join(page.split()).lower()
+            assert not re.search(
+                r'govern\w*\W+(?:\w+\W+){0,4}?qualif\w*', flat), name
+            assert not re.search(
+                r'qualif\w*\W+(?:\w+\W+){0,4}?govern\w*', flat), name
         ladder = ' '.join(MAN_PAGES['qual'].split())
         assert "The ladder is the simulation's own" in ladder
 

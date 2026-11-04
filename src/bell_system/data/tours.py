@@ -24,8 +24,7 @@ What is in an entry:
 Provenance follows ``SOURCES.md``. Every beat and every article says which
 it is: ``SOURCED``, resting on a period document or a row in
 SOURCES.md, or ``OWN``, which the simulation made up. The briefings and
-goals are the simulation's own throughout. The calendar is pinned in
-the design notes, section 6:
+goals are the simulation's own throughout. The calendar is pinned:
 
 * 14 November 1983 is the career epoch and the first tour (repo, clock.py).
 * Thanksgiving was Thursday 24 November 1983 (SOURCES.md, derived).

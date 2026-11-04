@@ -132,8 +132,8 @@ def _clean() -> List[str]:
         "",
         "  A record that does not agree with the plant is CO_EQUIP, and the",
         "  remedy is on the frame and not in the street. A record in order",
-        "  leaves FCG or no trouble. You need the frame sign-off for cosmos",
-        "  (qual).",
+        "  leaves FCG or no trouble. Anyone may read the record; the frame",
+        "  sign-off (qual) is for putting it right.",
     ])
     return rows
 

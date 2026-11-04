@@ -20,7 +20,7 @@ The simulation's own: that there are two kinds of case here, which of two or
 three conditions each one turns out to be, how many reports each throws,
 when in a tour they arrive, and all of the story around Marker 2. The sequence relay, the number 2, the "third trial" and
 the eleven seconds are the story's and not the sources': SD_26030-01 has
-none of them (the source-mining notes, section 1), and nothing here
+none of them, and nothing here
 claims it does.
 """
 

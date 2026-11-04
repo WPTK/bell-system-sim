@@ -4,7 +4,7 @@ It is Monday 14 November 1983. You work a repair test desk at a Bell System wire
 
 A trouble report reaches your board with nothing on it but what the customer said. What is on the pair stays unknown until you measure it. You measure it, send the right crew, and close the report with a published disposition code. The machine around you is a working UNIX system, and the rest of the building talks to you on it.
 
-The game runs in a terminal, needs Python 3.9 or newer and nothing else, and uses no network. The [README](https://github.com/WPTK/bell-system-sim#readme) has the install steps. This page covers what to do once it is running. The [command reference](command-reference/index.md) has one page for every command.
+The game runs in a terminal, needs Python 3.9 or newer and nothing else, and uses no network. The [README](https://github.com/WPTK/bell-system-sim#readme) has the install steps. Everything below assumes it is running. The [command reference](command-reference/index.md) has one page for every command.
 
 ## Your first report
 
@@ -55,7 +55,7 @@ The wrong repair force costs forty-five minutes and leaves the trouble where it 
 
 Two settings change how forgiving the desk is.
 
-`set game.difficulty fun` is the default. Loop testing names the fault for the first two sightings of each kind, a report can be closed without measuring, a wrong call costs little, a missed commitment costs a quarter of what it costs in `craft`, and qualification comes quickly.
+`set game.difficulty fun` is the default. Loop testing names the fault for the first two sightings of each kind, a report can be closed without measuring, a wrong call costs little, a missed commitment counts at a quarter, and qualification comes quickly.
 
 `set game.difficulty craft` is called I Hate Myself. Loop testing prints the numbers and nothing else. A report cannot be closed until it has been measured. Wrongly closed lines come back as repeats, and missed commitments count. Qualification is four times slower, and the building interrupts you nearly four times as often.
 
@@ -63,13 +63,13 @@ Two settings change how forgiving the desk is.
 
 ## Qualification and the service index
 
-You start signed off on Loop and Station, plus whatever your position carries. The game offers the rest as correct closures add up. A command you are not signed off on is refused. `help` marks those with an asterisk, and `qual` shows how to earn each sign-off.
+You start signed off on Loop and Station, plus whatever your position carries. The game offers the rest as correct closures add up. A command you are not signed off on is refused, except `cosmos jumper`, which only reads a line's frame record. `help` marks those with an asterisk, and `qual` shows how to earn each sign-off.
 
 The ladder is the simulation's own. No source consulted says how many reports earned which sign-off, or that a sign-off locked a command.
 
 The service index follows the weights in the network switching performance measurement plan. Customer reports carry ten of its hundred points, and that is the component you are scored on. `qual index` shows the weights.
 
-Two clocks run. A report's commitment runs on elapsed time, because the customer is out of service whether or not you are working, so the repair force's hours count against it. Your own day runs on your time, because while the field is out on one report you are working the next. Eight hours and the wire chief calls time. `handoff relieve` signs off the tour, banks the index and starts a new board. Work you did not finish carries forward.
+Two clocks run. A report's commitment runs on elapsed time, because the customer is out of service whether or not you are working, so the repair force's hours count against it. Your own day runs on your time, because while the field is out on one report you are working the next. Eight hours and relief takes the position: the command in hand finishes, then the tour is handed off as `handoff relieve` would, on the board as it stands. `handoff relieve` signs off the tour, banks the index and starts a new board. Work you did not finish carries forward.
 
 ## The other craft
 

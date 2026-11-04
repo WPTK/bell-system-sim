@@ -198,7 +198,7 @@ class TestTheAuditOnTheLastDay:
         first = terminal.execute_command('handoff relieve')
         banked = len(terminal.career.index_history)
         again = terminal.execute_command('handoff relieve')
-        assert 'relieve you twice' in again
+        assert 'Nobody relieves this position' in again
         assert audit_block(again)['Verdict'] == audit_block(first)['Verdict']
         assert len(terminal.career.index_history) == banked
 

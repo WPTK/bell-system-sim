@@ -234,10 +234,10 @@ could offer.
 
 Four rules held through the audit and the work that followed:
 
-1. **Provenance or admission.** A value is verified against a period document, externally sourced,
-   or explicitly marked as the simulation's own. Where a source could not be
-   reached, the gap is recorded in the source code rather than filled with
-   plausible invention.
+1. **Provenance or admission.** A value is verified against a period
+   document, externally sourced, or explicitly marked as the simulation's
+   own. Where a source could not be reached, the gap is recorded in the
+   source code rather than filled with plausible invention.
 2. **Conflicts are recorded, not resolved silently.** Where two sources
    disagree - CLLI code length, what MLT stands for - both readings and the
    choice are written down.

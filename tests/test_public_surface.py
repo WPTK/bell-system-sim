@@ -112,7 +112,7 @@ class TestTheSitePageMatchesTheDifficultyProfiles:
         assert fun.missed_commitment_scale == pytest.approx(0.25)
         page = flat(ROOT / 'docs' / 'site' / 'index.md')
         assert 'commitments are not counted' not in page
-        assert 'a quarter of what it costs in `craft`' in page
+        assert 'a missed commitment counts at a quarter' in page
 
     def test_the_site_repeat_chances_are_the_codes(self):
         page = flat(ROOT / 'docs' / 'site' / 'index.md')

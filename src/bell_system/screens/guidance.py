@@ -218,15 +218,11 @@ class GuidanceCommands(SessionState):
 
         Office equipment, a false cross or ground and no trouble all look
         the same to mlt, and the one cheap thing that separates them is the
-        frame record. Once it has been looked up, or where the player is not
-        signed off to look, the answer is no longer a lookup, and nothing
-        here says which of the three it is.
+        frame record, which anyone may read. Once it has been looked up the
+        answer is no longer a lookup, and nothing here says which of the
+        three it is.
         """
         number = report.number
-        if not self.career.may_use('cosmos'):
-            return NextAction(
-                f"{number} reads clean on every measurement; sheet 660-003.",
-                f"report show {number}", 'dispatch')
         if report.frame_looked_up:
             return NextAction(
                 f"{number} reads clean and its frame record has been read. "
