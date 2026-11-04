@@ -1082,7 +1082,8 @@ class Switchroom:
         """
         lines = [
             'That is the tour, and that is the company.',
-            f'{tours} tours and {closed} reports off the board. I signed '
+            f"{tours} tours and {closed} report{'' if closed == 1 else 's'} "
+            f'off the board. I signed '
             f'{qualifications} of your',
             'qualifications and I stand behind every one of them.',
         ]

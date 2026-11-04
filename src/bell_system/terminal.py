@@ -735,11 +735,16 @@ class BellSystemTerminal(
         stored = save.read(self.shift_file)
         if stored is not None and save.restore(self, stored):
             return True
-        # Either it would not parse or it does not belong to this tour.
-        # Both are thrown away: a file that will not load is not going to
-        # start loading, and leaving it means discarding this tour's work
-        # at the end of it too.
-        save.discard(self.shift_file)
+        # Either it would not load or it does not belong to this tour. A
+        # file of another tour is thrown away. One that should have loaded
+        # and did not is set aside as .bad, as a home is, so that what is
+        # in it can still be read. Either way the tour starts fresh: a file
+        # that will not load is not going to start loading, and leaving it
+        # means discarding this tour's work at the end of it too.
+        if stored is None or save.belongs(self, stored):
+            save.set_aside(self.shift_file)
+        else:
+            save.discard(self.shift_file)
         return False
 
     def save_shift(self) -> None:

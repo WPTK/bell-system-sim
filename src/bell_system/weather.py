@@ -46,14 +46,13 @@ CONDITIONS: Dict[str, Condition] = {
                         'Grey and holding. The barometer is going the wrong '
                         'way but nothing is falling yet.'),
     'DRIZZLE': Condition('DRIZZLE', 'Drizzle', 0.35,
-                         'Fine rain, the kind that soaks a splicer through '
-                         'in an hour and never looks like much.'),
+                         'Fine rain, the kind that soaks you through in an '
+                         'hour and never looks like much.'),
     'RAIN': Condition('RAIN', 'Rain', 0.70,
-                      'Steady rain. Anything already wet is getting wetter '
-                      'and the manholes are filling.'),
+                      'Steady rain, and the manholes are filling.'),
     'HEAVY': Condition('HEAVY', 'Heavy rain', 1.00,
-                       'Coming down hard. Water is finding every opening in '
-                       'every sheath that has one.'),
+                       'Coming down hard. The gutters are running over '
+                       'and the street is a creek.'),
 }
 
 # Order for a forecast listing and for stepping between neighbours.

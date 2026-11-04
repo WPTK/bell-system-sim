@@ -31,8 +31,8 @@ thrown away at every handoff, and a note written on tour 2 is still there on
 tour 9. It holds only the difference from the shipped tree, under the home
 directories and the moo scoreboard, in a file of up to 64 KB, and up to about
 17 KB over that in the written-at stamps, which the limit does not count. A
-home that does not load whole is set aside as ``home.json.bad`` and never written over, and
-every file here is written to a scratch name and moved into place, so a crash
+home that does not load whole is set aside as ``home.json.bad`` (then
+``.bad.1``, and so on), and every file here is written to a scratch name and moved into place, so a crash
 mid-write leaves the old file and not a short one.
 """
 
@@ -427,15 +427,22 @@ def capture(terminal: Any) -> Dict[str, Any]:
     }
 
 
+def belongs(terminal: Any, stored: Dict[str, Any]) -> bool:
+    """Whether a saved shift is this session's: version, tour and wire centre."""
+    return (stored.get('version') == VERSION
+            and stored.get('shift') == terminal.career.shift
+            and stored.get('reports_closed') == terminal.career.reports_closed
+            and stored.get('clli') == terminal.desk.clli)
+
+
 def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     """
     Put a saved shift back onto a freshly constructed session.
 
     Returns False and changes nothing if the file does not belong to this
-    session: a different version, a different tour of the career, or a
-    different wire centre. A partially applied resume would be worse than
-    no resume at all, so everything that can fail is read before anything
-    is assigned.
+    session (see :func:`belongs`) or does not hold a whole shift. A
+    partially applied resume would be worse than no resume at all, so
+    everything that can fail is read before anything is assigned.
 
     Args:
         terminal: The session to restore onto
@@ -445,10 +452,7 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
         Whether the shift was picked back up
     """
     desk = terminal.desk
-    if (stored.get('version') != VERSION
-            or stored.get('shift') != terminal.career.shift
-            or stored.get('reports_closed') != terminal.career.reports_closed
-            or stored.get('clli') != desk.clli):
+    if not belongs(terminal, stored):
         return False
 
     try:
@@ -460,6 +464,17 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
                     for key, entry in board['regulars'].items()}
         tour = stored['tour']
         weather = stored['weather']
+        sequence = board['sequence']
+        closed_count = board['closed_count']
+        repeat_count = board['repeat_count']
+        regime, key = weather['regime'], weather['key']
+        temperature, minutes = weather['temperature'], weather['minutes']
+        shift_minutes, charged = tour['shift_minutes'], tour['charged_total']
+        fired = set(tour['fired_events'])
+        baseline = tuple(tour['baseline'])
+        nudges = set(tour['nudges'])
+        hint_situation, hint_level = tour['hint_situation'], tour['hint_level']
+        assigned = set(tour['assigned_tickets'])
         # Absent from a shift saved before there were controls, and not a
         # control the desk knows is as good as none. Anything that is not a
         # string is not one, and is not allowed to raise below.
@@ -477,30 +492,30 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
 
     desk.reports = held
     desk.order = order
-    desk._sequence = board['sequence']
-    desk.closed_count = board['closed_count']
+    desk._sequence = sequence
+    desk.closed_count = closed_count
     desk.listed = None
-    desk.repeat_count = board['repeat_count']
+    desk.repeat_count = repeat_count
     desk.control = control
     desk.cases = cases
     desk.jobs = jobs
     open_missing(desk)
     desk._regulars = regulars
 
-    desk.weather.regime = weather['regime']
-    desk.weather.key = weather['key']
-    desk.weather.temperature = weather['temperature']
-    desk.weather._minutes = weather['minutes']
+    desk.weather.regime = regime
+    desk.weather.key = key
+    desk.weather.temperature = temperature
+    desk.weather._minutes = minutes
 
-    terminal.shift_minutes = tour['shift_minutes']
-    terminal._charged_total = tour['charged_total']
-    terminal._fired_events = set(tour['fired_events'])
+    terminal.shift_minutes = shift_minutes
+    terminal._charged_total = charged
+    terminal._fired_events = fired
     terminal.settle_fired_events()
-    terminal._tour_baseline = tuple(tour['baseline'])
-    terminal._tour_nudges = set(tour['nudges'])
-    terminal._hint_situation = tour['hint_situation']
-    terminal._hint_level = tour['hint_level']
-    terminal._assigned_tickets = set(tour['assigned_tickets'])
+    terminal._tour_baseline = baseline
+    terminal._tour_nudges = nudges
+    terminal._hint_situation = hint_situation
+    terminal._hint_level = hint_level
+    terminal._assigned_tickets = assigned
     # Newer than the first saves. Without them the tour is taken to have
     # been worked, which is the kinder way to be wrong about a resumed shift.
     terminal._tour_desk_start = tour.get('tour_desk_start', 0)
@@ -637,6 +652,15 @@ def restore_home(terminal: Any, stored: Any) -> Optional[int]:
     return left_out
 
 
+def aside_name(path: str) -> str:
+    """Where a file that would not load goes: ``.bad``, then ``.bad.1``..."""
+    name, number = path + '.bad', 0
+    while os.path.exists(name):
+        number += 1
+        name = f'{path}.bad.{number}'
+    return name
+
+
 def load_home(path: str, terminal: Any) -> Optional[str]:
     """
     Read the player's files from disk and put them back.
@@ -654,7 +678,7 @@ def load_home(path: str, terminal: Any) -> Optional[str]:
     if left_out == 0:
         terminal._home_text = home_text(terminal.filesystem)
         return None
-    aside = path + '.bad'
+    aside = aside_name(path)
     try:
         os.replace(path, aside)
     except OSError:
@@ -718,6 +742,14 @@ def read(path: str) -> Optional[Dict[str, Any]]:
     """Read a saved shift, or nothing at all if it will not read."""
     stored = read_json(path)
     return stored if isinstance(stored, dict) else None
+
+
+def set_aside(path: str) -> None:
+    """Keep a saved shift that would not load, out of the way, as ``.bad``."""
+    try:
+        os.replace(path, aside_name(path))
+    except OSError:
+        discard(path)
 
 
 def discard(path: str) -> None:

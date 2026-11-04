@@ -696,7 +696,12 @@ this shift and the next one starts on a fresh board."""
         untested = [report for report in pending if not report.tested]
         with_field = [report for report in pending if report.dispatched_to]
         now = self.clock.now()
-        left = max(0, SHIFT_LENGTH_MINUTES - self.shift_minutes)
+        # The career is over when the last tour is signed off, whatever the
+        # clock said when it was: the tour was worked to its end.
+        left = (0 if self.career.finished
+                else max(0, SHIFT_LENGTH_MINUTES - self.shift_minutes))
+        worked = (f"{SHIFT_LENGTH_MINUTES // 60}:00" if self.career.finished
+                  else self.shift_time())
         closed, correct, missed, repeats = self._tour_worked()
         brief = self.tour_brief(self.goal_counts())
 
@@ -706,7 +711,7 @@ this shift and the next one starts on a fresh board."""
             '=' * 62,
             *brief,
             *([''] if brief else []),
-            f"  Worked              {self.shift_time()} of "
+            f"  Worked              {worked} of "
             f"{SHIFT_LENGTH_MINUTES // 60}:00",
             f"  Left                {left // 60}:{left % 60:02d}",
             '',
