@@ -109,6 +109,11 @@ stop and look at the cable and pair before you dispatch anybody. It is
 almost always water and one splicer trip fixes all of them. I sent four
 separate crews to Franklin Street last month. Do not be me.
 
+Some of it goes by itself. A ground or a cross will be there on the
+first test and gone on the second, and I have had one clear while the
+crew was on the road. Test it again before you send anybody. If it
+reads clean, it is clean, and you close it for what the line is now.
+
 Halloran reads the index every morning. He will not say anything if it
 is good.
 

@@ -32,6 +32,10 @@ def isolated_state(tmp_path, monkeypatch):
     and guarantees each test starts from a clean slate.
     """
     monkeypatch.setenv('BELL_SYSTEM_HOME', str(tmp_path / 'state'))
+    # A career is given a seed of its own, which makes its cases and leaks
+    # its own. The suite asks for none, so that a test names the tour it
+    # wants and gets the same one every run; a test of the seed sets it.
+    monkeypatch.setenv('BELL_SYSTEM_SEED', '')
 
 
 @pytest.fixture

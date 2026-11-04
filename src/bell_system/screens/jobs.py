@@ -390,7 +390,12 @@ class JobCommands(SessionState):
         # The shift's own seconds: the minutes the command charged, not the
         # host's time, so it reads the same on any machine.
         started = self.shift_minutes
+        tour = self.career.shift
         output = self.execute_command(' '.join(args))
+        if self.career.shift != tour:
+            # A sign-off starts a clock of its own. What it took is what
+            # that clock now reads, not the distance back to the old one.
+            started = 0
         spent = float((self.shift_minutes - started) * 60)
         report = (f"\nreal     {spent:6.1f}\n"
                   f"user     {spent * 0.4:6.1f}\n"

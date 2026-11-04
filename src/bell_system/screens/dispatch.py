@@ -139,6 +139,7 @@ class CommandDispatch:
         'routing': self.cmd_routing,
         'capacity': self.cmd_capacity,
         'weather': self.cmd_weather,
+        'cable': self.cmd_cable,
         'force': self.cmd_force,
         'connect': self.cmd_connect,
         'company': self.cmd_company,

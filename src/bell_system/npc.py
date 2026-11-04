@@ -29,6 +29,7 @@ from typing import (
 )
 
 from .data import consequences
+from .data.cases import CaseKind
 from .data.consequences import Late
 from .data.tours import (
     EARLY, LAST, LATE, MIDDLE, WATCHES, Window, heard_on,
@@ -502,7 +503,7 @@ _POSITION_CHATTER: Dict[str, Sequence[tuple]] = {
          ['We have had six calls off one exchange saying the line is busy',
           'when it is not. Six is not six people being wrong.']),
         (CHANNEL_WRITE, 'mreyes',
-         ['A permanent signal and a receiver off the hook are the same',
+         ['A permanent signal and a telephone set down wrong are the same',
           'thing to the equipment. They are not the same thing to the',
           'customer, who is asleep.']),
         (CHANNEL_WRITE, 'jhaverty',
@@ -1433,6 +1434,51 @@ class Switchroom:
             ],
             kind='field', subject=f'{report_number} field report',
             about=report_number,
+        ))
+
+    def pressure_alarm(self, now: datetime, cable: int, psi: float,
+                       job: str = '') -> Message:
+        """
+        The cable pressure contactor on the maintenance teletype.
+
+        Says which cable and what the gauge reads, and nothing of which
+        binder group or whether there is water: the pressure falls first
+        and the water comes after, and finding the group is the work.
+        """
+        return self._deliver(Message(
+            channel=CHANNEL_TELETYPE, sender='adm', received=now,
+            lines=[f'PRESSURE ALARM  CABLE {cable:04d}  {psi:.1f} PSI',
+                   'CONTACTOR BELOW LIMIT']
+            + ([f'PLANT JOB {job} OPENED'] if job else []),
+            kind='alarm', subject=f'cable {cable:04d} pressure', about=None,
+        ))
+
+    def fraud_note(self, now: datetime, lines: List[str]) -> Message:
+        """The transmission engineer's note on the toll counts, in the mail."""
+        return self._deliver(Message(
+            channel=CHANNEL_MAIL, sender='tnakamura', received=now,
+            lines=list(lines), kind='fraud', subject='Holding times',
+            about=None,
+        ))
+
+    def case_note(self, now: datetime, kind: CaseKind, about: str,
+                  closing: bool = False) -> Optional[Message]:
+        """
+        Whoever stands nearest a shared cause, saying what they can see.
+
+        What they say is what they can see from where they stand and never
+        what to do about it: a case is not named for the player, and the
+        words say nothing of a fault, a force or a code. Nothing is said
+        when that person is not on the watch.
+        """
+        if not self.present(kind.sender, now):
+            return None
+        channel = (CHANNEL_WRITE if kind.sender == 'rjohnson'
+                   else CHANNEL_ORDERWIRE)
+        return self._deliver(Message(
+            channel=channel, sender=kind.sender, received=now,
+            lines=list(kind.closed if closing else kind.opened),
+            kind='case', subject=f'{about} run', about=about,
         ))
 
     def practical_offer(self, now: datetime, name: str,

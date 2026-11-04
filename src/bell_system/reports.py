@@ -33,7 +33,16 @@ import random
 from datetime import datetime, timedelta
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from .cable import BINDERS_PER_UNIT, PAIRS_PER_BINDER, CablePlant
+from .cases import Case, clear as clear_case
+from .plantjobs import PlantJob
+from .cable import (
+    BINDERS_PER_UNIT,
+    PAIRS_PER_BINDER,
+    CablePlant,
+    WetSection,
+    binder_colour,
+    binder_of,
+)
 from .field import FieldForce
 from .weather import Weather
 from .data.regulars import (
@@ -110,6 +119,21 @@ CONTROLS: Dict[str, Tuple[float, int]] = {
     'reroute': (0.7, 8),
 }
 
+# Trouble that comes and goes. Three of the loop faults are the kind a
+# customer can report and a test an hour later cannot find: a ground or a
+# cross that moves with the weather or a swinging drop, foreign voltage that
+# stops when the neighbour's equipment does. A share of those reports are
+# dealt as transient, and what makes one is the report number, not the dice
+# the board is dealt from, so that giving the desk this changes no seeded
+# board. The condition is there until it has been tested and then goes of
+# its own accord somewhere inside the window, counted in the report's own
+# elapsed minutes from the first test. The share and the window are the
+# simulation's own working figures (SOURCES.md): E&O attests that trouble
+# can clear before it is found, not how often or how fast.
+TRANSIENT_FAULTS = ('GROUND', 'CROSS', 'FEMF')
+TRANSIENT_SHARE = 0.25
+TRANSIENT_WINDOW = (20, 50)
+
 # Reports open at the start of a shift, and the most that may be open at once.
 OPENING_BACKLOG = (3, 5)
 MAX_PENDING = 9
@@ -118,6 +142,22 @@ STATUS_PENDING = 'PEND'
 STATUS_TESTED = 'TESTED'
 STATUS_DISPATCHED = 'DISP'
 STATUS_CLOSED = 'CLOSED'
+
+
+def transient_after(number: str, fault: str) -> Optional[int]:
+    """
+    Return how long after its first test a report's trouble clears, or None.
+
+    None is nearly always the answer: the trouble stays until it is fixed.
+    Decided from the report number alone, so it is the same every time it
+    is asked and takes nothing from the generator the board is dealt from.
+    """
+    if fault not in TRANSIENT_FAULTS:
+        return None
+    chance = random.Random(f"{number}:transient")
+    if chance.random() >= TRANSIENT_SHARE:
+        return None
+    return chance.randint(*TRANSIENT_WINDOW)
 
 
 def hours_minutes(minutes: int) -> str:
@@ -262,6 +302,22 @@ class TroubleReport:
         # The sign-off whose practical this report was staged for. Such a
         # report is never the customer's: it is not closed, it is handed in.
         self.practical: Optional[str] = None
+        # Trouble that goes by itself: minutes after the first test that it
+        # does (None for the usual kind), and the elapsed minute it will go
+        # at, which is only known once somebody has tested it. When the
+        # minute comes the line's condition becomes NONE, and everything
+        # that reads the condition reads the new one.
+        self.clears_after: Optional[int] = None
+        self.clears_at: Optional[int] = None
+        # What the last measurement of the line read, and whether the
+        # trouble has since gone by itself. What a prompt or a verdict says
+        # of a measured line is said of the line as it was measured, since
+        # the player has not measured it again.
+        self.last_read: Optional[str] = None
+        self.cleared_alone = False
+        # The shared cause this report is one of the symptoms of, if it is
+        # (cases.py). The key of the case, not the case.
+        self.case: Optional[str] = None
 
     # -- derived ---------------------------------------------------------
 
@@ -295,6 +351,24 @@ class TroubleReport:
         """
         self.minutes_spent += minutes
         self.desk_minutes += minutes if desk is None else desk
+        self._settle()
+
+    def arm(self) -> None:
+        """Start the clock on trouble that goes by itself, at the first test."""
+        if self.clears_after is not None and self.clears_at is None:
+            self.clears_at = self.minutes_spent + self.clears_after
+
+    def _settle(self) -> None:
+        """Let trouble that was going to clear clear, once its time is up."""
+        if self.clears_at is not None and self.minutes_spent >= self.clears_at:
+            self.record.fault = 'NONE'
+            self.clears_at = None
+            self.clears_after = None
+            self.cleared_alone = True
+
+    def read_fault(self) -> str:
+        """The condition the player last saw the line in, else its own."""
+        return self.last_read or self.record.fault
 
     def age(self, minutes: int) -> None:
         """
@@ -305,6 +379,7 @@ class TroubleReport:
         your own desk time alone, which is what spend() is for.
         """
         self.minutes_spent += minutes
+        self._settle()
 
     def age_label(self) -> str:
         """Return the time remaining, or how far past commitment it is."""
@@ -371,6 +446,10 @@ class ReportDesk:
         self.tour_of: Callable[[], int] = lambda: 1
         # The network management control left on, if any. See CONTROLS.
         self.control: Optional[str] = None
+        # The causes standing behind more than one report this tour.
+        self.cases: List[Case] = []
+        # What the plant has opened for itself (plantjobs.py).
+        self.jobs: List[PlantJob] = []
 
     # -- generation ------------------------------------------------------
 
@@ -456,7 +535,8 @@ class ReportDesk:
         self._sequence += self.rng.randint(1, 4)
         return f"TR-{self._sequence:05d}"
 
-    def _make_record(self, fault: str, now: datetime) -> LineRecord:
+    def _make_record(self, fault: str, now: datetime,
+                     section: Optional[WetSection] = None) -> LineRecord:
         """
         Build a line record carrying a given electrical condition.
 
@@ -475,7 +555,7 @@ class ReportDesk:
             line = f"{self.rng.randint(0, 9999):04d}"
         surname = self.rng.choice(_SURNAMES)
         initial = self.rng.choice(_INITIALS)
-        cable, pair = (self.plant.wet_pair(now)
+        cable, pair = (self.plant.wet_pair(now, section)
                        if fault == 'WET' else self.plant.dry_pair())
         classes = [code for code, _ in _CLASS_WEIGHTS]
         weights = [weight for _, weight in _CLASS_WEIGHTS]
@@ -540,7 +620,8 @@ class ReportDesk:
                 fault: Optional[str] = None,
                 record: Optional[LineRecord] = None,
                 repeat_of: Optional[str] = None,
-                symptom: Optional[str] = None) -> TroubleReport:
+                symptom: Optional[str] = None,
+                section: Optional[WetSection] = None) -> TroubleReport:
         """
         Take a new report onto the pending list.
 
@@ -552,6 +633,8 @@ class ReportDesk:
             repeat_of: The report number this one came back from
             symptom: What the customer says, where it is not drawn from
                 the condition's own list
+            section: The wet sheath a water report is a pair of, when a leak
+                has come due in one; otherwise the plant chooses
 
         Returns:
             The report that was created
@@ -562,7 +645,7 @@ class ReportDesk:
             condition, line_record = drawn
         else:
             condition = fault or self._choose_fault()
-            line_record = record or self._make_record(condition, now)
+            line_record = record or self._make_record(condition, now, section)
         line_record.fault = condition
         symptom = symptom or self.rng.choice(
             REPORT_SYMPTOMS.get(condition, ('Trouble',)))
@@ -574,6 +657,8 @@ class ReportDesk:
             commitment=self._commitment(condition, now, slack_minutes),
             repeat_of=repeat_of,
         )
+        if fault is None and record is None and drawn is None:
+            report.clears_after = transient_after(report.number, condition)
         self.reports[report.number] = report
         self.order.append(report.number)
         if condition == 'WET':
@@ -712,10 +797,12 @@ class ReportDesk:
     def record_test(self, report: TroubleReport, note: str,
                     minutes: int = COST_MLT) -> None:
         """Note a measurement against a report and charge the time."""
+        report.last_read = report.record.fault
         report.tested = True
         report.test_notes.append(note)
         if report.status == STATUS_PENDING:
             report.status = STATUS_TESTED
+        report.arm()
         report.spend(minutes)
 
     def dispatch(self, report: TroubleReport, force: str,
@@ -745,7 +832,9 @@ class ReportDesk:
                 f"{report.number} stays on the board.")
 
     def send_crew(self, report: TroubleReport, force: str,
-                  now: int = 0, name_fault: bool = True) -> Tuple[str, bool]:
+                  now: int = 0, name_fault: bool = True,
+                  section: Optional[Tuple[int, int]] = None
+                  ) -> Tuple[str, bool]:
         """
         Send a repair force, and say what the field reports and whether
         anybody went.
@@ -755,6 +844,10 @@ class ReportDesk:
         is whether the crew says what they cleared: a correct dispatch that
         names the fault is the answer to the report, and the closing code
         is the one thing the player is meant to work out.
+
+        ``section`` is the cable and binder group a splicer is told to open.
+        None leaves it to the report's own pair, as a dispatch always did;
+        a section is honoured, and a wrong one is a wrong trip.
 
         Dispatching to the wrong place is the expensive mistake it was: the
         trip is charged against the commitment and the trouble is still there.
@@ -767,6 +860,11 @@ class ReportDesk:
         fault = FAULTS[report.record.fault]
         wanted = fault.dispatch
 
+        if report.sheath_repaired and report.case:
+            return (f"{report.number} is one of a run that one crew has "
+                    f"already cleared.\nNobody needs to go. Close it out.",
+                    False)
+
         if report.sheath_repaired:
             # A splicer has already been to this binder group on somebody
             # else's report and the pair came back with it. Sending a
@@ -778,6 +876,18 @@ class ReportDesk:
                     f"opened. The pair came back with the rest of the "
                     f"group.\nNobody needs to go. Close it out: {close}.",
                     False)
+
+        if section is not None and force.lower() == 'cable repair':
+            named = self._named_job(report, force, section, now, name_fault)
+            if named is not None:
+                return named
+
+        if report.cleared_alone and force.lower() == FAULTS[
+                report.read_fault()].dispatch.lower():
+            # The force the reading called for, sent after the trouble had
+            # gone by itself. They went for good cause and find the line
+            # good; that is a trip, and it is not a wrong one.
+            return self._gone_before_they_came(report, force, now)
 
         if force.lower() != wanted.lower():
             # The right force draws its repair time here; so does this one,
@@ -809,6 +919,9 @@ class ReportDesk:
         report.dispatched_to = force
         report.crew = crew.name
         report.travel_minutes = travel
+        # A crew that went to trouble that was there has cleared it; it
+        # does not then go by itself between the repair and the close.
+        report.clears_at = report.clears_after = None
         # The repair and the drive are the field force's time, not yours,
         # but both run against the customer's commitment.
         report.spend(repair + travel + COST_DISPATCH, desk=COST_DISPATCH)
@@ -816,6 +929,11 @@ class ReportDesk:
         report.field_finding = fault.code
         went = (f"{crew.name} ({crew.title.lower()}) rolled from "
                 f"{came_from}, {travel} minutes.")
+        shared = clear_case(self, report, name_fault)
+        if shared:
+            return (f"{went}\n{crew.name} reports the trouble located and "
+                    f"cleared. {repair} minutes on the job.\n"
+                    + "\n".join(shared), True)
         if fault.code == 'NONE':
             return (f"{went}\n{crew.name} reports the line tests good at "
                     f"the station. {repair} minutes on the job.", True)
@@ -826,8 +944,112 @@ class ReportDesk:
         return (f"{went}\n{crew.name} reports {cleared} located "
                 f"and cleared. {repair} minutes on the job.", True)
 
+    def _gone_before_they_came(self, report: TroubleReport, force: str,
+                               now: int) -> Tuple[str, bool]:
+        """
+        A crew sent on a reading that was true, to trouble that has since
+        cleared: the trip is charged, nothing is found, and it is not a
+        wrong dispatch because the force was the one the reading asked for.
+        """
+        repair = self.rng.randint(*FAULTS['NONE'].typical_minutes)
+        crew, travel, came_from = self.force.send(
+            force, report.number, repair, now)
+        if crew is None:
+            return self._nobody_free(report, force, now), False
+        report.dispatched_to = force
+        report.crew = crew.name
+        report.travel_minutes = travel
+        report.spend(repair + travel + COST_DISPATCH, desk=COST_DISPATCH)
+        report.status = STATUS_DISPATCHED
+        report.field_finding = 'NONE'
+        return (f"{crew.name} ({crew.title.lower()}) rolled from "
+                f"{came_from}, {travel} minutes.\n{crew.name} reports the "
+                f"line tests good. It has cleared since it was reported. "
+                f"{repair} minutes on the job.", True)
+
+    def _named_job(self, report: TroubleReport, force: str,
+                   section: Tuple[int, int], now: int,
+                   name_fault: bool) -> Optional[Tuple[str, bool]]:
+        """
+        A splicer sent to a binder group the dispatcher named.
+
+        Returns None when that group is this report's own wet one, which is
+        the ordinary repair and goes on down send_crew, whether the sheath
+        is still open or a job's splice has dried it. Anywhere else the
+        splicer goes, opens what they were told to open, and finds what is
+        there: water, which they dry and which is somebody else's trouble
+        cleared, or a dry sheath, which is a wrong trip charged like any
+        other. The same words are said whatever the report's own fault is,
+        so naming a group tells nothing about what this report has.
+        """
+        record = report.record
+        cable, binder = section
+        wet = self.plant.open_section(cable, binder)
+        if (record.fault == 'WET'
+                and section == (record.cable, binder_of(record.pair))):
+            return None
+        fault = FAULTS['WET'] if wet is not None else FAULTS[record.fault]
+        low, high = fault.typical_minutes
+        repair = self.rng.randint(low, high)
+        cost = repair if wet is not None else COST_WRONG_DISPATCH
+        crew, travel, came_from = self.force.send(
+            force, report.number, cost, now)
+        if crew is None:
+            return self._nobody_free(report, force, now), False
+        report.dispatched_to = force
+        report.crew = crew.name
+        report.travel_minutes = travel
+        report.status = STATUS_DISPATCHED
+        went = (f"{crew.name} ({crew.title.lower()}) rolled from "
+                f"{came_from}, {travel} minutes.")
+        if wet is not None:
+            report.spend(repair + travel + COST_DISPATCH, desk=COST_DISPATCH)
+            return (f"{went}\n" + self._repair_sheath(
+                report, crew.name, repair, name_fault, wet), True)
+        report.spend(COST_WRONG_DISPATCH + COST_DISPATCH + travel,
+                     desk=COST_DISPATCH + COST_WRONG_DISPATCH_DESK)
+        return (f"{went}\n{crew.name} opened cable {cable}, binder {binder} "
+                f"({binder_colour(binder)}) and found it dry.\n"
+                f"{COST_WRONG_DISPATCH + travel} minutes charged against "
+                f"the commitment, and {crew.name} is now out on nothing.",
+                True)
+
+    def clear_sheath(self, section: WetSection,
+                     when: Optional[datetime] = None,
+                     skip: str = '', flag: bool = True
+                     ) -> List[TroubleReport]:
+        """
+        Repair a sheath and say which open reports came back with it.
+
+        The other pairs in the group were repaired by the same trip and cost
+        nothing further; they still have to be closed out, which is the
+        craftsperson's job and not the splicer's. A trip that was nobody's
+        dispatch repairs the sheath and flags no report (``flag`` off).
+        """
+        cleared = self.plant.repair(section, when or datetime.now())
+        if not flag:
+            return []
+        # A line that reports twice on one pair has two reports open and the
+        # section only remembers the later one. The sheath is dry for both.
+        cleared += [number for number, other in self.reports.items()
+                    if other.record.fault == 'WET'
+                    and other.record.cable == section.cable
+                    and other.record.pair in section.pairs
+                    and number not in cleared]
+        others = [self.reports[number] for number in cleared
+                  if number in self.reports
+                  and number != skip
+                  and self.reports[number].status != STATUS_CLOSED]
+        for other in others:
+            other.field_finding = 'WET'
+            other.sheath_repaired = True
+            if other.status == STATUS_PENDING:
+                other.status = STATUS_TESTED
+        return others
+
     def _repair_sheath(self, report: 'TroubleReport', force: str,
-                       repair: int, name_fault: bool = True) -> str:
+                       repair: int, name_fault: bool = True,
+                       section: Optional[WetSection] = None) -> str:
         """
         A splicer has opened one sheath, which repairs every pair in it.
 
@@ -839,33 +1061,13 @@ class ReportDesk:
         tour left in their notes.
         """
         record = report.record
-        section = self.plant.section_at(record.cable, record.pair)
+        section = section or self.plant.section_at(record.cable, record.pair)
         if section is None:
             what = 'wet cable' if name_fault else 'the trouble'
             return (f"{force} reports {what} located and cleared. "
                     f"{repair} minutes charged.")
 
-        cleared = self.plant.repair(section, report.received)
-        # A line that reports twice on one pair has two reports open and the
-        # section only remembers the later one. The sheath is dry for both.
-        cleared += [number for number, other in self.reports.items()
-                    if other.record.fault == 'WET'
-                    and other.record.cable == section.cable
-                    and other.record.pair in section.pairs
-                    and number not in cleared]
-        others = [self.reports[number] for number in cleared
-                  if number in self.reports
-                  and number != report.number
-                  and self.reports[number].status != STATUS_CLOSED]
-        for other in others:
-            # The sheath is dry. The other pairs in it were repaired by the
-            # same trip and cost nothing further; they still have to be
-            # closed out, which is the craftsperson's job and not the
-            # splicer's.
-            other.field_finding = 'WET'
-            other.sheath_repaired = True
-            if other.status == STATUS_PENDING:
-                other.status = STATUS_TESTED
+        others = self.clear_sheath(section, report.received, report.number)
 
         found = 'water in' if name_fault else 'trouble in'
         lines = [f"{force} reports {found} cable {section.cable}, binder "
@@ -891,6 +1093,10 @@ class ReportDesk:
         Returns:
             Whether the report was closed correctly
         """
+        # The line is judged as it was when the close was made. Nothing
+        # that was going to clear goes between the close and the verdict.
+        report.clears_at = report.clears_after = None
+        truth = report.record.fault
         report.spend(COST_CLOSE)
         report.status = STATUS_CLOSED
         report.disposition = disposition
@@ -901,7 +1107,6 @@ class ReportDesk:
         if report.overdue():
             report.missed_commitment = True
 
-        truth = report.record.fault
         if disposition == 8:
             correct = truth == 'NONE'
         else:

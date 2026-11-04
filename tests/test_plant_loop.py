@@ -224,8 +224,7 @@ class TestWeather:
             plant.attach(cable, pair, 'TR-00001')
             # Room left in the group, or nothing can spread into it.
             plant.sections[0].capacity = PAIRS_PER_BINDER
-            plant.rng = random.Random(77)
-            return sum(plant.spread(10, rain) for _ in range(200))
+            return sum(len(plant.leak(10, rain)) for _ in range(20))
 
         assert spread_over(1.0) > spread_over(0.0)
 
@@ -235,14 +234,14 @@ class TestWeather:
         cable, pair = plant.wet_pair(SHIFT_START)
         plant.attach(cable, pair, 'TR-00001')
         plant.sections[0].capacity = 1
-        assert sum(plant.spread(60, 1.0) for _ in range(50)) == 0
+        assert sum(len(plant.leak(60, 1.0)) for _ in range(50)) == 0
 
     def test_a_repaired_sheath_does_not_spread(self):
         plant = CablePlant(random.Random(2))
         cable, pair = plant.wet_pair(SHIFT_START)
         plant.attach(cable, pair, 'TR-00001')
         plant.repair(plant.sections[0], SHIFT_START)
-        assert sum(plant.spread(60, 1.0) for _ in range(50)) == 0
+        assert sum(len(plant.leak(60, 1.0)) for _ in range(50)) == 0
 
 
 class TestFieldForce:

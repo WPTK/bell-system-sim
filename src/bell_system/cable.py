@@ -64,10 +64,23 @@ ALARM_PSI = 2.5
 # who are out. The range is the simulation's own.
 SECTION_REPORTS = (3, 7)
 
-# Chance per shift-minute that an unrepaired wet section takes another pair,
-# before weather. The simulation's own, set so a section fills over a tour
-# rather than all at once.
-SPREAD_PER_MINUTE = 0.010
+# Water in an unrepaired section takes another pair every this many
+# minutes, before weather, and rain shortens it by 1 + RAIN_SPEEDUP times
+# how hard it is raining. A section that nobody has been to costs a pair an
+# hour, and a pair every fifteen minutes in the heaviest rain. The
+# simulation's own.
+PAIR_EVERY = 60
+RAIN_SPEEDUP = 3.0
+
+# Pressure lost to a leak, in pounds per square inch an hour, from the
+# minute the sheath opens. The simulation's own, set so that the contactor
+# alarms (below ALARM_PSI) a hundred minutes in.
+LEAK_PSI_PER_HOUR = 1.5
+
+# Minutes between a sheath opening and the first customer noticing. The
+# simulation's own, longer than it takes the pressure to alarm, which is
+# the whole reason to read the contactor.
+FIRST_PAIR_AFTER = 150
 
 
 def binder_colour(binder: int) -> str:
@@ -107,6 +120,12 @@ class WetSection:
         # Pairs that have reported, and the report on each.
         self.pairs: Dict[int, str] = {}
         self.psi = NOMINAL_PSI
+        # Minutes the sheath has been open to the weather, and the share of
+        # the next pair it has already taken.
+        self.wet_minutes = 0.0
+        self.credit = 0.0
+        # Whether the contactor has already been heard to alarm.
+        self.alarmed = False
 
     @property
     def first_pair(self) -> int:
@@ -170,6 +189,17 @@ class WetSection:
             self.reserve(pair)
         self.pairs[pair] = number
 
+    @property
+    def latent(self) -> bool:
+        """Whether it is leaking and no customer has noticed yet."""
+        return not self.pairs and not self.repaired
+
+    def soak(self, minutes: int) -> None:
+        """Let the sheath leak for a while: the pressure goes first."""
+        self.wet_minutes += minutes
+        self.psi = max(0.0, round(
+            self.psi - LEAK_PSI_PER_HOUR * minutes / 60, 2))
+
     def alarming(self) -> bool:
         """Whether the pressure contactor on this sheath would be alarming."""
         return self.psi < ALARM_PSI and not self.repaired
@@ -208,18 +238,27 @@ class CablePlant:
                 return section
         return None
 
-    def wet_pair(self, now: datetime) -> Tuple[int, int]:
+    def open_section(self, cable: int, binder: int) -> Optional[WetSection]:
+        """Return the open wet section in a named cable and binder, if any."""
+        for section in self.open_sections():
+            if section.cable == cable and section.binder == binder:
+                return section
+        return None
+
+    def wet_pair(self, now: datetime,
+                 section: Optional[WetSection] = None) -> Tuple[int, int]:
         """
         Return the cable and pair the next wet report should land on.
 
         An open section that has not taken all its pairs takes this one:
         that is what makes six reports arrive off one sheath. Only when
-        every open section is full does water start somewhere new.
+        every open section is full does water start somewhere new. A leak
+        that has come due names its own section, and the pair lands there.
         """
-        candidates = [section for section in self.open_sections()
-                      if not section.full]
-        section = (self.rng.choice(candidates) if candidates
-                   else self._new_section(now))
+        candidates = [other for other in self.open_sections()
+                      if not other.full and not other.latent]
+        section = section or (self.rng.choice(candidates) if candidates
+                              else self._new_section(now))
         pair = section.take_pair(self.rng)
         if pair is None:
             section = self._new_section(now)
@@ -297,23 +336,60 @@ class CablePlant:
         section.psi = NOMINAL_PSI
         return [number for number in section.pairs.values() if number]
 
-    def spread(self, minutes: int, rain: float) -> int:
+    def begin_leak(self, now: datetime, chance: random.Random) -> WetSection:
         """
-        Let unrepaired water take more of its binder group.
+        Open a sheath nobody has reported yet.
 
-        Rain is the documented reason wet cable gets worse, so the rate is
-        multiplied by how hard it is raining. Returns how many pairs went,
-        which the desk turns into reports.
+        The pressure starts to fall at once and the first customer notices
+        FIRST_PAIR_AFTER minutes on, so the contactor has the news first.
+        The cable and group come from the generator it is given, which is
+        the tour's own and not the desk's, so planting a leak deals nothing
+        differently.
+        """
+        for _ in range(40):
+            cable = chance.randint(1, self.cable_count)
+            binder = chance.randint(1, BINDERS_PER_UNIT)
+            if not any(other.cable == cable and other.binder == binder
+                       for other in self.open_sections()):
+                break
+        section = WetSection(cable, binder, chance.randint(*SECTION_REPORTS),
+                             now)
+        self.sections.append(section)
+        return section
+
+    def leak(self, minutes: int, rain: float) -> List[WetSection]:
+        """
+        Let unrepaired water go on soaking, and say which sheaths take a pair.
+
+        Rain is the documented reason wet cable gets worse, so a section
+        takes a pair every PAIR_EVERY minutes, sooner the harder it is
+        raining, until it has taken all it is going to. The first pair of a
+        sheath nobody had reported waits for FIRST_PAIR_AFTER. Nothing here
+        is random: how long water has been in is what decides, which is why
+        the contactor can warn of it. A section that comes due twice in one
+        call is returned twice.
 
         Args:
             minutes: Shift minutes elapsed since the last call
             rain: 0.0 for dry, 1.0 for the heaviest the weather models
         """
-        gone = 0
+        due: List[WetSection] = []
         for section in self.open_sections():
             if section.full:
                 continue
-            chance = SPREAD_PER_MINUTE * minutes * (1.0 + 3.0 * rain)
-            if self.rng.random() < chance:
-                gone += 1
-        return gone
+            noticed = bool(section.pairs) or section.credit > 0
+            section.soak(minutes)
+            if not noticed:
+                if section.wet_minutes < FIRST_PAIR_AFTER:
+                    continue
+                section.credit = 1.0
+            else:
+                section.credit += (
+                    minutes * (1.0 + RAIN_SPEEDUP * rain) / PAIR_EVERY)
+            room = section.capacity - len(section.pairs)
+            taken = 0
+            while section.credit >= 1.0 and taken < room:
+                section.credit -= 1.0
+                taken += 1
+                due.append(section)
+        return due

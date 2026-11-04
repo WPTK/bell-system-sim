@@ -192,7 +192,7 @@ class TestTheCadence:
         report with no cadence on it could only be that one.
         """
         from bell_system.data.trouble import REPORT_SYMPTOMS
-        from bell_system.screens.bureau import CADENCE_HEARD
+        from bell_system.data.callbacks import CADENCE_HEARD
         sharing = {code for code, symptoms in REPORT_SYMPTOMS.items()
                    if 'Calls do not complete' in symptoms}
         assert sharing <= set(CADENCE_HEARD)

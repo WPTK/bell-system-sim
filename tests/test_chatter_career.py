@@ -17,7 +17,8 @@ from datetime import datetime
 import pytest
 
 from bell_system import npc
-from bell_system.data.trouble import FAULTS
+from bell_system.data.trouble import (
+    DISPATCH_FORCES, DISPOSITIONS, FAULTS, FRAME_DEFECTS)
 from bell_system.data import tours
 from bell_system.npc import (
     CHATTER_REST_TOURS, Switchroom, chatter_key, forget_rested, heard_on,
@@ -138,12 +139,15 @@ def test_no_line_is_wider_than_the_bible_allows():
             assert len(line) <= 120, line
 
 
-# Pillar 1: nothing but mlt or a field finding names a fault, a force or a
-# close code. What counts is derived from the data the game answers from
-# (data/trouble.py), so a new fault or force is covered without editing this:
-# every fault's name, every force it dispatches to, and every three words in a
-# row of its mlt signature or its description. A few plain words are added by
-# hand: the ones a line says without quoting the data.
+# Pillar 1: nothing but mlt or a field finding names a fault, a force, a
+# frame defect or a close code. What counts is derived from the data the game
+# answers from (data/trouble.py), so a new fault, force, frame defect or
+# disposition is covered without editing this: every name (with the little
+# words left out, so "off the hook" is "off hook"), every three words in a row
+# of a fault's mlt signature or description, every name's own words unless
+# they are ordinary English (EVERYDAY), and the codes a close is written
+# with. A few plain words are added by hand: the ones a line says without
+# quoting the data.
 STOPWORDS = {'a', 'an', 'and', 'at', 'be', 'by', 'for', 'in', 'is', 'it',
              'its', 'of', 'on', 'or', 'the', 'to', 'with', 'no', 'not', 'one',
              'than', 'that', 'there', 'rather'}
@@ -158,6 +162,29 @@ def _runs(text, size=3):
     return {' '.join(words[i:i + size]) for i in range(len(words) - size + 1)}
 
 
+def _content(text):
+    return [word for word in _words(text) if word not in STOPWORDS]
+
+
+def _every_name():
+    """The name of every fault, force, frame defect and disposition."""
+    names = [fault.name for fault in FAULTS.values()]
+    names += [defect.name for defect in FRAME_DEFECTS.values()]
+    names += [disposition.name for disposition in DISPOSITIONS.values()]
+    names += [force for force in DISPATCH_FORCES]
+    return names
+
+
+# Words in those names that are ordinary English, or the plain words of the
+# trade, which a line may use in their everyday sense ("closure is open", "a
+# card in the door"). Everything else a name is made of is denied on its own:
+# jumper, horizontal, protector, operated, emf, foreign.
+EVERYDAY = {'block', 'cable', 'central', 'co', 'cross', 'equip', 'equipment',
+            'false', 'found', 'ground', 'hook', 'left', 'none', 'off',
+            'office', 'open', 'outside', 'plant', 'receiver', 'repair', 'run',
+            'short', 'station', 'terminal', 'trouble', 'unit', 'wet', 'wrong'}
+
+
 def _named_by_the_data():
     phrases = set()
     for fault in FAULTS.values():
@@ -170,19 +197,51 @@ def _named_by_the_data():
             if len(set(run.split()) - STOPWORDS) >= 2}
 
 
+def _named_without_the_little_words():
+    """Each name as its content words, whatever words stood between them."""
+    names = {' '.join(_content(name)) for name in _every_name()}
+    # A force is named by "<it> force" as well, which is what keeps the
+    # splicer's "Station to test desk" a greeting and not a dispatch.
+    names |= {f"{' '.join(_content(force))} force"
+              for force in DISPATCH_FORCES}
+    return {name for name in names if len(name.split()) >= 2}
+
+
+def _words_only_the_data_uses():
+    words = set()
+    for name in _every_name():
+        words |= set(_words(name))
+    for defect in FRAME_DEFECTS.values():
+        words |= set(_words(defect.code))
+    for fault in FAULTS.values():
+        words |= set(_words(fault.code))
+    return words - STOPWORDS - EVERYDAY
+
+
 # An idiom of the trade, and Johnson's canonical line about the marker (bible
 # section 4): it says a number is in limits, not what is wrong with a loop.
 DENIED = _named_by_the_data() - {'out of limits'}
+DENIED_CONTENT = _named_without_the_little_words()
+DENIED_WORDS = _words_only_the_data_uses() | {'disposition', 'dispositions'}
+CLOSE_CODES = '|'.join(str(code) for code in DISPOSITIONS)
 PLAIN = re.compile(
     r"\bground(ed|s)?\b|\bcross(ed)?\b(?!-connect)|\bntf\b|"
     r"no trouble found|send (anybody|anyone|somebody) out|"
-    r"\bforeign\b|\bclose code\b",
+    r"\bforeign\b|\bclose code\b|"
+    rf"\bcode ({CLOSE_CODES})\b|"
+    # The names that are also ordinary words are a fault only as a noun
+    # standing for the condition on a line.
+    r"\b(a|the|that|this) (open|short|wet|ground|cross) "
+    r"(on|in|across|between|from|at)\b",
     re.IGNORECASE)
 
 
 def _found_in(text):
-    spoken = ' '.join(_words(text))
-    hits = [run for run in DENIED if run in spoken]
+    spoken = f" {' '.join(_words(text))} "
+    content = f" {' '.join(_content(text))} "
+    hits = [run for run in DENIED if f" {run} " in spoken]
+    hits += [name for name in DENIED_CONTENT if f" {name} " in content]
+    hits += [word for word in DENIED_WORDS if f" {word} " in spoken]
     match = PLAIN.search(text)
     return hits + ([match.group(0)] if match else [])
 
@@ -194,8 +253,23 @@ def test_the_net_catches_what_it_should():
                  'closed as no trouble found', 'the loop measures clean to it',
                  'do not send anybody out on it', 'NTF again',
                  'it is the cable repair gang',
-                 'infinite resistance tip to ring'):
+                 'infinite resistance tip to ring',
+                 'close it as code 8', 'the disposition is wrong',
+                 'it is trouble found', 'send it to the station force',
+                 'jumper on the wrong horizontal',
+                 'protector unit left operated',
+                 'receiver is off the hook', 'it is a short on the pair'):
         assert _found_in(said), said
+
+
+def test_the_net_lets_through_what_the_lines_say_in_their_own_voice():
+    for said in ('Station to test desk. Nobody home.',
+                 'Closure is open and I have both hands in it.',
+                 'If you can clear anything short, do it now.',
+                 'It is wet in here.',
+                 'Anything still open at handoff goes over as it stands.',
+                 'Work the report nearest its commitment first.'):
+        assert _found_in(said) == [], said
 
 
 def test_no_line_names_a_fault_a_force_or_a_close_code():

@@ -1774,8 +1774,8 @@ SYNOPSIS
      report [board]
      report next
      report show <number>
-     report callback <number>
-     report dispatch <number> <force>
+     report callback <number> [topic]
+     report dispatch <number> <force> [cable/binder]
      report close <number> <5|8> [fault]
      report closed | faults | forces
 
@@ -1795,11 +1795,19 @@ OPTIONS
      next              The one report that most wants working, and what it
                        wants. The same decision the standing prompt makes
      show <n>          The line record, the symptom and everything done so far
-     callback <n>      Telephone the customer for more than the card carries
-     dispatch <n> <f>  Send a repair force. The wrong force costs time
+     callback <n>      Telephone the customer for more than the card carries.
+                       Name a topic (start, others, hear) to ask the one
+                       question; each call costs the same minutes
+     dispatch <n> <f>  Send a repair force. The wrong force costs time.
+                       Cable repair also wants the cable and binder group
+                       to open, as 81/8, where the job is run that way;
+                       a group with no water in it is a wrong trip too
      close <n> 5 <c>   Trouble found. Name the condition you found
      close <n> 8       No trouble found
      closed            What has been closed this session, and how it was judged
+     jobs              The plant jobs the cable pressure alarm has opened. A
+                       job has no customer: dispatch to it by its number,
+                       as PJ-001, naming the cable and binder group
      faults            The trouble conditions and what each measures like
      forces            The repair forces a report may be dispatched to
 
@@ -1814,6 +1822,12 @@ DISPOSITION CODES
      Closing a faulty line as code 8 does not fail loudly. It closes, and
      then the customer calls back. That repeat is what the measurement plan
      was counting.
+
+     Some trouble does not wait for a crew. A ground, a cross or foreign
+     voltage can clear by itself between one test and the next, and a line
+     that read faulty an hour ago may read clean now. A close is judged
+     against the line as it stands when it is made, and a crew sent after
+     the trouble has gone finds nothing.
 
 REFERRING TO A REPORT
      A report answers to its number (TR-04471), to the telephone number on
@@ -4185,6 +4199,43 @@ EXAMPLES
 SEE ALSO
      qual(1), report(1), trouble(1), man(1), nroff(1), pic(1)
 """,
+    "cable": """
+NAME
+     cable - cable and binder group, and how to tell a splicer where to go
+
+SYNOPSIS
+     cable [<pair>]
+     report dispatch <number> cable <cable>/<binder>
+
+DESCRIPTION
+     Exchange cable is built in groups of twenty-five pairs, each wrapped
+     in a coloured binder. Pairs 1 to 25 are group 1, 26 to 50 group 2,
+     and so on up to group 24, which ends at pair 600. A line record
+     carries its cable and pair as 0081/0181; the splicer wants the cable
+     and the group, as 81/8, and the group is the part you work out.
+
+     The groups take their colours from the 25-pair colour code, the same
+     one the pairs inside follow: group 1 is white-blue, group 2
+     white-orange, and group 24 violet-brown. Violet-slate is a real pair
+     colour and is never used as a binder.
+
+     cable with no argument lists the twenty-four groups and their colours.
+     cable with a pair number says which group that pair is in. Neither
+     reads a report or changes the board.
+
+     Water is a binder group fault. A splicer who opens the group the water
+     is in dries it and reseals it, and every pair in the group comes back
+     with it. A splicer sent to a group with no water in it opens a dry
+     sheath, and that is a trip charged against the commitment like any
+     other wrong one.
+
+     Where the job is run that way, Cable repair will not go without a
+     section. Where it is not, it opens the sheath the report is on. A
+     section you name is honoured either way.
+
+SEE ALSO
+     report(1), lmos(1), weather(1)
+""",
     "weather": """
 NAME
      weather - what it is doing outside, and what that does to the plant
@@ -4201,6 +4252,10 @@ DESCRIPTION
      the harder it is raining, and each pair that goes is another report on
      your board. A splicer trip while it is dry costs one dispatch. The
      same water after an afternoon of rain costs several.
+
+     Left alone, an open binder group takes a pair an hour, and a pair
+     every quarter of an hour in the heaviest rain. Nothing about it is
+     chance: how long the water has been in decides.
 
      A sheath whose pressure has fallen far enough is shown as alarming.
      Cable is pressurised with dry air to keep water out, so the pressure
@@ -4580,9 +4635,9 @@ ALARM PANEL
      The Switching Station Technician desk only. With no argument, the
      panel: every alarm standing on every office this console watches,
      the lamp it now shows, how many shift minutes until the lamp rises
-     (while the lamps run), what clearing it would cost, and a line saying what it reads.
-     Naming an alarm clears it at its cause, and the shift loses the
-     minutes.
+     (while the lamps run), what clearing it would cost, and a line saying
+     what it reads. Naming an alarm clears it at its cause, and the shift
+     loses the minutes.
 
      An alarm nobody works lights one lamp higher every 40 shift minutes,
      from its own point in them, so they do not all rise together. The

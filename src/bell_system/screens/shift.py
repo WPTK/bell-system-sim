@@ -20,6 +20,7 @@ from ..data import tours
 from ..data.consequences import Late
 from ..data.tours import Tour, watch_of
 from ..commitment import commitment_label
+from ..plantjobs import open_job
 from ..npc import (
     CRAFT,
     FAVOUR_MINUTES,
@@ -666,8 +667,7 @@ class ShiftCommands(SessionState):
             Rendered notices for events that came due, whether or not the
             caller will display them
         """
-        charged = sum(report.desk_minutes
-                      for report in self.reports_all())
+        charged = self._charged_minutes()
         was = self.shift_minutes
         self.shift_minutes += 1 + max(0, charged - self._charged_total)
         self._charged_total = charged
@@ -675,6 +675,8 @@ class ShiftCommands(SessionState):
         late_notices = [render_message(message, self._stamp())
                         for message in self._report_late(late)]
         return (late_notices + self._weather_events(was)
+                + [render_message(message, self._stamp())
+                   for message in self._case_events()]
                 + self._fire_due_events())
 
     def _pass_time(self, minutes: int) -> None:
@@ -691,6 +693,8 @@ class ShiftCommands(SessionState):
         late = self.desk.age(minutes, was)
         for message in self._report_late(late):
             self._queue_message(message, after=1)
+        for notice in self._case_events():
+            self._queue_message(notice, after=1)
 
     def _report_late(self, late) -> List[Message]:
         """
@@ -744,13 +748,22 @@ class ShiftCommands(SessionState):
         # a second report on a board that is meant to hold one.
         if not elapsed or self.first_tour():
             return pieces
-        spreading = self.desk.plant.spread(elapsed, self.desk.weather.rain)
-        for _ in range(spreading):
+        plant = self.desk.plant
+        spreading = plant.leak(elapsed, self.desk.weather.rain)
+        for section in plant.open_sections():
+            if section.alarming() and not section.alarmed:
+                section.alarmed = True
+                job = open_job(self.desk, section.cable, section.binder,
+                               self.clock.now())
+                pieces.append(render_message(self.switchroom.pressure_alarm(
+                    self.clock.now(), section.cable, section.psi,
+                    job.number), self._stamp()))
+        for section in spreading:
             if self.desk.full():
                 break
             report = self.desk.receive(
                 self.clock.now(), self._difficulty().commitment_slack_minutes,
-                fault='WET')
+                fault='WET', section=section)
             pieces.append(render_message(self.switchroom.assignment(
                 self.clock.now(), report.number,
                 report.record.telephone_number, report.symptom,

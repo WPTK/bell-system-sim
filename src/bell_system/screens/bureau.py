@@ -7,7 +7,6 @@ from collections import (
     deque,
 )
 from typing import (
-    Dict,
     List,
     Optional,
 )
@@ -20,6 +19,11 @@ from ..data.trouble import (
     FAULTS,
     NSPMP_CATEGORIES,
     NSPMP_WEIGHTS,
+)
+from ..cases import see_also
+from ..seeding import new_seed
+from ..plantjobs import (
+    PREFIX as JOB_PREFIX, job_at, listing as job_listing, work as work_job,
 )
 from ..clock import career_progress
 from ..console import article as _a, sentence_case as _lower, wrap
@@ -39,7 +43,6 @@ from ..progression import (
 )
 from ..reports import (
     CLASSES_OF_SERVICE,
-    COST_CALLBACK,
     ReportDesk,
     TroubleReport,
     disposition_name,
@@ -57,37 +60,11 @@ from .session import SessionState
 # prose rather than a table, so it breaks a little short of the rule.
 POST_MORTEM_WIDTH = 70
 
-# What a customer says, wrapped. Narrower than the post-mortem because it
-# is indented and quoted, which is how a note of a call reads on paper.
-CALLBACK_WIDTH = 64
-
 # What a stored home office has to carry to be usable. Anything short of
 # this is treated as absent and drawn again, which is what happens to a
 # career record written before the office was kept.
 HOME_OFFICE_FIELDS = frozenset(
     {'npa', 'nxx', 'city', 'state', 'switch_type', 'clli'})
-
-# What a customer says they hear when a call will not go through, for the
-# two conditions where the answer is in the cadence and not in the words.
-# Busy is 60 interruptions a minute and reorder is 120; they are the same
-# 480 and 620 Hz, so the description says how fast and never says which.
-# tone(1) writes both, which is the one question on this board that has to
-# be answered by ear.
-CADENCE_HEARD: Dict[str, str] = {
-    'CO_EQUIP': "I dial and I get the busy signal, but it is going about "
-                "twice as fast as a busy usually goes. It does it on every "
-                "number I try, including my sister's, and she is not on "
-                "the telephone.",
-    'NONE': "I get the busy signal. The ordinary one, the slow one. It is "
-            "just that I get it rather a lot lately, and I did wonder.",
-    # Not a cadence at all, which is the point of having a third: the
-    # office took the call and then did nothing with it, so there is
-    # nothing to hear. Somebody comparing two tones has to notice that
-    # neither of them is what this customer is describing.
-    'FCG': "I dial the whole number and then there is nothing. Not a busy, "
-           "not a ringing. It goes quiet and it stays quiet until I hang "
-           "up.",
-}
 
 
 class BureauCommands(SessionState):
@@ -133,6 +110,9 @@ class BureauCommands(SessionState):
         # craftsperson turned up at a differently named building every
         # session and every line record they had ever seen belonged to
         # somewhere else.
+        if self.career.seed is None:
+            self.career.seed = new_seed()
+            self.career.save()
         if self.career.office.keys() >= HOME_OFFICE_FIELDS:
             self.home_office = dict(self.career.office)
         else:
@@ -195,6 +175,7 @@ class BureauCommands(SessionState):
         self.desk.open_shift(self.clock.now(), slack,
                              count=1 if first_tour else None,
                              teaching=first_tour)
+        self._plant_case()
     def _difficulty(self):
         """Return the active difficulty profile."""
         return self.career.difficulty
@@ -209,7 +190,7 @@ class BureauCommands(SessionState):
         ``count`` False asks what the next reading would say without having
         read it yet.
         """
-        fault = report.record.fault
+        fault = report.read_fault()
         sighting = report.sighting
         if sighting is None:
             # A practical's report is Halloran's, not a sighting of the
@@ -266,6 +247,11 @@ class BureauCommands(SessionState):
             return self._show_next_report()
         if action == 'closed':
             return self._show_closed_reports()
+        if action == 'jobs':
+            jobs = job_listing(self.desk)
+            return '\n'.join(
+                ["Plant jobs open", '=' * 40] + jobs if jobs else
+                ["No plant job is open."])
         if action == 'faults':
             return self._show_fault_reference()
         if action == 'forces':
@@ -278,7 +264,10 @@ class BureauCommands(SessionState):
         if action == 'dispatch':
             if len(rest) < 2:
                 return ("report: usage: report dispatch <number> <force>\n"
+                        "  Cable repair also takes a cable/binder.\n"
                         "Forces: " + ', '.join(DISPATCH_FORCES))
+            if rest[0].upper().startswith(JOB_PREFIX):
+                return self._dispatch_job(rest[0], ' '.join(rest[1:]))
             return self._dispatch_report(rest[0], ' '.join(rest[1:]))
         if action == 'close':
             if not rest:
@@ -288,12 +277,13 @@ class BureauCommands(SessionState):
             return self._close_report(rest[0], rest[1:])
         if action == 'callback':
             if not rest:
-                return "report: usage: report callback <number>"
-            return self._report_callback(rest[0])
+                return "report: usage: report callback <number> [topic]"
+            return self._report_callback(
+                rest[0], rest[1] if len(rest) > 1 else None)
 
         return self.dead_end(
             f"report: unknown option '{args[0]}'\n"
-            "Options: board, next, show, dispatch, close, callback, closed, "
+            "Options: board, next, show, dispatch, close, callback, closed, jobs, "
             "faults, forces")
 
     def _show_next_report(self) -> str:
@@ -411,6 +401,7 @@ class BureauCommands(SessionState):
             lines.append(f"  Repeat of           {report.repeat_of}")
         if report.dispatched_to:
             lines.append(f"  Dispatched to       {report.dispatched_to}")
+        lines.extend(see_also(self.desk, report))
 
         lines.extend(['', 'MEASUREMENTS'])
         if report.test_notes:
@@ -500,26 +491,54 @@ class BureauCommands(SessionState):
         if report.status == 'CLOSED':
             return f"{report.number} is already closed."
 
+        force, section, refusal = self._named_section(force)
+        if refusal:
+            return refusal
         canonical = valid_force(force)
         if canonical is None:
             return (f"report: '{force}' is not a repair force.\n"
                     f"Forces: {', '.join(DISPATCH_FORCES)}")
+        refusal = self._section_asked(canonical, section)
+        if refusal:
+            return refusal
+
+        # A group with a pressure alarm open is the alarm's work, whichever
+        # report the words were typed after, and its trip is the job's. Only
+        # a wet report's own group is the report's trouble as well.
+        job = (job_at(self.desk, *section)
+               if section is not None and canonical == 'Cable repair'
+               and not (report.record.fault == 'WET'
+                        and self._is_own_section(report, section))
+               else None)
+        if job is not None:
+            found, _ = work_job(
+                self.desk, job, canonical, section, self.shift_minutes,
+                self._difficulty().section_required, True)
+            return (f"That group has a pressure alarm open, {job.number}. "
+                    f"This is the job's dispatch and not {report.number}'s: "
+                    f"nothing is charged to it.\n{found}")
 
         # A crew that goes to the wrong place reads nothing, so only a
         # dispatch that finds something is a sighting.
         name_fault = names_fault(self._reading_stage(report, count=False))
         repaired = sum(r.sheath_repaired for r in self.desk.reports.values())
         finding, went = self.desk.send_crew(
-            report, canonical, self.shift_minutes, name_fault)
+            report, canonical, self.shift_minutes, name_fault, section)
         if went and not report.first_dispatch_judged:
             # The first crew sent is the judgement; whatever follows it is
             # not. Nobody sent, or nobody needed, is not a dispatch.
             report.first_dispatch_judged = True
+            # Judged on what the line read when it was measured: a dispatch
+            # on a true reading is not a wrong one because the trouble went
+            # by itself while the crew was on the road.
             self.career.record_dispatch(
                 canonical.lower()
-                == FAULTS[report.record.fault].dispatch.lower(),
+                == FAULTS[report.read_fault()].dispatch.lower()
+                and self._is_own_section(report, section),
                 sum(r.sheath_repaired for r in self.desk.reports.values())
                 - repaired if report.tested else 0)
+        if went:
+            self._case_cleared(report)
         # Only a crew that went reads the plant. A report another report's
         # splice repaired carries a finding but nobody was sent, and one
         # splice must not burn a sighting for every pair in the sheath.
@@ -592,10 +611,14 @@ class BureauCommands(SessionState):
         return (f"Next: nothing else wants you. 'sleep {wait * 60}' waits "
                 f"until a crew is in, then dispatch {waiting.number} again.")
 
+    def _charged_minutes(self) -> int:
+        """The desk minutes charged so far: the reports' and the plant jobs'."""
+        return (sum(report.desk_minutes for report in self.reports_all())
+                + sum(job.desk_minutes for job in self.desk.jobs))
+
     def _uncharged_minutes(self) -> int:
         """What the command now running will cost the shift clock."""
-        charged = sum(report.desk_minutes for report in self.reports_all())
-        return 1 + max(0, charged - self._charged_total)
+        return 1 + max(0, self._charged_minutes() - self._charged_total)
 
     def _close_report(self, token: str, rest: List[str]) -> str:
         """Close a report against a disposition code and judge the call."""
@@ -659,7 +682,20 @@ class BureauCommands(SessionState):
             lines.append("The close out matches what was on the line.")
         else:
             truth = FAULTS[report.record.fault]
-            if report.record.fault == 'NONE':
+            if report.cleared_alone:
+                # It was there when it was measured and gone when it was
+                # judged, so neither "nothing was wrong" nor "there was" is
+                # the whole of it.
+                if report.last_read not in (None, 'NONE'):
+                    lines.append("That trouble cleared by itself before the "
+                                 "close. What you measured was there when "
+                                 "you measured it, and the close is judged "
+                                 "against the line as it then stood.")
+                else:
+                    lines.append("That trouble cleared by itself before the "
+                                 "close, and the close is judged against the "
+                                 "line as it then stood.")
+            elif report.record.fault == 'NONE':
                 lines.append("Nothing was actually wrong with that line.")
             else:
                 # Where the trouble was decides how the sentence reads. A
@@ -678,8 +714,9 @@ class BureauCommands(SessionState):
             # you what to read next time, and they are the readings this
             # player actually had in front of them: measure_loop is seeded
             # from the line and the fault, so it quotes rather than invents.
-            taught = post_mortem(report.record.telephone_number,
-                                 report.record.fault, found, report.tested)
+            taught = ('' if report.cleared_alone else post_mortem(
+                report.record.telephone_number, report.record.fault, found,
+                report.tested))
             if taught:
                 lines.append('')
                 lines.extend(wrap(taught, POST_MORTEM_WIDTH))
@@ -713,68 +750,7 @@ class BureauCommands(SessionState):
             lines.append('')
             lines.append(parting)
         return '\n'.join(lines)
-    def _report_callback(self, token: str) -> str:
-        """Call the customer back and get more out of them than the card has."""
-        report = self.desk.find(token)
-        if report is None:
-            return (self.desk.stale_position(token)
-                    or f"report: no report matching '{token}'")
-        if report.status == 'CLOSED':
-            return f"{report.number} is already closed."
 
-        report.spend(COST_CALLBACK)
-        fault = FAULTS[report.record.fault]
-        # The chief's next line is about this call, and the board one that
-        # would otherwise follow the command is no longer true to say.
-        self._tour_nudges.add('board')
-        detail = {
-            'OPEN': "It went dead all at once. There was work in the street "
-                    "last week.",
-            'SHORT': "Nothing at all when I pick it up, and my daughter says "
-                     "she gets a busy signal every time.",
-            'GROUND': "There is a hum, worse when it rains, and sometimes it "
-                      "rings once by itself.",
-            'CROSS': "I can hear two other people talking. They can hear me "
-                     "as well.",
-            'WET': "It has been getting worse all week, since the storm. The "
-                   "neighbours have it too.",
-            'FCG': "I get nothing when I dial. The dial tone is there and "
-                   "then it just sits.",
-            'FEMF': "There is a loud buzz, and I felt something off the set "
-                    "once. The power line runs right past.",
-            'ROH': "No, I have not had any trouble calling out. People say "
-                   "they cannot reach me.",
-            'CO_EQUIP': "It never rings. I have tried a different telephone "
-                        "and it does the same thing.",
-            'NONE': "It happened twice on Tuesday and it has been fine since. "
-                    "Perhaps it fixed itself.",
-        }.get(report.record.fault, fault.description)
-
-        # The one question on this board that a screen cannot ask you. On
-        # a report about calls not completing the customer describes a
-        # rhythm instead of the trouble: busy and reorder are the same 480
-        # and 620 Hz and differ only in how fast they are interrupted, so
-        # the words cannot separate them and the ear can. It replaces the
-        # ordinary answer rather than joining it, because a customer who
-        # is telling you about a cadence is not also telling you about
-        # last Tuesday.
-        heard = CADENCE_HEARD.get(report.record.fault)
-        by_ear = heard is not None and 'complete' in report.symptom.lower()
-        said = heard if by_ear else detail
-
-        lines = [f"Call back on {report.record.telephone_number} "
-                 f"({report.record.name}).", '']
-        lines.extend(f"  {line}" for line in
-                     wrap(f'"{said}"', CALLBACK_WIDTH))
-        if by_ear:
-            lines.extend(['', "tone(1) will make both of those if you want "
-                              "to hear them side by side."])
-        lines.extend(['', f"{COST_CALLBACK} minutes charged. "
-                          f"{commitment_label(report)}."])
-        nudge = self.first_tour_nudge('callback')
-        if nudge:
-            lines.extend(['', nudge])
-        return '\n'.join(lines)
     def cmd_qual(self, args: Optional[List[str]] = None) -> str:
         """Show the craft record: difficulty, qualifications and service index."""
         args = args or []

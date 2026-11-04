@@ -63,12 +63,15 @@ from .routing import build_default_network
 from .legacy import legacy_path
 from .save import home_path, shift_path
 from .screens.customer import CustomerCommands
+from .screens.fraud import FraudThread
 from .screens.frame import FrameCommands
 from .screens.games import GameCommands
 from .screens.radio import RadioCommands
 from .screens.ticket_generation import TicketGeneration
 from .screens.unix import UnixCommands
 from .screens.bureau import BureauCommands
+from .screens.callback import CallbackCommands
+from .screens.cases import CaseCommands
 from .screens.carrier import CarrierCommands
 from .screens.careers import CareerCommands
 from .screens.dispatch import CommandDispatch
@@ -151,6 +154,9 @@ class BellSystemTerminal(
     TollCommands,
     TestingCommands,
     BureauCommands,
+    CallbackCommands,
+    CaseCommands,
+    FraudThread,
     RepairDeskCommands,
     ShiftCommands,
     TurnoverCommands,
@@ -1535,7 +1541,8 @@ Key Commands: nroff, troff, tbl, eqn, pic, refer, spell
             rows.append("field found "
                         + (report.field_finding if named else 'cleared'))
         if report.sheath_repaired:
-            rows.append("sheath      repaired on somebody else's report")
+            rows.append("case        cleared with another report" if report.case
+                        else "sheath      repaired on somebody else's report")
         rows.append('')
         if report.test_notes:
             rows.append('measurements')

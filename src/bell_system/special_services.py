@@ -424,7 +424,9 @@ class SartsInventory:
         it, and is tried before the substring match: row 1 of the board is
         not the circuit whose identifier happens to contain a 1. Numbers
         starting with a zero are identifiers, and so are numbers past the
-        end of the rows.
+        end of the rows. A number is a whole part of an identifier or it is
+        not one (leading zeros aside): 25 is not circuit 0007-PBX-259 for having
+        25 in it, and 1 is circuit 0001-PL-961.
         """
         token = token.strip().upper()
         if (rows is not None and token.isdigit() and token[0] != '0'
@@ -433,7 +435,11 @@ class SartsInventory:
         if token in self.circuits:
             return self.circuits[token]
         for circuit_id, circuit in self.circuits.items():
-            if circuit_id.startswith(token) or token in circuit_id:
+            if token.isdigit():
+                if any(part.isdigit() and int(part) == int(token)
+                       for part in circuit_id.split('-')):
+                    return circuit
+            elif circuit_id.startswith(token) or token in circuit_id:
                 return circuit
         if token.isdigit():
             listing = self.listing()

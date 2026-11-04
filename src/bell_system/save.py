@@ -29,8 +29,9 @@ The one part of the filesystem that is kept is what the player wrote, in a
 file of its own, ``home.json``. It is not the shift's: the shift file is
 thrown away at every handoff, and a note written on tour 2 is still there on
 tour 9. It holds only the difference from the shipped tree, under the home
-directories and the moo scoreboard, in a file of up to 64 KB. A home that does
-not load whole is set aside as ``home.json.bad`` and never written over, and
+directories and the moo scoreboard, in a file of up to 64 KB, and up to about
+17 KB over that in the written-at stamps, which the limit does not count. A
+home that does not load whole is set aside as ``home.json.bad`` and never written over, and
 every file here is written to a scratch name and moved into place, so a crash
 mid-write leaves the old file and not a short one.
 """
@@ -41,7 +42,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from .cable import WetSection
+from .cases import Case
+from .plantjobs import PlantJob, open_missing
 from .data.practicals import PRACTICALS
+from .data.trouble import FAULTS
 from .field import Assignment, CREWS, POOL_CREW
 from .filesystem import (
     PLAYER_LIMIT,
@@ -191,6 +195,11 @@ def _report_out(report: TroubleReport) -> Dict[str, Any]:
     written['sighting'] = report.sighting
     written['frame_looked_up'] = report.frame_looked_up
     written['first_dispatch_judged'] = report.first_dispatch_judged
+    written['clears_after'] = report.clears_after
+    written['clears_at'] = report.clears_at
+    written['last_read'] = report.last_read
+    written['cleared_alone'] = report.cleared_alone
+    written['case'] = report.case
     written['record'] = _record_out(report.record)
     written['received'] = _stamp(report.received)
     written['commitment'] = _stamp(report.commitment)
@@ -233,6 +242,22 @@ def _report_in(stored: Dict[str, Any]) -> TroubleReport:
     # before is taken to have had its first dispatch if it ever had a crew.
     report.first_dispatch_judged = stored.get(
         'first_dispatch_judged', stored.get('dispatched_to') is not None)
+    # Written since trouble could go by itself. A report from before is
+    # the usual kind, which stays until it is fixed.
+    report.clears_after = stored.get('clears_after')
+    report.clears_at = stored.get('clears_at')
+    last_read = stored.get('last_read')
+    report.last_read = (last_read if isinstance(last_read, str)
+                        and last_read in FAULTS else None)
+    if 'last_read' not in stored and report.tested:
+        # Saved before the last reading was kept. It was measured, and the
+        # line then was as the record has it: nothing before this save can
+        # have cleared a report that did not know it could.
+        report.last_read = report.record.fault
+    report.cleared_alone = bool(stored.get('cleared_alone', False))
+    # Written since one cause could stand behind several reports.
+    case = stored.get('case')
+    report.case = case if isinstance(case, str) else None
     # Nor were overdue reports flagged while they were open. Left alone,
     # the first age() after loading would find every one of them late at
     # once and answer with a burst of misses and escalations for lateness
@@ -259,6 +284,9 @@ def _plant_out(desk: ReportDesk) -> List[Dict[str, Any]]:
         'pairs': {str(pair): number
                   for pair, number in section.pairs.items()},
         'psi': section.psi,
+        'wet_minutes': section.wet_minutes,
+        'credit': section.credit,
+        'alarmed': section.alarmed,
     } for section in desk.plant.sections]
 
 
@@ -275,6 +303,11 @@ def _plant_in(desk: ReportDesk, stored: List[Dict[str, Any]]) -> None:
         section.pairs = {int(pair): number
                          for pair, number in entry['pairs'].items()}
         section.psi = entry['psi']
+        # Written since a sheath leaked on the clock. One saved before is
+        # taken to have been open as long as it has had pairs to show.
+        section.wet_minutes = float(entry.get('wet_minutes', 0.0))
+        section.credit = float(entry.get('credit', 0.0))
+        section.alarmed = bool(entry.get('alarmed', section.alarming()))
         sections.append(section)
     desk.plant.sections = sections
 
@@ -359,6 +392,8 @@ def capture(terminal: Any) -> Dict[str, Any]:
             'closed_count': desk.closed_count,
             'repeat_count': desk.repeat_count,
             'control': desk.control,
+            'cases': [case.out() for case in desk.cases],
+            'jobs': [job.out() for job in desk.jobs],
             'regulars': {key: _record_out(record)
                          for key, record in desk._regulars.items()},
         },
@@ -431,6 +466,9 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
         control = board.get('control')
         control = (control if isinstance(control, str)
                    and control in CONTROLS else None)
+        # Absent from a shift saved before there were cases: none stood.
+        cases = [Case.read(entry) for entry in board.get('cases', [])]
+        jobs = [PlantJob.read(entry) for entry in board.get('jobs', [])]
         _plant_in(desk, stored['plant'])
         _force_in(desk, stored['force'])
         pool = _pool_in(tour)
@@ -444,6 +482,9 @@ def restore(terminal: Any, stored: Dict[str, Any]) -> bool:
     desk.listed = None
     desk.repeat_count = board['repeat_count']
     desk.control = control
+    desk.cases = cases
+    desk.jobs = jobs
+    open_missing(desk)
     desk._regulars = regulars
 
     desk.weather.regime = weather['regime']

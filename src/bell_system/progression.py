@@ -62,7 +62,7 @@ _KNOWN_KEYS = frozenset((
     'schema', 'difficulty', 'shift', 'reports_closed', 'reports_correct',
     'reports_wrong', 'repeat_reports', 'missed_commitments', 'qualifications',
     'index_history', 'office', 'finished', 'assignment', 'audit_verdict',
-    'audit_late', 'tour_index_history',
+    'audit_late', 'tour_index_history', 'seed',
 )) | frozenset(_LIST_FIELDS) | frozenset(_COUNT_FIELDS)
 
 
@@ -94,6 +94,11 @@ class Difficulty(NamedTuple):
     # coaching, kept apart from require_test_before_close so that asking
     # for the one does not change the other.
     annotation_sightings: int
+    # Whether a splicer has to be told which cable and binder group to open.
+    # Off, a Cable repair dispatch with no section opens the sheath the
+    # report's own pair is in, as it always did; named, the section is
+    # honoured either way.
+    section_required: bool
 
 
 DIFFICULTIES: Dict[str, Difficulty] = {
@@ -119,6 +124,7 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         interruption_rate=0.06,
         commitment_slack_minutes=90,
         annotation_sightings=4,
+        section_required=False,
     ),
     'craft': Difficulty(
         key='craft',
@@ -134,6 +140,7 @@ DIFFICULTIES: Dict[str, Difficulty] = {
         interruption_rate=0.22,
         commitment_slack_minutes=0,
         annotation_sightings=0,
+        section_required=True,
     ),
 }
 
@@ -216,6 +223,14 @@ ASSISTS: List[Assist] = [
         'fade names a fault type for its first two sightings, the crew class '
         'for the next two, and then leaves the reading to you; on never '
         'stops.',
+    ),
+    Assist(
+        'assist.sections', 'section_required',
+        {'named': True, 'assumed': False},
+        'Whether a splicer is told which binder group to open',
+        'named has Cable repair ask for a cable and binder group and open '
+        'the one you give it, so a wrong group costs a trip; assumed opens '
+        'the sheath the report is on when you give none.',
     ),
 ]
 
@@ -485,6 +500,10 @@ class Career:
         # started surviving the session and refused to load into the wrong
         # office.
         self.office: Dict[str, str] = {}
+        # What makes this career's tours its own: the cases, the leaks and
+        # the toll counts are drawn from it and the tour number. None until
+        # the first session gives one, and kept after.
+        self.seed: Optional[str] = None
         # Set when the last tour has been signed off. There is nobody to
         # relieve you twice on the last day of the Bell System.
         self.finished = False
@@ -969,6 +988,9 @@ class Career:
         self.audit_verdict = verdict if isinstance(verdict, str) else ''
         self.audit_late = _whole(stored.get('audit_late'), 0, 0)
 
+        seed = stored.get('seed')
+        self.seed = seed if isinstance(seed, str) else None
+
         office = stored.get('office')
         if isinstance(office, dict):
             self.office = {str(key): str(value)
@@ -1018,6 +1040,7 @@ class Career:
             'index_history': self.index_history[-40:],
             'tour_index_history': self.tour_index_history[-40:],
             'office': self.office,
+            'seed': self.seed,
             'finished': self.finished,
             'assignment': self.assignment,
             'audit_verdict': self.audit_verdict,

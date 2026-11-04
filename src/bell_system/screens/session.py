@@ -374,6 +374,54 @@ class SessionState:
         """Let shift minutes go by that nobody spent on a report."""
         raise NotImplementedError
 
+    def _named_section(self, words: str
+                       ) -> Tuple[str, Optional[Tuple[int, int]], str]:
+        """Split a cable and binder group off the end of a dispatch."""
+        raise NotImplementedError
+
+    def _section_asked(self, force: str,
+                       section: Optional[Tuple[int, int]]) -> str:
+        """Refuse a Cable repair dispatch that does not say where to go."""
+        raise NotImplementedError
+
+    def cmd_cable(self, args: Optional[List[str]] = None) -> str:
+        """The binder groups of a 600-pair cable."""
+        raise NotImplementedError
+
+    def _report_callback(self, token: str, topic: Optional[str] = None
+                         ) -> str:
+        """Ring a customer back, with a question or without."""
+        raise NotImplementedError
+
+    def _dispatch_job(self, token: str, force: str) -> str:
+        """Send a crew to a job the plant opened for itself."""
+        raise NotImplementedError
+
+    def _fraud_block(self) -> str:
+        """The toll holding-time exception, while there is one."""
+        raise NotImplementedError
+
+    def _fraud_events(self) -> List[Any]:
+        """The note about it, once."""
+        raise NotImplementedError
+
+    def _plant_case(self) -> None:
+        """Decide whether this tour's trouble has a shared cause."""
+        raise NotImplementedError
+
+    def _case_events(self) -> List[Any]:
+        """Let whatever reports a cause has thrown come onto the board."""
+        raise NotImplementedError
+
+    def _case_cleared(self, report: Any) -> None:
+        """Say once that the cause behind a report has been cleared."""
+        raise NotImplementedError
+
+    def _is_own_section(self, report: Any,
+                        section: Optional[Tuple[int, int]]) -> bool:
+        """Whether a dispatch's section is the one the report is in."""
+        raise NotImplementedError
+
     def _advance_shift(self) -> List[str]:
         """Charge the shift for the work just done and fire what is due."""
         raise NotImplementedError
@@ -522,6 +570,10 @@ class SessionState:
 
     def reports_all(self) -> List[Any]:
         """Return every report the desk has seen this session."""
+        raise NotImplementedError
+
+    def _charged_minutes(self) -> int:
+        """The desk minutes charged so far, reports and plant jobs."""
         raise NotImplementedError
 
     def _get_shift_hours(self) -> str:

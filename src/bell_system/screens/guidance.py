@@ -166,13 +166,18 @@ class GuidanceCommands(SessionState):
         if not report.dispatched_to and self._reads_clean(report):
             return self._clean_reading(report)
         if not report.dispatched_to:
-            fault = report.record.fault
+            fault = report.read_fault()
             force = ('' if self._reading_stage(report, count=False)
                      == STAGE_NUMBERS else self._dispatch_for(fault))
+            # The splicers ask where, and the prompt says so; where is the
+            # player's to work out.
+            where = (' <cable>/<binder>'
+                     if force == 'Cable repair'
+                     and self._difficulty().section_required else '')
             return NextAction(
                 f"{report.number} is measured and waiting on a crew. "
                 f"{commitment_label(report)}.",
-                f"report dispatch {report.number} {force.lower()}"
+                f"report dispatch {report.number} {force.lower()}{where}"
                 if force else f"report show {report.number}",
                 'dispatch')
         return NextAction(
@@ -205,7 +210,7 @@ class GuidanceCommands(SessionState):
             return False
         record = report.record
         return reading_is_clean(measure_loop(
-            record.telephone_number, record.fault, name_fault=False))
+            record.telephone_number, report.read_fault(), name_fault=False))
 
     def _clean_reading(self, report) -> NextAction:
         """
