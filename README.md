@@ -5,33 +5,49 @@ A text game set in November 1983. You work a repair test desk at a Bell System w
 ## Prerequisites
 
 - Python 3.9 or newer.
-- git and pip.
+- [pipx](https://pipx.pypa.io/), to install the game into its own environment.
 - A terminal. Output is plain 7-bit ASCII unless you change it.
 
 The game has no third-party dependencies. Command history needs Python's `readline` module, which stock Windows Python does not have. The game runs without it.
 
 ## Quickstart
 
-1. Clone the repository:
+1. Install it from PyPI:
 
    ```bash
-   git clone https://github.com/WPTK/bell-system-sim.git
-   cd bell-system-sim
+   pipx install bell-system-unix-v7
    ```
 
-2. Install it:
-
-   ```bash
-   python -m pip install .
-   ```
-
-3. Start the game:
+2. Start the game:
 
    ```bash
    bell-system
    ```
 
-You see a login banner and a `mhuxco login:` prompt. Type `?` to list the twelve positions, then type `1` (or `sysop`) and press Enter. The board prints one pending report and the wire chief writes to your terminal. To skip the login, run `bell-system --role 1`. If your shell cannot find `bell-system`, run `python -m bell_system`.
+You see a login banner and a `mhuxco login:` prompt. Type `?` to list the twelve positions, then type `1` (or `sysop`) and press Enter. The board prints one pending report and the wire chief writes to your terminal. To skip the login, run `bell-system --role 1`. If your shell cannot find `bell-system`, run `pipx ensurepath` and open a new terminal.
+
+To upgrade or remove it:
+
+```bash
+pipx upgrade bell-system-unix-v7
+pipx uninstall bell-system-unix-v7
+```
+
+Uninstalling does not delete your saves. They live in the state directory (see Configuration).
+
+### Install the development version
+
+The `main` branch can be ahead of the PyPI release. To run it you also need git and pip:
+
+```bash
+git clone https://github.com/WPTK/bell-system-sim.git
+cd bell-system-sim
+python -m pip install .
+```
+
+From a source install you can also start the game with `python -m bell_system`.
+
+Use a virtual environment if you do not want it in your main Python. To use pipx instead, run `pipx install .` from the clone folder.
 
 ## Configuration
 
